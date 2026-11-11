@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Produkt** | BG Club — aplikacja webowa dla klubu planszówkowego |
-| **Wersja dokumentu** | 1.0 (draft) |
-| **Data** | 2026-11-10 |
+| **Wersja dokumentu** | 1.1 |
+| **Data** | 2026-11-11 |
 | **Status** | Do akceptacji |
 | **Powiązane repozytoria** | `digital-scorepad-poc` (notes punktacji 3D `<score-pad>`), `digital-scorepad-editor-poc` (edytor notesu `<score-pad-editor>`) |
 
@@ -155,12 +155,12 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 | GAME-1 | **Widżet:** kilka (domyślnie 5) tytułów z okładkami (ostatnio dodane albo ostatnio grane, do decyzji w UI) i link „Zobacz więcej”. | M |
 | GAME-2 | **Popup kolekcji:** pełna lista gier (siatka okładek) z wyszukiwaniem po tytule, bez rozróżniania wielkości liter i polskich znaków (`unaccent`), filtrowanym na bieżąco. | M |
 | GAME-3 | Admin widzi przycisk **Dodaj grę**, a przy każdej grze **Edytuj** i **Usuń**. Dodanie i edycja otwierają formularz w tym samym popupie (zmiana widoku, ze strzałką „wstecz”). | M |
-| GAME-4 | Walidacja: tytuł wymagany; `1 ≤ min ≤ max ≤ 8` (limit notesu, patrz §8.4). | M |
+| GAME-4 | Walidacja: tytuł wymagany; `1 ≤ min ≤ max`. Aplikacja **nie ma górnego limitu** liczby graczy: o tym, ilu graczy zmieści się w partii, decyduje liczba miejsc dla graczy zdefiniowana w notesie (PAD-3, EDT-8). | M |
 | GAME-5 | **Punktacja za miejsca:** formularz wymaga podania punktów dla **każdego miejsca od 1 do max. liczby graczy**. Zmiana „max” dodaje lub usuwa pola. Wartości to liczby całkowite ≥ 0. Gdy punkty nie są nierosnące, formularz pokazuje ostrzeżenie (bez blokady). W partii z *n* graczami liczą się miejsca 1…*n* z tej listy. | M |
 | GAME-6 | Okładka: upload do Supabase Storage, skalowanie w przeglądarce (np. dłuższy bok 800 px, WebP). Bez okładki gra ma placeholder z monogramem tytułu. | M |
 | GAME-7 | **Notesy gry:** lista notesów przypisanych do gry (nazwa, miniatura). Admin może dodać notes (edytor, §5.5, albo import pliku `.json`), edytować go, zmienić nazwę i usunąć. Liczba notesów na grę jest dowolna. | M |
 | GAME-8 | Usunięcie gry jest miękkie: znika z kolekcji, wyszukiwania i głosowań, ale jej partie, karteczki i punkty zostają w historii i statystykach. W historii pokazuje się z oznaczeniem „(usunięta z kolekcji)”. | M |
-| GAME-9 | Edycja punktacji lub notesu **nie zmienia** rozegranych partii: każda partia przechowuje snapshot punktacji i szablonu notesu z chwili rozegrania (patrz otwarte kwestie, Q1). | M |
+| GAME-9 | Edycja punktacji lub notesu **nie zmienia** rozegranych partii: każda partia przechowuje snapshot punktacji i szablonu notesu z chwili rozegrania (decyzja Q1, §12). | M |
 | GAME-10 | **Szczegóły gry** (kolejny widok popupu): okładka, dane gry, statystyki gry i galeria wszystkich oderwanych karteczek tej gry (od najnowszej). Kliknięcie karteczki pokazuje ją w powiększeniu z wynikami i linkiem do spotkania. | M |
 | GAME-11 | Statystyki gry: liczba partii, data ostatniej partii, najczęstszy zwycięzca, najwyższy wynik w historii (kto, kiedy), średni wynik zwycięzcy, ranking graczy w tej grze (wygrane, punkty). | M |
 | GAME-12 | W szczegółach gry widać liczbę głosów oddanych na nią we wszystkich głosowaniach. | C |
@@ -193,6 +193,7 @@ Bazą są istniejące POC: `<score-pad>` (notes 3D, Three.js) i `<score-pad-edit
 | EDT-4 | **Reguły rozstrzygania remisów:** uporządkowana lista reguł stosowanych **hierarchicznie**. Reguła *k+1* dotyczy wyłącznie graczy nadal zremisowanych po regułach 1…*k*, czyli działa też na **remisy w remisach**: jeśli reguła 1 rozbije remis trzech graczy na 1 + remis dwóch, reguła 2 rozstrzyga już tylko ten drugi. Typy reguł: **kategoria** (wybrana kategoria + kierunek) i **wspólne miejsce** (remis zostaje). Za ostatnią regułą zawsze jest niejawne „wspólne miejsce”. | M |
 | EDT-5 | Reguła typu **„rozstrzyga prowadzący”**: przy oderwaniu karteczki prowadzący ręcznie ustala kolejność graczy nadal zremisowanych (np. według zasady z instrukcji, której nie da się zapisać w notesie). | C |
 | EDT-6 | Edytor ostrzega, gdy notes ma mniej miejsc dla graczy niż max. liczba graczy gry. Takiego notesu można używać tylko w mniejszych partiach. | M |
+| EDT-8 | **Brak limitu graczy.** Edytor i notes nie ograniczają liczby graczy: notes ma tyle miejsc dla graczy, ile admin zdefiniuje w edytorze (kolumny/wiersze tabeli albo pola dowolne). Obecny limit `MAX_PLAYERS = 8` z POC jest usuwany z notesu, edytora i walidacji pliku notesu. Interfejs notesu (wybór graczy, wpisywanie, podsumowanie) musi działać przy dowolnej liczbie graczy, np. z przewijaniem list. | M |
 | EDT-7 | Format pliku notesu zostaje rozszerzony wstecznie zgodnie: `template.ranking = { line: string, dir: "desc"\|"asc", tiebreak: [{ type: "line", line, dir } \| { type: "manual" } \| { type: "shared" }] }`. Starsze pliki bez `ranking` działają jak dotąd (najwyższa suma końcowa). | M |
 
 ### 5.6 Wyliczanie wyników
@@ -269,7 +270,7 @@ Bazą są istniejące POC: `<score-pad>` (notes 3D, Three.js) i `<score-pad-edit
 | PLAN-2 | Zapisanie zaplanowanego spotkania **otwiera głosowanie** na gry. | M |
 | PLAN-3 | Admin może dowolnie edytować zaplanowane spotkanie (wszystkie pola, uczestników i prowadzącego), także po zamknięciu głosowania. Może też je usunąć, a usunięcie kasuje głosy. | M |
 | PLAN-4 | W spotkaniu *w trakcie* admin może dodać uczestnika (np. spóźnionego gościa klubu) i zmienić prowadzącego. Nie może usunąć uczestnika, który ma już partię. | S |
-| PLAN-5 | Spotkania zakończonego nie można usunąć, dopóki ma partie (patrz otwarte kwestie, Q4). | M |
+| PLAN-5 | Spotkania zakończonego nie można usunąć, dopóki ma partie (decyzja Q4, §12). | M |
 
 #### 5.8.4 Głosowanie na gry
 
@@ -443,7 +444,7 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 
 ### 8.4 Ograniczenia z POC notesu
 
-- Notes ma limit **8 graczy** (`MAX_PLAYERS`), więc max. liczba graczy gry ≤ 8, dopóki limit nie zostanie zwiększony.
+- Notes i edytor mają dziś limit **8 graczy** (`MAX_PLAYERS` w `core/util.ts`, używany w `core/templates.ts` i `editor/fields.ts`). Limit jest usuwany (EDT-8): liczba graczy wynika wyłącznie z notesu.
 - Notes zapisuje dziś szablony w IndexedDB, a stan i historię w `localStorage`. W trybie klubowym zastępuje to warstwa danych aplikacji (PAD-1, PAD-4).
 - Zdjęcie szablonu jest dziś data URL w JSON i trzeba je przenieść do Storage (EDT-1).
 - Zwycięzca jest dziś wyznaczany przez najwyższą sumę końcową bez reguł remisów. Zastąpią to EDT-2…EDT-7.
@@ -494,12 +495,15 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 | D14 | Głosowanie | Jawne (liczby i awatary), bez limitu, 1 głos na grę, z możliwością cofnięcia. |
 | D15 | Obrazy | Upload do Supabase Storage (awatary, okładki). |
 | D16 | Interfejs | Polski, mobile-first, PWA. |
+| D17 | Limit graczy | Brak limitu w aplikacji. Graczy w partii może być tylu, ile miejsc zdefiniowano w notesie. |
 
 ---
 
-## 12. Otwarte kwestie (z przyjętym założeniem domyślnym)
+## 12. Decyzje szczegółowe
 
-| # | Pytanie | Założenie domyślne w tym PRD |
+Założenia zaproponowane w wersji 1.0 i zaakceptowane przez właściciela produktu.
+
+| # | Pytanie | Decyzja |
 |---|---|---|
 | Q1 | Czy zmiana punktacji gry ma działać wstecz na rozegrane partie? | **Nie.** Partia ma snapshot punktacji i szablonu. |
 | Q2 | Gry jednoosobowe (min = 1): czy partia solo daje wygraną, punkty i serię? | Dopuszczamy min = 1, ale partia musi mieć **≥ 2 graczy**. Solo jest poza MVP. |
