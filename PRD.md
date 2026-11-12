@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Produkt** | BG Club — aplikacja webowa dla klubu planszówkowego |
-| **Wersja dokumentu** | 1.1 |
-| **Data** | 2026-11-11 |
+| **Wersja dokumentu** | 1.2 |
+| **Data** | 2026-11-12 |
 | **Status** | Do akceptacji |
 | **Powiązane repozytoria** | `digital-scorepad-poc` (notes punktacji 3D `<score-pad>`), `digital-scorepad-editor-poc` (edytor notesu `<score-pad-editor>`) |
 
@@ -22,7 +22,7 @@ BG Club pomaga jednemu klubowi miłośników gier planszowych:
 
 ### 1.1 Założenia produktowe
 
-- Jedna instancja aplikacji obsługuje **jeden klub**. Wiele klubów nie jest planowane.
+- Jedna instancja aplikacji obsługuje **jeden klub**. Wiele klubów nie jest planowane. Klub zakłada administrator przy pierwszym uruchomieniu aplikacji (CLUB-1…CLUB-4).
 - Aplikacja jest na użytek własny i nie będzie oferowana jako produkt. Repozytorium może zostać upublicznione, więc w kodzie nie ma sekretów, a konfigurację podaje się przez zmienne środowiskowe.
 - Infrastruktura: **Supabase** (Postgres, Auth, Storage, Edge Functions) i **Cloudflare Pages** (hosting statycznego frontendu).
 - Interfejs **po polsku**. Wszystkie teksty są w jednym module, żeby dało się je później przetłumaczyć.
@@ -73,6 +73,7 @@ BG Club pomaga jednemu klubowi miłośników gier planszowych:
 
 | Pojęcie | Znaczenie |
 |---|---|
+| **Klub** | Jedyny klub obsługiwany przez instancję aplikacji: nazwa i opcjonalne logo. Zakładany przez administratora przy pierwszym uruchomieniu. |
 | **Spotkanie** | Zaplanowane wydarzenie klubowe: data, godzina, tytuł, uczestnicy, głosowanie, partie. |
 | **Partia** | Jedna rozgrywka jednej gry w ramach spotkania, zapisana z jednej karteczki notesu. |
 | **Notes (szablon notesu)** | Plik `score-pad` (format v2) przypisany do gry: zdjęcie kartki, kategorie, pola, reguła miejsc i remisów. |
@@ -93,6 +94,7 @@ BG Club pomaga jednemu klubowi miłośników gier planszowych:
   4. Kolekcja gier
   5. Członkowie
   Kolejność i układ na desktopie (siatka) i mobile (kolumna) zostaną ustalone w projekcie UI.
+  Dopóki klub nie został założony (pierwsze uruchomienie na pustej bazie), w miejscu widżetów jest pusty stan z ilustracją i przyciskiem **Dodaj klub** (CLUB-1). Po założeniu klubu widżety pojawiają się z własnymi pustymi stanami (CLUB-4).
 - **Popupy** (modale, na telefonie pełnoekranowe arkusze) otwierane z widżetów przez „Zobacz więcej”, kliknięcie elementu albo awatara:
   - Leaderboard (pełny)
   - Kolekcja gier → szczegóły gry → (admin) dodanie/edycja gry → edytor notesu
@@ -108,7 +110,7 @@ BG Club pomaga jednemu klubowi miłośników gier planszowych:
 
 Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 
-### 5.1 Uwierzytelnianie i konta
+### 5.1 Uwierzytelnianie, konta i pierwsze uruchomienie
 
 | ID | Wymaganie | P |
 |---|---|:-:|
@@ -119,6 +121,10 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 | AUTH-5 | Sesja trwa do wylogowania (odświeżanie tokenu Supabase). | M |
 | AUTH-6 | Przy pierwszym logowaniu aplikacja proponuje zmianę wygenerowanego hasła (można pominąć). | S |
 | AUTH-7 | Konto usunięte nie może się zalogować. | M |
+| CLUB-1 | **Pierwsze uruchomienie na pustej bazie.** Po wdrożeniu baza zawiera tylko konto administratora (AUTH-3), bez klubu, członków, gier i spotkań. Aplikacja startuje normalnie od ekranu logowania. Po zalogowaniu się administratora widok Klubu nie pokazuje widżetów: w ich miejscu, wyśrodkowana, jest **ilustracja** (np. stół z planszówkami, w stylu aplikacji, w wersji jasnej i ciemnej), krótki tekst powitalny i pod nimi przycisk **Dodaj klub**. Nagłówek aplikacji zawiera tylko awatar administratora (profil, ustawienia, wylogowanie). | M |
+| CLUB-2 | **Dodaj klub** otwiera popup z formularzem: **nazwa klubu** (wymagana) i opcjonalnie **logo** (upload jak okładka gry, GAME-6; bez logo monogram nazwy). Zapis tworzy jedyny rekord klubu. Drugi klub nie może powstać: przycisk znika, a baza odrzuca kolejny rekord. Nazwę i logo admin może później zmienić z nagłówka widoku Klubu. | M |
+| CLUB-3 | Gracz (nie-admin) zalogowany przed założeniem klubu widzi tę samą ilustrację z tekstem „Klub nie został jeszcze założony” bez przycisku. W praktyce się to nie zdarza, bo członków dodaje się dopiero z widżetu Członkowie. | M |
+| CLUB-4 | Po zapisaniu klubu widok Klubu pokazuje nazwę i logo w nagłówku oraz wszystkie widżety, każdy z **pustym stanem** i akcją dla admina: Aktywne spotkanie: „Zaplanuj spotkanie” (MTG-1); Leaderboard: „Ranking pojawi się po pierwszej partii”; Timeline: „Brak spotkań”; Kolekcja: „Dodaj grę”; Członkowie: sam admin i „Dodaj członka”. | M |
 
 ### 5.2 Użytkownik i profil
 
@@ -182,19 +188,40 @@ Bazą są istniejące POC: `<score-pad>` (notes 3D, Three.js) i `<score-pad-edit
 | PAD-7 | Notes emituje zdarzenie z pełnym wynikiem, zamiast obecnego `scorepad:save` z samymi nazwami: `{ players: [{ profileId, seat, values: {kategoria: wartość}, totals, place, tiedWith }], sheet, snapshotImage }`. | M |
 | PAD-8 | Partię w toku można porzucić. Szkic jest wtedy usuwany i nie liczy się do statystyk. | M |
 | PAD-9 | Notes jest dostępny tylko w spotkaniu **w trakcie** i tylko dla admina lub prowadzącego. Pozostali widzą listę partii w toku jako „trwa partia: {gra}”. | M |
+| PAD-10 | **Notes jako obiekt 3D z obrotem.** Notes (blok kartek z grzbietem i tekturą) jest bryłą w scenie, którą można swobodnie obracać: wokół osi pionowej o pełne 360° i w nachyleniu od widoku z góry do widoku z boku (bez zaglądania pod stół). **Telefon:** jeden palec pisze i odrywa kartkę jak dotąd, a obrót wykonuje się **dwoma palcami** (przesuwanie poziomo obraca, pionowo nachyla, skręt palców obraca wokół osi pionowej). **Mysz:** przeciąganie **prawym przyciskiem** albo lewym przyciskiem poza notesem. Wpisywanie i odrywanie działają przy dowolnym położeniu notesu. | M |
+| PAD-11 | **Dowolny zoom.** Szczypanie na telefonie, kółko myszy (bez Ctrl) i touchpad przybliżają i oddalają widok względem punktu pod palcami lub kursorem, od całego notesu do zbliżenia pojedynczego pola (co najmniej 6×). Zastępuje to obecny wąski zakres 0,55–1,35 z Ctrl+kółko. | M |
+| PAD-12 | **Widok domyślny „z góry”.** Kamera patrzy na notes prostopadle z góry (nachylenie 0°, a nie 7° jak w POC) i jest oddalona tak, żeby cały notes mieścił się w kadrze z niewielkim marginesem. Tak notes otwiera się zawsze. Przycisk **Widok z góry** na pasku notesu płynnie przywraca to położenie po obrocie lub zoomie (także skrót klawiszowy, np. `0`). Automatyczne odsuwanie kamery przy podnoszeniu kartki (`autoZoom`) działa tylko w widoku domyślnym. | M |
+| PAD-13 | **Wpisywanie na telefonie.** Dotknięcie pola kategorii punktowej zaznacza je na kartce i od razu otwiera **systemową klawiaturę numeryczną** (`inputmode="numeric"`, `enterkeyhint="next"`). Nie ma własnej klawiatury ekranowej ani okna wyboru wartości. Pole ma przycisk zmiany znaku (±) dla wartości ujemnych. | M |
+| PAD-14 | **Wpisywanie na komputerze.** Kliknięcie pola tylko je zaznacza (podświetlenie na kartce), bez klawiatury ekranowej i bez okna dialogowego. Cyfry wpisywane z **klawiatury sprzętowej** pojawiają się od razu w tym polu na kartce (minus zmienia znak, Backspace kasuje, Esc anuluje zmianę, strzałki góra/dół zmieniają o krok). | M |
+| PAD-15 | **Szybkie wpisywanie kolejnych kategorii.** Zatwierdzenie wyniku (Enter, „Dalej” na klawiaturze systemowej albo Tab) zapisuje wartość i przenosi fokus do **następnej kategorii punktowej tego samego gracza** (pomija pola imion, sumy i pola bez wpisu). Po ostatniej kategorii gracza fokus przechodzi do pierwszej kategorii następnego gracza. Shift+Tab cofa. Na telefonie klawiatura systemowa pozostaje otwarta między polami, a widok przewija się do zaznaczonego pola, jeśli wychodzi ono poza kadr. Wpis spoza zakresu kategorii (min/max, lista wartości) nie przechodzi dalej i pokazuje błąd przy polu. | M |
+| PAD-16 | **Jakość tekstury kartki.** Tekstura jest tworzona z obrazu kartki w **pełnej rozdzielczości zapisanej przez edytor** (EDT-12), bez dodatkowego skalowania w dół przy uruchomieniu notesu. Ograniczeniem jest tylko `maxTextureSize` urządzenia (dłuższy bok do 4096 px na urządzeniach, które to obsługują). Tekstura ma mipmapy i maksymalną anizotropię, a pismo (atrament) jest rysowane w tej samej rozdzielczości. Renderer używa pełnego `devicePixelRatio` urządzenia (limit np. 3 zamiast obecnego 2). W POC obraz jest dziś skalowany kilka razy (§8.4). | M |
 
-#### 5.5.2 Edytor notesu: rozszerzenia
+#### 5.5.2 Edytor notesu: kroki i rozszerzenia
+
+Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bieżący i wykonane są zaznaczone). Do przodu można przejść, gdy bieżący krok jest poprawny. Do wykonanych kroków można wracać bez utraty danych (wyjątek: zmiana trybu mapowania, EDT-11). Edycja istniejącego notesu otwiera kreator z wszystkimi krokami wykonanymi.
+
+1. **Zdjęcie** (EDT-9): wczytanie pliku albo zrobienie zdjęcia.
+2. **Obszar kartki** (EDT-10): całe zdjęcie, wykrywanie automatyczne albo ręczne zaznaczanie punktami.
+3. **Mapowanie pól** (EDT-11): prostokąty rysowane ręcznie albo automatycznie wykryta tabela.
+4. **Kategorie** (EDT-2…EDT-5, EDT-13): nazwy, typy, zakresy, sumy, kategoria decydująca i remisy.
+5. **Test i zapis** (EDT-14, EDT-1): podgląd 3D z losowymi danymi, potem zapis.
 
 | ID | Wymaganie | P |
 |---|---|:-:|
-| EDT-1 | Edytor jest osadzony w popupie gry (admin) w miejscu obecnego eksportu do pliku: „Zapisz” zapisuje szablon w bazie, a zdjęcie kartki w Storage (zamiast data URL w JSON). Import i eksport pliku `.json` zostają jako opcje. | M |
-| EDT-2 | **Kategoria decydująca o miejscu.** W kroku „Pola” admin wybiera kategorię, która ustala kolejność graczy. Może to być **dowolna kategoria punktowa** (`input`) albo suma (`total`), nie tylko suma końcowa. Domyślnie jest to suma, której nie sumuje żadna inna suma (obecne zachowanie notesu). | M |
-| EDT-3 | **Kierunek:** „więcej = lepiej” (domyślnie) albo „mniej = lepiej” (np. gry, w których wygrywa najmniejszy wynik). | S |
-| EDT-4 | **Reguły rozstrzygania remisów:** uporządkowana lista reguł stosowanych **hierarchicznie**. Reguła *k+1* dotyczy wyłącznie graczy nadal zremisowanych po regułach 1…*k*, czyli działa też na **remisy w remisach**: jeśli reguła 1 rozbije remis trzech graczy na 1 + remis dwóch, reguła 2 rozstrzyga już tylko ten drugi. Typy reguł: **kategoria** (wybrana kategoria + kierunek) i **wspólne miejsce** (remis zostaje). Za ostatnią regułą zawsze jest niejawne „wspólne miejsce”. | M |
+| EDT-1 | Edytor jest osadzony w popupie gry (admin) w miejscu obecnego eksportu do pliku. **Zapisz** jest dostępne w ostatnim kroku (EDT-14) i zapisuje szablon w bazie, a zdjęcie kartki w Storage (zamiast data URL w JSON). Import i eksport pliku `.json` zostają jako opcje (import w kroku 1). | M |
+| EDT-2 | **Kategoria decydująca o miejscu.** W kroku „Kategorie” admin wybiera kategorię, która ustala kolejność graczy. Może to być **dowolna kategoria punktowa** (`input`) albo suma (`total`), nie tylko suma końcowa. Domyślnie jest to suma, której nie sumuje żadna inna suma (obecne zachowanie notesu). | M |
+| EDT-3 | **Kierunek** kategorii decydującej (krok „Kategorie”): „więcej = lepiej” (domyślnie) albo „mniej = lepiej” (np. gry, w których wygrywa najmniejszy wynik). | S |
+| EDT-4 | **Reguły rozstrzygania remisów** (krok „Kategorie”): uporządkowana lista reguł stosowanych **hierarchicznie**. Reguła *k+1* dotyczy wyłącznie graczy nadal zremisowanych po regułach 1…*k*, czyli działa też na **remisy w remisach**: jeśli reguła 1 rozbije remis trzech graczy na 1 + remis dwóch, reguła 2 rozstrzyga już tylko ten drugi. Typy reguł: **kategoria** (wybrana kategoria + kierunek) i **wspólne miejsce** (remis zostaje). Za ostatnią regułą zawsze jest niejawne „wspólne miejsce”. | M |
 | EDT-5 | Reguła typu **„rozstrzyga prowadzący”**: przy oderwaniu karteczki prowadzący ręcznie ustala kolejność graczy nadal zremisowanych (np. według zasady z instrukcji, której nie da się zapisać w notesie). | C |
 | EDT-6 | Edytor ostrzega, gdy notes ma mniej miejsc dla graczy niż max. liczba graczy gry. Takiego notesu można używać tylko w mniejszych partiach. | M |
 | EDT-7 | Format pliku notesu zostaje rozszerzony wstecznie zgodnie: `template.ranking = { line: string, dir: "desc"\|"asc", tiebreak: [{ type: "line", line, dir } \| { type: "manual" } \| { type: "shared" }] }`. Starsze pliki bez `ranking` działają jak dotąd (najwyższa suma końcowa). | M |
 | EDT-8 | **Brak limitu graczy.** Edytor i notes nie ograniczają liczby graczy: notes ma tyle miejsc dla graczy, ile admin zdefiniuje w edytorze (kolumny/wiersze tabeli albo pola dowolne). Obecny limit `MAX_PLAYERS = 8` z POC jest usuwany z notesu, edytora i walidacji pliku notesu. Interfejs notesu (wybór graczy, wpisywanie, podsumowanie) musi działać przy dowolnej liczbie graczy, np. z przewijaniem list. | M |
+| EDT-9 | **Krok 1: Zdjęcie.** Wczytanie pliku (przeciągnięcie, wybór z dysku, wklejenie ze schowka) albo **zrobienie zdjęcia**: na telefonie aparat systemowy (aparat tylny), na komputerze kamera internetowa z podglądem, jeśli jest dostępna. W tym kroku można też zaimportować plik notesu `.json`. | M |
+| EDT-10 | **Krok 2: Obszar kartki.** Obszar jest wielokątem na zdjęciu. Trzy tryby wyboru: **Całe zdjęcie** (prostokąt na całym kadrze, np. dla skanu); **Wykryj automatycznie** (wykrywa także **nieregularne kształty** karteczek: zaokrąglone rogi, wycięcia, kartki nieprostokątne, a nie tylko cztery narożniki); **Ręcznie**: przeciąganie punktów obszaru (z lupą przy przeciąganiu), **dodawanie nowych punktów** (kliknięcie lub dotknięcie krawędzi wstawia punkt) i usuwanie punktów (dwuklik lub przytrzymanie). Wynik automatyczny można poprawiać ręcznie. Opcja **Wygładź krawędzie** (z siłą, np. 0–10) dodaje punkty pośrednie dla płynnych przejść między punktami. Prostowanie perspektywy opiera się na czterech narożnikach wyznaczonych z obszaru. W tym kroku zostają też narzędzia z POC: obrót o 90°, rozmiar kartki w centymetrach, orientacja (klejenie u góry lub z lewej) i cofnij (Ctrl+Z). | M |
+| EDT-11 | **Krok 3: Mapowanie pól.** Pola dodaje się w jednym z dwóch **wykluczających się** trybów: **Prostokąty ręczne** (rysowanie prostokątów; po każdym prostokącie edytor przechodzi do następnej kategorii tego samego gracza, a gotowe pola można powielić dla kolejnego gracza) albo **Wykryj tabelę** (wiersze i kolumny wykryte ze zdjęcia, z możliwością poprawy linii i wyboru, czy gracze są w kolumnach czy w wierszach). Trybów nie można mieszać: przełączenie na drugi tryb, gdy są już pola, pokazuje **popup z ostrzeżeniem**, że dotychczasowe pola i kategorie zostaną usunięte, i dopiero po potwierdzeniu je kasuje. Kategorie są w tym kroku **proste**: mają tylko numer i automatyczną nazwę (np. „Kategoria 3”) oraz przypisane pola dla każdego miejsca gracza, bez typu i szczegółów. Edytor pokazuje liczbę miejsc dla graczy i kategorii. | M |
+| EDT-12 | **Rozdzielczość zdjęcia kartki.** Edytor przechowuje i zapisuje wyprostowaną kartkę w rozdzielczości zdjęcia źródłowego, z limitem dłuższego boku 4096 px (zamiast obecnych 2400 px źródła i 1600 px kartki), w WebP lub JPEG o jakości ≥ 0,92. Mniejsze zdjęcie nie jest powiększane. Wymaganie jest podstawą jakości tekstury w notesie (PAD-16). | M |
+| EDT-13 | **Krok 4: Kategorie.** Dla każdej kategorii z kroku 3 admin ustala: **nazwę**, **typ** (nazwa gracza, punktacja, suma, puste pole), opcjonalny opis (chmurka w notesie). Dla **punktacji**: zakres **dowolny** albo ograniczony (min, max, krok) albo lista dozwolonych wartości. Dla **sumy**: z których kategorii jest liczona (także z innych sum, bez cykli). W tym kroku wybiera się też **kategorię decydującą o wygranej** (EDT-2, EDT-3) i **reguły rozstrzygania remisów** (EDT-4, EDT-5) oraz nazwę notesu i kolor grzbietu. Walidacja: dokładnie jedna kategoria typu „nazwa gracza” i co najmniej jedna kategoria punktowa. | M |
+| EDT-14 | **Krok 5: Test i zapis.** Widok notesu 3D taki jak w partii (PAD-10…PAD-16), z fikcyjnymi graczami „Gracz 1…n” zamiast członków klubu. Przycisk **Wypełnij losowo** wpisuje losowe wartości zgodne z zakresami kategorii (z możliwością wymuszenia remisu, żeby sprawdzić reguły remisów). Można też wpisywać ręcznie i oderwać karteczkę, żeby zobaczyć podsumowanie (miejsca, remisy), ale **oderwane karteczki nie są zapisywane** ani nie trafiają do historii. Po teście **Zapisz** zapisuje notes (EDT-1). | M |
 
 ### 5.6 Wyliczanie wyników
 
@@ -360,6 +387,7 @@ Bazą są istniejące POC: `<score-pad>` (notes 3D, Three.js) i `<score-pad-edit
 ## 6. Model danych (propozycja, Supabase Postgres)
 
 ```
+club                id (jeden wiersz, wymuszony ograniczeniem), name, logo_path, created_at, updated_at
 profiles            id (uuid = auth.users.id, bez kaskady), hook (unique), first_name, last_name,
                     avatar_path, role ('admin'|'player'), theme ('light'|'dark'|'system'),
                     created_at, deleted_at
@@ -386,13 +414,13 @@ achievement_unlocks profile_id, achievement_id, unlocked_at, meeting_id, play_id
 
 - **Statystyki i leaderboardy** liczone są w bazie: widoki i funkcje SQL, np. `leaderboard(kind, year)`, `player_stats(profile_id, year)`, `game_stats(game_id)`. Przy skali jednego klubu (dziesiątki graczy, tysiące partii) wystarczą zwykłe zapytania. Seria jest wyliczana funkcją okienkową po spotkaniach.
 - **Zapis partii** odbywa się przez funkcję RPC `save_play(play_id, results)` w jednej transakcji. Funkcja sprawdza uprawnienia (admin lub prowadzący, spotkanie w trakcie, gracze są uczestnikami), wylicza punkty i wygrane (§5.6) i przelicza osiągnięcia graczy partii.
-- **Storage:** buckety `avatars`, `covers`, `scorepads` (zdjęcia szablonów), `sheets` (obrazy karteczek). Odczyt dla zalogowanych, zapis według ról.
+- **Storage:** buckety `avatars`, `covers` (okładki gier i logo klubu), `scorepads` (zdjęcia szablonów), `sheets` (obrazy karteczek). Odczyt dla zalogowanych, zapis według ról.
 
 ### 6.1 Bezpieczeństwo (RLS)
 
 - Wszystkie tabele mają włączone RLS. Odczyt jest dostępny tylko dla zalogowanych, aktywnych użytkowników.
 - `profiles`: użytkownik aktualizuje wyłącznie swój wiersz i tylko pola `first_name`, `last_name`, `avatar_path`, `theme`. `role`, `hook` i `deleted_at` są tylko dla Edge Functions.
-- `games`, `scorepads`, `meetings`, `meeting_games`: zapis tylko admin (funkcja `is_admin()`).
+- `club`, `games`, `scorepads`, `meetings`, `meeting_games`: zapis tylko admin (funkcja `is_admin()`).
 - `game_votes`: insert/delete tylko własne głosy, tylko uczestnik spotkania, tylko przy `voting_open`.
 - `plays` i `play_results`: zapis przez RPC (security definer) z kontrolą „admin lub `host_id`”. Usuwanie tylko admin.
 - **Edge Functions** (klucz service role tylko po stronie serwera): `create-member`, `delete-member`, `delete-own-account`, `bootstrap-admin` (jednorazowo).
@@ -404,12 +432,12 @@ achievement_unlocks profile_id, achievement_id, unlocked_at, meeting_id, play_id
 | ID | Wymaganie |
 |---|---|
 | NFR-1 | **Hosting:** statyczny SPA na Cloudflare Pages. Backend wyłącznie w Supabase (bez własnego serwera). Konfiguracja przez zmienne środowiskowe (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`). |
-| NFR-2 | **Wydajność:** widok Klubu interaktywny w < 2 s na telefonie średniej klasy (4G). Notes 3D i edytor (Three.js) są ładowane leniwie, dopiero przy otwarciu partii lub edytora. |
+| NFR-2 | **Wydajność:** widok Klubu interaktywny w < 2 s na telefonie średniej klasy (4G). Notes 3D i edytor (Three.js) są ładowane leniwie, dopiero przy otwarciu partii lub edytora. Notes w pełnej rozdzielczości tekstury (PAD-16) utrzymuje płynną animację (cel 60 kl./s, minimum 30 kl./s przy obrocie i zoomie). |
 | NFR-3 | **PWA:** manifest, ikony, instalacja na ekranie głównym, cache powłoki aplikacji. Tryb offline nie jest wymagany poza ochroną szkicu partii (PAD-4). |
-| NFR-4 | **Responsywność:** od 360 px szerokości. Popupy na telefonie są pełnoekranowe. Obsługa dotyku (notes już ją ma). |
+| NFR-4 | **Responsywność:** od 360 px szerokości. Popupy na telefonie są pełnoekranowe. Obsługa dotyku (notes już ją ma), w tym gestów dwoma palcami w notesie (PAD-10, PAD-11) bez konfliktu z zoomem strony przeglądarki. |
 | NFR-5 | **Motywy:** jasny i ciemny, spójne z notesem i edytorem (edytor ma już atrybut `theme`). |
 | NFR-6 | **Dostępność:** kontrast WCAG AA, nawigacja klawiaturą w popupach (focus trap, Esc zamyka), etykiety ARIA, alternatywy tekstowe dla awatarów. |
-| NFR-7 | **Limity darmowego planu Supabase:** obrazy kompresowane po stronie klienta (awatar ≈ 30 KB, okładka ≈ 100 KB, karteczka ≈ 150 KB). Zdjęcia szablonów są w Storage, nie w JSON. |
+| NFR-7 | **Limity darmowego planu Supabase:** obrazy kompresowane po stronie klienta (awatar ≈ 30 KB, okładka ≈ 100 KB, karteczka ≈ 150 KB). Zdjęcia szablonów są w Storage, nie w JSON. Wyjątkiem jest zdjęcie szablonu notesu: dla jakości tekstury (EDT-12, PAD-16) może mieć 1–3 MB, bo jest jedno na wersję notesu. |
 | NFR-8 | **Kopie zapasowe:** opis w README procedury eksportu bazy i Storage (np. `supabase db dump` + skrypt kopiowania bucketów). |
 | NFR-9 | **Open source:** w repozytorium nie ma sekretów ani danych klubu. README opisuje wdrożenie od zera (projekt Supabase, migracje, seed admina, Cloudflare Pages). |
 | NFR-10 | **Strefa czasowa:** daty spotkań przechowywane jako `timestamptz` i wyświetlane w strefie klubu (konfigurowalnej, domyślnie `Europe/Warsaw`). Rok w filtrze leaderboardu liczy się według tej strefy. |
@@ -448,13 +476,18 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 - Notes zapisuje dziś szablony w IndexedDB, a stan i historię w `localStorage`. W trybie klubowym zastępuje to warstwa danych aplikacji (PAD-1, PAD-4).
 - Zdjęcie szablonu jest dziś data URL w JSON i trzeba je przenieść do Storage (EDT-1).
 - Zwycięzca jest dziś wyznaczany przez najwyższą sumę końcową bez reguł remisów. Zastąpią to EDT-2…EDT-7.
+- Zdjęcie kartki jest dziś skalowane kilka razy: źródło do 2400 px (`MAX_SRC` w `editor/photo.ts`), wyprostowana kartka do 1600 px (`editor/editor.ts`), zapis JPEG o jakości 0,86, a tekstura notesu ma stały dłuższy bok 1600 px (`texSize` w `core/print.ts`). Renderer ogranicza `devicePixelRatio` do 2 (`core/viewer.ts`). Zastąpią to EDT-12 i PAD-16.
+- Kamera notesu ma dziś stałe nachylenie (`view.tilt` = 7°) i tylko wąski zoom Ctrl+kółko (0,55–1,35). Brak obrotu notesu. Zastąpią to PAD-10…PAD-12.
+- Punkty wpisuje się dziś w oknie wyboru (`picker`) z polem tekstowym. Zastąpi to wpisywanie bezpośrednio w pole kartki (PAD-13…PAD-15).
+- Edytor ma dziś trzy kroki (Zdjęcie, Kształt, Pola), a kształt można poprawiać różdżką i lassem. Zastąpi to kreator pięciu kroków (§5.5.2) z edycją obszaru punktami (EDT-10).
 
 ---
 
 ## 9. Kluczowe przepływy (skrót)
 
+0. **Pierwsze uruchomienie:** wdrożenie i seed admina → Admin loguje się → widok Klubu z ilustracją i przyciskiem „Dodaj klub” → nazwa (i logo) → Zapisz → widżety z pustymi stanami.
 1. **Dodanie członka:** Admin → Członkowie → Dodaj → imię, nazwisko → Zapisz → widzi hook i hasło → przekazuje je graczowi.
-2. **Dodanie gry z notesem:** Admin → Kolekcja → Dodaj grę → tytuł, okładka, min/max, punkty za miejsca 1…max → Zapisz → Notesy → Dodaj notes → edytor (zdjęcie, kształt, pola, kategoria decydująca, remisy) → Zapisz.
+2. **Dodanie gry z notesem:** Admin → Kolekcja → Dodaj grę → tytuł, okładka, min/max, punkty za miejsca 1…max → Zapisz → Notesy → Dodaj notes → edytor: zdjęcie (plik lub aparat) → obszar kartki → mapowanie pól (prostokąty lub tabela) → kategorie (typy, zakresy, sumy, kategoria decydująca, remisy) → test z losowymi danymi → Zapisz.
 3. **Planowanie:** Admin → Kalendarz → Zaplanuj → tytuł, data, godzina, uczestnicy, (prowadzący) → Zapisz → głosowanie otwarte → uczestnicy głosują → Admin wybiera gry i publikuje.
 4. **Spotkanie:** Admin lub prowadzący → Rozpocznij → Nowa partia → gra, notes, gracze i miejsca → wpisywanie → Oderwij → podsumowanie → Zatwierdź → … → Zakończ spotkanie.
 5. **Przegląd:** Gracz → Timeline → spotkanie → karteczki, punkty, wygrane, serie. Kliknięcie awatara → profil → statystyki i gablota.
@@ -465,11 +498,11 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 
 | Etap | Zakres |
 |---|---|
-| **E0: Fundament** | Repo, Vite, Supabase (schemat, RLS), Cloudflare Pages, logowanie hookiem, bootstrap admina, motywy, szkielet widoku Klubu i systemu popupów. |
+| **E0: Fundament** | Repo, Vite, Supabase (schemat, RLS), Cloudflare Pages, logowanie hookiem, bootstrap admina, pierwsze uruchomienie i zakładanie klubu (CLUB-1…CLUB-4), motywy, szkielet widoku Klubu i systemu popupów. |
 | **E1: Członkowie i profil** | Dodawanie i usuwanie członków (Edge Functions), profil, ustawienia, awatary. |
-| **E2: Kolekcja** | CRUD gier, okładki, punktacja miejsc, wyszukiwanie, notesy (przeniesienie edytora + zapis w bazie + EDT-2…EDT-7). |
+| **E2: Kolekcja** | CRUD gier, okładki, punktacja miejsc, wyszukiwanie, notesy (przeniesienie edytora jako kreatora pięciu kroków + zapis w bazie + EDT-2…EDT-14). |
 | **E3: Spotkania** | Kalendarz, planowanie, głosowanie, publikacja, widżety Timeline i Aktywne spotkanie. |
-| **E4: Partie** | Notes w trybie klubowym (wybór graczy, szkice, oderwanie, obraz karteczki), RPC zapisu, usuwanie partii. |
+| **E4: Partie** | Notes w trybie klubowym (wybór graczy, obrót, zoom i widok z góry, wpisywanie z klawiatury, jakość tekstury, szkice, oderwanie, obraz karteczki), RPC zapisu, usuwanie partii. |
 | **E5: Rywalizacja** | Leaderboardy z filtrem roku, statystyki gracza i gry, podsumowanie spotkania. |
 | **E6: Osiągnięcia i szlif** | Katalog osiągnięć, gablota, PWA, dostępność, testy E2E, README wdrożenia. |
 
@@ -496,6 +529,9 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 | D15 | Obrazy | Upload do Supabase Storage (awatary, okładki). |
 | D16 | Interfejs | Polski, mobile-first, PWA. |
 | D17 | Limit graczy | Brak limitu w aplikacji. Graczy w partii może być tylu, ile miejsc zdefiniowano w notesie. |
+| D18 | Pierwsze uruchomienie | Admin po zalogowaniu zakłada klub przyciskiem „Dodaj klub” w miejscu widżetów (CLUB-1). |
+| D19 | Sterowanie notesem | Notes 3D z obrotem, dowolnym zoomem i domyślnym widokiem z góry; punkty z klawiatury systemowej (telefon) lub sprzętowej (komputer), fokus przechodzi do kolejnej kategorii gracza (PAD-10…PAD-16). |
+| D20 | Edytor notesu | Kreator pięciu kroków: zdjęcie, obszar kartki, mapowanie pól, kategorie, test i zapis (§5.5.2). |
 
 ---
 
