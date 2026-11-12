@@ -1,10 +1,11 @@
 # BG Club — Design System
 
-Źródło: plik Paper "bg-club" (odczyt 2026-11-12). Wartości pochodzą z get_jsx / get_computed_styles. Czytaj ten plik zamiast ponownie pobierać dane z Paper; aktualizuj go, gdy zmienia się język wizualny. Wzorcowy JSX komponentów: `design/reference-jsx/`.
+Źródło: plik Paper "bg-club" (odczyt 2026-11-12). Wartości pochodzą z get_jsx / get_computed_styles. Czytaj ten plik zamiast ponownie pobierać dane z Paper; aktualizuj go, gdy zmienia się język wizualny. Docelowe miejsce eksportów JSX to `design/reference-jsx/`. Eksportów i generatorów opisanych poniżej nie ma w repo. Ich stan oraz plan uzupełnienia zapisano w [design/README.md](design/README.md). Polecenia regeneracji są opisem pierwotnego warsztatu, nie działającymi obecnie skryptami.
 Paper file id: 01M75APESFSP8980YWVTY0EAXT.
-Strony Leaderboard, Game collection, Members i Profile odczytano 2026-11-12; projekty Spotkań (30 artboardów) pochodzą z generatora, nie z odczytu Paper. Source HTML and generator for the Meetings designs are in `design/meetings/` (`_build.mjs`, `manifest.json`, `_PAPER-INSTRUCTIONS.md`). The timeline widget and calendar popup (5 artboards, added 2026-11-12, all checked by screenshot in Paper) come from `design/calendar/_build.mjs`; see §15.1.
+Strony Leaderboard, Game collection, Members i Profile odczytano 2026-11-12; projekty Spotkań (30 artboardów) pochodzą z generatora, nie z odczytu Paper. Pierwotny opis wskazuje `design/meetings/` (`_build.mjs`, `manifest.json`, `_PAPER-INSTRUCTIONS.md`) oraz `design/calendar/_build.mjs` dla timeline i kalendarza (5 artboardów, dodanych 2026-11-12, według opisu sprawdzonych w Paper); zob. §15.1. Lokalizacji oryginalnych plików poza repo nie ustalono.
 
 ## 0. Important facts first
+- **Source precedence:** PRD controls behavior and permissions. Later detailed DS sections override earlier general statements: the first-run illustration is defined in §17 despite §14; the switch is defined in §18 despite §10. See [decision 001](docs/decisions/001-project-foundations.md).
 - **The file's design tokens are not used anywhere.** The file holds the stock Tailwind v4 token set (gray/blue oklch scales, text-xs…9xl, radius-xs…4xl, `--font-sans: "Inter"`), but `find_nodes` for any `var(--…)` returns 0 hits. Every design uses **hard-coded hex values** and the fonts below. Inter is **not** used. Copy the hex values, not the tokens.
 - **Light theme only.** There are no dark artboards and no "Light/Dark" suffix in any name.
 - **No section labels or text on the canvas.** Pages hold only artboards.
@@ -228,7 +229,7 @@ There are no hover or disabled button variants in the file.
 - **Warning banner**: bg #FFF4D6, radius 14, padding 12/14, gap 10, alert-triangle 16px #8A5A00, text 13/18/500 #6B4500.
 - **Info banner** (accent tint, next to the warning banner): bg #EEF2FF, radius 14, padding 12/14, gap 10, check icon 16px #2F54EB, text 13/18/500 #161A2B.
 - **Date / time field**: the standard input (h48) with a leading calendar/clock icon (16px, #6B7188, stroke 1.75); in the picker artboard both are in the focus state (1.5px #2F54EB). Date flexes; time is 160 wide (desktop form), 120 (mobile form), 140 (picker artboard). Optional field: label "Prowadzący (opcjonalnie)" with a leading 24px avatar and a trailing chevron-down.
-- Checkbox, radio, date picker calendar, time dropdown, member selection row: see §15. There is still no toggle switch.
+- Checkbox, radio, date picker calendar, time dropdown, member selection row: see §15. The toggle switch is defined in §18.
 
 ## 11. Chips / badges
 - **Row badge**: pill, padding 2/8, 11/14/600.
@@ -264,7 +265,7 @@ There are no hover or disabled button variants in the file.
   - More: 3 dots `r1.25` at x 3.5/8/12.5
 
 ## 14. Illustration / imagery style
-- There are no photos and no illustrations. "Images" are flat colored tiles.
+- Game placeholders use flat colored tiles. The first-run illustration is defined in §17, which takes precedence here. Uploaded game covers, avatars, club logos and notepad photos remain supported as required by PRD.
 - **Game cover**: a solid palette color, radius 18 (148px) or 10 (36px thumbnail).
   - Large cover: a soft geometric motif (a large circle #FFFFFF29 and a small dot #FFFFFF99 in the top area) with the game title in white Bricolage 16/18/700 at the bottom-left (inset 12).
   - Small thumbnail: a single white Bricolage initial.
@@ -299,7 +300,7 @@ Shared: section head = title 15/20/600 #161A2B + right note 13/16/500 #6B7188 (s
 | Seat row | Row gap 12: number circle 28 (bg #F1F3F9, 13/16/600 #6B7188) + field flex h48 radius 14. **Filled**: 1px #E4E7F0, padding 0 14 0 8, gap 10, avatar 32, name 15/20/500, chevron-down #6B7188. **Empty**: 1.5px dashed #C9CDDA, padding 0 14, + icon #6B7188, "Wybierz gracza" 15/20/500 #6B7188. Seats column gap 10; label "Gracze i miejsca w notesie" + right "Zajęte 4 z 5 miejsc". Below: "Poza partią:" 13/16/500 #6B7188 + pill h28 (padding 0 10 0 4, #F1F3F9) with avatar 20 and name 13/16/600 |
 | Date picker calendar | 278 wide, white, 1px #E4E7F0, radius 16, padding 12, gap 4, menu shadow. Header: chevron buttons 32 + "Listopad 2026" Bricolage 16/20/700. Weekday cells 36 wide, 12/16/600 #6B7188 ("Pn Wt Śr Cz Pt So Nd"), padding 4/0. Day cell 36×36 circle, 14/18/500 tnum: selected bg #2F54EB + white 600; today 1.5px #2F54EB ring + #2F54EB 600; past #C9CDDA. Footer "Dziś" 14/18/600 #2F54EB centered, paddingTop 8, border-top 1px #E4E7F0 |
 | Time dropdown | Menu from §7, 140 wide; half-hour slots 17:00–19:30; selected row #EEF2FF, #2F54EB/600, check |
-| Meeting menus | Menu from §7 but 260 wide, icons 16px stroke 1.75: admin menu "Edytuj spotkanie" (pencil), "Otwórz głosowanie ponownie" (refresh), "Usuń spotkanie" (trash, danger); host menu "Dodaj uczestnika" (userplus), "Zmień prowadzącego" (user), "Zakończ spotkanie" (flag) |
+| Meeting menus | Menu from §7 but 260 wide, icons 16px stroke 1.75: planned meeting admin menu "Edytuj spotkanie" (pencil), "Otwórz głosowanie ponownie" (refresh), "Usuń spotkanie" (trash, danger). In-progress meeting: **admin only** "Dodaj uczestnika" (userplus), "Zmień prowadzącego" (user); admin and host "Zakończ spotkanie" (flag). Host permissions follow PRD §2.1 and PLAN-4; earlier artboards do not grant participant or host management. |
 | Dialog variants | §7 small dialog with icon circle 44 (icon 20, stroke 1.75): accent play/flag on #EEF2FF (start/end meeting); #8A5A00 alert on #FFF4D6 (plays in progress; includes a tray radius 18 / padding 6 with a row h56); #D63A3A trash on #FDECEC + destructive button (delete meeting, abandon play) |
 | Toasts | §12 standard toast. Success texts: "Spotkanie zaplanowane. Głosowanie otwarte.", "Głos zapisany", "Gry opublikowane. Głosowanie zamknięte.", "Spotkanie rozpoczęte", "Partia zapisana", "Spotkanie zakończone". Error (alert icon #FFB4B4): "Trwa już inne spotkanie. Najpierw je zakończ." |
 
