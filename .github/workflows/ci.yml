@@ -50,7 +50,7 @@ jobs:
           retention-days: 7
 
   sql:
-    name: Testy SQL (pgTAP)
+    name: Baza i Auth (pgTAP, integracja)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -60,10 +60,16 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Sam Postgres wystarcza do migracji, seeda i pgTAP; pełny stos startuje `pnpm db:start`.
-      - run: pnpm exec supabase db start
+      # Postgres, Auth, PostgREST i bramka API: tyle potrzebują migracje, pgTAP i testy logowania
+      # (`pnpm test:auth`). Pozostałe usługi pełnego stosu (`pnpm db:start`) są pominięte.
+      - run: >-
+          pnpm exec supabase start
+          -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - run: pnpm test:sql
       - run: pnpm db:lint
-      # Reset pustej bazy i ponowne zastosowanie migracji też muszą przechodzić testy.
+      # Bootstrap administratora i logowanie hookiem na świeżej instalacji.
+      - run: pnpm test:auth
+      # Reset do pustej bazy i ponowne uruchomienie instalacji też muszą przechodzić testy.
       - run: pnpm db:reset
       - run: pnpm test:sql
+      - run: pnpm test:auth

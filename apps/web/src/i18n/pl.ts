@@ -9,10 +9,39 @@ export const pl = {
     name: 'BG Club',
     tagline: 'Aplikacja klubu planszówkowego',
   },
-  start: {
-    title: 'Szkielet aplikacji działa',
-    body: 'Logowanie, zakładanie klubu i widok Klubu pojawią się w kolejnych etapach.',
-    backendLabel: 'Supabase',
+  /** Logowanie hookiem i sesja (PRD §5.1, zadanie [005]). */
+  auth: {
+    title: 'Zaloguj się',
+    intro: 'Hook i hasło dostajesz od administratora klubu.',
+    hookLabel: 'Hook',
+    hookPlaceholder: 'np. jan-kowalski-3f9a',
+    passwordLabel: 'Hasło',
+    submit: 'Zaloguj się',
+    signOut: 'Wyloguj się',
+    loading: 'Wczytywanie sesji…',
+    errors: {
+      hookRequired: 'Wpisz swój hook.',
+      hookFormat: 'Hook to małe litery, cyfry i myślniki, np. jan-kowalski-3f9a.',
+      passwordRequired: 'Wpisz hasło.',
+      invalidCredentials: 'Nieprawidłowy hook lub hasło.',
+      accountInactive:
+        'To konto zostało usunięte. Jeśli to pomyłka, skontaktuj się z administratorem klubu.',
+      rateLimited: 'Zbyt wiele prób logowania. Odczekaj chwilę i spróbuj ponownie.',
+      network: 'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.',
+      unknown: 'Nie udało się zalogować. Spróbuj ponownie za chwilę.',
+    },
+    notices: {
+      sessionExpired: 'Sesja wygasła. Zaloguj się ponownie.',
+    },
+  },
+  /** Widok po zalogowaniu do czasu huba z zadań [007] i [008]. */
+  home: {
+    greeting: 'Cześć, {name}!',
+    hookLabel: 'Twój hook:',
+    body: 'Jesteś zalogowany. Widok Klubu i zakładanie klubu pojawią się w kolejnych etapach.',
+    errorTitle: 'Nie udało się wczytać profilu',
+    profileError: 'Sprawdź połączenie z internetem i spróbuj ponownie.',
+    retry: 'Spróbuj ponownie',
   },
   config: {
     errorTitle: 'Brak konfiguracji aplikacji',

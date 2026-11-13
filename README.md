@@ -11,19 +11,20 @@ Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres
 
 ```
 apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts
+packages/accounts/     konta: hook, techniczny e-mail, hasła, skrypt bootstrapu admina (+ testy)
 packages/score-pad/    web componenty <score-pad> i <score-pad-editor> (źródła z POC, zadanie [013])
 packages/scoring/      czysta logika wyników: miejsca, remisy, punkty, serie (+ testy)
 supabase/config.toml   konfiguracja lokalnego Supabase (CLI)
 supabase/migrations/   schemat, RLS i funkcje SQL
 supabase/functions/    Edge Functions (Deno)
-supabase/seed/         pliki seed ładowane przez `supabase db reset`
+supabase/seed/         seed ładowany przez `supabase db reset` i dane pierwszego admina (.env)
 supabase/tests/        testy SQL (pgTAP)
 .github/workflows/     CI
 ```
 
 ## Wymagania
 
-- **Node.js 22** (wersja w `.nvmrc`).
+- **Node.js 22.18 lub nowszy** (wersja główna w `.nvmrc`). Skrypt bootstrapu uruchamia TypeScript bezpośrednio w Node.
 - **pnpm 10**. Najprościej przez Corepack: `corepack enable` (wersję wskazuje pole `packageManager` w `package.json`).
 - **Docker** (Docker Desktop, OrbStack, Colima itp.), potrzebny do lokalnego Supabase i testów SQL. Supabase CLI instaluje się razem z zależnościami (`pnpm exec supabase`), nie trzeba go instalować globalnie.
 
@@ -40,6 +41,13 @@ pnpm db:start
 # Na końcu CLI wypisuje adres API i klucze. Można je też odczytać później:
 pnpm exec supabase status
 
+# Pierwszy administrator (AUTH-3): imię i nazwisko w supabase/seed/.env.
+cp supabase/seed/.env.example supabase/seed/.env
+# W supabase/seed/.env wpisz BOOTSTRAP_ADMIN_FIRST_NAME i BOOTSTRAP_ADMIN_LAST_NAME
+# (hasło opcjonalnie; bez niego skrypt wygeneruje losowe).
+pnpm bootstrap:admin:local
+# Skrypt wypisuje hook administratora i (jednorazowo) wygenerowane hasło.
+
 # Konfiguracja frontendu.
 cp apps/web/.env.example apps/web/.env.local
 # W apps/web/.env.local wpisz:
@@ -49,7 +57,9 @@ cp apps/web/.env.example apps/web/.env.local
 pnpm dev
 ```
 
-Aplikacja działa pod <http://localhost:5173>. Bez uzupełnionych zmiennych pokazuje komunikat „Brak konfiguracji aplikacji” z listą brakujących wartości.
+Aplikacja działa pod <http://localhost:5173> i startuje od ekranu logowania: hook i hasło z `pnpm bootstrap:admin:local`. Bez uzupełnionych zmiennych pokazuje komunikat „Brak konfiguracji aplikacji” z listą brakujących wartości.
+
+`pnpm db:reset` odtwarza pustą bazę (bez kont), więc po resecie trzeba ponownie uruchomić `pnpm bootstrap:admin:local`.
 
 Studio Supabase (podgląd bazy) jest pod <http://127.0.0.1:54323>. Zatrzymanie: `pnpm db:stop`.
 
@@ -57,21 +67,24 @@ Studio Supabase (podgląd bazy) jest pod <http://127.0.0.1:54323>. Zatrzymanie: 
 
 Uruchamiane w katalogu głównym repozytorium.
 
-| Komenda                          | Co robi                                                                                        |
-| -------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `pnpm dev`                       | serwer deweloperski aplikacji (port 5173)                                                      |
-| `pnpm build`                     | build produkcyjny do `apps/web/dist`                                                           |
-| `pnpm preview`                   | podgląd buildu (port 4173)                                                                     |
-| `pnpm typecheck`                 | sprawdzenie typów we wszystkich pakietach                                                      |
-| `pnpm lint`                      | ESLint i Prettier (`--check`)                                                                  |
-| `pnpm format`                    | formatowanie Prettierem                                                                        |
-| `pnpm test`                      | testy jednostkowe (Vitest) we wszystkich pakietach                                             |
-| `pnpm test:e2e`                  | testy E2E (Playwright): telefon 360 px i desktop, motyw jasny i ciemny                         |
-| `pnpm check`                     | typy, lint, testy jednostkowe i build naraz                                                    |
-| `pnpm db:start` / `pnpm db:stop` | start i stop lokalnego Supabase                                                                |
-| `pnpm db:reset`                  | odtworzenie lokalnej bazy z migracji i seeda                                                   |
-| `pnpm db:lint`                   | lint schematu bazy (`supabase db lint`)                                                        |
-| `pnpm test:sql`                  | testy SQL (pgTAP) na lokalnej bazie; wymaga `pnpm db:start` albo `pnpm exec supabase db start` |
+| Komenda                          | Co robi                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `pnpm dev`                       | serwer deweloperski aplikacji (port 5173)                                                        |
+| `pnpm build`                     | build produkcyjny do `apps/web/dist`                                                             |
+| `pnpm preview`                   | podgląd buildu (port 4173)                                                                       |
+| `pnpm typecheck`                 | sprawdzenie typów we wszystkich pakietach                                                        |
+| `pnpm lint`                      | ESLint i Prettier (`--check`)                                                                    |
+| `pnpm format`                    | formatowanie Prettierem                                                                          |
+| `pnpm test`                      | testy jednostkowe (Vitest) we wszystkich pakietach                                               |
+| `pnpm test:e2e`                  | testy E2E (Playwright): telefon 360 px i desktop, motyw jasny i ciemny                           |
+| `pnpm check`                     | typy, lint, testy jednostkowe i build naraz                                                      |
+| `pnpm db:start` / `pnpm db:stop` | start i stop lokalnego Supabase                                                                  |
+| `pnpm db:reset`                  | odtworzenie lokalnej bazy z migracji i seeda                                                     |
+| `pnpm bootstrap:admin:local`     | konto pierwszego administratora w lokalnym Supabase (dane z `supabase/seed/.env`)                |
+| `pnpm bootstrap:admin`           | to samo dla dowolnego projektu: adres i klucz service role ze zmiennych środowiskowych           |
+| `pnpm db:lint`                   | lint schematu bazy (`supabase db lint`)                                                          |
+| `pnpm test:sql`                  | testy SQL (pgTAP) na lokalnej bazie; wymaga `pnpm db:start` albo `pnpm exec supabase db start`   |
+| `pnpm test:auth`                 | testy integracyjne kont i logowania na lokalnym Supabase; wymagają pustej bazy (`pnpm db:reset`) |
 
 Pierwsze uruchomienie E2E na nowym komputerze wymaga przeglądarki Playwright:
 
@@ -86,9 +99,9 @@ pnpm --filter @bg-club/web exec playwright install chromium
 Repozytorium jest przygotowane do upublicznienia (PRD §1.1, NFR-9): nie zawiera sekretów ani danych klubu.
 
 - Frontend czyta wyłącznie `VITE_SUPABASE_URL` i `VITE_SUPABASE_ANON_KEY` (NFR-1). Wzór: [`apps/web/.env.example`](apps/web/.env.example). Klucz anon jest publiczny z założenia; dostęp chroni RLS.
-- Klucz `service_role` jest używany tylko w Edge Functions i nigdy nie trafia do frontendu ani do repozytorium. Lokalne sekrety funkcji: `supabase/functions/.env` (wzór: [`supabase/functions/.env.example`](supabase/functions/.env.example)).
+- Klucz `service_role` jest używany tylko w Edge Functions i w skrypcie `pnpm bootstrap:admin` uruchamianym przez instalującego. Nigdy nie trafia do frontendu ani do repozytorium. Lokalne sekrety funkcji: `supabase/functions/.env` (wzór: [`supabase/functions/.env.example`](supabase/functions/.env.example)); dane pierwszego administratora: `supabase/seed/.env` (wzór: [`supabase/seed/.env.example`](supabase/seed/.env.example)).
 - Pliki `.env` i `.env.*` (poza `.env.example`) są w `.gitignore`.
-- Rejestracja samodzielna jest wyłączona (`enable_signup = false`, PRD §1.2). Konta tworzy administrator.
+- Rejestracja samodzielna jest wyłączona (`enable_signup = false`, PRD §1.2), a baza dodatkowo odrzuca konta Auth utworzone poza aplikacją (sekcja „Konta i logowanie”). Konta tworzy administrator.
 
 ## Teksty interfejsu
 
@@ -107,16 +120,16 @@ Wygląd opisuje [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md). W kodzie:
 
 Migracje w [`supabase/migrations/`](supabase/migrations) odtwarzają cały schemat od zera (`pnpm db:reset`). Model danych opisuje PRD §6; poniżej reguły, które wymusza sama baza.
 
-| Tabela                             | Co przechowuje                                        | Najważniejsze reguły w bazie                                                                                                                                                                                                                                                                  |
-| ---------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `club`                             | jedyny klub: nazwa, logo, strefa IANA                 | jeden wiersz (`id = 1`), strefa sprawdzana z `pg_timezone_names`                                                                                                                                                                                                                              |
-| `profiles`                         | gracze; `id` = `auth.users.id`                        | bez klucza obcego do Auth: usunięcie konta Auth tylko ustawia `deleted_at`; oznaczenie jako usunięty wypisuje z zaplanowanych spotkań (z głosami) i oddaje prowadzenie adminowi (MEM-6); jeden admin; admina nie da się usunąć; `hook` unikalny i niezmienny                                  |
-| `games`                            | kolekcja gier                                         | `1 ≤ min ≤ max`, bez górnego limitu; `placement_points` ma długość `max_players`, wartości ≥ 0; `title_search` do wyszukiwania bez polskich znaków (`unaccent` + `pg_trgm`)                                                                                                                   |
-| `scorepads`, `scorepad_versions`   | notesy gry i ich wersje                               | wersje niezmienne i nieusuwalne, numerowane w bazie; `current_version_id` wskazuje wersję tego samego notesu                                                                                                                                                                                  |
-| `meetings`, `meeting_participants` | spotkania i uczestnicy                                | najwyżej jedno spotkanie `in_progress`; przejścia `planned → in_progress → finished` (oraz `finished → in_progress`); zakończenie wymaga braku szkiców; prowadzący jest uczestnikiem innym niż admin (`NULL` = admin); usunięty członek nie dołączy do spotkania                              |
-| `game_votes`, `meeting_games`      | głosy i opublikowane gry                              | jeden głos na grę; głosuje tylko uczestnik; usunięcie uczestnika kasuje jego głosy                                                                                                                                                                                                            |
-| `plays`, `play_results`            | partie (szkic lub zapisana karteczka) i wyniki graczy | szkic tylko w spotkaniu w trakcie; snapshot punktacji i bieżącej wersji notesu ustawiany w bazie przy utworzeniu szkicu; jedna partia gracza na karteczce; najwyżej min(max gry, miejsca w notesie) graczy, przy zapisie co najmniej 2; `saved_at` nadaje baza; zapisana karteczka niezmienna |
-| `achievement_unlocks`              | odblokowane osiągnięcia                               | identyfikator z katalogu w kodzie                                                                                                                                                                                                                                                             |
+| Tabela                             | Co przechowuje                                        | Najważniejsze reguły w bazie                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `club`                             | jedyny klub: nazwa, logo, strefa IANA                 | jeden wiersz (`id = 1`), strefa sprawdzana z `pg_timezone_names`                                                                                                                                                                                                                                                                   |
+| `profiles`                         | gracze; `id` = `auth.users.id`                        | powstaje razem z kontem Auth (wyzwalacz, sekcja „Konta i logowanie”); bez klucza obcego do Auth: usunięcie konta Auth tylko ustawia `deleted_at`; oznaczenie jako usunięty wypisuje z zaplanowanych spotkań (z głosami) i oddaje prowadzenie adminowi (MEM-6); jeden admin; admina nie da się usunąć; `hook` unikalny i niezmienny |
+| `games`                            | kolekcja gier                                         | `1 ≤ min ≤ max`, bez górnego limitu; `placement_points` ma długość `max_players`, wartości ≥ 0; `title_search` do wyszukiwania bez polskich znaków (`unaccent` + `pg_trgm`)                                                                                                                                                        |
+| `scorepads`, `scorepad_versions`   | notesy gry i ich wersje                               | wersje niezmienne i nieusuwalne, numerowane w bazie; `current_version_id` wskazuje wersję tego samego notesu                                                                                                                                                                                                                       |
+| `meetings`, `meeting_participants` | spotkania i uczestnicy                                | najwyżej jedno spotkanie `in_progress`; przejścia `planned → in_progress → finished` (oraz `finished → in_progress`); zakończenie wymaga braku szkiców; prowadzący jest uczestnikiem innym niż admin (`NULL` = admin); usunięty członek nie dołączy do spotkania                                                                   |
+| `game_votes`, `meeting_games`      | głosy i opublikowane gry                              | jeden głos na grę; głosuje tylko uczestnik; usunięcie uczestnika kasuje jego głosy                                                                                                                                                                                                                                                 |
+| `plays`, `play_results`            | partie (szkic lub zapisana karteczka) i wyniki graczy | szkic tylko w spotkaniu w trakcie; snapshot punktacji i bieżącej wersji notesu ustawiany w bazie przy utworzeniu szkicu; jedna partia gracza na karteczce; najwyżej min(max gry, miejsca w notesie) graczy, przy zapisie co najmniej 2; `saved_at` nadaje baza; zapisana karteczka niezmienna                                      |
+| `achievement_unlocks`              | odblokowane osiągnięcia                               | identyfikator z katalogu w kodzie                                                                                                                                                                                                                                                                                                  |
 
 Znaczniki czasu to wyłącznie `timestamptz` (NFR-10). Gry i profile usuwa się miękko, a klucze obce do nich blokują twarde usunięcie, więc historia zostaje. Strażnicy czytający inne tabele są `security definer` z pustym `search_path`, więc polityki RLS ich nie omijają.
 
@@ -128,7 +141,7 @@ Macierz uprawnień to PRD §2.1 i §6.1; wymusza ją migracja `20261113000400_ac
 
 - **`anon`** nie ma żadnych praw do tabel i funkcji aplikacji. Wszystko wymaga zalogowania.
 - **`authenticated`** ma `SELECT` na tabelach oraz `INSERT`/`UPDATE` tylko na wymienionych kolumnach (bez `TRUNCATE`). RLS zawęża to do wierszy: odczyt dla **aktywnych** kont, więc usunięte konto z wciąż ważnym tokenem nic nie widzi.
-- **`service_role`** omija RLS i jest używany wyłącznie w Edge Functions. Tylko tam zmienia się `role`, `hook` i `deleted_at` profilu oraz tworzy i usuwa profile. Klucz `service_role` / `sb_secret_…` podany jako `VITE_SUPABASE_ANON_KEY` zatrzymuje `vite build` (zanim trafi do bundla), a test pilnuje, że kod SPA czyta tylko dwie publiczne zmienne.
+- **`service_role`** omija RLS i jest używany wyłącznie w Edge Functions i skrypcie bootstrapu. Tylko tam zmienia się `role`, `hook` i `deleted_at` profilu oraz tworzy i usuwa profile. Klucz `service_role` / `sb_secret_…` podany jako `VITE_SUPABASE_ANON_KEY` zatrzymuje `vite build` (zanim trafi do bundla), a test pilnuje, że kod SPA czyta tylko dwie publiczne zmienne.
 - Nowe tabele i funkcje w `public` nie dostają praw automatycznie: migracja nadaje je jawnie, a funkcji odbiera `EXECUTE` od `PUBLIC` i `anon`. Kontrakt praw sprawdza test `050_access_control`.
 
 | Tabela                                              | Odczyt  | Zapis przez API                                                                                                       |
@@ -152,11 +165,24 @@ Buckety Storage są prywatne (odczyt dla aktywnych kont, pliki przez sesję lub 
 | `scorepads` | 5 MiB | dowolna (zdjęcia szablonów)        | admin                                                                                                                       |
 | `sheets`    | 2 MiB | `<meeting_id>/<play_id>-<sufiks>`  | dodanie: admin lub prowadzący niezakończonego spotkania; bez nadpisywania (nowa nazwa przy każdej próbie); usunięcie: admin |
 
+## Konta i logowanie
+
+Wymagania: PRD AUTH-1…AUTH-5, AUTH-7. Kod: migracja [`20261113000500_accounts_and_login.sql`](supabase/migrations/20261113000500_accounts_and_login.sql), pakiet [`packages/accounts`](packages/accounts), logowanie w SPA w [`apps/web/src/auth`](apps/web/src/auth).
+
+- **Login to hook.** Konto Supabase Auth ma techniczny e-mail `<hook>@users.bgclub.invalid` (domena `.invalid` nie przyjmuje poczty). Ekran logowania przyjmuje hook (bez spacji na brzegach i bez rozróżniania wielkości liter), zamienia go na ten e-mail i nigdy go nie pokazuje. E-maila nie da się zmienić (wyzwalacz na `auth.users`), bo hook jest niezmienny.
+- **Konto i profil w jednej transakcji.** Profil zakłada wyzwalacz na `auth.users` z `app_metadata.bg_club` (`first_name`, `last_name`, `role`). Te metadane ustawia tylko klucz service role, więc konto utworzone inaczej (rejestracja, gdyby ktoś ją włączył, albo „Add user” w panelu Supabase) jest odrzucane w całości: nie zostaje ani konto Auth, ani profil.
+- **Pierwszy jest administrator** (AUTH-3). Rola `admin` przechodzi tylko na pustej instalacji, a konto gracza dopiero wtedy, gdy administrator istnieje. Drugi administrator nie powstanie także przy równoległych próbach.
+- **Bootstrap** to skrypt `pnpm bootstrap:admin` (lokalnie `pnpm bootstrap:admin:local`), a nie publiczny endpoint, więc nikt nie przejmie pustej instancji przed instalującym. Dane: `BOOTSTRAP_ADMIN_FIRST_NAME`, `BOOTSTRAP_ADMIN_LAST_NAME`, opcjonalnie `BOOTSTRAP_ADMIN_PASSWORD` (min. 12 znaków; bez niego skrypt generuje losowe i wypisuje je raz). Tworzy wyłącznie konto administratora, bez klubu i danych demonstracyjnych. Ponowne uruchomienie niczego nie zmienia (także hasła) i wypisuje hook istniejącego administratora.
+- **Sesja trwa do wylogowania** (AUTH-5): supabase-js trzyma ją w `localStorage` i sam odświeża token. Wylogowanie dotyczy tego urządzenia (`scope: 'local'`): sesja znika lokalnie także bez sieci, a serwer unieważnia jej token odświeżania. Zmiana użytkownika czyści cache zapytań.
+- **Konto usunięte** (AUTH-7). Hook Auth `custom_access_token` (`public.custom_access_token_hook`) odmawia wydania i odświeżenia tokenu kontu bez aktywnego profilu (403 `account_inactive`). Token wydany wcześniej (do `jwt_expiry`, 1 h) nie daje danych, bo RLS wymaga aktywnego profilu; aplikacja kończy wtedy sesję i pokazuje komunikat. Złe hasło usuniętego konta daje zwykły błąd „Nieprawidłowy hook lub hasło”.
+- **Błędy logowania** są po polsku (`t.auth.errors`): złe dane, konto usunięte, limit prób, brak połączenia.
+
 ## Testy (NFR-11)
 
 - **Jednostkowe:** Vitest, pliki `*.test.ts(x)` obok kodu. Logika wyników w `packages/scoring`.
 - **SQL:** pgTAP w `supabase/tests/database/*.test.sql`, uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych. Testy uprawnień (`050`, `060`) przełączają się na role `anon` i `authenticated` z tokenem w `request.jwt.claims`, tak jak PostgREST i Storage API.
-- **E2E:** Playwright w `apps/web/e2e/`. Każdy test przechodzi w czterech projektach: `mobile-light`, `mobile-dark` (360×740) oraz `desktop-light`, `desktop-dark` (1280×900).
+- **Integracyjne (Auth):** Vitest w `packages/accounts/integration/`, uruchamiane przez `pnpm test:auth` na lokalnym Supabase (Auth, PostgREST). Idą przez prawdziwe API: bootstrap na pustej instalacji (także równoległy), ponowienie, zamknięta rejestracja, logowanie hookiem, odświeżenie i wylogowanie, konto usunięte. Wymagają pustej bazy: przed kolejnym uruchomieniem `pnpm db:reset`.
+- **E2E:** Playwright w `apps/web/e2e/`. Każdy test przechodzi w czterech projektach: `mobile-light`, `mobile-dark` (360×740) oraz `desktop-light`, `desktop-dark` (1280×900). API Supabase jest w nich atrapą ([`e2e/support/supabaseMock.ts`](apps/web/e2e/support/supabaseMock.ts)); prawdziwe Auth sprawdza `pnpm test:auth`.
 
 ## CI
 
@@ -164,13 +190,26 @@ Buckety Storage są prywatne (odczyt dla aktywnych kont, pliki przez sesję lub 
 
 1. **check:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`,
 2. **e2e:** Playwright (Chromium), raport HTML jako artefakt przy błędzie,
-3. **sql:** lokalny Postgres Supabase (`supabase db start`), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql`.
+3. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
 
 ## Wdrożenie (zarys)
 
 Pełna instrukcja wdrożenia od zera, kopii zapasowych i odtworzenia powstaje w zadaniu [042] (NFR-8, NFR-9). W skrócie:
 
 - **Supabase:** projekt w panelu Supabase, potem `pnpm exec supabase link --project-ref <ref>` i `pnpm exec supabase db push` (migracje).
+- **Auth w panelu Supabase** (`config.toml` działa tylko lokalnie):
+  - Authentication → Sign In / Providers: wyłączyć „Allow new users to sign up” i „Allow anonymous sign-ins” (AUTH-2).
+  - Authentication → Hooks: dodać „Customize Access Token (JWT) Claims”, typ Postgres, funkcja `public.custom_access_token_hook` (AUTH-7). Bez tego usunięte konto zaloguje się, choć nie zobaczy danych.
+- **Pierwszy administrator:** na komputerze instalującego, z adresem projektu i kluczem service role z panelu (Project Settings → API Keys). Klucz nie trafia do repozytorium ani do Cloudflare.
+
+  ```bash
+  SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<klucz> \
+  BOOTSTRAP_ADMIN_FIRST_NAME=<imię> BOOTSTRAP_ADMIN_LAST_NAME=<nazwisko> \
+  pnpm bootstrap:admin
+  ```
+
+  Zmienne można też zapisać w `supabase/seed/.env`. Skrypt wypisuje hook i jednorazowo wygenerowane hasło; ponowne uruchomienie niczego nie zmienia.
+
 - **Cloudflare Pages:** połączenie z repozytorium, gałąź produkcyjna `master` (PRD Q20), preview dla PR.
   - Build command: `pnpm build`
   - Build output directory: `apps/web/dist`

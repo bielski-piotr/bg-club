@@ -11,13 +11,14 @@ select plan(49);
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe
 -- ---------------------------------------------------------------------------------------------
-insert into auth.users (id, email) values
-  ('00000000-0000-4000-a000-000000000001', 'ada-adminowska-a001@users.bgclub.invalid'),
-  ('00000000-0000-4000-a000-000000000002', 'bartek-testowy-b002@users.bgclub.invalid');
+-- Konta Auth tworzą profile (wyzwalacz z [005]): admin jako pierwszy, potem gracz.
+insert into auth.users (id, email, raw_app_meta_data) values
+  ('00000000-0000-4000-a000-000000000001', 'ada-adminowska-a001@users.bgclub.invalid',
+   '{"bg_club": {"first_name": "Ada", "last_name": "Adminowska", "role": "admin"}}'),
+  ('00000000-0000-4000-a000-000000000002', 'bartek-testowy-b002@users.bgclub.invalid',
+   '{"bg_club": {"first_name": "Bartek", "last_name": "Testowy", "role": "player"}}');
 
 insert into public.profiles (id, hook, first_name, last_name, role) values
-  ('00000000-0000-4000-a000-000000000001', 'ada-adminowska-a001', 'Ada', 'Adminowska', 'admin'),
-  ('00000000-0000-4000-a000-000000000002', 'bartek-testowy-b002', 'Bartek', 'Testowy', 'player'),
   ('00000000-0000-4000-a000-000000000003', 'celina-przykladowa-c003', 'Celina', 'Przykładowa', 'player'),
   ('00000000-0000-4000-a000-000000000004', 'dawid-fikcyjny-d004', 'Dawid', 'Fikcyjny', 'player'),
   ('00000000-0000-4000-a000-000000000005', 'ewa-zmyslona-e005', 'Ewa', 'Zmyślona', 'player');

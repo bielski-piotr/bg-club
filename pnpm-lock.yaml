@@ -41,6 +41,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@bg-club/accounts':
+        specifier: workspace:*
+        version: link:../../packages/accounts
       '@fontsource-variable/bricolage-grotesque':
         specifier: ^5.3.0
         version: 5.3.0
@@ -95,6 +98,19 @@ importers:
         version: 8.3.8(@types/node@22.20.5)
       vitest:
         specifier: ^5.1.0
+        version: 5.1.0(@types/node@22.20.5)(jsdom@31.0.0(@noble/hashes@1.8.0))(vite@8.3.8(@types/node@22.20.5))
+
+  packages/accounts:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.119.0
+        version: 2.119.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      vitest:
+        specifier: 5.1.0
         version: 5.1.0(@types/node@22.20.5)(jsdom@31.0.0(@noble/hashes@1.8.0))(vite@8.3.8(@types/node@22.20.5))
 
   packages/score-pad: {}

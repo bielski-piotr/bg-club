@@ -1,0 +1,27 @@
+{
+  "name": "@bg-club/accounts",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Konta graczy: hook, techniczny e-mail, hasła i bootstrap administratora (PRD AUTH-1…AUTH-4, USR-1).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "bootstrap:admin": "node --env-file-if-exists=../../supabase/seed/.env src/bootstrap-admin.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "vitest": "5.1.0"
+  }
+}
