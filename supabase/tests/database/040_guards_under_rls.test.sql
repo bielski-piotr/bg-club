@@ -1,8 +1,10 @@
 -- [003] Strażnicy spójności działają także dla klienta pod RLS.
--- Polityki z zadania [004] mogą ukrywać wiersze (np. usunięte gry) i klient nie ma praw do
--- funkcji pomocniczych. Test zakłada tymczasowe polityki (wycofywane razem z transakcją),
+-- Polityki mogą ukrywać wiersze (np. usunięte gry) i klient nie ma praw do funkcji
+-- pomocniczych. Test zakłada tymczasowe polityki i prawa (wycofywane razem z transakcją),
 -- przełącza się na rolę authenticated i sprawdza, że reguły nie przestają działać.
--- Dane testowe są fikcyjne.
+-- Prawdziwe polityki z [004] (migracja access_control) nie dają tu dostępu, bo test nie ustawia
+-- tokenu (auth.uid() = NULL). Klient nie pisze do plays i play_results (robi to RPC), więc
+-- prawa INSERT są tu nadane tylko na czas testu. Dane testowe są fikcyjne.
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -41,6 +43,7 @@ create policy tmp_participants on public.meeting_participants for select to auth
 create policy tmp_votes on public.game_votes for all to authenticated using (true) with check (true);
 create policy tmp_plays on public.plays for all to authenticated using (true) with check (true);
 create policy tmp_results on public.play_results for all to authenticated using (true) with check (true);
+grant insert on public.plays, public.play_results to authenticated;
 
 set local role authenticated;
 
