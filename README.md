@@ -256,7 +256,7 @@ Pełna instrukcja wdrożenia od zera, kopii zapasowych i odtworzenia powstaje w 
 - **Auth w panelu Supabase** (`config.toml` działa tylko lokalnie):
   - Authentication → Sign In / Providers: wyłączyć „Allow new users to sign up” i „Allow anonymous sign-ins” (AUTH-2).
   - Authentication → Hooks: dodać „Customize Access Token (JWT) Claims”, typ Postgres, funkcja `public.custom_access_token_hook` (AUTH-7). Bez tego usunięte konto zaloguje się, choć nie zobaczy danych.
-- **Edge Functions:** `pnpm exec supabase functions deploy create-member` (po `supabase link`). Funkcja dostaje `SUPABASE_URL` i `SUPABASE_SERVICE_ROLE_KEY` od Supabase; nie trzeba ustawiać sekretów. Bez wdrożonej funkcji „Dodaj członka” kończy się komunikatem o błędzie.
+- **Edge Functions:** `pnpm exec supabase functions deploy create-member` (po `supabase link`; CLI przenosi `verify_jwt = false` z `config.toml`, bo token sprawdza sama funkcja). Funkcja dostaje `SUPABASE_URL` i `SUPABASE_SERVICE_ROLE_KEY` od Supabase; nie trzeba ustawiać sekretów. Bez wdrożonej funkcji „Dodaj członka” kończy się komunikatem o błędzie.
 - **Pierwszy administrator:** na komputerze instalującego, z adresem projektu i kluczem service role z panelu (Project Settings → API Keys). Klucz nie trafia do repozytorium ani do Cloudflare.
 
   ```bash

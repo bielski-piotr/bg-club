@@ -81,8 +81,12 @@ export function MembersPopup({ isAdmin }: { readonly isAdmin: boolean }) {
             <div className="members-list">
               <EmptyState
                 icon="search"
-                title={format(t.membersPopup.noResultsTitle, { query: deferredQuery.trim() })}
-                helper={t.membersPopup.noResultsHelper}
+                title={
+                  searching
+                    ? format(t.membersPopup.noResultsTitle, { query: deferredQuery.trim() })
+                    : t.membersPopup.emptyTitle
+                }
+                helper={searching ? t.membersPopup.noResultsHelper : undefined}
               />
             </div>
           )}

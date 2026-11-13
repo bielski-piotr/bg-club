@@ -19,8 +19,12 @@ export interface CreatedMember {
 export type FieldProblem = 'required' | 'tooLong';
 export type FieldProblems = Partial<Record<keyof NewMember, FieldProblem>>;
 
-/** Powód nieudanego dodania członka (komunikat w `t.members.add.errors`). */
-export type CreateMemberFailure = 'invalid' | 'forbidden' | 'session' | 'network' | 'failed';
+/**
+ * Powód nieudanego dodania członka (komunikat w `t.addMember.errors`). `failed` = funkcja potwierdziła, że nic nie powstało; `unknown` = odpowiedź nie dotarła albo
+ * nie pochodzi od funkcji (bramka, przekroczony czas), więc konto mogło już powstać.
+ */
+export type CreateMemberFailure =
+  'invalid' | 'forbidden' | 'session' | 'network' | 'failed' | 'unknown';
 
 export class CreateMemberError extends Error {
   readonly reason: CreateMemberFailure;
@@ -73,7 +77,7 @@ export async function createMember(
   });
   if (!error) {
     if (isCreatedMember(data)) return data;
-    throw new CreateMemberError('failed');
+    throw new CreateMemberError('unknown');
   }
   // FunctionsHttpError niesie odpowiedź funkcji; FunctionsFetchError to brak połączenia.
   if (error.name === 'FunctionsFetchError') throw new CreateMemberError('network');
@@ -85,5 +89,6 @@ export async function createMember(
   }
   if (status === 401) throw new CreateMemberError('session');
   if (status === 403) throw new CreateMemberError('forbidden');
-  throw new CreateMemberError('failed');
+  if (status === 500 && body.error === 'failed') throw new CreateMemberError('failed');
+  throw new CreateMemberError('unknown');
 }

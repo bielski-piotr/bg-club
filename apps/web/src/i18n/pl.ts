@@ -162,6 +162,7 @@ export const pl = {
     results: { one: '{n} wynik', few: '{n} wyniki', many: '{n} wyników' },
     noResultsTitle: 'Nikt nie pasuje do „{query}”',
     noResultsHelper: 'Sprawdź pisownię albo wpisz fragment imienia, nazwiska lub hooka.',
+    emptyTitle: 'Brak członków do pokazania',
     add: 'Dodaj członka',
     addShort: 'Dodaj',
   },
@@ -197,8 +198,11 @@ export const pl = {
       tooLong: 'Może mieć najwyżej {max} znaków.',
       forbidden: 'Członków może dodawać tylko administrator.',
       session: 'Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.',
-      network: 'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.',
+      network:
+        'Brak połączenia z serwerem. Sprawdź internet, a przed ponowną próbą zajrzyj na listę członków: konto mogło już powstać.',
       failed: 'Nie udało się dodać członka. Nic nie zostało zapisane, spróbuj ponownie.',
+      unknown:
+        'Nie wiemy, czy członek został dodany. Sprawdź listę członków, zanim spróbujesz ponownie.',
     },
   },
   config: {

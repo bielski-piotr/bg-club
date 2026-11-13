@@ -4,7 +4,7 @@ Edge Functions (Deno) z kluczem service role wyłącznie po stronie serwera (PRD
 
 Lokalne sekrety funkcji trzymamy w `supabase/functions/.env` (ignorowany przez git). Wzór: `.env.example`.
 
-Service role omija RLS, więc każda funkcja sama sprawdza, kto ją wywołuje (token użytkownika, rola admina w `profiles`). Bramka dodatkowo wymaga ważnego tokenu (`verify_jwt = true` w `config.toml`).
+Service role omija RLS, więc każda funkcja sama sprawdza, kto ją wywołuje (token użytkownika, rola admina w `profiles`). Token weryfikuje sama funkcja (`auth.getUser`), dlatego `config.toml` ma `verify_jwt = false`: sprawdzanie JWT w bramce nie obsługuje asymetrycznych kluczy JWT nowych projektów.
 
 Każda funkcja ma `index.ts` (Deno, supabase-js, `Deno.serve`) i `handler.ts` z logiką żądania bez zależności od Deno, testowaną przez `deno test` (`handler.test.ts`). Lint, typy i testy: README, sekcja „Edge Functions”.
 

@@ -81,6 +81,9 @@ function bearerToken(request: Request): string | null {
 async function readInput(
   request: Request,
 ): Promise<{ firstName: string; lastName: string } | null> {
+  // Zadeklarowana długość odrzuca duże żądanie przed wczytaniem; druga kontrola łapie brak nagłówka.
+  const declared = Number(request.headers.get('Content-Length') ?? '0');
+  if (declared > MAX_BODY_BYTES) return null;
   const text = await request.text();
   if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return null;
   let body: unknown;

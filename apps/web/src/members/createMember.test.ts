@@ -48,6 +48,10 @@ describe('createMember: wywołanie Edge Function (MEM-3)', () => {
     expect(
       await failure({ data: null, error: httpError(401, { error: 'unauthorized' }) }),
     ).toMatchObject({ reason: 'session' });
+    // Odpowiedź bramki (np. przekroczony czas): konto mogło powstać.
+    expect(await failure({ data: null, error: httpError(504, { msg: 'timeout' }) })).toMatchObject({
+      reason: 'unknown',
+    });
     expect(await failure({ data: null, error: httpError(500, { error: 'failed' }) })).toMatchObject(
       {
         reason: 'failed',

@@ -24,6 +24,7 @@ const SAVE_ERRORS: Readonly<Record<Exclude<CreateMemberFailure, 'invalid'>, stri
   session: text.errors.session,
   network: text.errors.network,
   failed: text.errors.failed,
+  unknown: text.errors.unknown,
 };
 
 /** Ta sama walidacja co w Edge Function (`validateMemberInput`), żeby nie wysyłać złych danych. */

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { PopupRouter } from '../popups/PopupRouter';
 import type { Profile } from '../profile/profiles';
@@ -365,7 +365,12 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
 describe('dodawanie członka (MEM-3, AUTH-4)', () => {
   it('admin dodaje członka z pustego widżetu i raz widzi hook oraz hasło', async () => {
     const writeText = vi.fn(async () => undefined);
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    onTestFinished(() => {
+      if (original) Object.defineProperty(navigator, 'clipboard', original);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    });
     const { invoke, queryClient } = renderHub([ADA]);
     const widget = await screen.findByRole('region', { name: 'Członkowie' });
     fireEvent.click(await within(widget).findByRole('button', { name: 'Dodaj członka' }));
