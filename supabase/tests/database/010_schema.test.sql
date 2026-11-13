@@ -99,7 +99,7 @@ select has_extension('extensions', 'pg_trgm', 'pg_trgm w schemacie extensions');
 select is(public.search_text('Łąka ŻÓŁW Ćma'), 'laka zolw cma', 'search_text usuwa polskie znaki i wielkość liter');
 select volatility_is('public', 'search_text', array['text'], 'immutable', 'search_text jest immutable (indeksowalna)');
 
--- RLS włączone na każdej tabeli public (polityki: zadanie [004]).
+-- RLS włączone na każdej tabeli public (polityki i prawa ról: 050, 060).
 select is_empty(
   $$ select relname from pg_class
       where relnamespace = 'public'::regnamespace and relkind = 'r' and not relrowsecurity $$,

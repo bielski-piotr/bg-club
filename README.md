@@ -109,14 +109,44 @@ Migracje w [`supabase/migrations/`](supabase/migrations) odtwarzają cały schem
 | `plays`, `play_results`            | partie (szkic lub zapisana karteczka) i wyniki graczy | szkic tylko w spotkaniu w trakcie; snapshot punktacji i bieżącej wersji notesu ustawiany w bazie przy utworzeniu szkicu; jedna partia gracza na karteczce; najwyżej min(max gry, miejsca w notesie) graczy, przy zapisie co najmniej 2; `saved_at` nadaje baza; zapisana karteczka niezmienna |
 | `achievement_unlocks`              | odblokowane osiągnięcia                               | identyfikator z katalogu w kodzie                                                                                                                                                                                                                                                             |
 
-Znaczniki czasu to wyłącznie `timestamptz` (NFR-10). Gry i profile usuwa się miękko, a klucze obce do nich blokują twarde usunięcie, więc historia zostaje. Strażnicy czytający inne tabele są `security definer` z pustym `search_path`, więc polityki RLS ich nie omijają. RLS jest włączone na każdej tabeli; polityki dostępu, RPC i buckety Storage dochodzą w zadaniu [004].
+Znaczniki czasu to wyłącznie `timestamptz` (NFR-10). Gry i profile usuwa się miękko, a klucze obce do nich blokują twarde usunięcie, więc historia zostaje. Strażnicy czytający inne tabele są `security definer` z pustym `search_path`, więc polityki RLS ich nie omijają.
 
 Kolejność zdarzeń (PRD §5.6.6): spotkania `starts_at, id`, partie w spotkaniu `saved_at, id`; obie mają indeksy.
+
+### Uprawnienia (RLS, RPC, Storage)
+
+Macierz uprawnień to PRD §2.1 i §6.1; wymusza ją migracja `20261113000400_access_control.sql`. Zasada: odmowa domyślna.
+
+- **`anon`** nie ma żadnych praw do tabel i funkcji aplikacji. Wszystko wymaga zalogowania.
+- **`authenticated`** ma `SELECT` na tabelach oraz `INSERT`/`UPDATE` tylko na wymienionych kolumnach (bez `TRUNCATE`). RLS zawęża to do wierszy: odczyt dla **aktywnych** kont, więc usunięte konto z wciąż ważnym tokenem nic nie widzi.
+- **`service_role`** omija RLS i jest używany wyłącznie w Edge Functions. Tylko tam zmienia się `role`, `hook` i `deleted_at` profilu oraz tworzy i usuwa profile. Klucz `service_role` / `sb_secret_…` podany jako `VITE_SUPABASE_ANON_KEY` zatrzymuje `vite build` (zanim trafi do bundla), a test pilnuje, że kod SPA czyta tylko dwie publiczne zmienne.
+- Nowe tabele i funkcje w `public` nie dostają praw automatycznie: migracja nadaje je jawnie, a funkcji odbiera `EXECUTE` od `PUBLIC` i `anon`. Kontrakt praw sprawdza test `050_access_control`.
+
+| Tabela                                              | Odczyt  | Zapis przez API                                                                                                       |
+| --------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `club`                                              | aktywni | admin: `name`, `logo_path`, `timezone`                                                                                |
+| `profiles`                                          | aktywni | właściciel: `first_name`, `last_name`, `avatar_path` (`<id>/<plik>`), `theme`; nikt nie edytuje cudzego (też admin)   |
+| `games`, `scorepads`, `scorepad_versions`           | aktywni | admin; usuwanie miękkie (`deleted_at`), wersje tylko dopisywane                                                       |
+| `meetings`, `meeting_participants`, `meeting_games` | aktywni | admin; `created_by` z tokenu; uczestnicy tylko przed zakończeniem; status zmienia RPC (start i koniec też prowadzący) |
+| `game_votes`                                        | aktywni | własny głos, uczestnik, tylko przy otwartym głosowaniu (wyzwalacz blokuje też wyścig z zamknięciem)                   |
+| `plays`, `play_results`                             | aktywni | tylko RPC (także usunięcie partii i porzucenie szkicu, z przeliczeniem statystyk)                                     |
+| `achievement_unlocks`                               | aktywni | tylko przeliczenie osiągnięć (RPC)                                                                                    |
+
+Funkcje sprawdzające role są w schemacie `private` (PostgREST go nie udostępnia): `is_active_member()`, `is_admin()`, `is_meeting_runner(meeting_id)` (admin albo `host_id` niezakończonego spotkania). Są `security definer` z pustym `search_path`. Każde RPC `security definer` z kolejnych zadań zaczyna od strażnika `private.require_admin()`, `private.require_meeting_runner(meeting_id)` albo `private.require_active_member()` (błąd `42501`), ma `set search_path = ''`, w pełni kwalifikowane nazwy i jawne `grant execute ... to authenticated`.
+
+Buckety Storage są prywatne (odczyt dla aktywnych kont, pliki przez sesję lub podpisany URL), przyjmują WebP, JPEG i PNG:
+
+| Bucket      | Limit | Ścieżka                            | Zapis                                                                                                                       |
+| ----------- | ----- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `avatars`   | 1 MiB | `<profile_id>/<plik>`              | właściciel folderu (bez podfolderów)                                                                                        |
+| `covers`    | 2 MiB | dowolna (okładki gier, logo klubu) | admin                                                                                                                       |
+| `scorepads` | 5 MiB | dowolna (zdjęcia szablonów)        | admin                                                                                                                       |
+| `sheets`    | 2 MiB | `<meeting_id>/<play_id>-<sufiks>`  | dodanie: admin lub prowadzący niezakończonego spotkania; bez nadpisywania (nowa nazwa przy każdej próbie); usunięcie: admin |
 
 ## Testy (NFR-11)
 
 - **Jednostkowe:** Vitest, pliki `*.test.ts(x)` obok kodu. Logika wyników w `packages/scoring`.
-- **SQL:** pgTAP w `supabase/tests/database/*.test.sql`, uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych.
+- **SQL:** pgTAP w `supabase/tests/database/*.test.sql`, uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych. Testy uprawnień (`050`, `060`) przełączają się na role `anon` i `authenticated` z tokenem w `request.jwt.claims`, tak jak PostgREST i Storage API.
 - **E2E:** Playwright w `apps/web/e2e/`. Każdy test przechodzi w czterech projektach: `mobile-light`, `mobile-dark` (360×740) oraz `desktop-light`, `desktop-dark` (1280×900).
 
 ## CI

@@ -3,6 +3,8 @@
  * W repozytorium nie ma żadnych wartości (NFR-9); podaje się je w `.env.local`
  * lub w ustawieniach Cloudflare Pages.
  */
+import { isSecretKey } from './secretKey';
+
 export interface AppConfig {
   readonly supabaseUrl: string;
   readonly supabaseAnonKey: string;
@@ -10,7 +12,8 @@ export interface AppConfig {
 
 export type ConfigIssue =
   | { readonly kind: 'missing'; readonly names: readonly string[] }
-  | { readonly kind: 'invalidUrl'; readonly name: string };
+  | { readonly kind: 'invalidUrl'; readonly name: string }
+  | { readonly kind: 'secretKey'; readonly name: string };
 
 export type ConfigResult =
   | { readonly ok: true; readonly config: AppConfig }
@@ -47,6 +50,9 @@ export function parseConfig(env: RawEnv): ConfigResult {
   if (missing.length > 0) issues.push({ kind: 'missing', names: missing });
   if (supabaseUrl && !isHttpUrl(supabaseUrl)) {
     issues.push({ kind: 'invalidUrl', name: ENV_SUPABASE_URL });
+  }
+  if (supabaseAnonKey && isSecretKey(supabaseAnonKey)) {
+    issues.push({ kind: 'secretKey', name: ENV_SUPABASE_ANON_KEY });
   }
 
   if (issues.length > 0) return { ok: false, issues };

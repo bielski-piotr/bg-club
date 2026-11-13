@@ -42,6 +42,8 @@ function issueText(issue: ConfigIssue): string {
       return format(t.config.missing, { names: issue.names.join(', ') });
     case 'invalidUrl':
       return format(t.config.invalidUrl, { name: issue.name });
+    case 'secretKey':
+      return format(t.config.secretKey, { name: issue.name });
   }
 }
 
