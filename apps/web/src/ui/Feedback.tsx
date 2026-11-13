@@ -39,8 +39,10 @@ export function Banner({ variant, children, action, className }: BannerProps) {
 }
 
 export interface EmptyStateProps {
-  /** Ikona 22 px w kółku 56 #EEF2FF albo własny element (np. awatar 56). */
-  readonly lead: IconName | ReactNode;
+  /** Ikona 22 px w kółku 56 #EEF2FF (np. `dice`, `calendar`). */
+  readonly icon?: IconName | undefined;
+  /** Własny element zamiast ikony (np. awatar 56 w widżecie Członkowie). */
+  readonly lead?: ReactNode | undefined;
   readonly title: string;
   readonly helper?: string | undefined;
   /** CTA pod treścią (pełnej szerokości przycisk główny, DS §6). */
@@ -48,13 +50,13 @@ export interface EmptyStateProps {
 }
 
 /** Pusty stan widżetu (DS §6, §17 CLUB-4). */
-export function EmptyState({ lead, title, helper, action }: EmptyStateProps) {
+export function EmptyState({ icon, lead, title, helper, action }: EmptyStateProps) {
   return (
     <div className="empty-state">
       <div className="empty-state__row">
-        {typeof lead === 'string' ? (
+        {icon ? (
           <span className="empty-state__lead">
-            <Icon name={lead as IconName} size={22} />
+            <Icon name={icon} size={22} />
           </span>
         ) : (
           lead

@@ -38,7 +38,7 @@ export function FieldFrame({
   children,
   className,
 }: FieldFrameProps) {
-  const message = error ?? hint;
+  const message = error || hint;
   return (
     <div className={cx('field', className)}>
       <label htmlFor={id} className={cx('field__label', hideLabel && 'sr-only')}>

@@ -7,6 +7,7 @@ import {
   Avatar,
   Button,
   ChipGroup,
+  EmptyState,
   PasswordField,
   SearchField,
   SegmentedControl,
@@ -318,5 +319,81 @@ describe('ToastProvider', () => {
   it('useToast bez providera zgłasza błąd', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => render(<Trigger />)).toThrow('useToast wymaga ToastProvider');
+  });
+});
+
+describe('poprawki po code review', () => {
+  it('pusty błąd nie ukrywa podpowiedzi ani nie psuje aria-describedby', () => {
+    render(<TextField label="Imię" hint="Widzą je wszyscy." error="" defaultValue="" />);
+    const input = screen.getByLabelText('Imię');
+    expect(input).toHaveAccessibleDescription('Widzą je wszyscy.');
+    expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('Tab w otwartej liście oddaje fokus przyciskowi listy', () => {
+    render(
+      <Select label="Rok" options={[{ value: 'a', label: 'A' }]} value="a" onChange={() => {}} />,
+    );
+    const trigger = screen.getByRole('button', { name: /Rok/ });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Tab' });
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('wyłączona wybrana opcja nie jest aktywna po otwarciu listy', () => {
+    render(
+      <Select
+        label="Rok"
+        options={[
+          { value: 'a', label: 'A' },
+          { value: 'b', label: 'B', disabled: true },
+        ]}
+        value="b"
+        onChange={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Rok/ }));
+    expect(screen.getByRole('listbox')).toHaveAttribute(
+      'aria-activedescendant',
+      screen.getByRole('option', { name: 'A' }).id,
+    );
+  });
+
+  it('zamknięcie toastu przyciskiem z fokusem nie wstrzymuje kolejnych', () => {
+    vi.useFakeTimers();
+    try {
+      function Trigger() {
+        const toast = useToast();
+        return <button onClick={() => toast.show('Głos zapisany')}>pokaż</button>;
+      }
+      render(
+        <ToastProvider duration={1000}>
+          <Trigger />
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'pokaż' }));
+      const close = screen.getByRole('button', { name: t.ui.dismissToast });
+      act(() => close.focus());
+      fireEvent.click(close);
+      expect(screen.queryByText('Głos zapisany')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'pokaż' }));
+      act(() => vi.advanceTimersByTime(1000));
+      expect(screen.queryByText('Głos zapisany')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('pusty stan pokazuje ikonę albo własny element', () => {
+    const { container } = render(
+      <>
+        <EmptyState icon="dice" title="Kolekcja jest pusta" />
+        <EmptyState lead={<span>🎲</span>} title="Inny" />
+      </>,
+    );
+    expect(container.querySelectorAll('.empty-state__lead svg')).toHaveLength(1);
+    expect(screen.getByText('🎲')).toBeInTheDocument();
   });
 });

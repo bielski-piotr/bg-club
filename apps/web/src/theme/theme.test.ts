@@ -61,11 +61,11 @@ describe('applyTheme', () => {
         (m) => m.content,
       );
 
-    applyTheme(root, 'dark', false);
+    applyTheme(root, 'dark');
     expect(root.dataset.theme).toBe('dark');
     expect(metas()).toEqual(['#0F1220', '#0F1220']);
 
-    applyTheme(root, 'system', false);
+    applyTheme(root, 'system');
     expect(root.hasAttribute('data-theme')).toBe(false);
     expect(metas()).toEqual(['#F3F4F8', '#0F1220']);
   });

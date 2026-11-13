@@ -65,7 +65,7 @@ export function Select<T extends string>({
 
   const openList = (index: number) => {
     if (disabled) return;
-    setActive(index >= 0 ? index : (enabledIndexes[0] ?? -1));
+    setActive(enabledIndexes.includes(index) ? index : (enabledIndexes[0] ?? -1));
     setOpen(true);
   };
 
@@ -142,7 +142,8 @@ export function Select<T extends string>({
         close(true);
         return;
       case 'Tab':
-        close(false);
+        // Fokus wraca na przycisk przed zamknięciem, więc Tab przechodzi do następnej kontrolki.
+        close(true);
         return;
       default:
         if (event.key.length === 1 && /\S/.test(event.key)) {
@@ -160,7 +161,7 @@ export function Select<T extends string>({
     }
   };
 
-  const message = error ?? hint;
+  const message = error || hint;
 
   return (
     <div className={cx('field', 'select', `select--${appearance}`, className)} ref={rootRef}>

@@ -50,22 +50,17 @@ export function resolveTheme(preference: ThemePreference, systemDark: boolean): 
 }
 
 /** Ustawia `data-theme` i jednolity `theme-color` dla wybranego motywu. */
-export function applyTheme(
-  root: HTMLElement,
-  preference: ThemePreference,
-  systemDark: boolean,
-): void {
+export function applyTheme(root: HTMLElement, preference: ThemePreference): void {
   if (preference === 'system') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', preference);
 
   const doc = root.ownerDocument;
   const metas = doc.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
-  const color = THEME_COLOR[resolveTheme(preference, systemDark)];
   metas.forEach((meta) => {
-    // Przy wymuszonym motywie oba wpisy (jasny i ciemny system) dostają ten sam kolor.
+    // Motyw systemowy: każdy wpis ma kolor swojego `media`. Wymuszony: oba ten sam kolor.
     const own = (meta.getAttribute('media') ?? '').includes('dark')
       ? THEME_COLOR.dark
       : THEME_COLOR.light;
-    meta.content = preference === 'system' ? own : color;
+    meta.content = preference === 'system' ? own : THEME_COLOR[preference];
   });
 }

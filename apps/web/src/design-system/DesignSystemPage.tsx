@@ -424,7 +424,7 @@ export default function DesignSystemPage() {
           </Card>
           <Card title={s.collectionTitle} count={s.zeroGames}>
             <EmptyState
-              lead="dice"
+              icon="dice"
               title={s.collectionEmpty}
               helper={s.collectionEmptyHelper}
               action={

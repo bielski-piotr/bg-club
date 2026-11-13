@@ -32,14 +32,11 @@ function current(): ThemePreference {
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   const media = typeof window.matchMedia === 'function' ? window.matchMedia(DARK_QUERY) : null;
-  const onSystemChange = () => {
-    applyTheme(document.documentElement, current(), systemDark());
-    listener();
-  };
-  media?.addEventListener('change', onSystemChange);
+  // Motyw systemowy obsługuje CSS (`prefers-color-scheme`); tu tylko odświeżamy `resolved`.
+  media?.addEventListener('change', listener);
   return () => {
     listeners.delete(listener);
-    media?.removeEventListener('change', onSystemChange);
+    media?.removeEventListener('change', listener);
   };
 }
 
@@ -47,13 +44,13 @@ function subscribe(listener: () => void): () => void {
 export function setThemePreference(next: ThemePreference): void {
   preference = next;
   storePreference(storage(), next);
-  applyTheme(document.documentElement, next, systemDark());
+  applyTheme(document.documentElement, next);
   listeners.forEach((listener) => listener());
 }
 
 /** Stosuje zapamiętany motyw przy starcie (uzupełnia skrypt z `index.html`). */
 export function initTheme(): void {
-  applyTheme(document.documentElement, current(), systemDark());
+  applyTheme(document.documentElement, current());
 }
 
 export interface ThemeState {

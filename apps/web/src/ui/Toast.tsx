@@ -58,7 +58,11 @@ export interface ToastProviderProps {
  */
 export function ToastProvider({ children, duration = 4000, limit = 3 }: ToastProviderProps) {
   const [entries, setEntries] = useState<readonly Entry[]>([]);
-  const [paused, setPaused] = useState(false);
+  // Najechanie i fokus wstrzymują znikanie niezależnie od siebie.
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const paused = hovered || focused;
+  const regionRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
 
   const dismiss = useCallback((id: number) => {
@@ -74,6 +78,12 @@ export function ToastProvider({ children, duration = 4000, limit = 3 }: ToastPro
     [limit],
   );
 
+  // Zamknięty toast zabiera ze sobą przycisk z fokusem, a nie każda przeglądarka wysyła wtedy
+  // `focusout`. Po każdej zmianie listy sprawdzamy, czy fokus nadal jest w regionie.
+  useEffect(() => {
+    if (focused && !regionRef.current?.contains(document.activeElement)) setFocused(false);
+  }, [entries, focused]);
+
   const api = useMemo<ToastApi>(() => ({ show, dismiss }), [show, dismiss]);
 
   return (
@@ -83,10 +93,13 @@ export function ToastProvider({ children, duration = 4000, limit = 3 }: ToastPro
         className="toast-region"
         role="region"
         aria-label={t.ui.notifications}
-        onPointerEnter={() => setPaused(true)}
-        onPointerLeave={() => setPaused(false)}
-        onFocus={() => setPaused(true)}
-        onBlur={() => setPaused(false)}
+        ref={regionRef}
+        onPointerEnter={() => setHovered(true)}
+        onPointerLeave={() => setHovered(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
+        }}
       >
         <div aria-live="polite" className="toast-region__list">
           {entries
