@@ -56,7 +56,15 @@ Deno.serve((request) =>
           password,
           // Techniczny adres nie przyjmuje poczty; konto jest od razu potwierdzone.
           email_confirm: true,
-          app_metadata: { bg_club: { first_name: firstName, last_name: lastName, role: 'player' } },
+          // Hasło jest wygenerowane: przy pierwszym logowaniu aplikacja proponuje zmianę (AUTH-6).
+          app_metadata: {
+            bg_club: {
+              first_name: firstName,
+              last_name: lastName,
+              role: 'player',
+              password_generated: true,
+            },
+          },
         });
         if (error || !data.user) {
           return {

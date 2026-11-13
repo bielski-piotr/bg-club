@@ -1,27 +1,24 @@
-import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { t } from '../i18n';
+import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { Avatar, Badge, Banner, Button, EmptyState } from '../ui';
-import { avatarPerson, fullName, useProfile } from './profiles';
+import { Badge, Banner, Button, EmptyState, type IconName } from '../ui';
+import { ProfileAvatar } from './ProfileAvatar';
+import { fullName, useProfile } from './profiles';
 import './profile.css';
 
 /**
- * Popup profilu gracza (PRD USR-4, MEM-5). Na razie: awatar, imię i nazwisko, hook i rola.
- * Statystyki, osiągnięcia i ustawienia właściciela dochodzą w zadaniu [010]; do tego czasu
- * właściciel ma tu przycisk wylogowania.
+ * Popup profilu gracza (PRD USR-4, USR-5, MEM-5): awatar, imię i nazwisko, hook, statystyki
+ * i gablota osiągnięć. Statystyki (§5.9) i gablota (§5.10) mają stan oczekiwania do etapów
+ * E5 i E6. Właściciel ma przycisk **Ustawienia** (USR-5); cudzy profil nie ma akcji edycji
+ * także dla administratora (USR-7). Usunięty członek ma profil tylko do odczytu (MEM-5).
  */
 export function ProfilePopup({ id }: { readonly id: string }) {
-  const { client, state, signOut } = useAuth();
+  const { client, state } = useAuth();
+  const { open } = usePopups();
   const profile = useProfile(client, id);
-  const [signingOut, setSigningOut] = useState(false);
   const ownId = state.status === 'signedIn' ? state.session.user.id : null;
-
-  const onSignOut = () => {
-    setSigningOut(true);
-    signOut().catch(() => setSigningOut(false));
-  };
 
   if (!profile.isSuccess) {
     return (
@@ -41,11 +38,25 @@ export function ProfilePopup({ id }: { readonly id: string }) {
   }
 
   const removed = data.deleted_at !== null;
-  const own = data.id === ownId;
+  const own = data.id === ownId && !removed;
   return (
-    <PopupModal title={t.profile.title}>
+    <PopupModal
+      title={t.profile.title}
+      actions={
+        own ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="settings"
+            onClick={() => open({ kind: 'settings' })}
+          >
+            {t.profile.settings}
+          </Button>
+        ) : undefined
+      }
+    >
       <div className="profile">
-        <Avatar {...avatarPerson(data)} size={88} decorative />
+        <ProfileAvatar profile={data} size={88} decorative />
         <div className="profile__text">
           <p className="profile__name">
             {fullName(data)}
@@ -68,13 +79,38 @@ export function ProfilePopup({ id }: { readonly id: string }) {
           {t.profile.removedNote}
         </Banner>
       ) : null}
-      {own ? (
-        <div className="profile__actions">
-          <Button variant="secondary" icon="logout" loading={signingOut} onClick={onSignOut}>
-            {t.auth.signOut}
-          </Button>
-        </div>
-      ) : null}
+      <PendingSection
+        icon="trophy"
+        title={t.profile.stats.title}
+        headline={t.profile.stats.pendingTitle}
+        helper={t.profile.stats.pendingHelper}
+      />
+      <PendingSection
+        icon="flag"
+        title={t.profile.achievements.title}
+        headline={t.profile.achievements.pendingTitle}
+        helper={t.profile.achievements.pendingHelper}
+      />
     </PopupModal>
+  );
+}
+
+/** Sekcja profilu, której dane dochodzą w kolejnych etapach (stan oczekiwania). */
+function PendingSection({
+  icon,
+  title,
+  headline,
+  helper,
+}: {
+  readonly icon: IconName;
+  readonly title: string;
+  readonly headline: string;
+  readonly helper: string;
+}) {
+  return (
+    <section className="profile__section" aria-label={title}>
+      <h3 className="profile__section-title">{title}</h3>
+      <EmptyState icon={icon} title={headline} helper={helper} />
+    </section>
   );
 }

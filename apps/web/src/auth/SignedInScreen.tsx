@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Hub } from '../hub/Hub';
 import { t } from '../i18n';
 import { PopupRouter } from '../popups/PopupRouter';
+import { useProfileTheme } from '../theme/useProfileTheme';
 import { Banner, Button } from '../ui';
 import { useAuth } from './authContext';
 import { LoadingScreen } from './LoadingScreen';
@@ -16,6 +17,7 @@ export function SignedInScreen({ userId }: { readonly userId: string }) {
   const { client, signOut } = useAuth();
   const profile = useOwnProfile(client, userId);
   const inactive = profile.isSuccess && profile.data === null;
+  useProfileTheme(profile.data?.theme);
 
   useEffect(() => {
     if (inactive) void signOut('accountInactive');
@@ -61,7 +63,7 @@ export function SignedInScreen({ userId }: { readonly userId: string }) {
 
   return (
     <PopupRouter>
-      <Hub me={{ ...profile.data, deleted_at: null }} />
+      <Hub me={profile.data} />
     </PopupRouter>
   );
 }

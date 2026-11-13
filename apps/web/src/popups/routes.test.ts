@@ -27,6 +27,21 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute('club/1')).toEqual({ kind: 'invalid', raw: 'club/1' });
   });
 
+  it('zna ustawienia, zmianę hasła i pierwsze logowanie (USR-5, AUTH-6)', () => {
+    expect(parseStack(`?p=profile/${ID}&p=settings&p=settings/password`)).toEqual([
+      { kind: 'profile', id: ID },
+      { kind: 'settings' },
+      { kind: 'change-password' },
+    ]);
+    expect(stackSearch('', [{ kind: 'settings' }, { kind: 'change-password' }])).toBe(
+      '?p=settings&p=settings/password',
+    );
+    expect(stackSearch('', [{ kind: 'first-login' }])).toBe('?p=first-login');
+    expect(parseRoute('first-login')).toEqual({ kind: 'first-login' });
+    expect(parseRoute('settings/avatar')).toEqual({ kind: 'invalid', raw: 'settings/avatar' });
+    expect(parseRoute(`settings/${ID}`)).toEqual({ kind: 'invalid', raw: `settings/${ID}` });
+  });
+
   it('zna formularz dodawania członka (MEM-3)', () => {
     expect(parseStack('?p=members&p=members/new')).toEqual([
       { kind: 'members' },

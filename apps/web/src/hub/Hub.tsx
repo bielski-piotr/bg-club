@@ -1,7 +1,9 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/authContext';
+import type { OwnProfile } from '../auth/useOwnProfile';
 import { FirstRun } from '../club/FirstRun';
 import { t } from '../i18n';
+import { usePopups } from '../popups/popupContext';
 import { PopupHost } from '../popups/PopupHost';
 import type { PopupRoute } from '../popups/routes';
 import type { Profile } from '../profile/profiles';
@@ -27,9 +29,10 @@ const MAIN_ID = 'hub-main';
  * Telefon: jedna kolumna w kolejności PRD. Przed założeniem klubu zamiast widżetów jest
  * pierwsze uruchomienie (CLUB-1, CLUB-3). Popupy ze stosu w adresie są nad hubem.
  */
-export function Hub({ me }: { readonly me: Profile }) {
+export function Hub({ me }: { readonly me: OwnProfile }) {
   const { client } = useAuth();
   const club = useClub(client);
+  usePasswordSuggestion(me);
   const renderPopup = useCallback((route: PopupRoute) => <HubPopup route={route} me={me} />, [me]);
   // Dane klubu mają pierwszeństwo przed błędem: nieudane ponowne pobranie nie chowa widżetów.
   const loaded = club.data !== undefined;
@@ -80,6 +83,25 @@ export function Hub({ me }: { readonly me: Profile }) {
       </div>
     </PopupHost>
   );
+}
+
+/**
+ * Pierwsze logowanie kontem z wygenerowanym hasłem (AUTH-6): przy wejściu do aplikacji bez
+ * popupów w adresie otwiera propozycję własnego hasła. Wejście z linku do popupu jej nie
+ * przerywa (ani po jego zamknięciu). „Pomiń” zapisuje rezygnację w profilu, a zamknięcie (×, Esc)
+ * tylko odkłada propozycję do kolejnego uruchomienia.
+ */
+function usePasswordSuggestion(me: OwnProfile) {
+  const { stack, open } = usePopups();
+  // Decyzja zapada raz, przy pierwszym renderze huba.
+  const [suggest] = useState(() => me.password_change_suggested && stack.length === 0);
+  // Ref chroni przed podwójnym otwarciem, gdy StrictMode uruchamia efekt drugi raz.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!suggest || opened.current) return;
+    opened.current = true;
+    open({ kind: 'first-login' });
+  }, [suggest, open]);
 }
 
 /** Pięć widżetów w kolejności PRD §4; każdy ma własny pusty stan (CLUB-4). */

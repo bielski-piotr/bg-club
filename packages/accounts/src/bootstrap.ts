@@ -117,7 +117,15 @@ export async function bootstrapAdmin(
     password,
     // Techniczny adres nie przyjmuje poczty; konto jest od razu potwierdzone.
     email_confirm: true,
-    app_metadata: { bg_club: { first_name: firstName, last_name: lastName, role: 'admin' } },
+    app_metadata: {
+      bg_club: {
+        first_name: firstName,
+        last_name: lastName,
+        role: 'admin',
+        // Własne hasło administratora: bez propozycji zmiany przy pierwszym logowaniu (AUTH-6).
+        password_generated: ownPassword === null,
+      },
+    },
   });
 
   if (error || !data.user) {

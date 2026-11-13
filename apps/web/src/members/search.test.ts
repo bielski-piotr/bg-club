@@ -8,6 +8,7 @@ const member = (first: string, last: string, hook: string): Profile => ({
   first_name: first,
   last_name: last,
   role: 'player',
+  avatar_path: null,
   deleted_at: null,
 });
 

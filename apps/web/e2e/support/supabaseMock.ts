@@ -17,6 +17,12 @@ export interface MockProfile {
   readonly last_name: string;
   readonly role: 'admin' | 'player';
   readonly deleted_at: string | null;
+  /** Zdjęcie w buckecie `avatars` (USR-3); brak = monogram. */
+  readonly avatar_path?: string | null;
+  /** Motyw z profilu (USR-8); brak = `system`. */
+  readonly theme?: 'light' | 'dark' | 'system';
+  /** Propozycja zmiany wygenerowanego hasła (AUTH-6); brak = `false`. */
+  readonly password_change_suggested?: boolean;
 }
 
 export const ADA: MockProfile = {
@@ -118,6 +124,11 @@ export interface MockOptions {
    * z imienia i nazwiska, dopisany do `members`; inaczej podany status i treść błędu.
    */
   createMember?: { readonly status: number; readonly body: unknown };
+  /**
+   * Odpowiedź Auth na zmianę hasła (`PUT /auth/v1/user`, USR-5): kod błędu GoTrue, np.
+   * `current_password_invalid`. Domyślnie: hasło zmienione.
+   */
+  updateUserError?: { readonly status: number; readonly code: string } | undefined;
 }
 
 /** Hasło, które atrapa `create-member` zwraca dla nowego członka (fikcyjne). */
@@ -152,6 +163,23 @@ export interface SupabaseMock {
   readonly removed: string[];
   /** Treści żądań `POST /functions/v1/create-member`. */
   readonly memberBodies: unknown[];
+  /** Zapisy własnego profilu (`PATCH /rest/v1/profiles`) z treścią żądania. */
+  readonly profileWrites: Record<string, unknown>[];
+  /** Treści żądań zmiany hasła (`PUT /auth/v1/user`). */
+  readonly userUpdates: unknown[];
+  /** Ścieżki plików wysłanych do bucketu `avatars` i z niego usuniętych. */
+  readonly avatarUploads: string[];
+  readonly avatarRemoved: string[];
+}
+
+/** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
+function withDefaults(profile: MockProfile) {
+  return {
+    avatar_path: null,
+    theme: 'system',
+    password_change_suggested: false,
+    ...profile,
+  };
 }
 
 async function reply(route: Route, kind: AuthReply) {
@@ -187,6 +215,10 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     uploads: [],
     removed: [],
     memberBodies: [],
+    profileWrites: [],
+    userUpdates: [],
+    avatarUploads: [],
+    avatarRemoved: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -204,6 +236,29 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return reply(route, mock.options.refresh ?? { kind: 'session' });
     }
     if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204 });
+    if (url.pathname === '/auth/v1/user' && request.method() === 'PUT') {
+      mock.userUpdates.push(request.postDataJSON());
+      const failure = mock.options.updateUserError;
+      if (failure) {
+        return route.fulfill({
+          status: failure.status,
+          json: { code: failure.status, error_code: failure.code, msg: failure.code },
+        });
+      }
+      return route.fulfill({ json: session().user });
+    }
+    if (url.pathname === '/rest/v1/profiles' && request.method() === 'PATCH') {
+      // RLS: tylko własny wiersz (USR-7). Atrapa zmienia profil Ady.
+      const body = request.postDataJSON() as Record<string, unknown>;
+      mock.profileWrites.push(body);
+      const own = mock.options.profile === undefined ? ADA : mock.options.profile;
+      const target = url.searchParams.get('id');
+      if (!own || target !== `eq.${own.id}`) return route.fulfill({ json: [] });
+      const next = { ...own, ...body } as MockProfile;
+      mock.options.profile = next;
+      if (!url.searchParams.has('select')) return route.fulfill({ status: 204 });
+      return route.fulfill({ json: withDefaults(next) });
+    }
     if (url.pathname === '/rest/v1/profiles') {
       const own = mock.options.profile === undefined ? ADA : mock.options.profile;
       // Konto usunięte nie widzi nic (RLS wymaga aktywnego profilu).
@@ -216,7 +271,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       rows = [...rows].sort((a, b) =>
         `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'pl'),
       );
-      return route.fulfill({ json: rows });
+      return route.fulfill({ json: rows.map(withDefaults) });
     }
     if (url.pathname === '/functions/v1/create-member' && request.method() === 'POST') {
       const body = request.postDataJSON() as { firstName: string; lastName: string };
@@ -277,6 +332,25 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     if (url.pathname === `${objectPrefix}covers` && request.method() === 'DELETE') {
       const { prefixes } = request.postDataJSON() as { prefixes: string[] };
       mock.removed.push(...prefixes);
+      return route.fulfill({ json: [] });
+    }
+    // Bucket `avatars` (USR-3): to samo dla zdjęć profilowych.
+    if (url.pathname.startsWith(`${objectPrefix}sign/avatars/`)) {
+      const path = url.pathname.slice(`${objectPrefix}sign/avatars/`.length);
+      if (request.method() === 'GET') {
+        return route.fulfill({ contentType: 'image/png', body: PIXEL_PNG });
+      }
+      return route.fulfill({ json: { signedURL: `/object/sign/avatars/${path}?token=e2e` } });
+    }
+    if (url.pathname.startsWith(`${objectPrefix}avatars/`) && request.method() === 'POST') {
+      mock.avatarUploads.push(
+        decodeURIComponent(url.pathname.slice(`${objectPrefix}avatars/`.length)),
+      );
+      return route.fulfill({ json: { Key: url.pathname.slice(objectPrefix.length) } });
+    }
+    if (url.pathname === `${objectPrefix}avatars` && request.method() === 'DELETE') {
+      const { prefixes } = request.postDataJSON() as { prefixes: string[] };
+      mock.avatarRemoved.push(...prefixes);
       return route.fulfill({ json: [] });
     }
     return route.fulfill({ status: 501, json: { msg: `brak atrapy: ${describe(request)}` } });

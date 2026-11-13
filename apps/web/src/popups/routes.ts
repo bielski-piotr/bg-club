@@ -11,6 +11,12 @@ export type PopupRoute =
   /** Formularz „Dodaj członka” (MEM-3, admin), adres `members/new`. */
   | { readonly kind: 'add-member' }
   | { readonly kind: 'profile'; readonly id: string }
+  /** Ustawienia własnego profilu (USR-5), adres `settings`. Zawsze dotyczą zalogowanego. */
+  | { readonly kind: 'settings' }
+  /** Zmiana hasła (USR-5), adres `settings/password`. */
+  | { readonly kind: 'change-password' }
+  /** Propozycja własnego hasła przy pierwszym logowaniu (AUTH-6), adres `first-login`. */
+  | { readonly kind: 'first-login' }
   /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (CLUB-2, admin). */
   | { readonly kind: 'club' }
   /** Adres, którego aplikacja nie zna albo który jest uszkodzony. Popup pokazuje czytelny stan. */
@@ -34,6 +40,11 @@ export function parseRoute(raw: string): PopupRoute {
   if (kind === 'members' && args.length === 0) return { kind: 'members' };
   if (kind === 'members' && args.length === 1 && args[0] === 'new') return { kind: 'add-member' };
   if (kind === 'club' && args.length === 0) return { kind: 'club' };
+  if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
+  if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
+    return { kind: 'change-password' };
+  }
+  if (kind === 'first-login' && args.length === 0) return { kind: 'first-login' };
   if (kind === 'profile' && args.length === 1 && isUuid(args[0] ?? '')) {
     return { kind: 'profile', id: (args[0] ?? '').toLowerCase() };
   }
@@ -50,6 +61,12 @@ export function serializeRoute(route: PopupRoute): string {
       return 'club';
     case 'profile':
       return `profile/${route.id}`;
+    case 'settings':
+      return 'settings';
+    case 'change-password':
+      return 'settings/password';
+    case 'first-login':
+      return 'first-login';
     case 'invalid':
       return route.raw;
   }

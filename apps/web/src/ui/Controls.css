@@ -83,7 +83,7 @@
 
 .slider__value {
   flex-shrink: 0;
-  width: 20px;
+  min-width: 20px;
   text-align: right;
   font: 700 16px/20px var(--font-display);
 }

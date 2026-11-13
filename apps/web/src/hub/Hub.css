@@ -92,8 +92,21 @@
   transition: border-color 120ms var(--ease);
 }
 
-.app-header__user:hover {
+.app-header__user {
+  padding: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.app-header__user:hover,
+.app-header__user--open {
   border-color: var(--c-accent);
+}
+
+.app-header__user:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* Widżet członków (DS §6, §8): awatary 64 co 52 px (telefon 56 co 46), obwódka 3 px. */

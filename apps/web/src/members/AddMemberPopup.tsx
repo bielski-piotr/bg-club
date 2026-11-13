@@ -5,8 +5,10 @@ import { useAuth } from '../auth/authContext';
 import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
-import { avatarPerson, fullName, membersKey, profileKey } from '../profile/profiles';
-import { Avatar, Banner, Button, Icon, TextField, useToast } from '../ui';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { fullName, membersKey, profileKey } from '../profile/profiles';
+import { nameProblem } from '../profile/settings';
+import { Banner, Button, Icon, TextField, useToast } from '../ui';
 import {
   createMember,
   CreateMemberError,
@@ -28,12 +30,7 @@ const SAVE_ERRORS: Readonly<Record<Exclude<CreateMemberFailure, 'invalid'>, stri
 };
 
 /** Ta sama walidacja co w Edge Function (`validateMemberInput`), żeby nie wysyłać złych danych. */
-function fieldError(value: string): FieldProblem | undefined {
-  const trimmed = value.trim();
-  if (trimmed === '') return 'required';
-  if (trimmed.length > NAME_MAX_LENGTH) return 'tooLong';
-  return undefined;
-}
+const fieldError = (value: string): FieldProblem | undefined => nameProblem(value);
 
 function problemText(problem: FieldProblem | undefined, required: string): string | undefined {
   if (problem === 'required') return required;
@@ -183,7 +180,7 @@ function Credentials({
     >
       <div className="member-form">
         <div className="member-credentials__who">
-          <Avatar {...avatarPerson(member)} size={56} decorative />
+          <ProfileAvatar profile={member} size={56} decorative />
           <div className="row__text">
             <p className="member-credentials__name">{fullName(member)}</p>
             <p className="member-credentials__helper">{text.credentialsIntro}</p>

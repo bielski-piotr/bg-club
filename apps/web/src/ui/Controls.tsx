@@ -62,6 +62,8 @@ export interface SliderProps extends Omit<
   readonly min?: number | undefined;
   readonly max?: number | undefined;
   readonly step?: number | undefined;
+  /** Tekst wartości obok suwaka i dla czytnika ekranu, np. „150%”. */
+  readonly formatValue?: ((value: number) => string) | undefined;
 }
 
 /**
@@ -75,6 +77,7 @@ export function Slider({
   min = 0,
   max = 100,
   step = 1,
+  formatValue,
   disabled,
   className,
   ...rest
@@ -97,10 +100,11 @@ export function Slider({
         disabled={disabled}
         onChange={(event) => onValueChange(Number(event.target.value))}
         style={{ '--fill': `${fill}%` } as CSSProperties}
+        aria-valuetext={formatValue?.(value)}
         {...rest}
       />
       <output htmlFor={id} className="slider__value tnum" aria-hidden="true">
-        {value}
+        {formatValue ? formatValue(value) : value}
       </output>
     </div>
   );

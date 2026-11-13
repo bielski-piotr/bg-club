@@ -35,6 +35,8 @@ export interface CreatedMemberProfile {
   readonly first_name: string;
   readonly last_name: string;
   readonly role: 'player';
+  /** Nowy członek ma monogram; zdjęcie ustawia sam w ustawieniach (USR-3). */
+  readonly avatar_path: null;
   readonly deleted_at: null;
 }
 
@@ -128,6 +130,7 @@ export async function handleCreateMember(
       first_name: member.firstName,
       last_name: member.lastName,
       role: 'player',
+      avatar_path: null,
       deleted_at: null,
     };
     return json(201, { member: profile, password: member.password });

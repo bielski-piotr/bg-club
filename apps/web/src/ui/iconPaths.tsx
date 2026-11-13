@@ -129,6 +129,15 @@ export const pictograms = {
   logout: (
     <path d="M6.5 13.5H4C3.2 13.5 2.5 12.8 2.5 12V4C2.5 3.2 3.2 2.5 4 2.5H6.5M10 11L13 8L10 5M13 8H6" />
   ),
+  /** Ustawienia profilu (USR-5): suwaki. */
+  settings: <path d="M2.5 4.5H9M12 4.5H13.5M2.5 11.5H4M7 11.5H13.5M10.5 3V6M5.5 10V13" />,
+  /** Hasło (USR-5, AUTH-6). */
+  lock: (
+    <>
+      <rect x="3" y="7" width="10" height="6.5" rx="1.75" />
+      <path d="M5.5 7V5C5.5 3.6 6.6 2.5 8 2.5C9.4 2.5 10.5 3.6 10.5 5V7" />
+    </>
+  ),
 } as const satisfies Record<string, ReactNode>;
 
 export const more = (

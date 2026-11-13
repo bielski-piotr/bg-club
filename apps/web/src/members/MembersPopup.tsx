@@ -5,8 +5,9 @@ import { usePopups } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { avatarPerson, fullName, useMembers } from '../profile/profiles';
-import { Avatar, Badge, Button, EmptyState, Icon, SearchField, Tray } from '../ui';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { fullName, useMembers } from '../profile/profiles';
+import { Badge, Button, EmptyState, Icon, SearchField, Tray } from '../ui';
 import { filterMembers } from './search';
 import './members.css';
 
@@ -61,7 +62,7 @@ export function MembersPopup({ isAdmin }: { readonly isAdmin: boolean }) {
                     to={{ kind: 'profile', id: member.id }}
                     className="row row--64 row--interactive member-row"
                   >
-                    <Avatar {...avatarPerson(member)} size={40} decorative />
+                    <ProfileAvatar profile={member} size={40} decorative />
                     <span className="row__text">
                       <span className="row__title">{fullName(member)}</span>
                       <span className="row__meta member-row__hook">{member.hook}</span>

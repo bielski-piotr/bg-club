@@ -81,7 +81,7 @@ test.describe('pierwsze uruchomienie', () => {
     await expect(art).toBeVisible();
     expect((await art.boundingBox())?.width).toBe(isMobile() ? 280 : 400);
     await expect(page.getByRole('heading', { level: 2 })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Twój profil: Ada Adminowska' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Twoje konto: Ada Adminowska' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Edytuj klub' })).toHaveCount(0);
     expect(await horizontalOverflow(page)).toBe(0);
     expect(await axe(page)).toEqual([]);

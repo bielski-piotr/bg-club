@@ -22,6 +22,7 @@ import {
   RadioGroup,
   SearchField,
   SegmentedControl,
+  Menu,
   Select,
   Skeleton,
   Slider,
@@ -316,6 +317,34 @@ export default function DesignSystemPage() {
             options={swatches}
             value={color}
             onChange={setColor}
+          />
+          <Menu
+            label={s.menuLabel}
+            items={[
+              {
+                id: 'edit',
+                label: s.menuEdit,
+                icon: 'pencil',
+                onSelect: () => toast.show(s.menuEdit, 'neutral'),
+              },
+              {
+                id: 'delete',
+                label: s.menuDelete,
+                icon: 'trash',
+                destructive: true,
+                onSelect: () => toast.show(s.menuDelete, 'neutral'),
+              },
+            ]}
+            trigger={(props) => (
+              <button
+                type="button"
+                {...props}
+                className="icon-btn icon-btn--36"
+                aria-label={s.menuTrigger}
+              >
+                <Icon name="more" />
+              </button>
+            )}
           />
         </Section>
 
