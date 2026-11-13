@@ -3,6 +3,7 @@ import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabas
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AuthContext, type AuthNotice, type AuthState } from './authContext';
+import { clearPopupsFromUrl } from '../popups/url';
 import { loginErrorKind } from './errors';
 
 interface AuthProviderProps {
@@ -31,7 +32,8 @@ function isExpired(session: Session): boolean {
  *   użytkownik wraca do logowania z komunikatem „Sesja wygasła”.
  * - Wylogowanie dotyczy tylko tego urządzenia (`scope: 'local'`): sesja znika lokalnie także bez
  *   sieci, a serwer unieważnia jej token odświeżania.
- * - Zmiana użytkownika czyści cache zapytań, żeby dane poprzedniej sesji nie zostały na ekranie.
+ * - Zmiana użytkownika czyści cache zapytań i popupy z adresu, żeby dane poprzedniej sesji nie
+ *   zostały na ekranie.
  */
 export function AuthProvider({ client, children }: AuthProviderProps) {
   const queryClient = useQueryClient();
@@ -44,7 +46,11 @@ export function AuthProvider({ client, children }: AuthProviderProps) {
     const handle = (event: AuthChangeEvent, session: Session | null) => {
       const nextUser = session?.user.id ?? null;
       if (nextUser !== userId.current) {
-        if (userId.current !== null) queryClient.clear();
+        if (userId.current !== null) {
+          queryClient.clear();
+          // Popupy poprzedniej sesji (np. jej profil) nie czekają na kolejną osobę.
+          clearPopupsFromUrl();
+        }
         userId.current = nextUser;
       }
 

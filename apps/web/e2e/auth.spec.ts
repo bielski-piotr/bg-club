@@ -15,7 +15,7 @@ import {
  */
 
 const loginHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'Zaloguj się' });
-const homeHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'Cześć, Ada!' });
+const homeHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'BG Club' });
 
 async function logIn(page: Page, hook: string, password: string) {
   await page.getByLabel('Hook').fill(hook);
@@ -42,12 +42,16 @@ test('logowanie hookiem, widok po zalogowaniu i wylogowanie', async ({ page }) =
   expect(mock.passwordBodies).toEqual([
     expect.objectContaining({ email: ADA_EMAIL, password: 'tajne-haslo-123' }),
   ]);
-  await expect(page.getByText('ada-adminowska-a001', { exact: true })).toBeVisible();
-  // Techniczny e-mail nigdy nie jest widoczny (AUTH-1).
-  await expect(page.locator('body')).not.toContainText('bgclub.invalid');
   expect(await horizontalOverflow(page)).toBe(0);
 
-  await page.getByRole('button', { name: 'Wyloguj się' }).click();
+  // Hook i wylogowanie są we własnym profilu (chip użytkownika w nagłówku huba).
+  await page.getByRole('link', { name: 'Twój profil: Ada Adminowska' }).click();
+  const profile = page.getByRole('dialog', { name: 'Profil' });
+  await expect(profile.getByText('ada-adminowska-a001', { exact: true })).toBeVisible();
+  // Techniczny e-mail nigdy nie jest widoczny (AUTH-1).
+  await expect(page.locator('body')).not.toContainText('bgclub.invalid');
+
+  await profile.getByRole('button', { name: 'Wyloguj się' }).click();
   await expect(loginHeading(page)).toBeVisible();
   expect(mock.calls).toContain('POST /auth/v1/logout?scope=local');
   expect(await storedSession(page)).toBeNull();

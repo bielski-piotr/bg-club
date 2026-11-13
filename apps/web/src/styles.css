@@ -90,3 +90,8 @@
   margin: 0;
   font-family: var(--font-mono);
 }
+
+.not-found__action {
+  display: flex;
+  margin: 24px 0 0;
+}

@@ -34,14 +34,78 @@ export const pl = {
       sessionExpired: 'Sesja wygasła. Zaloguj się ponownie.',
     },
   },
-  /** Widok po zalogowaniu do czasu huba z zadań [007] i [008]. */
+  /** Widok po zalogowaniu: błąd wczytania własnego profilu (PRD §5.1). */
   home: {
-    greeting: 'Cześć, {name}!',
-    hookLabel: 'Twój hook:',
-    body: 'Jesteś zalogowany. Widok Klubu i zakładanie klubu pojawią się w kolejnych etapach.',
     errorTitle: 'Nie udało się wczytać profilu',
     profileError: 'Sprawdź połączenie z internetem i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
+  },
+  /** Widok Klubu: nagłówek i widżety (PRD §4, DS §6, §17, zadanie [007]). */
+  hub: {
+    widgetsLabel: 'Widżety klubu',
+    yourProfile: 'Twój profil: {name}',
+    loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
+    retry: 'Spróbuj ponownie',
+    meeting: {
+      title: 'Spotkanie',
+      emptyTitle: 'Nie ma zaplanowanych spotkań',
+      emptyHelper: 'Najbliższe spotkanie klubu pojawi się tutaj razem z głosowaniem na gry.',
+    },
+    ranking: {
+      title: 'Ranking',
+      emptyTitle: 'Ranking pojawi się po pierwszej partii',
+      emptyHelper: 'Punkty, wygrane i serie liczymy z partii zapisanych na spotkaniach.',
+    },
+    timeline: {
+      title: 'Timeline',
+      emptyTitle: 'Brak spotkań',
+      emptyHelper: 'Zaplanowane i odbyte spotkania pojawią się tutaj.',
+    },
+    collection: {
+      title: 'Kolekcja',
+      emptyTitle: 'Kolekcja jest pusta',
+      emptyHelper: 'Gry klubu pojawią się tutaj, gdy administrator doda pierwszą.',
+    },
+    members: {
+      title: 'Członkowie',
+      count: { one: '{n} osoba', few: '{n} osoby', many: '{n} osób' },
+      emptyTitle: 'Na razie jesteś tu tylko Ty',
+      emptyHelper: 'Gdy administrator doda członków klubu, zobaczysz ich tutaj.',
+      and: 'i',
+      /** Dopisek po imionach w widżecie: „Bartek, Ania, Ewa, Julia i 8 innych osób” (DS §6). */
+      others: { one: 'i {n} inna osoba', few: 'i {n} inne osoby', many: 'i {n} innych osób' },
+      moreLink: 'Wszyscy członkowie: {count}',
+      loading: 'Wczytywanie członków',
+    },
+  },
+  /** Popupy i ich adresy (PRD §4, zadanie [007]). */
+  popups: {
+    invalidTitle: 'Nie znaleziono',
+    invalidBody: 'Ten adres jest nieprawidłowy albo prowadzi do widoku, którego nie ma.',
+    backToClub: 'Wróć do klubu',
+    loading: 'Wczytywanie',
+    loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
+    retry: 'Spróbuj ponownie',
+  },
+  /** Strona pod nieznanym adresem (np. literówka w ścieżce). */
+  notFound: {
+    title: 'Nie ma takiej strony',
+    body: 'Adres jest nieprawidłowy albo strona została przeniesiona.',
+    home: 'Przejdź do klubu',
+  },
+  /** Popup profilu (PRD USR-4). Statystyki, osiągnięcia i ustawienia dochodzą w zadaniu [010]. */
+  profile: {
+    title: 'Profil',
+    hookLabel: 'Hook',
+    removedNote: 'Ten członek został usunięty z klubu. Profil jest tylko do odczytu.',
+    notFoundTitle: 'Nie znaleziono gracza',
+    notFoundBody: 'Profilu z tego linku nie ma w klubie. Link może być nieaktualny.',
+  },
+  /** Popup członków (PRD MEM-2). Wyszukiwanie i dodawanie członka dochodzą w zadaniu [009]. */
+  membersPopup: {
+    title: 'Członkowie',
+    listLabel: 'Lista członków',
+    openProfile: 'Otwórz profil: {name}',
   },
   config: {
     errorTitle: 'Brak konfiguracji aplikacji',

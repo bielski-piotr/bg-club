@@ -4,4 +4,6 @@ import { afterEach } from 'vitest';
 
 afterEach(() => {
   cleanup();
+  // Popupy zapisują stos w adresie; każdy test zaczyna od czystego adresu.
+  window.history.replaceState(null, '', '/');
 });

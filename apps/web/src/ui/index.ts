@@ -20,6 +20,8 @@ export { Slider, Switch } from './Controls';
 export { Banner, EmptyState, Skeleton, type BannerVariant } from './Feedback';
 export { FieldFrame, PasswordField, SearchField, Stepper, TextField } from './Field';
 export { Icon, type IconName } from './Icon';
+export { focusableIn } from './focusable';
+export { Modal, type ModalProps } from './Modal';
 export { iconNames } from './iconPaths';
 export { Select, type SelectOption } from './Select';
 export { Spinner } from './Spinner';

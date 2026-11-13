@@ -1,0 +1,9 @@
+/* Wiersz członka w popupie (DS §7: wiersz h64, awatar 40). */
+.member-row {
+  text-decoration: none;
+}
+
+.member-row__hook {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
