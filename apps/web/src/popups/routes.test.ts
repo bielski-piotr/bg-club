@@ -27,6 +27,15 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute('club/1')).toEqual({ kind: 'invalid', raw: 'club/1' });
   });
 
+  it('zna formularz dodawania członka (MEM-3)', () => {
+    expect(parseStack('?p=members&p=members/new')).toEqual([
+      { kind: 'members' },
+      { kind: 'add-member' },
+    ]);
+    expect(stackSearch('', [{ kind: 'add-member' }])).toBe('?p=members/new');
+    expect(parseRoute('members/nowy')).toEqual({ kind: 'invalid', raw: 'members/nowy' });
+  });
+
   it('akceptuje zakodowany ukośnik i wielkie litery w uuid', () => {
     expect(parseStack(`?p=profile%2F${ID.toUpperCase()}`)).toEqual([{ kind: 'profile', id: ID }]);
   });

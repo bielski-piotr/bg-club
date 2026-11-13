@@ -49,6 +49,21 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
+  functions:
+    name: Edge Functions (Deno)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: supabase/functions
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno lint
+      - run: deno check create-member/index.ts
+      - run: deno test
+
   sql:
     name: Baza i Auth (pgTAP, integracja)
     runs-on: ubuntu-latest
@@ -60,11 +75,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Postgres, Auth, PostgREST i bramka API: tyle potrzebują migracje, pgTAP i testy logowania
-      # (`pnpm test:auth`). Pozostałe usługi pełnego stosu (`pnpm db:start`) są pominięte.
+      # Postgres, Auth, PostgREST, Edge Functions i bramka API: tyle potrzebują migracje, pgTAP
+      # i testy integracyjne (`pnpm test:auth`, w tym `create-member`). Pozostałe usługi pełnego
+      # stosu (`pnpm db:start`) są pominięte.
       - run: >-
           pnpm exec supabase start
-          -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - run: pnpm test:sql
       - run: pnpm db:lint
       # Bootstrap administratora i logowanie hookiem na świeżej instalacji.

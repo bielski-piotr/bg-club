@@ -10,13 +10,13 @@ Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres
 ## Struktura repozytorium
 
 ```
-apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; klub: src/club; popupy: src/popups
-packages/accounts/     konta: hook, techniczny e-mail, hasła, skrypt bootstrapu admina (+ testy)
+apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; klub: src/club; członkowie: src/members; popupy: src/popups
+packages/accounts/     konta: hook, techniczny e-mail, hasła, tworzenie członka, skrypt bootstrapu admina (+ testy)
 packages/score-pad/    web componenty <score-pad> i <score-pad-editor> (źródła z POC, zadanie [013])
 packages/scoring/      czysta logika wyników: miejsca, remisy, punkty, serie (+ testy)
 supabase/config.toml   konfiguracja lokalnego Supabase (CLI)
 supabase/migrations/   schemat, RLS i funkcje SQL
-supabase/functions/    Edge Functions (Deno)
+supabase/functions/    Edge Functions (Deno): create-member (+ testy deno)
 supabase/seed/         seed ładowany przez `supabase db reset` i dane pierwszego admina (.env)
 supabase/tests/        testy SQL (pgTAP)
 .github/workflows/     CI
@@ -27,6 +27,7 @@ supabase/tests/        testy SQL (pgTAP)
 - **Node.js 22.18 lub nowszy** (wersja główna w `.nvmrc`). Skrypt bootstrapu uruchamia TypeScript bezpośrednio w Node.
 - **pnpm 10**. Najprościej przez Corepack: `corepack enable` (wersję wskazuje pole `packageManager` w `package.json`).
 - **Docker** (Docker Desktop, OrbStack, Colima itp.), potrzebny do lokalnego Supabase i testów SQL. Supabase CLI instaluje się razem z zależnościami (`pnpm exec supabase`), nie trzeba go instalować globalnie.
+- **Deno 2** (opcjonalnie): tylko do lintu, typów i testów Edge Functions (`deno lint`, `deno test` w `supabase/functions`). Lokalny Supabase uruchamia funkcje sam, bez Deno na komputerze.
 
 ## Uruchomienie od zera
 
@@ -67,24 +68,24 @@ Studio Supabase (podgląd bazy) jest pod <http://127.0.0.1:54323>. Zatrzymanie: 
 
 Uruchamiane w katalogu głównym repozytorium.
 
-| Komenda                          | Co robi                                                                                                 |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                       | serwer deweloperski aplikacji (port 5173)                                                               |
-| `pnpm build`                     | build produkcyjny do `apps/web/dist`                                                                    |
-| `pnpm preview`                   | podgląd buildu (port 4173)                                                                              |
-| `pnpm typecheck`                 | sprawdzenie typów we wszystkich pakietach                                                               |
-| `pnpm lint`                      | ESLint i Prettier (`--check`)                                                                           |
-| `pnpm format`                    | formatowanie Prettierem                                                                                 |
-| `pnpm test`                      | testy jednostkowe (Vitest) we wszystkich pakietach                                                      |
-| `pnpm test:e2e`                  | testy E2E (Playwright): telefon 360 px i desktop, motyw jasny i ciemny                                  |
-| `pnpm check`                     | typy, lint, testy jednostkowe i build naraz                                                             |
-| `pnpm db:start` / `pnpm db:stop` | start i stop lokalnego Supabase                                                                         |
-| `pnpm db:reset`                  | odtworzenie lokalnej bazy z migracji i seeda                                                            |
-| `pnpm bootstrap:admin:local`     | konto pierwszego administratora w lokalnym Supabase (dane z `supabase/seed/.env`)                       |
-| `pnpm bootstrap:admin`           | to samo dla dowolnego projektu: adres i klucz service role ze zmiennych środowiskowych                  |
-| `pnpm db:lint`                   | lint schematu bazy (`supabase db lint`)                                                                 |
-| `pnpm test:sql`                  | testy SQL (pgTAP) na lokalnej bazie; wymaga `pnpm db:start` albo `pnpm exec supabase db start`          |
-| `pnpm test:auth`                 | testy integracyjne kont, logowania i klubu na lokalnym Supabase; wymagają pustej bazy (`pnpm db:reset`) |
+| Komenda                          | Co robi                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                       | serwer deweloperski aplikacji (port 5173)                                                                         |
+| `pnpm build`                     | build produkcyjny do `apps/web/dist`                                                                              |
+| `pnpm preview`                   | podgląd buildu (port 4173)                                                                                        |
+| `pnpm typecheck`                 | sprawdzenie typów we wszystkich pakietach                                                                         |
+| `pnpm lint`                      | ESLint i Prettier (`--check`)                                                                                     |
+| `pnpm format`                    | formatowanie Prettierem                                                                                           |
+| `pnpm test`                      | testy jednostkowe (Vitest) we wszystkich pakietach                                                                |
+| `pnpm test:e2e`                  | testy E2E (Playwright): telefon 360 px i desktop, motyw jasny i ciemny                                            |
+| `pnpm check`                     | typy, lint, testy jednostkowe i build naraz                                                                       |
+| `pnpm db:start` / `pnpm db:stop` | start i stop lokalnego Supabase                                                                                   |
+| `pnpm db:reset`                  | odtworzenie lokalnej bazy z migracji i seeda                                                                      |
+| `pnpm bootstrap:admin:local`     | konto pierwszego administratora w lokalnym Supabase (dane z `supabase/seed/.env`)                                 |
+| `pnpm bootstrap:admin`           | to samo dla dowolnego projektu: adres i klucz service role ze zmiennych środowiskowych                            |
+| `pnpm db:lint`                   | lint schematu bazy (`supabase db lint`)                                                                           |
+| `pnpm test:sql`                  | testy SQL (pgTAP) na lokalnej bazie; wymaga `pnpm db:start` albo `pnpm exec supabase db start`                    |
+| `pnpm test:auth`                 | testy integracyjne kont, logowania, członków i klubu na lokalnym Supabase; wymagają pustej bazy (`pnpm db:reset`) |
 
 Pierwsze uruchomienie E2E na nowym komputerze wymaga przeglądarki Playwright:
 
@@ -139,7 +140,22 @@ Wymagania: PRD CLUB-1…CLUB-4, NFR-10; wygląd DS §17. Kod: [`apps/web/src/clu
 - **Drugi klub nie powstanie.** Klucz główny `id = 1` odrzuca drugi wiersz (`23505`), także przy równoległych próbach. Formularz traktuje to jako „Klub został już założony”, zamyka się i pokazuje istniejący klub.
 - **Strefa a terminy** (NFR-10). Terminy spotkań są `timestamptz`, więc zmiana strefy klubu zmienia tylko sposób wyświetlania dat i granice roku, a nie zapisane chwile. Sprawdzają to test SQL `080_club` i `pnpm test:auth`.
 - **Logo w nagłówku** jest pobierane z prywatnego bucketu przez podpisany URL (ważny godzinę, `useCoverUrl`).
-- **Widżety po założeniu klubu** (CLUB-4) mają puste stany. Akcje admina w pustych stanach („Zaplanuj spotkanie”, „Dodaj grę”, „Dodaj członka”) dochodzą razem z tymi funkcjami (dodawanie członków w [009], planowanie spotkań i kolekcja w kolejnych zadaniach).
+- **Widżety po założeniu klubu** (CLUB-4) mają puste stany. Pusty widżet Członkowie ma dla admina „Dodaj członka” (sekcja „Członkowie”); „Zaplanuj spotkanie” i „Dodaj grę” dochodzą razem z planowaniem spotkań i kolekcją.
+
+## Członkowie
+
+Wymagania: PRD MEM-1…MEM-3, AUTH-2, AUTH-4, USR-1, USR-2; wygląd DS §6–8. Kod: [`apps/web/src/members`](apps/web/src/members), Edge Function [`supabase/functions/create-member`](supabase/functions/create-member), logika konta w [`packages/accounts/src/member.ts`](packages/accounts/src/member.ts).
+
+- **Widżet** (MEM-1) pokazuje do pięciu awatarów, a przy więcej niż pięciu członkach cztery awatary i licznik `+N`. Awatar otwiera profil, licznik i „Zobacz więcej” listę. Gdy w klubie jest tylko admin, widżet ma pusty stan z przyciskiem **Dodaj członka**.
+- **Lista** (MEM-2, `?p=members`) zawiera aktywnych członków (bez usuniętych) z hookiem i oznaczeniem admina. Wyszukiwarka szuka po imieniu, nazwisku i hooku, bez polskich znaków i wielkości liter, a każde wpisane słowo musi pasować („lukasz zol”, „7c1e”). Esc czyści pole. Wiersz otwiera profil.
+- **Kolor monogramu** (USR-2) wynika deterministycznie z hooka, więc jest stały na każdym urządzeniu i nie zmienia się po zmianie imienia.
+- **Dodaj członka** (MEM-3, `?p=members/new`, tylko admin; gracz pod tym adresem dostaje „Nie znaleziono”). Formularz ma imię i nazwisko (wymagane, do 50 znaków) i wywołuje Edge Function `create-member`:
+  - Funkcja sprawdza token sesji i to, czy wywołujący jest **aktywnym administratorem**. Gracz dostaje 403, a brak lub nieważny token 401. Klucz service role jest tylko w funkcji.
+  - **Hook** (USR-1) powstaje z imienia i nazwiska: małe litery, transliteracja polskich znaków (`Łukasz Żółw` → `lukasz-zolw-…`), myślniki i 4 znaki szesnastkowe z generatora kryptograficznego. Gdy hook jest zajęty (także przez usuniętego członka, którego profil zostaje w historii) albo zajmie go równoległe żądanie, funkcja losuje nowy sufiks (do 8 prób). Ostatecznie unikalność pilnują e-mail w Auth i `profiles_hook_key`. Hook jest niezmienny (wyzwalacz z [005]).
+  - **Hasło** (AUTH-4) ma 16 znaków z generatora kryptograficznego (bez łatwych do pomylenia znaków 0/O, 1/l/I). Funkcja nie loguje hasła ani treści żądania (`console.log` dostaje tylko id). Odpowiedź ma `Cache-Control: no-store`.
+  - **Bez niespójnego konta:** konto Auth i profil powstają w jednej transakcji (wyzwalacz `on_auth_user_created`). Odrzucona próba nie zostawia ani konta, ani profilu.
+  - Po zapisie popup pokazuje **jednorazowo** hook i hasło z przyciskami „Kopiuj” i ostrzeżeniem, że hasła nie da się odczytać ponownie. Hasło jest tylko w stanie tego popupu: nie trafia do adresu, cache'u zapytań (mutacja ma `gcTime: 0`) ani `localStorage`, więc znika po zamknięciu okna. Gdy ktoś zgubi hasło, admin usuwa konto i dodaje członka ponownie (usuwanie członków: [011]).
+  - Awatar przy dodawaniu (opcjonalny w MEM-3) dochodzi w [010] razem z uploadem i kadrowaniem awatara (USR-3); do tego czasu nowy członek ma monogram.
 
 ## Schemat bazy
 
@@ -202,20 +218,35 @@ Wymagania: PRD AUTH-1…AUTH-5, AUTH-7. Kod: migracja [`20261113000500_accounts_
 - **Konto usunięte** (AUTH-7). Hook Auth `custom_access_token` (`public.custom_access_token_hook`) odmawia wydania i odświeżenia tokenu kontu bez aktywnego profilu (403 `account_inactive`). Token wydany wcześniej (do `jwt_expiry`, 1 h) nie daje danych, bo RLS wymaga aktywnego profilu; aplikacja kończy wtedy sesję i pokazuje komunikat. Złe hasło usuniętego konta daje zwykły błąd „Nieprawidłowy hook lub hasło”.
 - **Błędy logowania** są po polsku (`t.auth.errors`): złe dane, konto usunięte, limit prób, brak połączenia.
 
+## Edge Functions
+
+Funkcje są w [`supabase/functions`](supabase/functions) (Deno). `pnpm db:start` uruchamia je razem z lokalnym Supabase pod `http://127.0.0.1:54321/functions/v1/<nazwa>`; nową funkcję lokalny stos widzi po `pnpm db:stop && pnpm db:start`. Kod wspólny z SPA i skryptami (hook, hasło, tworzenie członka) importują ścieżką względną z `packages/accounts/src` (moduły bez zależności).
+
+```bash
+cd supabase/functions
+deno lint
+deno check create-member/index.ts
+deno test
+```
+
+`deno.json` w `supabase/functions` wyłącza lockfile i `node_modules`, żeby Deno nie modyfikował workspace'u pnpm. Formatowanie robi Prettier (`pnpm format`), jak w reszcie repozytorium.
+
 ## Testy (NFR-11)
 
 - **Jednostkowe:** Vitest, pliki `*.test.ts(x)` obok kodu. Logika wyników w `packages/scoring`.
 - **SQL:** pgTAP w `supabase/tests/database/*.test.sql`, uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych. Testy uprawnień (`050`, `060`) przełączają się na role `anon` i `authenticated` z tokenem w `request.jwt.claims`, tak jak PostgREST i Storage API.
-- **Integracyjne (Auth):** Vitest w `packages/accounts/integration/`, uruchamiane przez `pnpm test:auth` na lokalnym Supabase (Auth, PostgREST). Idą przez prawdziwe API: bootstrap na pustej instalacji (także równoległy), ponowienie, zamknięta rejestracja, logowanie hookiem, odświeżenie i wylogowanie, konto usunięte, równoległe zakładanie klubu i zmiana strefy. Wymagają pustej bazy: przed kolejnym uruchomieniem `pnpm db:reset`.
+- **Edge Functions:** `deno test` w `supabase/functions` (obsługa żądania z atrapami Auth i bazy: 401, 403 dla gracza, 400, brak hasła w logach). Logika hooka i hasła (polskie znaki, kolizje, wyczerpanie prób) ma testy Vitest w `packages/accounts`.
+- **Integracyjne (Auth):** Vitest w `packages/accounts/integration/`, uruchamiane przez `pnpm test:auth` na lokalnym Supabase (Auth, PostgREST, Edge Functions). Idą przez prawdziwe API: bootstrap na pustej instalacji (także równoległy), ponowienie, zamknięta rejestracja, logowanie hookiem, odświeżenie i wylogowanie, konto usunięte, dodawanie członków przez `create-member` (logowanie nowym kontem, kolizje hooków przy równoległych żądaniach, odmowa dla gracza i bez sesji, brak konta po złych danych), równoległe zakładanie klubu i zmiana strefy. Wymagają pustej bazy: przed kolejnym uruchomieniem `pnpm db:reset`. Zmienna `BG_CLUB_FUNCTIONS_URL` wskazuje funkcje uruchomione osobno (np. `deno run` w `supabase/functions`), domyślnie bramka lokalnego Supabase.
 - **E2E:** Playwright w `apps/web/e2e/`. Każdy test przechodzi w czterech projektach: `mobile-light`, `mobile-dark` (360×740) oraz `desktop-light`, `desktop-dark` (1280×900). API Supabase jest w nich atrapą ([`e2e/support/supabaseMock.ts`](apps/web/e2e/support/supabaseMock.ts)); prawdziwe Auth sprawdza `pnpm test:auth`.
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) uruchamia się dla każdego PR i dla pushy do `master`. Trzy zadania:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) uruchamia się dla każdego PR i dla pushy do `master`. Cztery zadania:
 
 1. **check:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`,
 2. **e2e:** Playwright (Chromium), raport HTML jako artefakt przy błędzie,
-3. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
+3. **functions:** `deno lint`, `deno check`, `deno test` w `supabase/functions`,
+4. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, Edge Functions, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
 
 ## Wdrożenie (zarys)
 
@@ -225,6 +256,7 @@ Pełna instrukcja wdrożenia od zera, kopii zapasowych i odtworzenia powstaje w 
 - **Auth w panelu Supabase** (`config.toml` działa tylko lokalnie):
   - Authentication → Sign In / Providers: wyłączyć „Allow new users to sign up” i „Allow anonymous sign-ins” (AUTH-2).
   - Authentication → Hooks: dodać „Customize Access Token (JWT) Claims”, typ Postgres, funkcja `public.custom_access_token_hook` (AUTH-7). Bez tego usunięte konto zaloguje się, choć nie zobaczy danych.
+- **Edge Functions:** `pnpm exec supabase functions deploy create-member` (po `supabase link`; CLI przenosi `verify_jwt = false` z `config.toml`, bo token sprawdza sama funkcja). Funkcja dostaje `SUPABASE_URL` i `SUPABASE_SERVICE_ROLE_KEY` od Supabase; nie trzeba ustawiać sekretów. Bez wdrożonej funkcji „Dodaj członka” kończy się komunikatem o błędzie.
 - **Pierwszy administrator:** na komputerze instalującego, z adresem projektu i kluczem service role z panelu (Project Settings → API Keys). Klucz nie trafia do repozytorium ani do Cloudflare.
 
   ```bash

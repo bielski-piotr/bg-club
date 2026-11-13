@@ -35,6 +35,7 @@ export function member(n: number, first: string, last: string, deleted = false):
     id: `00000000-0000-4000-a000-${n.toString(16).padStart(12, '0')}`,
     hook: `${first}-${last}-${suffix}`
       .toLowerCase()
+      .replace(/ł/g, 'l')
       .normalize('NFD')
       .replace(/[^a-z0-9-]/g, ''),
     first_name: first,
@@ -112,7 +113,15 @@ export interface MockOptions {
    * w tej chwili inna karta zapisuje klub `club`.
    */
   clubConflict?: MockClub;
+  /**
+   * Odpowiedź Edge Function `create-member` (MEM-3). Domyślnie: członek utworzony z hookiem
+   * z imienia i nazwiska, dopisany do `members`; inaczej podany status i treść błędu.
+   */
+  createMember?: { readonly status: number; readonly body: unknown };
 }
+
+/** Hasło, które atrapa `create-member` zwraca dla nowego członka (fikcyjne). */
+export const NEW_MEMBER_PASSWORD = 'e2eHasloTestowe7';
 
 export interface MockClub {
   readonly name: string;
@@ -141,6 +150,8 @@ export interface SupabaseMock {
   /** Ścieżki plików wysłanych do bucketu `covers` i z niego usuniętych. */
   readonly uploads: string[];
   readonly removed: string[];
+  /** Treści żądań `POST /functions/v1/create-member`. */
+  readonly memberBodies: unknown[];
 }
 
 async function reply(route: Route, kind: AuthReply) {
@@ -175,6 +186,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     clubWrites: [],
     uploads: [],
     removed: [],
+    memberBodies: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -205,6 +217,25 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'pl'),
       );
       return route.fulfill({ json: rows });
+    }
+    if (url.pathname === '/functions/v1/create-member' && request.method() === 'POST') {
+      const body = request.postDataJSON() as { firstName: string; lastName: string };
+      mock.memberBodies.push(body);
+      if (mock.options.createMember) {
+        const { status, body: reply } = mock.options.createMember;
+        return route.fulfill({
+          status,
+          json: reply,
+          headers: { 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      const created = member(0x7c1e, body.firstName, body.lastName);
+      mock.options.members = [...(mock.options.members ?? []), created];
+      return route.fulfill({
+        status: 201,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' },
+        json: { member: created, password: NEW_MEMBER_PASSWORD },
+      });
     }
     if (url.pathname === '/rest/v1/club') {
       const method = request.method();
