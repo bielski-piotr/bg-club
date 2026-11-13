@@ -374,6 +374,7 @@ export const pl = {
       addShort: 'Dodaj',
       actions: 'Akcje gry {title}',
       edit: 'Edytuj',
+      scorepads: 'Notesy',
       delete: 'Usuń',
     },
     form: {
@@ -437,6 +438,95 @@ export const pl = {
       created: 'Dodano grę {title}',
       updated: 'Zapisano zmiany w grze {title}',
       deleted: 'Usunięto grę {title}',
+    },
+  },
+  /** Notesy gry: lista, edytor, import i eksport pliku `.json` (PRD GAME-7, EDT-1, zadanie [015]). */
+  scorepads: {
+    count: { one: '{n} notes', few: '{n} notesy', many: '{n} notesów' },
+    list: {
+      title: 'Notesy',
+      label: 'Notesy gry {title}',
+      intro: '{title} · {players}',
+      versionNote:
+        'Każdy zapis notesu tworzy nową wersję. Rozegrane partie zachowują swoją wersję.',
+      add: 'Dodaj notes',
+      addShort: 'Dodaj',
+      import: 'Importuj plik',
+      importLabel: 'Plik notesu (.json)',
+      importing: 'Importowanie notesu…',
+      emptyTitle: 'Gra nie ma jeszcze notesu',
+      emptyHelper: 'Notesy gry pojawią się tutaj, gdy administrator je doda.',
+      emptyHelperAdmin: 'Dodaj notes w edytorze albo zaimportuj plik .json.',
+      seats: {
+        one: '{n} miejsce dla gracza',
+        few: '{n} miejsca dla graczy',
+        many: '{n} miejsc dla graczy',
+      },
+      version: 'wersja {n}',
+      /** EDT-6: notes ma mniej miejsc niż max. liczba graczy gry. */
+      fewerSeats: 'Tylko partie do {n} graczy',
+      thumbnail: 'Kartka notesu {name}',
+      actions: 'Akcje notesu {name}',
+      edit: 'Edytuj',
+      rename: 'Zmień nazwę',
+      export: 'Eksportuj do pliku',
+      delete: 'Usuń',
+      notFoundTitle: 'Nie znaleziono gry',
+      notFoundBody: 'Tej gry nie ma w kolekcji. Mogła zostać usunięta.',
+    },
+    editor: {
+      addTitle: 'Nowy notes',
+      editTitle: 'Edytuj notes',
+      cancel: 'Anuluj',
+      save: 'Zapisz notes',
+      versionNote:
+        'Zapis utworzy wersję {n} notesu. Rozegrane partie i partie w toku zostają przy swojej wersji.',
+      notFoundTitle: 'Nie znaleziono notesu',
+      notFoundBody: 'Tego notesu nie ma. Mógł zostać usunięty.',
+    },
+    rename: {
+      title: 'Zmień nazwę notesu',
+      label: 'Nazwa notesu',
+      helper: 'Zmiana nazwy nie tworzy nowej wersji.',
+      cancel: 'Anuluj',
+      submit: 'Zapisz',
+      required: 'Wpisz nazwę notesu.',
+      tooLong: 'Nazwa może mieć najwyżej {max} znaków.',
+    },
+    remove: {
+      title: 'Usunąć notes?',
+      description:
+        '„{name}” zniknie z listy notesów i z wyboru przy nowej partii. Rozegrane partie i ich karteczki zostaną w historii. Tej operacji nie można cofnąć.',
+      cancel: 'Anuluj',
+      submit: 'Usuń',
+    },
+    /** EDT-6: ostrzeżenie po zapisie notesu z mniejszą liczbą miejsc niż max. graczy gry. */
+    fewerSeatsWarning:
+      'Notes ma {seats}, a gra pozwala na {max} graczy. Tego notesu można używać tylko w partiach do {n} graczy.',
+    toasts: {
+      created: 'Dodano notes {name}',
+      imported: 'Zaimportowano notes {name}',
+      saved: 'Zapisano wersję {version} notesu {name}',
+      renamed: 'Zmieniono nazwę notesu na {name}',
+      deleted: 'Usunięto notes {name}',
+      exported: 'Wyeksportowano notes {name}',
+    },
+    errors: {
+      json: 'Ten plik nie jest poprawnym plikiem JSON.',
+      format:
+        'To nie jest plik notesu w formacie v2 (score-pad). Wyeksportuj notes z edytora albo z aplikacji.',
+      shape: 'Plik notesu nie ma pól ani miejsc dla graczy.',
+      scoring:
+        'Notes ma błędne kategorie albo reguły wygranej (np. sumę liczoną z samej siebie albo regułę z kategorią spoza notesu).',
+      image: 'Zdjęcie kartki musi być zapisane w pliku jako obraz WebP, JPEG lub PNG.',
+      imageSize: 'Zdjęcie kartki jest za duże (limit 5 MB).',
+      incomplete: 'Notes nie jest gotowy: wczytaj zdjęcie kartki i zaznacz pola.',
+      forbidden: 'Notesy może dodawać i zmieniać tylko administrator.',
+      upload: 'Nie udało się wysłać zdjęcia kartki. Sprawdź połączenie i spróbuj ponownie.',
+      gone: 'Ta gra albo ten notes zostały usunięte, więc nie da się ich zapisać.',
+      save: 'Nie udało się zapisać notesu. Sprawdź połączenie i spróbuj ponownie.',
+      export: 'Nie udało się wyeksportować notesu. Sprawdź połączenie i spróbuj ponownie.',
+      remove: 'Nie udało się usunąć notesu. Sprawdź połączenie i spróbuj ponownie.',
     },
   },
   config: {

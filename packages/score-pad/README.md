@@ -39,7 +39,10 @@ Nie przeniesiono: `dist/`, `build.mjs` (esbuild, IIFE), stron pokazowych `demo.h
 import type { ScorePadFile } from '@bg-club/score-pad'; // lekkie typy i stałe
 await import('@bg-club/score-pad/pad'); // rejestruje <score-pad> (osobny chunk z Three.js)
 await import('@bg-club/score-pad/editor'); // rejestruje <score-pad-editor>
+const { readTemplate, readScorePadFile } = await import('@bg-club/score-pad/template'); // walidacja pliku notesu
 ```
+
+`@bg-club/score-pad/template` (zadanie [015]) sprawdza szablon albo plik notesu v2 przed zapisem w bazie: format v2, kształt (`validateTemplate`), kategorie i regułę miejsc (`validateScoring`, błędna reguła odrzuca szablon zamiast po cichu go naprawiać) oraz zwraca liczbę miejsc dla graczy (`playerCount`). Moduł ładuje kod modelu notesu, więc aplikacja pobiera go leniwie.
 
 Aplikacja osadza elementy przez adaptery React w `apps/web/src/score-pad/` (`ScorePadView`, `ScorePadEditorView`): leniwe ładowanie (NFR-2), tryb klubowy, motyw aplikacji, zdarzenia jako propsy i usunięcie elementu przy zamknięciu (wywołuje `destroy()`). Podgląd: galeria `/design-system`, sekcja „Notes i edytor” (przykładowy notes z 10 miejscami).
 

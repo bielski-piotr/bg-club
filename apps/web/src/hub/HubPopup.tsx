@@ -12,6 +12,9 @@ import { DeleteAccountDialog } from '../profile/DeleteAccountDialog';
 import { PasswordPopup } from '../profile/PasswordPopup';
 import { ProfilePopup } from '../profile/ProfilePopup';
 import { SettingsPopup } from '../profile/SettingsPopup';
+import { DeleteScorepadDialog, RenameScorepadDialog } from '../score-pad/ScorepadDialogs';
+import { AddScorepadPopup, EditScorepadPopup } from '../score-pad/ScorepadEditorPopup';
+import { ScorepadsPopup } from '../score-pad/ScorepadsPopup';
 
 interface HubPopupProps {
   readonly route: PopupRoute;
@@ -53,6 +56,17 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <EditGamePopup id={route.id} /> : <InvalidPopup />;
     case 'delete-game':
       return me.role === 'admin' ? <DeleteGameDialog id={route.id} /> : <InvalidPopup />;
+    case 'scorepads':
+      return <ScorepadsPopup gameId={route.gameId} isAdmin={me.role === 'admin'} />;
+    case 'add-scorepad':
+      // Notesy dodaje, zmienia i usuwa tylko administrator (GAME-7); bazę chroni RLS i RPC.
+      return me.role === 'admin' ? <AddScorepadPopup gameId={route.gameId} /> : <InvalidPopup />;
+    case 'edit-scorepad':
+      return me.role === 'admin' ? <EditScorepadPopup id={route.id} /> : <InvalidPopup />;
+    case 'rename-scorepad':
+      return me.role === 'admin' ? <RenameScorepadDialog id={route.id} /> : <InvalidPopup />;
+    case 'delete-scorepad':
+      return me.role === 'admin' ? <DeleteScorepadDialog id={route.id} /> : <InvalidPopup />;
     case 'invalid':
       return <InvalidPopup />;
   }

@@ -13,6 +13,10 @@
     "./editor": {
       "types": "./src/register.d.ts",
       "default": "./src/register-editor.ts"
+    },
+    "./template": {
+      "types": "./src/template.d.ts",
+      "default": "./src/template-tools.ts"
     }
   },
   "scripts": {

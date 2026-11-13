@@ -1,7 +1,7 @@
 -- Test dymny środowiska testów SQL (pgTAP, `pnpm test:sql`).
 -- Sprawdza, że lokalna baza działa na oczekiwanej wersji Postgresa i zna strefy IANA,
 -- od których zależy rok w filtrze leaderboardu (NFR-10).
--- Testy schematu są w 010–040 ([003]), testy uprawnień w 050–060 ([004]), kont i logowania w 070 ([005]), klubu w 080 ([008]), profilu i ustawień w 090 ([010]), kolekcji gier w 100 ([012]);
+-- Testy schematu są w 010–040 ([003]), testy uprawnień w 050–060 ([004]), kont i logowania w 070 ([005]), klubu w 080 ([008]), profilu i ustawień w 090 ([010]), kolekcji gier w 100 ([012]), wyników w 110 ([014]), notesów i ich wersji w 120 ([015]);
 -- testy leaderboardu dochodzą w [032].
 begin;
 

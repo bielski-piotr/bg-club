@@ -84,6 +84,7 @@ export const pictograms = {
     </>
   ),
   upload: <path d="M8 11V3.5M5 6.5L8 3.5L11 6.5M3.5 13H12.5" />,
+  download: <path d="M8 3.5V11M5 8L8 11L11 8M3.5 13H12.5" />,
   globe: (
     <>
       <circle cx="8" cy="8" r="5.5" />

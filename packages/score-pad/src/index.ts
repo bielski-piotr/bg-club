@@ -49,6 +49,12 @@ export interface ScorePadTemplate {
   readonly v: 2;
   readonly id: string;
   readonly name: string;
+  /**
+   * Zdjęcie kartki (data URL albo adres obrazu). W bazie szablon jest bez niego: obraz leży
+   * w Storage (`scorepad_versions.image_path`, EDT-1), a aplikacja wstawia go przed osadzeniem
+   * notesu i przy eksporcie do pliku.
+   */
+  readonly image?: string | undefined;
   /** Kategorie: imiona, punktacje, sumy, premie i puste pola (EDT-13). */
   readonly lines: readonly ScorePadLine[];
   /** Kategoria decydująca, kierunek i reguły remisów; brak = najwyższa suma końcowa. */

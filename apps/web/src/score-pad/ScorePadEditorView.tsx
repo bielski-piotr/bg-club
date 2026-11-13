@@ -1,5 +1,5 @@
 import type { ScorePadEditorEventMap, ScorePadFile, ScorePadTemplate } from '@bg-club/score-pad';
-import { useEffect, useRef } from 'react';
+import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import { t } from '../i18n';
 import { cx } from '../ui/cx';
 import { useTheme } from '../theme/useTheme';
@@ -13,10 +13,22 @@ export interface ScorePadEditorViewProps {
   /** Plik notesu po „Zapisz do pliku” lub „Kopiuj do schowka” (zapis w bazie: EDT-1). */
   readonly onExport?: ((config: ScorePadFile, via: 'file' | 'clipboard') => void) | undefined;
   readonly className?: string | undefined;
+  /** Uchwyt do bieżącego notesu z edytora (zapis w bazie, EDT-1). */
+  readonly ref?: Ref<ScorePadEditorHandle> | undefined;
+}
+
+export interface ScorePadEditorHandle {
+  /** Plik notesu z edytora albo `null`, gdy notes nie jest gotowy (brak zdjęcia lub pól). */
+  exportConfig(): ScorePadFile | null;
 }
 
 /** Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). */
-export function ScorePadEditorView({ template, onExport, className }: ScorePadEditorViewProps) {
+export function ScorePadEditorView({
+  template,
+  onExport,
+  className,
+  ref,
+}: ScorePadEditorViewProps) {
   const { resolved } = useTheme();
   const onExportRef = useRef(onExport);
 
@@ -24,7 +36,7 @@ export function ScorePadEditorView({ template, onExport, className }: ScorePadEd
     onExportRef.current = onExport;
   });
 
-  const { hostRef, state, retry } = useScorePadElement(
+  const { hostRef, elementRef, state, retry } = useScorePadElement(
     'editor',
     resolved,
     () => {
@@ -38,6 +50,12 @@ export function ScorePadEditorView({ template, onExport, className }: ScorePadEd
       return element;
     },
     [template],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({ exportConfig: () => elementRef.current?.exportConfig() ?? null }),
+    [elementRef],
   );
 
   return (
