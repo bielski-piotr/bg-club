@@ -44,6 +44,7 @@ select results_eq(
   $$ values
        ('achievement_unlocks', 'SELECT'),
        ('club', 'SELECT'),
+       ('game_collection', 'SELECT'),
        ('game_votes', 'DELETE,SELECT'),
        ('games', 'SELECT'),
        ('meeting_games', 'DELETE,SELECT'),
@@ -95,8 +96,9 @@ select results_eq(
        ('private.is_meeting_runner(uuid)'),
        ('private.is_voting_open(uuid)'),
        ('private.try_uuid(text)'),
+       ('search_games(text)'),
        ('search_text(text)') $$,
-  'authenticated wykona tylko funkcje czyste i sprawdzające role'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role i wyszukiwanie gier'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.

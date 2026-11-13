@@ -1,4 +1,7 @@
 import { ClubPopup } from '../club/ClubPopup';
+import { CollectionPopup } from '../games/CollectionPopup';
+import { DeleteGameDialog } from '../games/DeleteGameDialog';
+import { AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
 import { AddMemberPopup } from '../members/AddMemberPopup';
 import { DeleteMemberDialog } from '../members/DeleteMemberDialog';
 import { MembersPopup } from '../members/MembersPopup';
@@ -41,6 +44,15 @@ export function HubPopup({ route, me }: HubPopupProps) {
     case 'club':
       // Formularz klubu jest tylko dla administratora (CLUB-2); gracz z linku go nie zobaczy.
       return me.role === 'admin' ? <ClubPopup /> : <InvalidPopup />;
+    case 'games':
+      return <CollectionPopup isAdmin={me.role === 'admin'} />;
+    case 'add-game':
+      // Gry dodaje, edytuje i usuwa tylko administrator (GAME-3); bazę chroni RLS.
+      return me.role === 'admin' ? <AddGamePopup /> : <InvalidPopup />;
+    case 'edit-game':
+      return me.role === 'admin' ? <EditGamePopup id={route.id} /> : <InvalidPopup />;
+    case 'delete-game':
+      return me.role === 'admin' ? <DeleteGameDialog id={route.id} /> : <InvalidPopup />;
     case 'invalid':
       return <InvalidPopup />;
   }

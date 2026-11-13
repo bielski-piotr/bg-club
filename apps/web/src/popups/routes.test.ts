@@ -42,6 +42,25 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute(`settings/${ID}`)).toEqual({ kind: 'invalid', raw: `settings/${ID}` });
   });
 
+  it('zna kolekcję gier, formularze i usuwanie gry (GAME-2, GAME-3, GAME-8)', () => {
+    expect(parseStack(`?p=games&p=games/new`)).toEqual([{ kind: 'games' }, { kind: 'add-game' }]);
+    expect(parseStack(`?p=games&p=game/${ID.toUpperCase()}/edit`)).toEqual([
+      { kind: 'games' },
+      { kind: 'edit-game', id: ID },
+    ]);
+    expect(parseRoute(`game/${ID}/delete`)).toEqual({ kind: 'delete-game', id: ID });
+    expect(stackSearch('', [{ kind: 'games' }, { kind: 'edit-game', id: ID }])).toBe(
+      `?p=games&p=game/${ID}/edit`,
+    );
+    expect(stackSearch('', [{ kind: 'delete-game', id: ID }])).toBe(`?p=game/${ID}/delete`);
+    expect(stackSearch('', [{ kind: 'add-game' }])).toBe('?p=games/new');
+    // Szczegóły gry (GAME-10) dochodzą w kolejnym zadaniu; do tego czasu adres jest nieznany.
+    expect(parseRoute(`game/${ID}`)).toEqual({ kind: 'invalid', raw: `game/${ID}` });
+    expect(parseRoute('game/1/edit')).toEqual({ kind: 'invalid', raw: 'game/1/edit' });
+    expect(parseRoute(`game/${ID}/rename`)).toEqual({ kind: 'invalid', raw: `game/${ID}/rename` });
+    expect(parseRoute('games/edit')).toEqual({ kind: 'invalid', raw: 'games/edit' });
+  });
+
   it('zna formularz dodawania członka (MEM-3)', () => {
     expect(parseStack('?p=members&p=members/new')).toEqual([
       { kind: 'members' },

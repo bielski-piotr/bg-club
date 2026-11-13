@@ -141,7 +141,8 @@ function ClubForm({ club }: { readonly club: Club | null }) {
     const before = logo;
     setLogo({ kind: 'processing' });
     try {
-      const image = await scaleImage(file);
+      // Logo bywa przezroczyste: bez kodera WebP zostaje PNG, a nie JPEG na białym tle.
+      const image = await scaleImage(file, { keepTransparency: true });
       const preview = URL.createObjectURL(image.blob);
       if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
       previewUrl.current = preview;

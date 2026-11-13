@@ -120,7 +120,7 @@ function Widgets({ me }: { readonly me: Profile }) {
         <TimelineWidget />
       </div>
       <div className="hub__slot hub__slot--right">
-        <CollectionWidget />
+        <CollectionWidget isAdmin={me.role === 'admin'} />
       </div>
       <div className="hub__slot hub__slot--left">
         <MembersWidget me={me} />

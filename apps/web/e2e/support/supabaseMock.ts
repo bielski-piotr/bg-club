@@ -140,6 +140,56 @@ export interface MockOptions {
    * `wrong_password`; inaczej podany status i treść błędu.
    */
   deleteOwnAccount?: { readonly status: number; readonly body: unknown } | undefined;
+  /** Gry kolekcji, także usunięte (`deleted_at`). Zapis z aplikacji zmienia tę listę. */
+  games?: MockGame[];
+}
+
+/** Wiersz `games` z datą ostatniej partii z widoku `game_collection` (GAME-1). */
+export interface MockGame {
+  readonly id: string;
+  readonly title: string;
+  readonly cover_path: string | null;
+  readonly min_players: number;
+  readonly max_players: number;
+  readonly placement_points: readonly number[];
+  readonly created_at: string;
+  readonly last_played_at: string | null;
+  readonly deleted_at: string | null;
+}
+
+/** Fikcyjna gra o numerze `n` (id wyprowadzone z numeru, data dodania: `n` października). */
+export function mockGame(n: number, title: string, extra: Partial<MockGame> = {}): MockGame {
+  return {
+    id: `00000000-0000-4000-b000-${n.toString(16).padStart(12, '0')}`,
+    title,
+    cover_path: null,
+    min_players: 2,
+    max_players: 4,
+    placement_points: [10, 6, 4, 2],
+    created_at: `2026-10-${String(n).padStart(2, '0')}T12:00:00Z`,
+    last_played_at: null,
+    deleted_at: null,
+    ...extra,
+  };
+}
+
+/** Zapis gry (`POST` = INSERT, `PATCH` = UPDATE) z treścią i filtrem `id`. */
+export interface GameWrite {
+  readonly method: 'POST' | 'PATCH';
+  readonly body: Record<string, unknown>;
+  readonly id: string | null;
+}
+
+/** Jak `search_text` w bazie: małe litery, bez polskich znaków (GAME-2). */
+function searchText(value: string): string {
+  return value.toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/\p{M}/gu, '');
+}
+
+/** Kolejność widżetu kolekcji (GAME-1, Q11): ostatnio grane, potem ostatnio dodane. */
+function byWidgetOrder(a: MockGame, b: MockGame): number {
+  const played = (b.last_played_at ?? '').localeCompare(a.last_played_at ?? '');
+  if (played !== 0) return played;
+  return b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id);
 }
 
 /** Hasło zalogowanej Ady, które przyjmuje atrapa `delete-own-account` (fikcyjne). */
@@ -187,6 +237,9 @@ export interface SupabaseMock {
   /** Treści żądań `POST /functions/v1/delete-member` i `delete-own-account`. */
   readonly deleteMemberBodies: unknown[];
   readonly deleteOwnBodies: unknown[];
+  /** Zapisy gier (`/rest/v1/games`) i zapytania wyszukiwania (`search_games`). */
+  readonly gameWrites: GameWrite[];
+  readonly gameSearches: string[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -238,6 +291,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     avatarRemoved: [],
     deleteMemberBodies: [],
     deleteOwnBodies: [],
+    gameWrites: [],
+    gameSearches: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -362,6 +417,70 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       }
       const club = mock.options.club ?? null;
       return route.fulfill({ json: club ? [{ timezone: 'Europe/Warsaw', ...club }] : [] });
+    }
+    // Kolekcja gier (GAME-1…GAME-8): widok, wyszukiwanie i zapis jak RLS dla admina.
+    const activeGames = () => (mock.options.games ?? []).filter((g) => g.deleted_at === null);
+    if (url.pathname === '/rest/v1/game_collection') {
+      let rows = [...activeGames()].sort(byWidgetOrder);
+      const id = url.searchParams.get('id');
+      if (id?.startsWith('eq.')) rows = rows.filter((row) => row.id === id.slice(3));
+      const total = rows.length;
+      const limit = Number(url.searchParams.get('limit') ?? rows.length);
+      rows = rows.slice(0, limit);
+      const single = (request.headers()['accept'] ?? '').includes('vnd.pgrst.object');
+      if (single) {
+        return rows[0]
+          ? route.fulfill({ json: rows[0] })
+          : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } });
+      }
+      return route.fulfill({
+        json: rows,
+        headers: {
+          'Content-Range': `0-${Math.max(rows.length - 1, 0)}/${total}`,
+          'Access-Control-Expose-Headers': 'Content-Range',
+        },
+      });
+    }
+    if (url.pathname === '/rest/v1/rpc/search_games' && request.method() === 'POST') {
+      const { query } = request.postDataJSON() as { query: string };
+      mock.gameSearches.push(query);
+      const needle = searchText(query.trim());
+      const rows = activeGames()
+        .filter((g) => searchText(g.title).includes(needle))
+        .sort((a, b) => searchText(a.title).localeCompare(searchText(b.title)));
+      return route.fulfill({ json: rows });
+    }
+    if (url.pathname === '/rest/v1/games') {
+      const method = request.method();
+      if (method === 'POST' || method === 'PATCH') {
+        const body = request.postDataJSON() as Record<string, unknown>;
+        const id = url.searchParams.get('id')?.replace(/^eq\./, '') ?? null;
+        mock.gameWrites.push({ method, body, id });
+        let saved: MockGame | undefined;
+        if (method === 'POST') {
+          saved = {
+            ...mockGame(0, ''),
+            ...body,
+            created_at: '2026-11-13T12:00:00Z',
+          } as unknown as MockGame;
+          mock.options.games = [...(mock.options.games ?? []), saved];
+        } else {
+          mock.options.games = (mock.options.games ?? []).map((g) => {
+            if (g.id !== id || g.deleted_at !== null) return g;
+            saved = {
+              ...g,
+              ...body,
+              ...(body.deleted_at ? { deleted_at: '2026-11-13T12:00:00Z' } : {}),
+            } as MockGame;
+            return saved;
+          });
+        }
+        if (!url.searchParams.has('select')) return route.fulfill({ status: 204 });
+        if (!saved) {
+          return route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } });
+        }
+        return route.fulfill({ status: method === 'POST' ? 201 : 200, json: saved });
+      }
     }
     // Storage (bucket `covers`): wysyłka, podpisany URL, pobranie i usunięcie pliku.
     const objectPrefix = '/storage/v1/object/';
