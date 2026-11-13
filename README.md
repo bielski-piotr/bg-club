@@ -259,7 +259,7 @@ deno test
 1. **check:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`,
 2. **e2e:** Playwright (Chromium), raport HTML jako artefakt przy błędzie,
 3. **functions:** `deno lint`, `deno check`, `deno test` w `supabase/functions`,
-4. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, Edge Functions, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
+4. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, Storage, Edge Functions, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
 
 ## Wdrożenie (zarys)
 

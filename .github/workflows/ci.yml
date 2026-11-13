@@ -75,12 +75,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Postgres, Auth, PostgREST, Edge Functions i bramka API: tyle potrzebują migracje, pgTAP
-      # i testy integracyjne (`pnpm test:auth`, w tym `create-member`). Pozostałe usługi pełnego
-      # stosu (`pnpm db:start`) są pominięte.
+      # Postgres, Auth, PostgREST, Storage, Edge Functions i bramka API: tyle potrzebują migracje,
+      # pgTAP i testy integracyjne (`pnpm test:auth`, w tym `create-member` i zdjęcia profilowe).
+      # Pozostałe usługi pełnego stosu (`pnpm db:start`) są pominięte.
       - run: >-
           pnpm exec supabase start
-          -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
+          -x realtime,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - run: pnpm test:sql
       - run: pnpm db:lint
       # Bootstrap administratora i logowanie hookiem na świeżej instalacji.
