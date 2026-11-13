@@ -77,10 +77,8 @@ select results_eq(
        ('meetings', 'INSERT', 'host_id,id,starts_at,title,voting_open'),
        ('meetings', 'UPDATE', 'host_id,starts_at,title,voting_open'),
        ('profiles', 'UPDATE', 'avatar_path,first_name,last_name,password_change_suggested,theme'),
-       ('scorepad_versions', 'INSERT', 'id,image_path,player_slots,scorepad_id,template'),
-       ('scorepads', 'INSERT', 'game_id,id,name'),
        ('scorepads', 'UPDATE', 'current_version_id,deleted_at,name') $$,
-  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at)'
+  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at; notesy przez save_scorepad)'
 );
 select results_eq(
   $$ select p.oid::regprocedure::text from pg_proc p

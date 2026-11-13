@@ -1,4 +1,4 @@
-import type { ScorePadFile, ScorePadTemplate } from '@bg-club/score-pad';
+import { scorePadFileName, type ScorePadFile, type ScorePadTemplate } from '@bg-club/score-pad';
 import type { ReadTemplateResult } from '@bg-club/score-pad/template';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
@@ -58,9 +58,11 @@ const SCOREPAD_COLUMNS =
 export const scorepadsKey = ['scorepads'] as const;
 export const gameScorepadsKey = (gameId: string) => [...scorepadsKey, 'game', gameId] as const;
 export const scorepadKey = (id: string) => [...scorepadsKey, 'byId', id] as const;
-/** Wersje są niezmienne, więc szablon wersji nie musi się odświeżać. */
-export const versionTemplateKey = (versionId: string) =>
-  [...scorepadsKey, 'template', versionId] as const;
+/**
+ * Szablon wersji ze zdjęciem (kilka MB). Wersje są niezmienne, więc klucz jest poza `scorepadsKey`:
+ * odświeżenie list po zapisie nie pobiera zdjęcia ponownie.
+ */
+export const versionTemplateKey = (versionId: string) => ['scorepad-template', versionId] as const;
 
 /** Aktywne notesy gry w kolejności dodania (GAME-7). */
 export function useGameScorepads(client: SupabaseClient, gameId: string) {
@@ -117,8 +119,12 @@ export function dataUrlToBlob(url: string): Blob | null {
   const [, type = '', base64, payload = ''] = match;
   if (!(type in IMAGE_TYPES)) return null;
   try {
-    if (!base64) return new Blob([decodeURIComponent(payload)], { type });
-    const binary = atob(payload);
+    // Bez base64 dane są zakodowane procentowo bajt po bajcie (np. `%89PNG`), nie jako UTF-8.
+    const binary = base64
+      ? atob(payload)
+      : payload.replace(/%([0-9a-f]{2})/gi, (_, hex: string) =>
+          String.fromCharCode(parseInt(hex, 16)),
+        );
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return new Blob([bytes], { type });
@@ -151,16 +157,20 @@ export async function loadVersionTemplate(
   return { ...data.template, name, ...(image ? { image } : {}) };
 }
 
-/** Szablon aktualnej wersji notesu do edycji (ze zdjęciem). */
+/**
+ * Szablon aktualnej wersji notesu do edycji (ze zdjęciem). Klucz to sama wersja: zmiana nazwy
+ * w innym oknie nie wczytuje szablonu od nowa (i nie czyści edytora).
+ */
 export function useScorepadTemplate(client: SupabaseClient, pad: Scorepad | null | undefined) {
   const versionId = pad?.current?.id ?? '';
+  const name = pad?.name ?? '';
   return useQuery({
-    queryKey: [...versionTemplateKey(versionId), pad?.name ?? ''],
+    queryKey: versionTemplateKey(versionId),
     enabled: versionId !== '',
     staleTime: Infinity,
     // Zdjęcie ma kilka MB: po zamknięciu edytora nie trzymamy go w pamięci.
     gcTime: 0,
-    queryFn: () => loadVersionTemplate(client, versionId, pad?.name ?? ''),
+    queryFn: () => loadVersionTemplate(client, versionId, name),
   });
 }
 
@@ -228,6 +238,12 @@ export interface ScorepadDraft {
   readonly template: unknown;
   /** Nazwa notesu; domyślnie nazwa z szablonu. */
   readonly name?: string | undefined;
+  /**
+   * Zdjęcie wersji, od której zaczęła się edycja (data URL podany edytorowi i jego plik).
+   * Gdy edytor oddaje to samo zdjęcie, nowa wersja wskazuje ten sam plik: bez ponownego
+   * wysyłania kilku MB i bez kolejnej kompresji JPEG.
+   */
+  readonly previousImage?: { readonly url: string; readonly path: string } | undefined;
 }
 
 export interface SavedScorepad {
@@ -255,16 +271,21 @@ export async function saveScorepad(
   const name = scorepadName(draft.name ?? template.name);
   const { image, ...rest } = template;
 
+  // Edytor (EDT-1) otwiera tylko notes ze zdjęciem kartki, więc bez zdjęcia nie zapisujemy.
+  if (image === undefined) throw new ScorepadError('image');
   const storage = client.storage.from(SCOREPADS_BUCKET);
+  let imagePath: string;
   let uploaded: string | null = null;
-  if (image !== undefined) {
+  if (draft.previousImage && image === draft.previousImage.url) {
+    imagePath = draft.previousImage.path;
+  } else {
     const blob = dataUrlToBlob(image);
     if (!blob) throw new ScorepadError('image');
     if (blob.size > SCOREPAD_IMAGE_MAX_BYTES) throw new ScorepadError('imageSize');
     const path = newImagePath(draft.gameId, draft.scorepadId, IMAGE_TYPES[blob.type] ?? 'jpg');
     const { error } = await storage.upload(path, blob, { contentType: blob.type, upsert: false });
     if (error) throw new ScorepadError('upload');
-    uploaded = path;
+    imagePath = uploaded = path;
   }
 
   // Id szablonu = id notesu: kolejne wersje są tym samym notesem także dla `<score-pad>`.
@@ -275,13 +296,15 @@ export async function saveScorepad(
       scorepad_id: draft.scorepadId,
       name,
       template: row,
-      image_path: uploaded,
+      image_path: imagePath,
       player_slots: playerSlots,
     })
     .single<{ version: number }>();
   if (error) {
-    // Plik nie jest wskazany przez żadną wersję, więc Storage pozwala go usunąć.
-    if (uploaded) await storage.remove([uploaded]).catch(() => undefined);
+    // Plik usuwamy tylko po odpowiedzi bazy (kod błędu): wtedy wersji na pewno nie ma, więc
+    // Storage pozwala go usunąć. Po błędzie sieci transakcja mogła się jeszcze zatwierdzić,
+    // a usunięty plik zostawiłby wersję bez zdjęcia; osierocony plik jest mniejszym złem.
+    if (uploaded && error.code) await storage.remove([uploaded]).catch(() => undefined);
     throw new ScorepadError(failureFor(error));
   }
   return { name, version: data.version, playerSlots };
@@ -343,18 +366,6 @@ export function scorepadFile(template: ScorePadTemplate): ScorePadFile {
   return { format: 'score-pad', version: 2, template, active: template.id };
 }
 
-/** Nazwa pliku eksportu jak w edytorze: `notes-<nazwa bez polskich znaków>.json`. */
-export function exportFileName(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/ł/g, 'l')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  return `notes-${slug || 'notes'}.json`;
-}
-
 /** Eksport aktualnej wersji notesu do pliku `.json` (pobranie w przeglądarce). */
 export async function exportScorepad(client: SupabaseClient, pad: Scorepad): Promise<void> {
   if (!pad.current) throw new ScorepadError('gone');
@@ -365,7 +376,7 @@ export async function exportScorepad(client: SupabaseClient, pad: Scorepad): Pro
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = exportFileName(pad.name);
+  link.download = scorePadFileName(pad.name);
   document.body.append(link);
   link.click();
   link.remove();

@@ -9,7 +9,7 @@ set constraints all immediate;
 -- Storage blokuje bezpośrednie DELETE na storage.objects; w teście sprawdzamy same polityki.
 set local storage.allow_delete_query = 'true';
 
-select plan(32);
+select plan(35);
 
 -- a001 Ada: admin; a002 Bartek: gracz.
 insert into public.profiles (id, hook, first_name, last_name, role) values
@@ -89,11 +89,13 @@ select is(
   (select count(*)::int from public.scorepads where game_id = '00000000-0000-4000-b000-000000000001'),
   1, 'edycja nie dodaje drugiego notesu');
 
--- Drugi notes tej samej gry (dowolna liczba notesów, GAME-7) bez zdjęcia (nadruk).
+-- Drugi notes tej samej gry (dowolna liczba notesów, GAME-7). Ten sam plik może wskazywać
+-- kilka wersji (edycja bez zmiany zdjęcia nie wysyła go ponownie).
 select lives_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
-       '00000000-0000-4000-d000-000000000002', 'Uproszczony', (select body from tpl), null, 2) $$,
-  'admin: drugi notes gry, także bez zdjęcia');
+       '00000000-0000-4000-d000-000000000002', 'Uproszczony', (select body from tpl),
+       'b0000001/d0000001-v2.jpg', 2) $$,
+  'admin: drugi notes gry, z istniejącym już plikiem zdjęcia');
 
 -- =============================================================================================
 -- Walidacja: v2, obraz w Storage, aktywna gra i notes
@@ -109,12 +111,20 @@ select throws_ok(
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
        '00000000-0000-4000-d000-000000000003', 'Z data URL',
-       '{"v": 2, "lines": [], "image": "data:image/jpeg;base64,AAAA"}', null, 2) $$,
+       '{"v": 2, "lines": [], "image": "data:image/jpeg;base64,AAAA"}',
+       'b0000001/d0000001-v1.jpg', 2) $$,
   '23514', null, 'zdjęcie w JSON-ie (data URL) jest odrzucane (EDT-1, NFR-7)');
 select throws_ok(
-  $$ insert into public.scorepad_versions (scorepad_id, template, player_slots) values
-     ('00000000-0000-4000-d000-000000000001', '{"v": 2, "lines": [], "image": "data:,"}', 2) $$,
-  '23514', null, 'także bezpośredni zapis wersji nie przyjmie zdjęcia w JSON-ie');
+  $$ insert into public.scorepad_versions (scorepad_id, template, image_path, player_slots) values
+     ('00000000-0000-4000-d000-000000000001', '{"v": 1}', 'brak.jpg', 2) $$,
+  '42501', null, 'admin: wersji nie doda z pominięciem save_scorepad');
+select throws_ok(
+  $$ insert into public.scorepads (game_id, name) values ('00000000-0000-4000-b000-000000000001', 'Pusty') $$,
+  '42501', null, 'admin: notesu bez wersji nie doda z pominięciem save_scorepad');
+select throws_ok(
+  $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
+       '00000000-0000-4000-d000-000000000003', 'Bez zdjęcia', (select body from tpl), null, 2) $$,
+  '23503', null, 'notes bez zdjęcia kartki jest odrzucany (edytor go nie otworzy)');
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
        '00000000-0000-4000-d000-000000000001', 'Turniejowy 3', (select body from tpl),
@@ -126,11 +136,13 @@ select is(
   2, 'po odrzuconym zapisie aktualna wersja się nie zmienia');
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000002',
-       '00000000-0000-4000-d000-000000000001', 'Przeniesiony', (select body from tpl), null, 2) $$,
+       '00000000-0000-4000-d000-000000000001', 'Przeniesiony', (select body from tpl),
+       'b0000001/d0000001-v1.jpg', 2) $$,
   '23514', null, 'notesu nie da się przenieść do innej gry');
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
-       '00000000-0000-4000-d000-000000000004', 'Zero miejsc', (select body from tpl), null, 0) $$,
+       '00000000-0000-4000-d000-000000000004', 'Zero miejsc', (select body from tpl),
+       'b0000001/d0000001-v1.jpg', 0) $$,
   '23514', null, 'notes musi mieć co najmniej jedno miejsce dla gracza');
 select is(
   (select count(*)::int from public.scorepads where id = '00000000-0000-4000-d000-000000000004'),
@@ -187,7 +199,8 @@ select throws_ok(
   '23514', null, 'usuniętego notesu nie da się zmieniać');
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
-       '00000000-0000-4000-d000-000000000001', 'Wskrzeszony', (select body from tpl), null, 2) $$,
+       '00000000-0000-4000-d000-000000000001', 'Wskrzeszony', (select body from tpl),
+       'b0000001/d0000001-v1.jpg', 2) $$,
   '23514', null, 'do usuniętego notesu nie dochodzą nowe wersje');
 select is(
   (select count(*)::int from public.scorepad_versions where scorepad_id = '00000000-0000-4000-d000-000000000001'),
@@ -197,8 +210,16 @@ select is(
 update public.games set deleted_at = now() where id = '00000000-0000-4000-b000-000000000002';
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000002',
-       '00000000-0000-4000-d000-000000000005', 'Spóźniony', (select body from tpl), null, 2) $$,
+       '00000000-0000-4000-d000-000000000005', 'Spóźniony', (select body from tpl),
+       'b0000001/d0000001-v1.jpg', 2) $$,
   '23514', null, 'gra usunięta z kolekcji nie dostaje nowych notesów (GAME-8)');
+
+-- Ograniczenie tabeli działa też poza API (np. skrypty z kluczem serwisowym).
+reset role;
+select throws_ok(
+  $$ insert into public.scorepad_versions (scorepad_id, template, player_slots) values
+     ('00000000-0000-4000-d000-000000000002', '{"v": 2, "lines": [], "image": "data:,"}', 2) $$,
+  '23514', null, 'tabela nie przyjmie szablonu ze zdjęciem w JSON-ie');
 
 select * from finish();
 

@@ -4,18 +4,22 @@
 -- - Zapis notesu to jedna transakcja `save_scorepad(...)`: dodaje notes (gdy go nie ma),
 --   tworzy kolejną niezmienną wersję i przestawia na nią `current_version_id`. Jeśli cokolwiek
 --   się nie uda, nie zostaje ani wersja, ani zmieniony wskaźnik (GAME-9).
+-- - To jedyna droga zapisu notesu i wersji z API: `authenticated` traci bezpośredni INSERT na
+--   `scorepads` i `scorepad_versions` (zmiana nazwy i usunięcie to dalej UPDATE z RLS). Dzięki
+--   temu każda wersja przechodzi te same sprawdzenia.
 -- - Zdjęcie kartki jest w Storage (bucket `scorepads`), nie w JSON-ie (EDT-1, NFR-7). Klient
 --   wysyła plik przed zapisem wersji; funkcja przyjmuje tylko ścieżkę pliku, który już jest
 --   w buckecie, więc nieudany upload nie opublikuje wersji z brakującym obrazem. Szablon
---   z polem `image` (np. data URL z pliku `.json`) jest odrzucany także przy bezpośrednim
---   INSERT-cie.
+--   z polem `image` (np. data URL z pliku `.json`) odrzuca też ograniczenie tabeli. Ten sam
+--   plik może wskazywać kilka wersji (edycja bez zmiany zdjęcia nie wysyła go ponownie).
 -- - Pliki wersji są trwałe jak same wersje: obrazu wskazanego przez którąkolwiek wersję nie da
 --   się usunąć ani nadpisać, więc stare partie i wersje zostają czytelne po edycji i usunięciu
 --   notesu. Usunąć można tylko plik osierocony (np. po nieudanym zapisie wersji).
 -- - Usunięcie notesu jest miękkie i nieodwracalne (jak gry, GAME-8): `deleted_at` nadaje baza,
 --   a usuniętego notesu nie da się już zmieniać. Nowe partie go nie widzą (strażnik partii
 --   z migracji [003]), historia wskazuje dalej jego wersje.
--- - Funkcja działa z uprawnieniami wołającego (`security invoker`): zapis tylko admin (RLS).
+-- - Funkcja jest `security definer` (zapis mimo odebranych praw) i zaczyna od strażnika
+--   `private.require_admin()`, jak każde takie RPC (README, „Uprawnienia”).
 
 -- ---------------------------------------------------------------------------------------------
 -- scorepad_versions: szablon bez obrazu w JSON-ie (EDT-1, NFR-7)
@@ -67,7 +71,7 @@ create function public.save_scorepad(
 )
 returns public.scorepad_versions
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -75,9 +79,7 @@ declare
   game_deleted timestamptz;
   saved public.scorepad_versions;
 begin
-  if not private.is_admin() then
-    raise exception 'only the admin can save scorepads' using errcode = '42501';
-  end if;
+  perform private.require_admin();
 
   -- Szablon w formacie v2 (EDT-7); kategorie i regułę miejsc sprawdza klient (`validateScoring`).
   if jsonb_typeof(template) is distinct from 'object'
@@ -87,7 +89,8 @@ begin
       using errcode = '22023', constraint = 'save_scorepad_template_v2';
   end if;
 
-  if image_path is not null and not exists (
+  -- Edytor (EDT-1) zawsze ma zdjęcie kartki; notes bez zdjęcia nie dałby się edytować.
+  if image_path is null or not exists (
     select 1 from storage.objects o
      where o.bucket_id = 'scorepads' and o.name = save_scorepad.image_path
   ) then
@@ -137,6 +140,9 @@ comment on function public.save_scorepad(uuid, uuid, text, jsonb, text, int) is
 
 revoke execute on function public.save_scorepad(uuid, uuid, text, jsonb, text, int) from public, anon;
 grant execute on function public.save_scorepad(uuid, uuid, text, jsonb, text, int) to authenticated;
+
+-- Notesy i wersje powstają tylko przez save_scorepad (sprawdzenia wyżej).
+revoke insert on public.scorepads, public.scorepad_versions from authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- Storage: obrazy wersji są trwałe (GAME-9)

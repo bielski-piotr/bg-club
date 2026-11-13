@@ -207,7 +207,12 @@ function ScorepadRow({
     <li className="tray__item">
       <div className="row row--64 scorepad-row">
         <span className="row__leading">
-          <ScorepadThumb name={pad.name} path={pad.current?.image_path ?? null} />
+          {/* Klucz = plik: nowa wersja zaczyna od świeżego stanu błędu obrazu. */}
+          <ScorepadThumb
+            key={pad.current?.image_path ?? ''}
+            name={pad.name}
+            path={pad.current?.image_path ?? null}
+          />
         </span>
         <span className="row__text">
           <span className="row__title">{pad.name}</span>

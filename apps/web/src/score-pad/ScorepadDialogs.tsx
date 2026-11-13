@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/authContext';
 import { format, t } from '../i18n';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { usePopups } from '../popups/popupContext';
+import { useMounted } from '../popups/useMounted';
 import { PopupDialog } from '../popups/PopupDialog';
 import { QueryStatus } from '../popups/QueryStatus';
 import { Banner, Button, TextField, useToast } from '../ui';
@@ -18,18 +19,6 @@ import {
   useScorepad,
   type Scorepad,
 } from './scorepads';
-
-/** Dialog zamknięty w trakcie żądania (Esc, tło) jest odmontowany: wtedy nie cofamy drugi raz. */
-function useMounted() {
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  return mounted;
-}
 
 /** „Zmień nazwę” notesu (GAME-7): bez nowej wersji, partie zachowują swój szablon. */
 export function RenameScorepadDialog({ id }: { readonly id: string }) {

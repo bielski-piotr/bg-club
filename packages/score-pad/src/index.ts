@@ -18,6 +18,8 @@ export const SCORE_PAD_EDITOR_TAG = 'score-pad-editor';
 /** Wersja źródeł POC, z których pochodzą web componenty. */
 export const SCORE_PAD_POC_VERSION = '2.4.0';
 
+export { scorePadFileName } from './file-name';
+
 /** Motyw przekazywany do notesu i edytora (rozwiązany motyw aplikacji, bez „systemowego”). */
 export type ScorePadTheme = 'light' | 'dark';
 

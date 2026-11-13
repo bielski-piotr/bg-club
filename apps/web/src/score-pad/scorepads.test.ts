@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { fewerSeatsMessage } from './messages';
+import { scorePadFileName } from '@bg-club/score-pad';
 import {
   dataUrlToBlob,
-  exportFileName,
   readImportFile,
   saveScorepad,
   scorepadFile,
@@ -168,15 +168,46 @@ describe('saveScorepad (GAME-9, EDT-1)', () => {
     expect(fake.calls).toEqual([]);
   });
 
-  it('notes bez zdjęcia (nadruk) zapisuje się bez pliku', async () => {
+  it('notes bez zdjęcia kartki jest odrzucany (edytor by go nie otworzył)', async () => {
     const fake = fakeClient();
+    await expect(
+      saveScorepad(fake.client, {
+        gameId: GAME,
+        scorepadId: PAD,
+        template: sampleTemplate({ image: undefined }),
+      }),
+    ).rejects.toEqual(new ScorepadError('image'));
+    expect(fake.calls).toEqual([]);
+  });
+
+  it('edycja bez zmiany zdjęcia wskazuje ten sam plik (bez uploadu i ponownej kompresji)', async () => {
+    const fake = fakeClient();
+    const previousImage = { url: IMAGE, path: `${GAME}/${PAD}-v1.jpg` };
     await saveScorepad(fake.client, {
       gameId: GAME,
       scorepadId: PAD,
-      template: sampleTemplate({ image: undefined }),
+      template: sampleTemplate(),
+      previousImage,
     });
     expect(fake.upload).not.toHaveBeenCalled();
-    expect(fake.rpc.mock.calls[0]?.[1]).toMatchObject({ image_path: null });
+    expect(fake.rpc.mock.calls[0]?.[1]).toMatchObject({ image_path: previousImage.path });
+
+    const changed = fakeClient();
+    await saveScorepad(changed.client, {
+      gameId: GAME,
+      scorepadId: PAD,
+      template: sampleTemplate({ image: 'data:image/png;base64,iVBORw0K' }),
+      previousImage,
+    });
+    expect(changed.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it('po błędzie sieci (bez odpowiedzi bazy) nie usuwa pliku: wersja mogła powstać', async () => {
+    const fake = fakeClient({ rpcError: { code: '', message: 'TypeError: Failed to fetch' } });
+    await expect(
+      saveScorepad(fake.client, { gameId: GAME, scorepadId: PAD, template: sampleTemplate() }),
+    ).rejects.toEqual(new ScorepadError('save'));
+    expect(fake.remove).not.toHaveBeenCalled();
   });
 });
 
@@ -213,9 +244,9 @@ describe('import i eksport pliku .json (EDT-1, EDT-7)', () => {
     ).rejects.toEqual(new ScorepadError('scoring'));
   });
 
-  it('nazwa pliku eksportu bez polskich znaków', () => {
-    expect(exportFileName('Żółwie – Łąka 2')).toBe('notes-zolwie-laka-2.json');
-    expect(exportFileName('???')).toBe('notes-notes.json');
+  it('nazwa pliku eksportu bez polskich znaków (jak „Zapisz do pliku” w edytorze)', () => {
+    expect(scorePadFileName('Żółwie – Łąka 2')).toBe('notes-zolwie-laka-2.json');
+    expect(scorePadFileName('???')).toBe('notes-notes.json');
   });
 });
 
@@ -225,6 +256,12 @@ describe('pomocnicze', () => {
     expect(blob?.type).toBe('image/png');
     expect(blob?.size).toBe(6);
     expect(dataUrlToBlob('data:text/plain,abc')).toBeNull();
+    // Bez base64: bajty zakodowane procentowo, nie UTF-8 (0x89 to jeden bajt).
+    const plain = dataUrlToBlob('data:image/png,%89PNG%0D%0A');
+    expect(plain?.size).toBe(6);
+    expect([...new Uint8Array(await (plain as Blob).arrayBuffer())]).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a,
+    ]);
     expect(dataUrlToBlob('blob:https://app.test/1')).toBeNull();
     expect(dataUrlToBlob('data:image/jpeg;base64,***')).toBeNull();
   });

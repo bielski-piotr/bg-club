@@ -50,7 +50,9 @@ export function EditScorepadPopup({ id }: { readonly id: string }) {
   const game = useGame(client, pad.data?.game_id ?? '');
   const template = useScorepadTemplate(client, pad.data);
   if (pad.isSuccess && !pad.data) return <NotFound />;
-  if (!pad.isSuccess || !game.isSuccess || !template.isSuccess) {
+  // Notes bez wersji (np. dodany poza aplikacją) nie ma szablonu: edytor zaczyna od zdjęcia.
+  const noVersion = pad.data?.current === null;
+  if (!pad.isSuccess || !game.isSuccess || (!template.isSuccess && !noVersion)) {
     const failed = pad.isError ? pad : game.isError ? game : template;
     return (
       <PopupModal title={text.editTitle} width={880}>
@@ -67,7 +69,7 @@ export function EditScorepadPopup({ id }: { readonly id: string }) {
       game={game.data}
       scorepadId={pad.data.id}
       pad={pad.data}
-      template={template.data}
+      template={noVersion ? undefined : template.data}
     />
   );
 }
@@ -102,12 +104,27 @@ function ScorepadEditor({
   const { back } = usePopups();
   const editor = useRef<ScorePadEditorHandle>(null);
   const [error, setError] = useState<string | undefined>(undefined);
+  // Szablon z chwili otwarcia: odświeżenie danych w tle (np. zmiana nazwy w innym oknie) nie
+  // tworzy edytora od nowa i nie gubi niezapisanych zmian.
+  const [initial] = useState(() => ({
+    template,
+    previousImage:
+      template?.image && pad?.current?.image_path
+        ? { url: template.image, path: pad.current.image_path }
+        : undefined,
+    nextVersion: (pad?.current?.version ?? 0) + 1,
+  }));
 
   const save = useMutation({
     mutationFn: () => {
       const config = editor.current?.exportConfig();
       if (!config?.template) throw new ScorepadError('incomplete');
-      return saveScorepad(client, { gameId: game.id, scorepadId, template: config.template });
+      return saveScorepad(client, {
+        gameId: game.id,
+        scorepadId,
+        template: config.template,
+        previousImage: initial.previousImage,
+      });
     },
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: scorepadsKey });
@@ -155,11 +172,13 @@ function ScorepadEditor({
       <div className="scorepad-editor">
         {error ? <Banner variant="error">{error}</Banner> : null}
         {pad?.current ? (
-          <p className="scorepads__note">
-            {format(text.versionNote, { n: pad.current.version + 1 })}
-          </p>
+          <p className="scorepads__note">{format(text.versionNote, { n: initial.nextVersion })}</p>
         ) : null}
-        <ScorePadEditorView ref={editor} template={template} className="scorepad-editor__view" />
+        <ScorePadEditorView
+          ref={editor}
+          template={initial.template}
+          className="scorepad-editor__view"
+        />
       </div>
     </PopupModal>
   );

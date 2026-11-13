@@ -33,6 +33,7 @@ import {
 } from './shape-tools';
 import { FieldsStep } from './fields';
 import { icon } from './icons';
+import { scorePadFileName } from '../file-name';
 
 type Step = 1 | 2 | 3;
 type Tool = 'none' | 'wand' | 'lasso';
@@ -486,6 +487,8 @@ export class Editor {
       this.sundo = [];
       this.fields.load(t);
       this.editId = t.id;
+      // Zdjęcie bez zmian zapisujemy tym samym plikiem (bez ponownej kompresji JPEG, [015]).
+      this.loadedImage = { url: t.image, key: this.sheetWant() };
       this.refreshSrcUrl();
       this.setBusy('');
       this.reached = 3;
@@ -497,6 +500,8 @@ export class Editor {
   }
 
   private editId = '';
+  /** Zdjęcie wczytanego notesu i stan kadru, przy którym jest aktualne. */
+  private loadedImage: { url: string; key: string } | null = null;
 
   private setSource(c: HTMLCanvasElement): void {
     this.src = c;
@@ -1057,7 +1062,10 @@ export class Editor {
       id: this.editId || `n-${uid()}`,
       ...out,
       size: { ...this.size },
-      image: toJpeg(this.sheet, 0.86),
+      image:
+        this.loadedImage?.key === this.sheetWant()
+          ? this.loadedImage.url
+          : toJpeg(this.sheet, 0.86),
       shape: sh
         ? {
             outline: sh.outline.map(([x, y]) => [r4(x), r4(y)] as ShapePt),
@@ -1096,15 +1104,7 @@ export class Editor {
     const cfg = this.exportConfig();
     if (!cfg?.template) return;
     const json = JSON.stringify(cfg, null, 2);
-    const slug =
-      cfg.template.name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .replace(/ł/g, 'l')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '') || 'notes';
-    const filename = `notes-${slug}.json`;
+    const filename = scorePadFileName(cfg.template.name);
     const res = await saveText(filename, json);
     if (res === 'saved') {
       this.flash(b, 'Zapisano');
