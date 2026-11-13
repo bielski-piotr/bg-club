@@ -404,6 +404,16 @@ deno_version = 2
 enabled = true
 verify_jwt = false
 
+# Usuwanie członka przez admina (MEM-4) i własnego konta z hasłem (USR-6). Tak samo: token
+# i rolę sprawdza funkcja. Kod: supabase/functions/delete-member, delete-own-account.
+[functions.delete-member]
+enabled = true
+verify_jwt = false
+
+[functions.delete-own-account]
+enabled = true
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

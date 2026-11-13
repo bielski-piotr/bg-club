@@ -17,6 +17,7 @@ import {
   type MemberAccounts,
   type MemberInputProblems,
 } from '../../../packages/accounts/src/member.ts';
+import { bearerToken, errorMessage, json, preflight, readJsonObject } from '../_shared/http.ts';
 
 export interface CreateMemberDeps {
   /** Id użytkownika z tokenu sesji albo `null`, gdy token jest nieważny. */
@@ -43,28 +44,8 @@ export interface CreatedMemberProfile {
 export type CreateMemberErrorCode =
   'unauthorized' | 'forbidden' | 'invalid_body' | 'invalid_input' | 'method_not_allowed' | 'failed';
 
-/** Aplikacja jest na innym adresie niż API (Cloudflare Pages), a dostęp daje token, nie ciasteczko. */
-export const CORS_HEADERS: Readonly<Record<string, string>> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
-
 /** Największa akceptowana treść żądania (dwa pola po 50 znaków mieszczą się z zapasem). */
 const MAX_BODY_BYTES = 4096;
-
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...CORS_HEADERS,
-      'Content-Type': 'application/json; charset=utf-8',
-      // Odpowiedź z hasłem nie może zostać w żadnym cache'u (AUTH-4: hasło pokazujemy raz).
-      'Cache-Control': 'no-store',
-    },
-  });
-}
 
 function failure(
   status: number,
@@ -74,28 +55,12 @@ function failure(
   return json(status, problems ? { error, problems } : { error });
 }
 
-function bearerToken(request: Request): string | null {
-  const header = request.headers.get('Authorization') ?? '';
-  const match = /^Bearer\s+(\S+)$/i.exec(header);
-  return match?.[1] ?? null;
-}
-
 async function readInput(
   request: Request,
 ): Promise<{ firstName: string; lastName: string } | null> {
-  // Zadeklarowana długość odrzuca duże żądanie przed wczytaniem; druga kontrola łapie brak nagłówka.
-  const declared = Number(request.headers.get('Content-Length') ?? '0');
-  if (declared > MAX_BODY_BYTES) return null;
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return null;
-  let body: unknown;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  if (typeof body !== 'object' || body === null) return null;
-  const { firstName, lastName } = body as Record<string, unknown>;
+  const body = await readJsonObject(request, MAX_BODY_BYTES);
+  if (!body) return null;
+  const { firstName, lastName } = body;
   if (typeof firstName !== 'string' || typeof lastName !== 'string') return null;
   return { firstName, lastName };
 }
@@ -105,7 +70,7 @@ export async function handleCreateMember(
   deps: CreateMemberDeps,
 ): Promise<Response> {
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return preflight();
   }
   if (request.method !== 'POST') return failure(405, 'method_not_allowed');
 
@@ -141,7 +106,7 @@ export async function handleCreateMember(
     // Komunikaty błędów nie zawierają hasła (createMember go nie dołącza).
     deps.log('create-member.failed', {
       reason: error instanceof CreateMemberError ? error.reason : 'unexpected',
-      message: error instanceof Error ? error.message : String(error),
+      message: errorMessage(error),
     });
     return failure(500, 'failed');
   }

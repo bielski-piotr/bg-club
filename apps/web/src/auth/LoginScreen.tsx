@@ -1,7 +1,7 @@
 import { isValidHook, normalizeHook } from '@bg-club/accounts';
 import { useRef, useState, type FormEvent } from 'react';
 import { t } from '../i18n';
-import { Banner, Button, PasswordField, TextField } from '../ui';
+import { Banner, Button, PasswordField, TextField, type BannerVariant } from '../ui';
 import { useAuth, type AuthNotice } from './authContext';
 import type { LoginErrorKind } from './errors';
 import './LoginScreen.css';
@@ -26,6 +26,14 @@ function validate(hook: string, password: string): FieldErrors {
 const NOTICE_TEXT: Readonly<Record<AuthNotice, string>> = {
   sessionExpired: t.auth.notices.sessionExpired,
   accountInactive: t.auth.errors.accountInactive,
+  accountDeleted: t.auth.notices.accountDeleted,
+};
+
+const NOTICE_VARIANT: Readonly<Record<AuthNotice, BannerVariant>> = {
+  sessionExpired: 'warning',
+  accountInactive: 'error',
+  // Gracz sam usunął konto (USR-6): to potwierdzenie, nie błąd.
+  accountDeleted: 'info',
 };
 
 /**
@@ -76,7 +84,7 @@ export function LoginScreen({ notice }: { readonly notice: AuthNotice | null }) 
   };
 
   const message = serverError ? t.auth.errors[serverError] : null;
-  const shownNotice = message === null && notice !== null ? NOTICE_TEXT[notice] : null;
+  const shownNotice = message === null ? notice : null;
 
   return (
     <main className="shell">
@@ -88,11 +96,8 @@ export function LoginScreen({ notice }: { readonly notice: AuthNotice | null }) 
         <p className="body">{t.auth.intro}</p>
 
         {shownNotice ? (
-          <Banner
-            variant={notice === 'accountInactive' ? 'error' : 'warning'}
-            className="login__banner"
-          >
-            {shownNotice}
+          <Banner variant={NOTICE_VARIANT[shownNotice]} className="login__banner">
+            {NOTICE_TEXT[shownNotice]}
           </Banner>
         ) : null}
 

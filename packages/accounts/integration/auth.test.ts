@@ -2,7 +2,8 @@
  * Testy integracyjne kont i logowania na lokalnym Supabase (PRD AUTH-1…AUTH-5, AUTH-7),
  * zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10), dodawania członków przez
  * Edge Function `create-member` (MEM-3, AUTH-2, AUTH-4, USR-1) oraz ustawień profilu: zmiany
- * hasła z obecnym hasłem, zdjęcia i motywu (USR-3, USR-5, USR-7, USR-8, AUTH-6).
+ * hasła z obecnym hasłem, zdjęcia i motywu (USR-3, USR-5, USR-7, USR-8, AUTH-6) oraz usuwania
+ * członka i własnego konta przez `delete-member` i `delete-own-account` (MEM-4…MEM-6, USR-6).
  *
  * Idą przez prawdziwe API (Auth, PostgREST) z tymi samymi kluczami co aplikacja i skrypt
  * bootstrapu. Startują od pustej instalacji i nie sprzątają po sobie (konta administratora nie
@@ -44,12 +45,13 @@ interface CreateMemberReply {
   };
 }
 
-/** `POST create-member` z tokenem sesji (albo bez niego, `accessToken` = `null`). */
-async function callCreateMember(
+/** `POST /functions/v1/<name>` z tokenem sesji (albo bez niego, `accessToken` = `null`). */
+async function callFunction<Body>(
+  name: string,
   accessToken: string | null,
   body: unknown,
-): Promise<CreateMemberReply> {
-  const response = await fetch(`${FUNCTIONS_URL}/create-member`, {
+): Promise<{ readonly status: number; readonly body: Body }> {
+  const response = await fetch(`${FUNCTIONS_URL}/${name}`, {
     method: 'POST',
     headers: {
       apikey: stack.anonKey,
@@ -58,8 +60,11 @@ async function callCreateMember(
     },
     body: JSON.stringify(body),
   });
-  return { status: response.status, body: (await response.json()) as CreateMemberReply['body'] };
+  return { status: response.status, body: (await response.json()) as Body };
 }
+
+const callCreateMember = (accessToken: string | null, body: unknown) =>
+  callFunction<CreateMemberReply['body']>('create-member', accessToken, body);
 
 /** Tabele aplikacji poza profilami: po bootstrapie muszą być puste (bez klubu i danych demo). */
 const OTHER_TABLES = [
@@ -644,6 +649,263 @@ describe('konta i logowanie na pustej instalacji', () => {
       expect(reset.error).toBeNull();
       const removed = await client.storage.from('avatars').remove([path]);
       expect(removed.data).toHaveLength(1);
+    });
+  });
+
+  describe('usuwanie członka i własnego konta (MEM-4…MEM-6, USR-6, AUTH-7, [011])', () => {
+    type DeleteReply = { memberId?: string; deleted?: boolean; error?: string };
+    const callDeleteMember = (token: string | null, body: unknown) =>
+      callFunction<DeleteReply>('delete-member', token, body);
+    const callDeleteOwnAccount = (token: string | null, body: unknown) =>
+      callFunction<DeleteReply>('delete-own-account', token, body);
+
+    const ids = { admin: '', game: '', finished: '', running: '', planned: '' };
+    const session: { admin?: SupabaseClient; adminToken: string } = { adminToken: '' };
+    type Member = { id: string; hook: string; password: string };
+    const host: Member = { id: '', hook: '', password: '' };
+    const leaver: Member = { id: '', hook: '', password: '' };
+
+    async function newMember(target: Member, firstName: string, lastName: string) {
+      const { status, body } = await callCreateMember(session.adminToken, { firstName, lastName });
+      if (status !== 201 || !body.member || !body.password) throw new Error('brak nowego członka');
+      Object.assign(target, {
+        id: body.member.id,
+        hook: body.member.hook,
+        password: body.password,
+      });
+    }
+
+    async function insert(table: string, rows: object | object[]) {
+      const { error } = await service.from(table).insert(rows);
+      if (error) throw new Error(`${table}: ${error.message}`);
+    }
+
+    async function meeting(title: string): Promise<string> {
+      const { data, error } = await service
+        .from('meetings')
+        .insert({ title, starts_at: '2026-12-01T17:00:00Z', created_by: ids.admin })
+        .select('id')
+        .single();
+      if (error) throw new Error(`meetings: ${error.message}`);
+      return data.id as string;
+    }
+
+    async function setMeeting(id: string, values: object) {
+      const { error } = await service.from('meetings').update(values).eq('id', id);
+      if (error) throw new Error(`meetings: ${error.message}`);
+    }
+
+    async function hostOf(id: string): Promise<string | null> {
+      const { data } = await service.from('meetings').select('host_id').eq('id', id).single();
+      return (data?.host_id as string | null | undefined) ?? null;
+    }
+
+    async function isParticipant(meetingId: string, profileId: string): Promise<boolean> {
+      const { count } = await service
+        .from('meeting_participants')
+        .select('profile_id', { count: 'exact', head: true })
+        .eq('meeting_id', meetingId)
+        .eq('profile_id', profileId);
+      return count === 1;
+    }
+
+    beforeAll(async () => {
+      const { client, data, error } = await signIn(admin.hook, admin.password);
+      if (error || !data.session) throw error ?? new Error('brak sesji administratora');
+      session.admin = client;
+      session.adminToken = data.session.access_token;
+      ids.admin = data.session.user.id;
+      await newMember(host, 'Igor', 'Prowadzący');
+      await newMember(leaver, 'Julia', 'Odchodząca');
+
+      const { data: game, error: gameError } = await service
+        .from('games')
+        .insert({
+          title: 'Gra do głosowania',
+          min_players: 2,
+          max_players: 4,
+          placement_points: [5, 3, 2, 1],
+        })
+        .select('id')
+        .single();
+      if (gameError) throw new Error(`games: ${gameError.message}`);
+      ids.game = game.id as string;
+
+      // Zakończone spotkanie prowadzone przez Igora (MEM-6: zachowuje prowadzącego).
+      ids.finished = await meeting('Spotkanie zakończone');
+      await insert('meeting_participants', { meeting_id: ids.finished, profile_id: host.id });
+      await setMeeting(ids.finished, { host_id: host.id });
+      await setMeeting(ids.finished, {
+        status: 'in_progress',
+        voting_open: false,
+        started_at: '2026-11-01T17:00:00Z',
+      });
+      await setMeeting(ids.finished, { status: 'finished', finished_at: '2026-11-01T21:00:00Z' });
+
+      // Spotkanie w trakcie: Igor i Julia uczestniczą, Igor prowadzi.
+      ids.running = await meeting('Spotkanie w trakcie');
+      await insert('meeting_participants', [
+        { meeting_id: ids.running, profile_id: host.id },
+        { meeting_id: ids.running, profile_id: leaver.id },
+      ]);
+      await setMeeting(ids.running, { host_id: host.id });
+      await setMeeting(ids.running, {
+        status: 'in_progress',
+        voting_open: false,
+        started_at: '2026-11-13T17:00:00Z',
+      });
+
+      // Zaplanowane spotkanie z otwartym głosowaniem: oboje uczestniczą i głosują, Igor prowadzi.
+      ids.planned = await meeting('Spotkanie zaplanowane');
+      await insert('meeting_participants', [
+        { meeting_id: ids.planned, profile_id: host.id },
+        { meeting_id: ids.planned, profile_id: leaver.id },
+      ]);
+      await setMeeting(ids.planned, { host_id: host.id });
+      await insert('game_votes', [
+        { meeting_id: ids.planned, game_id: ids.game, profile_id: host.id },
+        { meeting_id: ids.planned, game_id: ids.game, profile_id: leaver.id },
+      ]);
+    });
+
+    it('gracz i niezalogowany nie usuną członka; administratora nie usunie nikt', async () => {
+      const { data } = await signIn(leaver.hook, leaver.password);
+      const asPlayer = await callDeleteMember(data.session?.access_token ?? '', {
+        memberId: host.id,
+      });
+      expect(asPlayer).toEqual({ status: 403, body: { error: 'forbidden' } });
+      const anonymous = await callDeleteMember(null, { memberId: host.id });
+      expect(anonymous.status).toBe(401);
+      const adminTarget = await callDeleteMember(session.adminToken, { memberId: ids.admin });
+      expect(adminTarget).toEqual({ status: 409, body: { error: 'admin_protected' } });
+      const ownAdmin = await callDeleteOwnAccount(session.adminToken, { password: admin.password });
+      expect(ownAdmin).toEqual({ status: 403, body: { error: 'admin_protected' } });
+
+      const { data: profiles } = await service
+        .from('profiles')
+        .select('id')
+        .in('id', [ids.admin, host.id])
+        .is('deleted_at', null);
+      expect(profiles).toHaveLength(2);
+    });
+
+    it('administrator usuwa prowadzącego: znika z list i zaplanowanych spotkań, historia zostaje', async () => {
+      const hostSession = await signIn(host.hook, host.password);
+      expect(hostSession.error).toBeNull();
+
+      const reply = await callDeleteMember(session.adminToken, { memberId: host.id });
+      expect(reply).toEqual({ status: 200, body: { memberId: host.id } });
+
+      // Istniejąca sesja usuniętego: token dostępu jeszcze ważny, ale bez danych i bez odświeżenia.
+      const after = await hostSession.client.from('profiles').select('hook');
+      expect(after.data).toEqual([]);
+      const refreshed = await hostSession.client.auth.refreshSession();
+      expect(refreshed.error).not.toBeNull();
+      expect(refreshed.data.session).toBeNull();
+      // Auth zaciera techniczny e-mail: ponowne logowanie hookiem nie znajduje konta.
+      const again = await signIn(host.hook, host.password);
+      expect(again.error).not.toBeNull();
+      expect(again.data.session).toBeNull();
+
+      // Profil zostaje w historii (tylko do odczytu), ale nie ma go na liście członków.
+      const client = session.admin;
+      if (!client) throw new Error('brak sesji administratora');
+      const { data: profile } = await client
+        .from('profiles')
+        .select('hook, deleted_at')
+        .eq('id', host.id)
+        .single();
+      expect(profile?.hook).toBe(host.hook);
+      expect(profile?.deleted_at).not.toBeNull();
+      const { data: members } = await client.from('profiles').select('id').is('deleted_at', null);
+      expect(members?.map((row) => row.id)).not.toContain(host.id);
+
+      // MEM-6: zaplanowane bez niego i jego głosów, prowadzenie wraca do admina w niezakończonych.
+      expect(await isParticipant(ids.planned, host.id)).toBe(false);
+      const { data: votes } = await service
+        .from('game_votes')
+        .select('profile_id')
+        .eq('meeting_id', ids.planned);
+      expect(votes).toEqual([{ profile_id: leaver.id }]);
+      expect(await hostOf(ids.planned)).toBeNull();
+      expect(await hostOf(ids.running)).toBeNull();
+      expect(await isParticipant(ids.running, host.id)).toBe(true);
+      expect(await hostOf(ids.finished)).toBe(host.id);
+    });
+
+    it('usuniętego nie da się dodać do spotkania; ponowienie usunięcia nic nie psuje', async () => {
+      const client = session.admin;
+      if (!client) throw new Error('brak sesji administratora');
+      const join = await client
+        .from('meeting_participants')
+        .insert({ meeting_id: ids.planned, profile_id: host.id });
+      expect(join.error?.code).toBe('23514');
+      const fresh = await meeting('Nowe spotkanie');
+      const joinFresh = await client
+        .from('meeting_participants')
+        .insert({ meeting_id: fresh, profile_id: host.id });
+      expect(joinFresh.error?.code).toBe('23514');
+
+      const { data: before } = await service
+        .from('profiles')
+        .select('deleted_at')
+        .eq('id', host.id)
+        .single();
+      const retry = await callDeleteMember(session.adminToken, { memberId: host.id });
+      expect(retry).toEqual({ status: 200, body: { memberId: host.id } });
+      const { data: afterRetry } = await service
+        .from('profiles')
+        .select('deleted_at')
+        .eq('id', host.id)
+        .single();
+      expect(afterRetry?.deleted_at).toBe(before?.deleted_at);
+
+      const unknown = await callDeleteMember(session.adminToken, {
+        memberId: '00000000-0000-4000-a000-0000000000ff',
+      });
+      expect(unknown).toEqual({ status: 404, body: { error: 'not_found' } });
+    });
+
+    it('gracz usuwa własne konto tylko z poprawnym hasłem (USR-6)', async () => {
+      const own = await signIn(leaver.hook, leaver.password);
+      const token = own.data.session?.access_token ?? '';
+
+      const wrong = await callDeleteOwnAccount(token, { password: 'zle-haslo-123456' });
+      expect(wrong).toEqual({ status: 400, body: { error: 'wrong_password' } });
+      const missing = await callDeleteOwnAccount(token, {});
+      expect(missing).toEqual({ status: 400, body: { error: 'invalid_body' } });
+      const { data: still } = await own.client.from('profiles').select('id').eq('id', leaver.id);
+      expect(still).toHaveLength(1);
+
+      const done = await callDeleteOwnAccount(token, { password: leaver.password });
+      expect(done).toEqual({ status: 200, body: { deleted: true } });
+
+      const after = await own.client.from('profiles').select('id');
+      expect(after.data).toEqual([]);
+      expect((await own.client.auth.refreshSession()).data.session).toBeNull();
+      expect((await signIn(leaver.hook, leaver.password)).data.session).toBeNull();
+      // Ten sam token nie usunie konta drugi raz (konto nie jest już aktywne).
+      const twice = await callDeleteOwnAccount(token, { password: leaver.password });
+      expect(twice).toEqual({ status: 401, body: { error: 'unauthorized' } });
+
+      // Te same skutki MEM-6 co przy usunięciu przez administratora.
+      expect(await isParticipant(ids.planned, leaver.id)).toBe(false);
+      expect(await isParticipant(ids.running, leaver.id)).toBe(true);
+      const { count } = await service
+        .from('game_votes')
+        .select('profile_id', { count: 'exact', head: true })
+        .eq('meeting_id', ids.planned);
+      expect(count).toBe(0);
+    });
+
+    it('administrator nadal się loguje i jest jedynym aktywnym administratorem', async () => {
+      expect((await signIn(admin.hook, admin.password)).error).toBeNull();
+      const { data } = await service
+        .from('profiles')
+        .select('hook')
+        .eq('role', 'admin')
+        .is('deleted_at', null);
+      expect(data).toEqual([{ hook: admin.hook }]);
     });
   });
 });

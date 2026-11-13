@@ -74,8 +74,8 @@ function nameError(problem: NameProblem | undefined, required: string): string |
  * - **Profil**: zdjęcie (wybór pliku → kadrowanie 256×256 → podgląd; „Usuń zdjęcie” wraca do
  *   monogramu), imię i nazwisko. Zapisuje je przycisk „Zapisz”.
  * - **Wygląd**: motyw działa od razu i trafia do profilu oraz `localStorage` (USR-8).
- * - **Konto**: hook tylko do odczytu, zmiana hasła (osobny popup) i wylogowanie. Usunięcie
- *   własnego konta (USR-6) dochodzi w zadaniu [011].
+ * - **Konto**: hook tylko do odczytu, zmiana hasła (osobny popup), wylogowanie i usunięcie
+ *   własnego konta z potwierdzeniem hasłem (USR-6). Administrator nie widzi usuwania konta.
  */
 export function SettingsPopup({ me }: { readonly me: OwnProfile }) {
   const { client, signOut } = useAuth();
@@ -409,6 +409,19 @@ export function SettingsPopup({ me }: { readonly me: OwnProfile }) {
               {text.signOut}
             </Button>
           </div>
+          {me.role === 'admin' ? null : (
+            <div className="settings__danger">
+              <Button
+                variant="secondary"
+                icon="trash"
+                className="settings__delete"
+                onClick={() => open({ kind: 'delete-account' })}
+              >
+                {text.deleteAccount}
+              </Button>
+              <p className="settings__helper">{text.deleteAccountHint}</p>
+            </div>
+          )}
         </section>
       </div>
     </PopupModal>

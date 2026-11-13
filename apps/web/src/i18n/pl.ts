@@ -32,6 +32,7 @@ export const pl = {
     },
     notices: {
       sessionExpired: 'Sesja wygasła. Zaloguj się ponownie.',
+      accountDeleted: 'Twoje konto zostało usunięte. Dziękujemy za wspólne granie!',
     },
   },
   /** Widok po zalogowaniu: błąd wczytania własnego profilu (PRD §5.1). */
@@ -150,6 +151,9 @@ export const pl = {
     notFoundTitle: 'Nie znaleziono gracza',
     notFoundBody: 'Profilu z tego linku nie ma w klubie. Link może być nieaktualny.',
     settings: 'Ustawienia',
+    /** Akcja administratora w cudzym profilu (MEM-4). */
+    deleteMember: 'Usuń członka',
+    deleteMemberShort: 'Usuń',
     /** Statystyki (PRD §5.9) i gablota (§5.10) dochodzą w etapach E5 i E6. */
     stats: {
       title: 'Statystyki',
@@ -193,6 +197,9 @@ export const pl = {
     hookHint: 'Hooka nie da się zmienić.',
     changePassword: 'Zmień hasło',
     signOut: 'Wyloguj się',
+    deleteAccount: 'Usuń konto',
+    deleteAccountHint:
+      'Twoje partie i wyniki zostaną w historii klubu, ale nie zalogujesz się już na to konto.',
     errors: {
       firstNameRequired: 'Wpisz imię.',
       lastNameRequired: 'Wpisz nazwisko.',
@@ -206,6 +213,24 @@ export const pl = {
     },
     toasts: {
       saved: 'Zapisano zmiany',
+    },
+  },
+  /** Usunięcie własnego konta z potwierdzeniem hasłem (PRD USR-6, DS „Profil / Usuń konto”). */
+  deleteAccount: {
+    title: 'Usunąć konto?',
+    description:
+      'Znikniesz z listy członków i z zaplanowanych spotkań. Twoje partie, wyniki i osiągnięcia zostaną w historii klubu. Tej operacji nie można cofnąć.',
+    passwordLabel: 'Hasło',
+    passwordHint: 'Wpisz obecne hasło, żeby potwierdzić.',
+    cancel: 'Anuluj',
+    submit: 'Usuń konto',
+    errors: {
+      passwordRequired: 'Wpisz hasło.',
+      wrongPassword: 'Nieprawidłowe hasło.',
+      rateLimited: 'Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.',
+      adminProtected: 'Konta administratora nie można usunąć.',
+      network: 'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.',
+      unknown: 'Nie udało się usunąć konta. Spróbuj ponownie.',
     },
   },
   /** Kadrowanie awatara (PRD USR-3, DS „Profil / Kadrowanie awatara”). */
@@ -267,6 +292,22 @@ export const pl = {
     emptyTitle: 'Brak członków do pokazania',
     add: 'Dodaj członka',
     addShort: 'Dodaj',
+  },
+  /** Potwierdzenie „Usuń członka” (PRD MEM-4, MEM-6, DS „Członkowie / Usuń członka”). */
+  deleteMember: {
+    title: 'Usunąć członka?',
+    description:
+      '{name} zniknie z listy członków i z zaplanowanych spotkań, a konto przestanie działać. Partie, wyniki i osiągnięcia zostaną w historii klubu. Tej operacji nie można cofnąć.',
+    cancel: 'Anuluj',
+    submit: 'Usuń',
+    toast: 'Usunięto członka {name}',
+    errors: {
+      adminProtected: 'Administratora nie można usunąć.',
+      forbidden: 'Tylko administrator może usuwać członków.',
+      notFound: 'Nie ma już takiego członka. Odśwież listę.',
+      network: 'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.',
+      unknown: 'Nie udało się usunąć członka. Spróbuj ponownie.',
+    },
   },
   /** Formularz „Dodaj członka” i jednorazowe dane logowania (PRD MEM-3, AUTH-4, USR-1). */
   addMember: {

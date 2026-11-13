@@ -129,7 +129,21 @@ export interface MockOptions {
    * `current_password_invalid`. Domyślnie: hasło zmienione.
    */
   updateUserError?: { readonly status: number; readonly code: string } | undefined;
+  /**
+   * Odpowiedź Edge Function `delete-member` (MEM-4). Domyślnie: członek z `members` dostaje
+   * `deleted_at` i odpowiedź 200; inaczej podany status i treść błędu.
+   */
+  deleteMember?: { readonly status: number; readonly body: unknown } | undefined;
+  /**
+   * Odpowiedź Edge Function `delete-own-account` (USR-6). Domyślnie: hasło
+   * {@link OWN_ACCOUNT_PASSWORD} usuwa konto (RLS przestaje zwracać profil), inne daje
+   * `wrong_password`; inaczej podany status i treść błędu.
+   */
+  deleteOwnAccount?: { readonly status: number; readonly body: unknown } | undefined;
 }
+
+/** Hasło zalogowanej Ady, które przyjmuje atrapa `delete-own-account` (fikcyjne). */
+export const OWN_ACCOUNT_PASSWORD = 'e2eMojeHaslo123';
 
 /** Hasło, które atrapa `create-member` zwraca dla nowego członka (fikcyjne). */
 export const NEW_MEMBER_PASSWORD = 'e2eHasloTestowe7';
@@ -170,6 +184,9 @@ export interface SupabaseMock {
   /** Ścieżki plików wysłanych do bucketu `avatars` i z niego usuniętych. */
   readonly avatarUploads: string[];
   readonly avatarRemoved: string[];
+  /** Treści żądań `POST /functions/v1/delete-member` i `delete-own-account`. */
+  readonly deleteMemberBodies: unknown[];
+  readonly deleteOwnBodies: unknown[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -219,6 +236,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     userUpdates: [],
     avatarUploads: [],
     avatarRemoved: [],
+    deleteMemberBodies: [],
+    deleteOwnBodies: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -291,6 +310,34 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' },
         json: { member: created, password: NEW_MEMBER_PASSWORD },
       });
+    }
+    const cors = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
+    if (url.pathname === '/functions/v1/delete-member' && request.method() === 'POST') {
+      const body = request.postDataJSON() as { memberId: string };
+      mock.deleteMemberBodies.push(body);
+      if (mock.options.deleteMember) {
+        const { status, body: reply } = mock.options.deleteMember;
+        return route.fulfill({ status, json: reply, headers: cors });
+      }
+      mock.options.members = (mock.options.members ?? []).map((row) =>
+        row.id === body.memberId ? { ...row, deleted_at: '2026-11-13T12:00:00Z' } : row,
+      );
+      return route.fulfill({ json: { memberId: body.memberId }, headers: cors });
+    }
+    if (url.pathname === '/functions/v1/delete-own-account' && request.method() === 'POST') {
+      const body = request.postDataJSON() as { password: string };
+      mock.deleteOwnBodies.push(body);
+      if (mock.options.deleteOwnAccount) {
+        const { status, body: reply } = mock.options.deleteOwnAccount;
+        return route.fulfill({ status, json: reply, headers: cors });
+      }
+      if (body.password !== OWN_ACCOUNT_PASSWORD) {
+        return route.fulfill({ status: 400, json: { error: 'wrong_password' }, headers: cors });
+      }
+      // Konto usunięte: RLS nie zwraca już danych, a odświeżenie sesji jest odrzucane.
+      mock.options.profile = null;
+      mock.options.refresh = { kind: 'accountInactive' };
+      return route.fulfill({ json: { deleted: true }, headers: cors });
     }
     if (url.pathname === '/rest/v1/club') {
       const method = request.method();

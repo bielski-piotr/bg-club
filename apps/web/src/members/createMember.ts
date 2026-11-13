@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { functionFailure } from '../lib/functions';
 import type { Profile } from '../profile/profiles';
 
 /** Edge Function tworząca konto członka (MEM-3, `supabase/functions/create-member`). */
@@ -38,11 +39,6 @@ export class CreateMemberError extends Error {
   }
 }
 
-interface ErrorBody {
-  readonly error?: string;
-  readonly problems?: FieldProblems;
-}
-
 function isCreatedMember(value: unknown): value is CreatedMember {
   if (typeof value !== 'object' || value === null) return false;
   const { member, password } = value as Record<string, unknown>;
@@ -52,15 +48,6 @@ function isCreatedMember(value: unknown): value is CreatedMember {
     member !== null &&
     typeof (member as Record<string, unknown>).hook === 'string'
   );
-}
-
-async function errorBody(context: unknown): Promise<ErrorBody> {
-  if (!(context instanceof Response)) return {};
-  try {
-    return (await context.json()) as ErrorBody;
-  } catch {
-    return {};
-  }
 }
 
 /**
@@ -79,13 +66,10 @@ export async function createMember(
     if (isCreatedMember(data)) return data;
     throw new CreateMemberError('unknown');
   }
-  // FunctionsHttpError niesie odpowiedź funkcji; FunctionsFetchError to brak połączenia.
-  if (error.name === 'FunctionsFetchError') throw new CreateMemberError('network');
-  const context = (error as { context?: unknown }).context;
-  const status = context instanceof Response ? context.status : 0;
-  const body = await errorBody(context);
+  const { network, status, body } = await functionFailure(error);
+  if (network) throw new CreateMemberError('network');
   if (status === 400 && body.error === 'invalid_input') {
-    throw new CreateMemberError('invalid', body.problems ?? {});
+    throw new CreateMemberError('invalid', (body.problems as FieldProblems | undefined) ?? {});
   }
   if (status === 401) throw new CreateMemberError('session');
   if (status === 403) throw new CreateMemberError('forbidden');
