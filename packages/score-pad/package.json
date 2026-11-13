@@ -1,0 +1,13 @@
+{
+  "name": "@bg-club/score-pad",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Web componenty <score-pad> i <score-pad-editor> w trybie klubowym (PRD §8.5).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

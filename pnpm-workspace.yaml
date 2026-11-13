@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Pakiety, którym pozwalamy uruchomić skrypt instalacyjny (pnpm 10 domyślnie je blokuje).
+onlyBuiltDependencies:
+  - esbuild
