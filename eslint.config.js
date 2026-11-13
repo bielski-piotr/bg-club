@@ -38,5 +38,14 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['error', { allowConstantExport: true }],
     },
   },
+  {
+    // Źródła notesu i edytora przeniesione z POC (PRD §8.5): bez przepisywania stylu kodu.
+    files: ['packages/score-pad/src/core/**/*.ts', 'packages/score-pad/src/editor/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-dynamic-delete': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-this-alias': 'off',
+    },
+  },
   prettier,
 );

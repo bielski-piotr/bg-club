@@ -44,6 +44,9 @@ importers:
       '@bg-club/accounts':
         specifier: workspace:*
         version: link:../../packages/accounts
+      '@bg-club/score-pad':
+        specifier: workspace:*
+        version: link:../../packages/score-pad
       '@fontsource-variable/bricolage-grotesque':
         specifier: ^5.3.0
         version: 5.3.0
@@ -113,7 +116,30 @@ importers:
         specifier: 5.1.0
         version: 5.1.0(@types/node@22.20.5)(jsdom@31.0.0(@noble/hashes@1.8.0))(vite@8.3.8(@types/node@22.20.5))
 
-  packages/score-pad: {}
+  packages/score-pad:
+    dependencies:
+      '@fontsource/alegreya-sc':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/archivo-narrow':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/caveat':
+        specifier: 5.3.0
+        version: 5.3.0
+      three:
+        specifier: 0.149.0
+        version: 0.149.0
+    devDependencies:
+      '@types/three':
+        specifier: 0.149.0
+        version: 0.149.0
+      jsdom:
+        specifier: ^31.0.0
+        version: 31.0.0(@noble/hashes@1.8.0)
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@22.20.5)(jsdom@31.0.0(@noble/hashes@1.8.0))(vite@8.3.8(@types/node@22.20.5))
 
   packages/scoring:
     devDependencies:
@@ -277,6 +303,15 @@ packages:
 
   '@fontsource-variable/instrument-sans@5.3.0':
     resolution: {integrity: sha512-u4gKbDBTNFGkg997tfQn3eHOhHuquWUFTRT/rwzuKtrxX5P2ekfs2x+LgBPP4P32+cC+vUwF1Cr+IdRoPQbrGw==}
+
+  '@fontsource/alegreya-sc@5.3.0':
+    resolution: {integrity: sha512-MksAO+rnvCMXBfrzcznuaoNtGgGwqORHhz5/UP0V4bHq0M9mL9EpOrW44ilAgI/yjzYtWoVlVjvvvEXPJI9PCw==}
+
+  '@fontsource/archivo-narrow@5.3.0':
+    resolution: {integrity: sha512-fK2Y7PdIP23+t5Dp7gh9n94zxTCdHD6M955aJ8QzR6RvW+5WgmryKySEvaCUAeSLXzA113hyW0BwEHHxHADX7Q==}
+
+  '@fontsource/caveat@5.3.0':
+    resolution: {integrity: sha512-eHTfzQxFSW9ABERRLNruHoNJmKed2J7pqTUc5lp4a4POMgXGKpxmWj3d9Hz10kmAg6iuTTLe6UagbA4bnsmfQw==}
 
   '@fontsource/dm-mono@5.3.0':
     resolution: {integrity: sha512-OINjI8C1S/wpchhQxl7njZdMn4+hnDCpQ4YtvvOpKNARo+0J8O1x1IcrChxNjHOhfVv1by8C/FQoy3hXK+C1Ug==}
@@ -595,6 +630,12 @@ packages:
 
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
+
+  '@types/three@0.149.0':
+    resolution: {integrity: sha512-fgNBm9LWc65ER/W0cvoXdC0iMy7Ke9e2CONmEr6Jt8sDSY3sw4DgOubZfmdZ747dkPhbQrgRQAWwDEr2S/7IEg==}
+
+  '@types/webxr@0.5.24':
+    resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
 
   '@typescript-eslint/eslint-plugin@8.72.2':
     resolution: {integrity: sha512-222PKFXKihmFpi/pS5njoBgdAqsPhj2/GBmFbrNw8Tq8gEG9Sv+kSlKFy4u2q+mJv9ZzJgM2Gkv/bUzRZwZw5g==}
@@ -1281,6 +1322,9 @@ packages:
     resolution: {integrity: sha512-kv/vLnwcxxhkd+CvRjJhp5gP6juwzUUT0a6+JungfQyw9AcM2YSQTDDZwEVHdV85tFc7K975WGkzemw5He26/g==}
     hasBin: true
 
+  three@0.149.0:
+    resolution: {integrity: sha512-tohpUxPDht0qExRLDTM8sjRLc5d9STURNrdnK3w9A+V4pxaTBfKWWT/IqtiLfg23Vfc3Z+ImNfvRw1/0CtxrkQ==}
+
   tinybench@6.2.3:
     resolution: {integrity: sha512-Al01C2JIBnO2CXCAPbpAl6sUiOZHeThGtHYNTa51JRw9PyWOCdr+9Ong05R4qg/Sk3+H645E8ov1h2c58ityNw==}
     engines: {node: '>=20.0.0'}
@@ -1671,6 +1715,12 @@ snapshots:
 
   '@fontsource-variable/instrument-sans@5.3.0': {}
 
+  '@fontsource/alegreya-sc@5.3.0': {}
+
+  '@fontsource/archivo-narrow@5.3.0': {}
+
+  '@fontsource/caveat@5.3.0': {}
+
   '@fontsource/dm-mono@5.3.0': {}
 
   '@humanfs/core@0.19.2':
@@ -1920,6 +1970,12 @@ snapshots:
   '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
+
+  '@types/three@0.149.0':
+    dependencies:
+      '@types/webxr': 0.5.24
+
+  '@types/webxr@0.5.24': {}
 
   '@typescript-eslint/eslint-plugin@8.72.2(@typescript-eslint/parser@8.72.2(eslint@10.14.0)(typescript@6.0.3))(eslint@10.14.0)(typescript@6.0.3)':
     dependencies:
@@ -2578,6 +2634,8 @@ snapshots:
       '@supabase/cli-linux-x64-musl': 3.1.0
       '@supabase/cli-windows-arm64': 3.1.0
       '@supabase/cli-windows-x64': 3.1.0
+
+  three@0.149.0: {}
 
   tinybench@6.2.3: {}
 

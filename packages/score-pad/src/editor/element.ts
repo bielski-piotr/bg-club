@@ -1,0 +1,60 @@
+// Samodzielny edytor: element <score-pad-editor> i ScorePadEditor.mount — bez połączenia z notesem.
+// Wynik to plik notesu (JSON) — do zapisania na dysku albo skopiowania i podania w atrybucie `config` notesu.
+
+import type { PadConfig } from '../core/settings';
+import type { PadTemplate } from '../core/templates';
+import { Editor } from './editor';
+import { EDITOR_CSS } from './styles';
+
+export interface MountOptions {
+  /** Notes do poprawienia (szablon ze zdjęciem). */
+  template?: PadTemplate;
+  /** Wywoływane po „Zapisz do pliku” i „Kopiuj do schowka”. */
+  onExport?(config: PadConfig, via: 'file' | 'clipboard'): void;
+}
+
+/** Montuje edytor w elemencie (w jego shadow DOM). */
+export function mountEditor(host: HTMLElement, opts: MountOptions = {}): Editor {
+  const shadow = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+  shadow.innerHTML = `<style>:host{display:block;position:relative;min-height:520px;contain:layout}${EDITOR_CSS}</style>`;
+  const ed = new Editor(shadow, {
+    existing: opts.template,
+    onExport: (config, via) => {
+      opts.onExport?.(config, via);
+      host.dispatchEvent(
+        new CustomEvent('scorepad-editor:export', {
+          detail: { config, via },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    },
+  });
+  // motyw: domyślnie jak w systemie; atrybut theme="light" albo "dark" go wymusza
+  const theme = host.getAttribute('theme');
+  if (theme === 'light' || theme === 'dark') ed.root.classList.add(theme);
+  return ed;
+}
+
+export class ScorePadEditorElement extends HTMLElement {
+  static observedAttributes = ['theme'];
+  editor: Editor | null = null;
+  /** Notes do poprawienia, ustawiony z JavaScriptu przed dołączeniem elementu do strony. */
+  template: PadTemplate | undefined = undefined;
+
+  attributeChangedCallback(name: string, _old: string | null, val: string | null): void {
+    if (name !== 'theme' || !this.editor) return;
+    this.editor.root.classList.toggle('light', val === 'light');
+    this.editor.root.classList.toggle('dark', val === 'dark');
+  }
+
+  connectedCallback(): void {
+    if (this.editor) return;
+    this.editor = mountEditor(this, this.template ? { template: this.template } : {});
+  }
+
+  /** Bieżący plik notesu (null, gdy notes nie jest jeszcze gotowy). */
+  exportConfig(): PadConfig | null {
+    return this.editor?.exportConfig() ?? null;
+  }
+}

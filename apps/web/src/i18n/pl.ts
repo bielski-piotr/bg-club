@@ -482,6 +482,15 @@ export const pl = {
       many: '{names} i {n} innych osób',
     },
   },
+  /** Notes 3D i edytor notesu osadzane z pakietu `@bg-club/score-pad` (PRD §8.5, zadanie [013]). */
+  scorePad: {
+    padLabel: 'Notes punktacji',
+    editorLabel: 'Edytor notesu',
+    loadingPad: 'Wczytywanie notesu',
+    loadingEditor: 'Wczytywanie edytora notesu',
+    loadError: 'Nie udało się wczytać notesu. Sprawdź połączenie i spróbuj ponownie.',
+    retry: 'Spróbuj ponownie',
+  },
   /** Galeria komponentów pod adresem /design-system (zadanie [006]). */
   designSystem: {
     title: 'Design system',
@@ -501,6 +510,7 @@ export const pl = {
       feedback: 'Komunikaty i stany',
       controls: 'Switch i slider',
       icons: 'Ikony',
+      scorePad: 'Notes i edytor',
     },
     samples: {
       primary: 'Zapisz',
@@ -617,6 +627,10 @@ export const pl = {
       switchLabel: 'Wygładź krawędzie',
       switchDisabled: 'Pokazuj podpowiedzi',
       sliderLabel: 'Siła',
+      scorePadIntro:
+        'Web componenty z pakietu @bg-club/score-pad w trybie klubowym, ładowane dopiero po kliknięciu. Przykładowy notes ma 10 miejsc dla graczy.',
+      showScorePad: 'Pokaż notes',
+      showScorePadEditor: 'Pokaż edytor',
     },
   },
 } as const;
