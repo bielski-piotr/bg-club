@@ -62,3 +62,203 @@
   display: flex;
   padding-top: 28px;
 }
+
+.profile__section {
+  padding-top: 28px;
+}
+
+.profile__section-title {
+  margin: 0;
+  font: 700 18px/24px var(--font-display);
+}
+
+/* EmptyState ma własny odstęp od góry (DS §17: 20 px). */
+.profile__section .empty-state__row {
+  padding-top: 12px;
+}
+
+/* Ustawienia (USR-5): sekcje Profil, Wygląd, Konto. Pola jak w formularzu klubu (DS §10, §17). */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.settings__heading {
+  margin: 0;
+  font: 700 18px/24px var(--font-display);
+}
+
+.settings__intro {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--c-muted);
+}
+
+.settings__photo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings__photo-tile {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* DS §8: kółko 30 z ramką w prawym dolnym rogu (-2, -2). */
+.settings__photo-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-ink);
+}
+
+.settings__photo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings__photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 16px;
+  row-gap: 4px;
+}
+
+.settings__link {
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--c-accent-text);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings__link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.settings__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.settings__link:disabled {
+  color: var(--c-muted);
+  cursor: default;
+}
+
+.settings__link--muted {
+  color: var(--c-muted);
+}
+
+.settings__helper {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.settings__section > .settings__helper {
+  margin-top: -12px;
+}
+
+.settings__helper--error {
+  color: var(--c-danger-text);
+}
+
+.settings__account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Kadrowanie awatara: kwadratowy kadr z okrągłą maską i suwak powiększenia. */
+.cropper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.cropper__stage {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--r-tray);
+  background: var(--c-tint);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.cropper__stage--dragging {
+  cursor: grabbing;
+}
+
+.cropper__stage:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.cropper__image {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+}
+
+/* Poza okręgiem przyciemnienie; okrąg pokazuje, jak awatar będzie wyglądał. */
+.cropper__mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 999px rgb(22 26 43 / 55%),
+    inset 0 0 0 2px rgb(255 255 255 / 85%);
+  pointer-events: none;
+}
+
+.cropper__zoom {
+  width: 100%;
+  max-width: 320px;
+}
+
+/* Zmiana hasła i pierwsze logowanie (USR-5, AUTH-6). */
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.password-form__intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--c-muted);
+}

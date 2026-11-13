@@ -58,6 +58,7 @@ Deno.test('administrator tworzy członka: hook, hasło i profil w odpowiedzi bez
     first_name: 'Łukasz',
     last_name: 'Żółw',
     role: 'player',
+    avatar_path: null,
     deleted_at: null,
   });
   assert(body.password.length >= 12);

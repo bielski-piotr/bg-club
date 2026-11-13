@@ -46,14 +46,19 @@ test('logowanie hookiem, widok po zalogowaniu i wylogowanie', async ({ page }) =
   ]);
   expect(await horizontalOverflow(page)).toBe(0);
 
-  // Hook i wylogowanie są we własnym profilu (chip użytkownika w nagłówku huba).
-  await page.getByRole('link', { name: 'Twój profil: Ada Adminowska' }).click();
+  // Hook jest we własnym profilu, wylogowanie w ustawieniach (menu chipu użytkownika).
+  await page.getByRole('button', { name: 'Twoje konto: Ada Adminowska' }).click();
+  await page.getByRole('menuitem', { name: 'Mój profil' }).click();
   const profile = page.getByRole('dialog', { name: 'Profil' });
   await expect(profile.getByText('ada-adminowska-a001', { exact: true })).toBeVisible();
   // Techniczny e-mail nigdy nie jest widoczny (AUTH-1).
   await expect(page.locator('body')).not.toContainText('bgclub.invalid');
 
-  await profile.getByRole('button', { name: 'Wyloguj się' }).click();
+  await profile.getByRole('button', { name: 'Ustawienia' }).click();
+  await page
+    .getByRole('dialog', { name: 'Ustawienia' })
+    .getByRole('button', { name: 'Wyloguj się' })
+    .click();
   await expect(loginHeading(page)).toBeVisible();
   expect(mock.calls).toContain('POST /auth/v1/logout?scope=local');
   expect(await storedSession(page)).toBeNull();

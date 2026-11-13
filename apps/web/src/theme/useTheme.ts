@@ -40,6 +40,11 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+/** Bieżący wybór motywu (z `localStorage` albo ustawiony w tej karcie). */
+export function getThemePreference(): ThemePreference {
+  return current();
+}
+
 /** Ustawia motyw w całej aplikacji i zapamiętuje wybór. */
 export function setThemePreference(next: ThemePreference): void {
   preference = next;

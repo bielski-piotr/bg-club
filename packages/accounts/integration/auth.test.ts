@@ -1,7 +1,8 @@
 /**
  * Testy integracyjne kont i logowania na lokalnym Supabase (PRD AUTH-1…AUTH-5, AUTH-7),
- * zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10) i dodawania członków przez
- * Edge Function `create-member` (MEM-3, AUTH-2, AUTH-4, USR-1).
+ * zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10), dodawania członków przez
+ * Edge Function `create-member` (MEM-3, AUTH-2, AUTH-4, USR-1) oraz ustawień profilu: zmiany
+ * hasła z obecnym hasłem, zdjęcia i motywu (USR-3, USR-5, USR-7, USR-8, AUTH-6).
  *
  * Idą przez prawdziwe API (Auth, PostgREST) z tymi samymi kluczami co aplikacja i skrypt
  * bootstrapu. Startują od pustej instalacji i nie sprzątają po sobie (konta administratora nie
@@ -520,6 +521,129 @@ describe('konta i logowanie na pustej instalacji', () => {
 
       const invalid = await client.from('club').update({ timezone: 'Europa/Warszawa' }).eq('id', 1);
       expect(invalid.error?.code).toBe('23514');
+    });
+  });
+
+  describe('profil i ustawienia (USR-3, USR-5, USR-7, AUTH-6, [010])', () => {
+    const player = { id: '', hook: '', password: '' };
+    const session: { client?: SupabaseClient } = {};
+
+    beforeAll(async () => {
+      const { data, error } = await signIn(admin.hook, admin.password);
+      if (error || !data.session) throw error ?? new Error('brak sesji administratora');
+      const { status, body } = await callCreateMember(data.session.access_token, {
+        firstName: 'Hanna',
+        lastName: 'Ustawieniowa',
+      });
+      if (status !== 201 || !body.member || !body.password) throw new Error('brak nowego członka');
+      Object.assign(player, {
+        id: body.member.id,
+        hook: body.member.hook,
+        password: body.password,
+      });
+      const login = await signIn(player.hook, player.password);
+      if (login.error) throw login.error;
+      session.client = login.client;
+    });
+
+    it('konto z wygenerowanym hasłem ma propozycję zmiany hasła (AUTH-6)', async () => {
+      const { data } = await service
+        .from('profiles')
+        .select('hook, password_change_suggested')
+        .in('hook', [admin.hook, player.hook])
+        .order('hook');
+      // Bootstrap w tych testach generuje hasło administratora, create-member zawsze.
+      expect(data?.map((row) => row.password_change_suggested)).toEqual([true, true]);
+    });
+
+    it('zmiana hasła wymaga poprawnego obecnego hasła i co najmniej 12 znaków (USR-5)', async () => {
+      const client = session.client;
+      if (!client) throw new Error('brak sesji gracza');
+      const next = generatePassword();
+
+      const missing = await client.auth.updateUser({ password: next });
+      expect(missing.error?.code).toBe('current_password_required');
+      const wrong = await client.auth.updateUser({
+        password: next,
+        current_password: 'zle-haslo-0000',
+      });
+      expect(wrong.error?.code).toBe('current_password_invalid');
+      const short = await client.auth.updateUser({
+        password: 'krotkie-1',
+        current_password: player.password,
+      });
+      expect(short.error?.code).toBe('weak_password');
+
+      const changed = await client.auth.updateUser({
+        password: next,
+        current_password: player.password,
+      });
+      expect(changed.error).toBeNull();
+      expect((await signIn(player.hook, player.password)).error?.code).toBe('invalid_credentials');
+      const login = await signIn(player.hook, next);
+      expect(login.error).toBeNull();
+      player.password = next;
+      session.client = login.client;
+
+      const skip = await login.client
+        .from('profiles')
+        .update({ password_change_suggested: false })
+        .eq('id', player.id)
+        .select('password_change_suggested')
+        .single();
+      expect(skip.data).toEqual({ password_change_suggested: false });
+    });
+
+    it('gracz zmienia imię, motyw i zdjęcie we własnym folderze (USR-3, USR-8)', async () => {
+      const client = session.client;
+      if (!client) throw new Error('brak sesji gracza');
+      const path = `${player.id}/avatar-${crypto.randomUUID()}.webp`;
+      const upload = await client.storage
+        .from('avatars')
+        .upload(path, new Blob(['RIFF....WEBP'], { type: 'image/webp' }), { upsert: false });
+      expect(upload.error).toBeNull();
+      const saved = await client
+        .from('profiles')
+        .update({ first_name: 'Hania', theme: 'dark', avatar_path: path })
+        .eq('id', player.id)
+        .select('first_name, theme, avatar_path, hook')
+        .single();
+      expect(saved.data).toEqual({
+        first_name: 'Hania',
+        theme: 'dark',
+        avatar_path: path,
+        hook: player.hook,
+      });
+
+      // Inni członkowie widzą zdjęcie przez podpisany URL, ale nie podmienią go.
+      const { client: adminClient } = await signIn(admin.hook, admin.password);
+      const signed = await adminClient.storage.from('avatars').createSignedUrl(path, 60);
+      expect(signed.error).toBeNull();
+      expect((await fetch(signed.data?.signedUrl ?? '')).status).toBe(200);
+      const foreign = await adminClient.storage
+        .from('avatars')
+        .upload(`${player.id}/avatar-admina.webp`, new Blob(['x'], { type: 'image/webp' }));
+      expect(foreign.error).not.toBeNull();
+
+      // Administrator nie edytuje cudzego profilu (USR-7): RLS nie obejmuje wiersza.
+      const edit = await adminClient
+        .from('profiles')
+        .update({ first_name: 'Zmieniona', avatar_path: null })
+        .eq('id', player.id)
+        .select('id');
+      expect(edit.data).toEqual([]);
+      const { data } = await service
+        .from('profiles')
+        .select('first_name, avatar_path')
+        .eq('id', player.id)
+        .single();
+      expect(data).toEqual({ first_name: 'Hania', avatar_path: path });
+
+      // Powrót do monogramu i usunięcie pliku przez właściciela.
+      const reset = await client.from('profiles').update({ avatar_path: null }).eq('id', player.id);
+      expect(reset.error).toBeNull();
+      const removed = await client.storage.from('avatars').remove([path]);
+      expect(removed.data).toHaveLength(1);
     });
   });
 });

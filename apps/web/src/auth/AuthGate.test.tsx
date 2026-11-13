@@ -11,6 +11,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { describe, expect, it, vi } from 'vitest';
 import { AuthGate } from '../App';
 import { AuthProvider } from './AuthProvider';
+import { ToastProvider } from '../ui';
 import type { OwnProfile } from './useOwnProfile';
 
 const ADA: OwnProfile = {
@@ -19,6 +20,10 @@ const ADA: OwnProfile = {
   first_name: 'Ada',
   last_name: 'Adminowska',
   role: 'admin',
+  avatar_path: null,
+  deleted_at: null,
+  theme: 'system',
+  password_change_suggested: false,
 };
 
 function sessionFor(userId: string, token = 'token-1', expiresIn = 3600): Session {
@@ -95,9 +100,11 @@ function renderGate(fake: ReturnType<typeof fakeSupabase>) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <AuthProvider client={fake.client}>
-        <AuthGate />
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider client={fake.client}>
+          <AuthGate />
+        </AuthProvider>
+      </ToastProvider>
     </QueryClientProvider>,
   );
   return { queryClient };
@@ -105,10 +112,11 @@ function renderGate(fake: ReturnType<typeof fakeSupabase>) {
 
 const hubHeading = () => screen.findByRole('heading', { level: 1, name: CLUB.name });
 
-/** Własny profil otwiera chip użytkownika w nagłówku huba. */
-async function openOwnProfile() {
-  fireEvent.click(await screen.findByRole('link', { name: 'Twój profil: Ada Adminowska' }));
-  return screen.findByRole('dialog', { name: 'Profil' });
+/** Własny profil i ustawienia otwiera menu chipu użytkownika w nagłówku huba. */
+async function openFromMenu(item: 'Mój profil' | 'Ustawienia') {
+  fireEvent.click(await screen.findByRole('button', { name: 'Twoje konto: Ada Adminowska' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: item }));
+  return screen.findByRole('dialog', { name: item === 'Mój profil' ? 'Profil' : 'Ustawienia' });
 }
 
 async function submit(hook: string, password: string) {
@@ -161,7 +169,7 @@ describe('logowanie hookiem (AUTH-1)', () => {
       password: 'tajne-haslo-123',
     });
     expect(await hubHeading()).toBeInTheDocument();
-    const profile = await openOwnProfile();
+    const profile = await openFromMenu('Mój profil');
     expect(await within(profile).findByText('ada-adminowska-a001')).toBeInTheDocument();
     expect(within(profile).getByText('Admin')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/bgclub\.invalid/);
@@ -218,7 +226,7 @@ describe('sesja (AUTH-5, AUTH-7)', () => {
     const fake = fakeSupabase({ session: sessionFor(ADA.id) });
     const { queryClient } = renderGate(fake);
     await hubHeading();
-    const profile = await openOwnProfile();
+    const profile = await openFromMenu('Ustawienia');
     expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
 
     await act(async () => {

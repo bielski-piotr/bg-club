@@ -19,7 +19,8 @@ select tables_are(
 select columns_are('public', 'club',
   array['id', 'name', 'logo_path', 'timezone', 'created_at', 'updated_at'], 'kolumny club');
 select columns_are('public', 'profiles',
-  array['id', 'hook', 'first_name', 'last_name', 'avatar_path', 'role', 'theme', 'created_at', 'deleted_at'],
+  array['id', 'hook', 'first_name', 'last_name', 'avatar_path', 'role', 'theme', 'created_at', 'deleted_at',
+        'password_change_suggested'],
   'kolumny profiles');
 select columns_are('public', 'games',
   array['id', 'title', 'title_search', 'cover_path', 'min_players', 'max_players', 'placement_points',

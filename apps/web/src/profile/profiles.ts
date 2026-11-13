@@ -10,11 +10,16 @@ export interface Profile {
   readonly first_name: string;
   readonly last_name: string;
   readonly role: 'admin' | 'player';
+  /** Zdjęcie w buckecie `avatars` (`<id>/<plik>`, USR-3); `null` = monogram (USR-2). */
+  readonly avatar_path: string | null;
   /** Usunięty członek (MEM-4, MEM-5); `null` = aktywny. */
   readonly deleted_at: string | null;
 }
 
-const PROFILE_COLUMNS = 'id, hook, first_name, last_name, role, deleted_at';
+export const PROFILE_COLUMNS = 'id, hook, first_name, last_name, role, avatar_path, deleted_at';
+
+/** Bucket ze zdjęciami profilowymi (prywatny, zapis: właściciel folderu `<id>/`). */
+export const AVATARS_BUCKET = 'avatars';
 
 export const profileKey = (id: string) => ['profiles', 'byId', id] as const;
 export const membersKey = ['profiles', 'members'] as const;
@@ -26,11 +31,41 @@ export function fullName(profile: Pick<Profile, 'first_name' | 'last_name'>): st
 /**
  * Dane awatara (DS §8). Kolor monogramu wynika deterministycznie z hooka (USR-2): hook jest
  * niezmienny, więc kolor nie zmienia się po zmianie imienia i jest ten sam na każdym urządzeniu.
+ * `src` to adres zdjęcia (`useAvatarUrl`); bez niego monogram.
  */
 export function avatarPerson(
   profile: Pick<Profile, 'hook' | 'first_name' | 'last_name' | 'deleted_at'>,
+  src?: string,
 ): AvatarPerson {
-  return { id: profile.hook, name: fullName(profile), removed: profile.deleted_at !== null };
+  return { id: profile.hook, name: fullName(profile), removed: profile.deleted_at !== null, src };
+}
+
+/** Podpisany URL ważny godzinę; zapytanie odświeża go wcześniej. */
+const SIGNED_URL_SECONDS = 60 * 60;
+
+export const avatarUrlKey = (path: string | null) => ['storage', AVATARS_BUCKET, path] as const;
+
+/**
+ * Adres zdjęcia profilowego z prywatnego bucketu (USR-3). Nazwa pliku zmienia się przy każdym
+ * wgraniu, więc adres z cache'u nigdy nie pokaże starego zdjęcia. Bez ścieżki: brak zapytania.
+ */
+export function avatarUrlQuery(client: SupabaseClient, path: string | null) {
+  return {
+    queryKey: avatarUrlKey(path),
+    enabled: path !== null,
+    staleTime: (SIGNED_URL_SECONDS - 10 * 60) * 1000,
+    queryFn: async (): Promise<string> => {
+      const { data, error } = await client.storage
+        .from(AVATARS_BUCKET)
+        .createSignedUrl(path ?? '', SIGNED_URL_SECONDS);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+  };
+}
+
+export function useAvatarUrl(client: SupabaseClient, path: string | null) {
+  return useQuery(avatarUrlQuery(client, path));
 }
 
 /**

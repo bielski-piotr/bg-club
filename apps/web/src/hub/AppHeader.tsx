@@ -2,9 +2,10 @@ import { useAuth } from '../auth/authContext';
 import { ClubLogo } from '../club/ClubLogo';
 import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
-import { ProfileLink } from '../profile/ProfileLink';
-import { avatarPerson, fullName, type Profile } from '../profile/profiles';
-import { Avatar, IconButton, Skeleton } from '../ui';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { fullName, type Profile } from '../profile/profiles';
+import { IconButton, Menu, Skeleton } from '../ui';
+import { cx } from '../ui/cx';
 import { useCoverUrl, type Club } from './club';
 
 interface AppHeaderProps {
@@ -19,20 +20,11 @@ interface AppHeaderProps {
 
 /**
  * Nagłówek huba (DS §17): logo i nazwa klubu po lewej, dla admina ołówek otwierający
- * formularz klubu (CLUB-2), chip użytkownika po prawej. Chip otwiera własny profil (PRD §4).
- * Menu awatara: zadanie [010].
+ * formularz klubu (CLUB-2), chip użytkownika po prawej. Chip otwiera menu awatara (CLUB-1):
+ * własny profil, ustawienia i wylogowanie.
  */
 export function AppHeader({ club, me }: AppHeaderProps) {
-  const user = (
-    <ProfileLink
-      id={me.id}
-      name={fullName(me)}
-      className="app-header__user"
-      label={format(t.hub.yourProfile, { name: fullName(me) })}
-    >
-      <Avatar {...avatarPerson(me)} size={38} decorative />
-    </ProfileLink>
-  );
+  const user = <UserMenu me={me} />;
 
   if (club === 'none') {
     return <header className="app-header app-header--bare">{user}</header>;
@@ -83,5 +75,49 @@ function ClubIdentity({
         />
       ) : null}
     </>
+  );
+}
+
+function UserMenu({ me }: { readonly me: Profile }) {
+  const { signOut } = useAuth();
+  const { open } = usePopups();
+  const text = t.avatarMenu;
+  return (
+    <Menu
+      label={text.label}
+      align="end"
+      items={[
+        {
+          id: 'profile',
+          label: text.profile,
+          icon: 'user',
+          onSelect: () => open({ kind: 'profile', id: me.id }),
+        },
+        {
+          id: 'settings',
+          label: text.settings,
+          icon: 'settings',
+          onSelect: () => open({ kind: 'settings' }),
+        },
+        {
+          id: 'sign-out',
+          label: text.signOut,
+          icon: 'logout',
+          // Wylogowanie lokalne usuwa sesję także bez sieci (AuthProvider).
+          onSelect: () => void signOut(),
+        },
+      ]}
+      trigger={(props, isOpen) => (
+        <button
+          type="button"
+          {...props}
+          className={cx('app-header__user', isOpen && 'app-header__user--open')}
+          aria-label={format(text.trigger, { name: fullName(me) })}
+          title={fullName(me)}
+        >
+          <ProfileAvatar profile={me} size={38} decorative />
+        </button>
+      )}
+    />
   );
 }

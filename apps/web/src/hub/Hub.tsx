@@ -1,7 +1,9 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../auth/authContext';
+import type { OwnProfile } from '../auth/useOwnProfile';
 import { FirstRun } from '../club/FirstRun';
 import { t } from '../i18n';
+import { usePopups } from '../popups/popupContext';
 import { PopupHost } from '../popups/PopupHost';
 import type { PopupRoute } from '../popups/routes';
 import type { Profile } from '../profile/profiles';
@@ -27,9 +29,10 @@ const MAIN_ID = 'hub-main';
  * Telefon: jedna kolumna w kolejności PRD. Przed założeniem klubu zamiast widżetów jest
  * pierwsze uruchomienie (CLUB-1, CLUB-3). Popupy ze stosu w adresie są nad hubem.
  */
-export function Hub({ me }: { readonly me: Profile }) {
+export function Hub({ me }: { readonly me: OwnProfile }) {
   const { client } = useAuth();
   const club = useClub(client);
+  usePasswordSuggestion(me);
   const renderPopup = useCallback((route: PopupRoute) => <HubPopup route={route} me={me} />, [me]);
   // Dane klubu mają pierwszeństwo przed błędem: nieudane ponowne pobranie nie chowa widżetów.
   const loaded = club.data !== undefined;
@@ -80,6 +83,22 @@ export function Hub({ me }: { readonly me: Profile }) {
       </div>
     </PopupHost>
   );
+}
+
+/**
+ * Pierwsze logowanie kontem z wygenerowanym hasłem (AUTH-6): raz na wczytanie aplikacji, gdy nad
+ * hubem nie ma popupów, otwiera propozycję własnego hasła. „Pomiń” zapisuje rezygnację w profilu,
+ * a zamknięcie (×, Esc) tylko odkłada propozycję do kolejnego uruchomienia.
+ */
+function usePasswordSuggestion(me: OwnProfile) {
+  const { stack, open } = usePopups();
+  const shown = useRef(false);
+  const suggest = me.password_change_suggested && stack.length === 0;
+  useEffect(() => {
+    if (!suggest || shown.current) return;
+    shown.current = true;
+    open({ kind: 'first-login' });
+  }, [suggest, open]);
 }
 
 /** Pięć widżetów w kolejności PRD §4; każdy ma własny pusty stan (CLUB-4). */

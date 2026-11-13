@@ -16,6 +16,7 @@ function person(n: number, first: string, extra: Partial<Profile> = {}): Profile
     first_name: first,
     last_name: 'Testowa',
     role: n === 1 ? 'admin' : 'player',
+    avatar_path: null,
     deleted_at: null,
     ...extra,
   };
@@ -148,7 +149,7 @@ function renderHub(members: Profile[], options: FakeOptions = {}, me: Profile = 
       <ToastProvider>
         <AuthContext.Provider value={auth}>
           <PopupRouter>
-            <Hub me={me} />
+            <Hub me={{ ...me, theme: 'system', password_change_suggested: false }} />
           </PopupRouter>
         </AuthContext.Provider>
       </ToastProvider>
@@ -235,12 +236,48 @@ describe('popupy huba', () => {
     expect(window.location.search).toBe('');
   });
 
-  it('własny profil pozwala się wylogować', async () => {
+  it('menu awatara otwiera własny profil, ustawienia i wylogowuje (CLUB-1, USR-5)', async () => {
     const { auth } = renderHub([ADA]);
-    fireEvent.click(await screen.findByRole('link', { name: 'Twój profil: Ada Testowa' }));
+    const chip = await screen.findByRole('button', { name: 'Twoje konto: Ada Testowa' });
+    fireEvent.click(chip);
+    const menu = screen.getByRole('menu', { name: 'Menu konta' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Mój profil', 'Ustawienia', 'Wyloguj się']);
+    expect(within(menu).getByRole('menuitem', { name: 'Mój profil' })).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(chip).toHaveFocus();
+
+    fireEvent.click(chip);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Mój profil' }));
     const profile = await screen.findByRole('dialog', { name: 'Profil' });
-    fireEvent.click(await within(profile).findByRole('button', { name: 'Wyloguj się' }));
+    expect(window.location.search).toBe(`?p=profile/${ADA.id}`);
+    // Właściciel ma Ustawienia; statystyki i gablota czekają na etapy E5 i E6.
+    expect(
+      await within(profile).findByText('Statystyki pojawią się po pierwszej partii'),
+    ).toBeInTheDocument();
+    expect(profile).toHaveTextContent('Gablota jest jeszcze pusta');
+    fireEvent.click(within(profile).getByRole('button', { name: 'Ustawienia' }));
+    expect(await screen.findByRole('dialog', { name: 'Ustawienia' })).toBeInTheDocument();
+    expect(window.location.search).toBe(`?p=profile/${ADA.id}&p=settings`);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Zamknij' }).at(-1) as HTMLElement);
+    await waitFor(() => expect(window.location.search).toBe(''));
+    fireEvent.click(await screen.findByRole('button', { name: 'Twoje konto: Ada Testowa' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Wyloguj się' }));
     expect(auth.signOut).toHaveBeenCalled();
+  });
+
+  it('cudzy profil nie ma ustawień ani akcji edycji, także dla admina (USR-7)', async () => {
+    window.history.replaceState(null, '', `/?p=profile/${OTHERS[0]?.id}`);
+    renderHub([ADA, ...OTHERS]);
+    const profile = await screen.findByRole('dialog', { name: 'Profil' });
+    expect(await within(profile).findByText('Bea Testowa')).toBeInTheDocument();
+    expect(within(profile).queryByRole('button', { name: 'Ustawienia' })).not.toBeInTheDocument();
+    expect(within(profile).queryByText('Ty')).not.toBeInTheDocument();
   });
 });
 
@@ -253,7 +290,7 @@ describe('pierwsze uruchomienie (CLUB-1, CLUB-3)', () => {
     expect(document.querySelector('.first-run__art')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Spotkanie' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edytuj klub' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Twój profil: Ada Testowa' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Twoje konto: Ada Testowa' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Dodaj klub' })).toBeInTheDocument();
   });
 

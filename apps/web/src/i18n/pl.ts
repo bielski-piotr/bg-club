@@ -43,7 +43,6 @@ export const pl = {
   /** Widok Klubu: nagłówek i widżety (PRD §4, DS §6, §17, zadanie [007]). */
   hub: {
     widgetsLabel: 'Widżety klubu',
-    yourProfile: 'Twój profil: {name}',
     loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
     meeting: {
@@ -150,6 +149,109 @@ export const pl = {
     removedNote: 'Ten członek został usunięty z klubu. Profil jest tylko do odczytu.',
     notFoundTitle: 'Nie znaleziono gracza',
     notFoundBody: 'Profilu z tego linku nie ma w klubie. Link może być nieaktualny.',
+    settings: 'Ustawienia',
+    /** Statystyki (PRD §5.9) i gablota (§5.10) dochodzą w etapach E5 i E6. */
+    stats: {
+      title: 'Statystyki',
+      pendingTitle: 'Statystyki pojawią się po pierwszej partii',
+      pendingHelper: 'Punkty, wygrane, serie i ulubione gry policzymy z zapisanych partii.',
+    },
+    achievements: {
+      title: 'Gablota osiągnięć',
+      pendingTitle: 'Gablota jest jeszcze pusta',
+      pendingHelper: 'Osiągnięcia za spotkania i partie pojawią się tutaj razem z postępem.',
+    },
+  },
+  /** Menu awatara w nagłówku (PRD CLUB-1, DS §7, §17). */
+  avatarMenu: {
+    label: 'Menu konta',
+    trigger: 'Twoje konto: {name}',
+    profile: 'Mój profil',
+    settings: 'Ustawienia',
+    signOut: 'Wyloguj się',
+  },
+  /** Ustawienia własnego profilu (PRD USR-3, USR-5, USR-8). */
+  settings: {
+    title: 'Ustawienia',
+    profileSection: 'Profil',
+    photoLabel: 'Zdjęcie profilowe',
+    addPhoto: 'Dodaj zdjęcie',
+    changePhoto: 'Zmień zdjęcie',
+    removePhoto: 'Usuń zdjęcie',
+    photoHelper: 'JPG, PNG lub WebP. Wykadrujesz je do kwadratu.',
+    photoFallback: 'Bez zdjęcia pokazujemy inicjały.',
+    photoProcessing: 'Przygotowujemy zdjęcie…',
+    firstNameLabel: 'Imię',
+    lastNameLabel: 'Nazwisko',
+    namesHint: 'Hook się nie zmieni: {hook}',
+    cancel: 'Anuluj',
+    save: 'Zapisz',
+    themeSection: 'Wygląd',
+    themeHint: 'Motyw zapisujemy w profilu, więc działa na każdym Twoim urządzeniu.',
+    accountSection: 'Konto',
+    hookLabel: 'Hook (login)',
+    hookHint: 'Hooka nie da się zmienić.',
+    changePassword: 'Zmień hasło',
+    signOut: 'Wyloguj się',
+    errors: {
+      firstNameRequired: 'Wpisz imię.',
+      lastNameRequired: 'Wpisz nazwisko.',
+      tooLong: 'Najwyżej {max} znaków.',
+      photoType: 'Wybierz zdjęcie JPG, PNG lub WebP.',
+      photoDecode: 'Nie udało się odczytać tego zdjęcia. Wybierz inny plik.',
+      photoSize: 'Zdjęcie jest za duże. Wybierz plik do 25 MB.',
+      upload: 'Nie udało się wysłać zdjęcia. Sprawdź połączenie i spróbuj ponownie.',
+      save: 'Nie udało się zapisać zmian. Spróbuj ponownie.',
+      theme: 'Nie udało się zapisać motywu w profilu. Spróbuj ponownie.',
+    },
+    toasts: {
+      saved: 'Zapisano zmiany',
+    },
+  },
+  /** Kadrowanie awatara (PRD USR-3, DS „Profil / Kadrowanie awatara”). */
+  crop: {
+    title: 'Kadrowanie zdjęcia',
+    intro: 'Przeciągnij zdjęcie, żeby ustawić kadr. Zapiszemy kwadrat 256×256.',
+    stageLabel: 'Kadr zdjęcia. Strzałki przesuwają zdjęcie, plus i minus je powiększają.',
+    zoomLabel: 'Powiększenie',
+    zoomValue: '{n}%',
+    back: 'Wybierz inne',
+    apply: 'Gotowe',
+    loading: 'Wczytywanie zdjęcia…',
+  },
+  /** Zmiana hasła i propozycja przy pierwszym logowaniu (PRD USR-5, AUTH-6). */
+  password: {
+    title: 'Zmiana hasła',
+    intro: 'Podaj obecne hasło i dwa razy nowe.',
+    firstTitle: 'Ustaw własne hasło',
+    firstIntro:
+      'Logujesz się hasłem od administratora. Ustaw własne, które łatwiej zapamiętasz. Możesz to zrobić także później w ustawieniach.',
+    currentLabel: 'Obecne hasło',
+    firstCurrentLabel: 'Hasło od administratora',
+    nextLabel: 'Nowe hasło',
+    nextHint: 'Co najmniej {min} znaków.',
+    repeatLabel: 'Powtórz nowe hasło',
+    cancel: 'Anuluj',
+    skip: 'Pomiń',
+    submit: 'Zmień hasło',
+    errors: {
+      currentRequired: 'Wpisz obecne hasło.',
+      nextRequired: 'Wpisz nowe hasło.',
+      tooShort: 'Hasło musi mieć co najmniej {min} znaków.',
+      sameAsCurrent: 'Nowe hasło musi być inne niż obecne.',
+      repeatRequired: 'Powtórz nowe hasło.',
+      mismatch: 'Hasła nie są takie same.',
+      currentInvalid: 'Obecne hasło jest nieprawidłowe.',
+      weak: 'To hasło jest za słabe. Wybierz dłuższe.',
+      same: 'Nowe hasło musi być inne niż obecne.',
+      rateLimited: 'Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.',
+      network: 'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.',
+      unknown: 'Nie udało się zmienić hasła. Spróbuj ponownie.',
+      skip: 'Nie udało się zapisać wyboru. Spróbuj ponownie.',
+    },
+    toasts: {
+      changed: 'Hasło zostało zmienione',
+    },
   },
   /** Popup członków (PRD MEM-2): lista aktywnych członków z wyszukiwaniem. */
   membersPopup: {
@@ -306,6 +408,10 @@ export const pl = {
       sumLegend: 'Sumuje kategorie',
       categories: ['Ptaki', 'Bonusy', 'Cele rundy', 'Jajka', 'Żywność'],
       colorLegend: 'Kolor grzbietu',
+      menuLabel: 'Menu spotkania',
+      menuTrigger: 'Więcej opcji spotkania',
+      menuEdit: 'Edytuj',
+      menuDelete: 'Usuń spotkanie',
       colorNames: [
         'Bursztynowy',
         'Cynobrowy',

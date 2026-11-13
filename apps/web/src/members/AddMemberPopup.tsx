@@ -5,8 +5,9 @@ import { useAuth } from '../auth/authContext';
 import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
-import { avatarPerson, fullName, membersKey, profileKey } from '../profile/profiles';
-import { Avatar, Banner, Button, Icon, TextField, useToast } from '../ui';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { fullName, membersKey, profileKey } from '../profile/profiles';
+import { Banner, Button, Icon, TextField, useToast } from '../ui';
 import {
   createMember,
   CreateMemberError,
@@ -183,7 +184,7 @@ function Credentials({
     >
       <div className="member-form">
         <div className="member-credentials__who">
-          <Avatar {...avatarPerson(member)} size={56} decorative />
+          <ProfileAvatar profile={member} size={56} decorative />
           <div className="row__text">
             <p className="member-credentials__name">{fullName(member)}</p>
             <p className="member-credentials__helper">{text.credentialsIntro}</p>

@@ -3,9 +3,10 @@ import { format, plural, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { ProfileLink } from '../profile/ProfileLink';
-import { avatarPerson, fullName, useMembers, type Profile } from '../profile/profiles';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { fullName, useMembers, type Profile } from '../profile/profiles';
 import { visibleMembers } from './members';
-import { Avatar, Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui';
+import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui';
 
 /*
  * Widżety huba (PRD §4, DS §6, §17). Spotkanie, Ranking, Timeline i Kolekcja mają na razie
@@ -109,7 +110,7 @@ export function MembersWidget({ me }: { readonly me: Profile }) {
         <EmptyState
           lead={
             <ProfileLink id={me.id} name={fullName(me)}>
-              <Avatar {...avatarPerson(me)} size={56} decorative />
+              <ProfileAvatar profile={me} size={56} decorative />
             </ProfileLink>
           }
           title={t.hub.members.emptyTitle}
@@ -139,7 +140,7 @@ function MembersStack({ members }: { readonly members: readonly Profile[] }) {
         {shown.map((member) => (
           <li key={member.id} className="members-widget__item">
             <ProfileLink id={member.id} name={fullName(member)}>
-              <Avatar {...avatarPerson(member)} size={64} decorative className="members-avatar" />
+              <ProfileAvatar profile={member} size={64} decorative className="members-avatar" />
             </ProfileLink>
           </li>
         ))}
