@@ -108,7 +108,9 @@ function GameForm({ game }: { readonly game: Game | null }) {
   );
   const [cover, setCover] = useState<CoverState>({ kind: 'keep' });
   const [coverError, setCoverError] = useState<string | undefined>(undefined);
+  /** Błędy wszystkich pól po pierwszej próbie zapisu; tytułu także po opuszczeniu pola. */
   const [showErrors, setShowErrors] = useState(false);
+  const [titleTouched, setTitleTouched] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
 
   // Adres podglądu zwalniamy przy wyborze kolejnego pliku i przy zamknięciu popupu (jak w
@@ -182,7 +184,7 @@ function GameForm({ game }: { readonly game: Game | null }) {
   const coverSrc = cover.kind === 'new' ? cover.preview : undefined;
 
   const titleMessage =
-    showErrors && errors.title
+    (showErrors || titleTouched) && errors.title
       ? errors.title === 'required'
         ? form.errors.titleRequired
         : format(form.errors.titleTooLong, { max: GAME_TITLE_MAX })
@@ -295,7 +297,6 @@ function GameForm({ game }: { readonly game: Game | null }) {
           label={form.titleLabel}
           placeholder={form.titlePlaceholder}
           value={values.title}
-          maxLength={GAME_TITLE_MAX}
           autoComplete="off"
           required
           error={titleMessage}
@@ -303,7 +304,7 @@ function GameForm({ game }: { readonly game: Game | null }) {
             const title = event.target.value;
             setValues((current) => ({ ...current, title }));
           }}
-          onBlur={() => values.title !== '' && setShowErrors(true)}
+          onBlur={() => values.title !== '' && setTitleTouched(true)}
         />
 
         <fieldset className="game-form__group">

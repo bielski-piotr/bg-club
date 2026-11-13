@@ -1,8 +1,9 @@
 /**
  * Skalowanie obrazów w przeglądarce przed wysłaniem do Storage (GAME-6, CLUB-2): dłuższy bok
- * najwyżej `maxSide` px, format WebP (albo JPEG, gdy przeglądarka nie koduje WebP). Mniejszy
+ * najwyżej `maxSide` px, format WebP (albo JPEG lub PNG, gdy przeglądarka nie koduje WebP). Mniejszy
  * obraz nie jest powiększany. Jakość spada stopniowo, aż plik zmieści się w ok. 100 KB
- * (NFR-7); bucket przyjmuje WebP, JPEG i PNG do 2 MiB.
+ * (NFR-7); bucket przyjmuje WebP, JPEG i PNG do 2 MiB. Logo może zamiast JPEG dostać PNG, żeby
+ * zachować przezroczystość.
  */
 
 /** Dłuższy bok okładki gry i logo klubu (GAME-6). */
@@ -59,16 +60,20 @@ export type ImageEncoder = (type: string, quality: number) => Promise<Blob | nul
 
 /**
  * Najlepsza jakość, przy której plik mieści się w `targetBytes`. WebP, a gdy przeglądarka go nie
- * koduje (zwraca inny typ), JPEG. Gdy nawet najniższa jakość jest za duża, zwraca ten najmniejszy
- * plik: o odrzuceniu decyduje twardy limit bucketu.
+ * koduje (zwraca inny typ), zapasowy `fallback`: JPEG (okładki) albo PNG, który zachowuje
+ * przezroczystość (logo klubu). Gdy nawet najniższa jakość jest za duża, zwraca najmniejszy plik:
+ * o odrzuceniu decyduje twardy limit bucketu.
  */
 export async function encodeWithin(
   encode: ImageEncoder,
   targetBytes: number,
+  fallback: 'image/jpeg' | 'image/png' = 'image/jpeg',
 ): Promise<Blob | null> {
   let smallest: Blob | null = null;
-  for (const type of ['image/webp', 'image/jpeg']) {
-    for (const quality of IMAGE_QUALITIES) {
+  for (const type of ['image/webp', fallback]) {
+    // PNG jest bezstratny: jakość nie zmienia rozmiaru, wystarczy jedna próba.
+    const qualities = type === 'image/png' ? [1] : IMAGE_QUALITIES;
+    for (const quality of qualities) {
       const blob = await encode(type, quality);
       if (!blob || blob.type !== type) break;
       if (!smallest || blob.size < smallest.size) smallest = blob;
@@ -82,10 +87,19 @@ export async function encodeWithin(
 export interface ScaleOptions {
   readonly maxSide?: number | undefined;
   readonly targetBytes?: number | undefined;
+  /**
+   * Zachować przezroczystość, gdy przeglądarka nie koduje WebP (PNG zamiast JPEG na białym
+   * tle). Dla logo klubu, które może mieć przezroczyste tło.
+   */
+  readonly keepTransparency?: boolean | undefined;
 }
 
 export async function scaleImage(file: File, options: ScaleOptions = {}): Promise<ScaledImage> {
-  const { maxSide = IMAGE_MAX_SIDE, targetBytes = IMAGE_TARGET_BYTES } = options;
+  const {
+    maxSide = IMAGE_MAX_SIDE,
+    targetBytes = IMAGE_TARGET_BYTES,
+    keepTransparency = false,
+  } = options;
   if (!ACCEPTED.has(file.type)) throw new ImageScaleError('type');
   let bitmap: ImageBitmap;
   try {
@@ -120,6 +134,7 @@ export async function scaleImage(file: File, options: ScaleOptions = {}): Promis
     const blob = await encodeWithin(
       (type, quality) => toBlob(type === 'image/jpeg' ? onWhite() : canvas, type, quality),
       targetBytes,
+      keepTransparency ? 'image/png' : 'image/jpeg',
     );
     const extension = blob ? EXTENSIONS[blob.type] : undefined;
     if (!blob || !extension) throw new ImageScaleError('decode');

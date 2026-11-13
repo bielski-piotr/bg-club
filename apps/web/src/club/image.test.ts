@@ -52,6 +52,20 @@ describe('kompresja do ok. 100 KB (GAME-6, NFR-7)', () => {
     expect(result?.type).toBe('image/jpeg');
   });
 
+  it('logo bez kodera WebP zostaje PNG (przezroczystość)', async () => {
+    const asked: string[] = [];
+    const result = await encodeWithin(
+      async (type) => {
+        asked.push(type);
+        return type === 'image/webp' ? blob('image/png', 900_000) : blob(type, 300_000);
+      },
+      IMAGE_TARGET_BYTES,
+      'image/png',
+    );
+    expect(result?.type).toBe('image/png');
+    expect(asked).toEqual(['image/webp', 'image/png']);
+  });
+
   it('gdy nawet najniższa jakość jest za duża, zwraca najmniejszy plik', async () => {
     const result = await encodeWithin(
       async (type, quality) => blob(type, Math.round(quality * 1_000_000)),

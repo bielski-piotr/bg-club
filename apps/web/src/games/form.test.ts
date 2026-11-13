@@ -39,6 +39,9 @@ describe('formularz gry: liczba graczy (GAME-4)', () => {
     expect(validateGameForm({ ...valid, title: '   ' }).title).toBe('required');
     expect(validateGameForm({ ...valid, title: 'x'.repeat(121) }).title).toBe('tooLong');
     expect(validateGameForm({ ...valid, title: ` ${'x'.repeat(120)} ` }).title).toBeUndefined();
+    // Emoji to jeden znak (jak char_length w bazie), choć w UTF-16 zajmuje dwie jednostki.
+    expect(validateGameForm({ ...valid, title: '🎲'.repeat(120) }).title).toBeUndefined();
+    expect(validateGameForm({ ...valid, title: '🎲'.repeat(121) }).title).toBe('tooLong');
   });
 });
 

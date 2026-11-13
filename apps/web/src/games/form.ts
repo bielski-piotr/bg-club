@@ -90,7 +90,9 @@ export function validateGameForm(values: GameFormValues): GameFormErrors {
     return typeof value === 'number' ? undefined : value;
   });
   return {
-    title: title === '' ? 'required' : title.length > GAME_TITLE_MAX ? 'tooLong' : undefined,
+    // Długość w znakach (code points), jak `char_length` w CHECK bazy, a nie w jednostkach UTF-16.
+    title:
+      title === '' ? 'required' : Array.from(title).length > GAME_TITLE_MAX ? 'tooLong' : undefined,
     minPlayers: values.minPlayers >= 1 ? undefined : 'min',
     maxPlayers: values.maxPlayers >= values.minPlayers ? undefined : 'range',
     points,

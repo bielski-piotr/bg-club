@@ -11,7 +11,8 @@
 --   `title_search` i zapytanie, a znaki `%`, `_` i `\` w zapytaniu są dosłowne.
 -- - Usunięcie gry jest miękkie i nieodwracalne (GAME-8): `deleted_at` ustawia baza (`now()`),
 --   a usuniętej gry nie da się już edytować ani przywrócić. Gra znika z głosowań i list gier
---   zaplanowanych spotkań; partie, wyniki i snapshoty punktacji zostają (GAME-9).
+--   zaplanowanych spotkań; partie, wyniki i snapshoty punktacji zostają (GAME-9). Strażnik
+--   aktywnej gry blokuje jej wiersz, więc głos dodany w chwili usuwania nie przetrwa.
 -- - Edycja punktacji nie zmienia rozegranych partii: partia ma snapshot `points_snapshot`
 --   ustawiany wyzwalaczem przy rozpoczęciu (migracja [003], GAME-9, Q23).
 
@@ -69,6 +70,32 @@ create trigger games_after_soft_delete
   for each row
   when (old.deleted_at is null and new.deleted_at is not null)
   execute function public.games_after_soft_delete();
+
+-- Strażnik z migracji [003] (głosy, publikacja, nowe partie) blokuje teraz wiersz gry
+-- (FOR SHARE). Bez blokady głos dodany w chwili usuwania gry mógłby przetrwać: wyzwalacz
+-- powyżej nie widzi niezatwierdzonego głosu, a strażnik głosu widzi grę jeszcze aktywną.
+-- Z blokadą usunięcie czeka na zatwierdzenie głosu (i go skasuje), a głos dodany po
+-- usunięciu widzi już `deleted_at` i jest odrzucany.
+create or replace function public.require_active_game()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  removed_at timestamptz;
+begin
+  select g.deleted_at into removed_at from public.games g where g.id = new.game_id for share;
+  -- Nieistniejącą grę odrzuca klucz obcy.
+  if removed_at is not null then
+    raise exception 'game % is deleted', new.game_id
+      using errcode = '23514', constraint = tg_table_name || '_game_active';
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.require_active_game() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- game_collection: aktywne gry z datą ostatniej partii (GAME-1, GAME-2)

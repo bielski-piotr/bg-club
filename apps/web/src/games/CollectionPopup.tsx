@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { format, plural, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
@@ -12,17 +12,30 @@ import './games.css';
 
 const text = t.games.collection;
 
+/** Przerwa w pisaniu, po której idzie zapytanie do bazy (bez zapytania na każdy znak). */
+export const SEARCH_DELAY_MS = 200;
+
+/** Wartość po `delay` ms bez zmian; pusta (wyczyszczenie pola) od razu. */
+function useDebounced(value: string, delay: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), value === '' ? 0 : delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 /**
  * Popup kolekcji (PRD GAME-2, GAME-3, DS „Kolekcja / Popup”): siatka okładek aktywnych gier
- * z wyszukiwaniem po tytule filtrowanym na bieżąco. Porównanie bez wielkości liter i polskich
- * znaków robi baza (`search_games`, unaccent). Administrator ma „Dodaj grę”, a przy każdej grze
+ * z wyszukiwaniem po tytule filtrowanym na bieżąco (zapytanie po krótkiej przerwie w pisaniu).
+ * Porównanie bez wielkości liter i polskich znaków robi baza (`search_games`, unaccent). Administrator ma „Dodaj grę”, a przy każdej grze
  * menu z „Edytuj” i „Usuń”; formularz otwiera się w tym samym stosie, ze strzałką „wstecz”.
  */
 export function CollectionPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   const { client } = useAuth();
   const { open } = usePopups();
   const [query, setQuery] = useState('');
-  const deferredQuery = useDeferredValue(query.trim());
+  const deferredQuery = useDebounced(query.trim(), SEARCH_DELAY_MS);
   const all = useGameSearch(client, '');
   const results = useGameSearch(client, deferredQuery);
   const searching = deferredQuery !== '';

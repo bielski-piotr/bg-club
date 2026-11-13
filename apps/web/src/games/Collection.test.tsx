@@ -234,12 +234,12 @@ describe('popup kolekcji (GAME-2, GAME-3)', () => {
     // Licznik jest w nagłówku (desktop) i pod wyszukiwarką (telefon), DS §7.
     expect(within(dialog).getAllByText('3 gry').length).toBeGreaterThan(0);
 
-    fireEvent.change(within(dialog).getByRole('searchbox', { name: 'Szukaj gry' }), {
-      target: { value: 'ZOLW' },
-    });
+    // Szybkie pisanie: zapytanie idzie dopiero po przerwie, więc bez „Z” i „ZO”.
+    const box = within(dialog).getByRole('searchbox', { name: 'Szukaj gry' });
+    for (const value of ['Z', 'ZO', 'ZOLW']) fireEvent.change(box, { target: { value } });
     await waitFor(() => expect(within(dialog).getAllByRole('listitem')).toHaveLength(1));
     expect(within(dialog).getByText('Żółwie Wyścigi')).toBeInTheDocument();
-    expect(searches).toContain('ZOLW');
+    expect(searches).toEqual(['', 'ZOLW']);
 
     fireEvent.change(within(dialog).getByRole('searchbox', { name: 'Szukaj gry' }), {
       target: { value: 'szachy' },
@@ -316,6 +316,18 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     // Formularz się zamyka, kolekcja pod spodem pokazuje nową grę.
     const list = await screen.findByRole('dialog', { name: 'Kolekcja' });
     expect(await within(list).findByText('Kolejka Górska')).toBeInTheDocument();
+  });
+
+  it('opuszczenie pola tytułu nie pokazuje błędów pozostałych pól', async () => {
+    renderHub([], ADA, '?p=games/new');
+    const dialog = await screen.findByRole('dialog', { name: 'Dodaj grę' });
+    const title = within(dialog).getByLabelText('Tytuł');
+    fireEvent.change(title, { target: { value: 'Catan' } });
+    fireEvent.blur(title);
+    expect(within(dialog).queryByText('Wpisz punkty.')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('Popraw zaznaczone pola.')).not.toBeInTheDocument();
+    fireEvent.change(title, { target: { value: '   ' } });
+    expect(within(dialog).getByText('Wpisz tytuł gry.')).toBeInTheDocument();
   });
 
   it('admin edytuje grę z menu ⋯; zwiększenie max dodaje puste pole', async () => {
