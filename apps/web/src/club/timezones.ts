@@ -30,9 +30,14 @@ export function browserTimezone(): string {
  * U+2212, jak w DS), „UTC+05:45”. Zależy od daty (czas letni), więc liczymy je na teraz.
  */
 export function utcOffset(timeZone: string, at: Date = new Date()): string {
-  const part = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })
-    .formatToParts(at)
-    .find((p) => p.type === 'timeZoneName')?.value;
+  let part: string | undefined;
+  try {
+    part = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })
+      .formatToParts(at)
+      .find((p) => p.type === 'timeZoneName')?.value;
+  } catch {
+    return '';
+  }
   const match = /^GMT(?:([+-])(\d{2}):(\d{2}))?$/.exec(part ?? '');
   if (!match) return 'UTC+00:00';
   const [, sign = '+', hours = '00', minutes = '00'] = match;
@@ -48,19 +53,40 @@ function supportedTimezones(): string[] {
   }
 }
 
+/** Lista stref z przesunięciami na dany dzień (około 420 formatów `Intl`, liczona raz). */
+let cached: { readonly day: string; readonly options: readonly SelectOption<string>[] } | null =
+  null;
+
+function baseOptions(at: Date): readonly SelectOption<string>[] {
+  const day = at.toISOString().slice(0, 10);
+  if (cached?.day !== day) {
+    const names = new Set(supportedTimezones());
+    names.add('UTC');
+    cached = {
+      day,
+      options: [...names].map((name) => ({ value: name, label: name, meta: utcOffset(name, at) })),
+    };
+  }
+  return cached.options;
+}
+
 /**
- * Opcje listy stref (DS §17): nazwa IANA i przesunięcie. Zawsze zawiera `UTC`, strefę już
- * zapisaną w klubie i strefę przeglądarki, także gdy przeglądarka pomija je na swojej liście
- * (np. alias `Europe/Kiev`), żeby wybrana wartość była widoczna.
+ * Opcje listy stref (DS §17): nazwa IANA i przesunięcie, alfabetycznie. Zawsze zawiera `UTC`
+ * i strefy z `include` (zapisaną w klubie, strefę przeglądarki), także gdy przeglądarka pomija
+ * je na swojej liście (np. alias `Europe/Kiev`), żeby wybrana wartość była widoczna. Strefa
+ * znana tylko bazie (Intl jej nie zna) jest na liście bez przesunięcia.
  */
 export function timezoneOptions(
   include: readonly string[] = [],
   at: Date = new Date(),
 ): SelectOption<string>[] {
-  const names = new Set(supportedTimezones());
-  names.add('UTC');
-  for (const name of include) if (isKnownTimezone(name)) names.add(name);
-  return [...names]
-    .sort((a, b) => a.localeCompare(b, 'en'))
-    .map((name) => ({ value: name, label: name, meta: utcOffset(name, at) }));
+  const base = baseOptions(at);
+  const known = new Set(base.map((o) => o.value));
+  const extra = include
+    .filter((name) => name.trim() !== '' && !known.has(name))
+    .map((name) => {
+      const meta = utcOffset(name, at);
+      return meta ? { value: name, label: name, meta } : { value: name, label: name };
+    });
+  return [...base, ...extra].sort((a, b) => a.value.localeCompare(b.value, 'en'));
 }

@@ -37,7 +37,11 @@ describe('strefy czasowe klubu (CLUB-2, NFR-10)', () => {
     expect(names).toContain('Europe/Warsaw');
     expect(names).toContain('UTC');
     expect(names).toContain('Europe/Kiev');
-    expect(names).not.toContain('Nie/Strefa');
+    // Strefa zapisana w bazie, której Intl nie zna, zostaje widoczna (bez przesunięcia).
+    expect(options.find((o) => o.value === 'Nie/Strefa')).toEqual({
+      value: 'Nie/Strefa',
+      label: 'Nie/Strefa',
+    });
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'en')));
     expect(new Set(names).size).toBe(names.length);
     expect(options.find((o) => o.value === 'Europe/Warsaw')).toEqual({

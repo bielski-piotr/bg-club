@@ -103,18 +103,21 @@ function ClubForm({ club }: { readonly club: Club | null }) {
   const [options] = useState(() => timezoneOptions([timezone]));
   const savedLogo = useCoverUrl(client, logo.kind === 'keep' ? (club?.logo_path ?? null) : null);
 
-  const preview = logo.kind === 'new' ? logo.preview : undefined;
-  useEffect(() => {
-    if (!preview) return;
-    return () => URL.revokeObjectURL(preview);
-  }, [preview]);
+  // Adres podglądu zwalniamy przy wyborze kolejnego pliku i przy zamknięciu popupu. Ref, a nie
+  // sprzątanie efektu zależnego od adresu: StrictMode od razu uruchamia sprzątanie i podgląd by znikał.
+  const previewUrl = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    },
+    [],
+  );
 
   const save = useMutation({
     mutationFn: (logoChange: LogoChange) =>
       saveClub(client, club, { name, timezone, logo: logoChange }),
     onSuccess: (saved) => {
       queryClient.setQueryData(clubKey, saved);
-      void queryClient.invalidateQueries({ queryKey: clubKey });
       toast.show(creating ? t.club.toasts.created : t.club.toasts.updated, 'success');
       back();
     },
@@ -139,7 +142,10 @@ function ClubForm({ club }: { readonly club: Club | null }) {
     setLogo({ kind: 'processing' });
     try {
       const image = await scaleImage(file);
-      setLogo({ kind: 'new', image, preview: URL.createObjectURL(image.blob) });
+      const preview = URL.createObjectURL(image.blob);
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+      previewUrl.current = preview;
+      setLogo({ kind: 'new', image, preview });
     } catch (error) {
       setLogo(before);
       setLogoError(
@@ -178,7 +184,11 @@ function ClubForm({ club }: { readonly club: Club | null }) {
           <Button variant="secondary" onClick={back}>
             {form.cancel}
           </Button>
-          <Button type="submit" form={formId} loading={save.isPending}>
+          <Button
+            type="submit"
+            form={formId}
+            loading={save.isPending || logo.kind === 'processing'}
+          >
             {form.save}
           </Button>
         </>

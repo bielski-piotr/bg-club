@@ -31,13 +31,15 @@ export function Hub({ me }: { readonly me: Profile }) {
   const { client } = useAuth();
   const club = useClub(client);
   const renderPopup = useCallback((route: PopupRoute) => <HubPopup route={route} me={me} />, [me]);
-  const firstRun = club.isSuccess && club.data === null;
+  // Dane klubu mają pierwszeństwo przed błędem: nieudane ponowne pobranie nie chowa widżetów.
+  const loaded = club.data !== undefined;
+  const firstRun = club.data === null;
 
   return (
     <PopupHost renderPopup={renderPopup} fallbackFocusId={MAIN_ID}>
       <div className={firstRun ? 'hub hub--first-run' : 'hub'}>
         <AppHeader
-          club={club.isPending ? undefined : firstRun ? 'none' : (club.data ?? null)}
+          club={loaded ? (club.data ?? 'none') : club.isError ? null : undefined}
           me={me}
         />
         <main
@@ -46,10 +48,12 @@ export function Hub({ me }: { readonly me: Profile }) {
           tabIndex={-1}
           aria-label={firstRun ? undefined : t.hub.widgetsLabel}
         >
-          {club.isPending ? (
-            <div className="hub__status">
-              <Spinner size={24} label={t.club.loading} />
-            </div>
+          {loaded ? (
+            firstRun ? (
+              <FirstRun isAdmin={me.role === 'admin'} />
+            ) : (
+              <Widgets me={me} />
+            )
           ) : club.isError ? (
             <Banner
               variant="error"
@@ -67,10 +71,10 @@ export function Hub({ me }: { readonly me: Profile }) {
             >
               {t.club.loadError}
             </Banner>
-          ) : firstRun ? (
-            <FirstRun isAdmin={me.role === 'admin'} />
           ) : (
-            <Widgets me={me} />
+            <div className="hub__status">
+              <Spinner size={24} label={t.club.loading} />
+            </div>
           )}
         </main>
       </div>
