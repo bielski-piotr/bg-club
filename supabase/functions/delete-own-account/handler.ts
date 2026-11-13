@@ -14,11 +14,7 @@
  *
  * Hasła funkcja nie loguje.
  */
-import {
-  type AccountStore,
-  AdminProtectedError,
-  deleteAccount,
-} from '../_shared/accountDeletion.ts';
+import { type AccountStore, deleteAccount } from '../_shared/accountDeletion.ts';
 import { bearerToken, errorMessage, json, preflight, readJsonObject } from '../_shared/http.ts';
 
 /** Wynik sprawdzenia hasła logowaniem w Auth. */
@@ -81,7 +77,6 @@ export async function handleDeleteOwnAccount(
     deps.log('delete-own-account.deleted', { member: me.id });
     return json(200, { deleted: true });
   } catch (error) {
-    if (error instanceof AdminProtectedError) return failure(403, 'admin_protected');
     deps.log('delete-own-account.failed', { message: errorMessage(error) });
     return failure(500, 'failed');
   }

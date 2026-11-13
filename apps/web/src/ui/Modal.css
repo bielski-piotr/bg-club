@@ -205,6 +205,14 @@
   background: var(--c-scrim);
 }
 
+/*
+ * Popup pod dialogiem zostaje widoczny (dialog dotyczy tego, co pod nim), ale dalej jest
+ * `inert`, więc fokus i czytniki ekranu zostają w dialogu.
+ */
+.popup-layer--covered:has(+ .popup-layer--dialog:not(.popup-layer--covered)) {
+  visibility: visible;
+}
+
 .dialog {
   position: relative;
   display: flex;

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { useAuth } from '../auth/authContext';
 import { format, t } from '../i18n';
 import { InvalidPopup } from '../popups/InvalidPopup';
@@ -36,6 +37,14 @@ export function DeleteMemberDialog({ id }: { readonly id: string }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { back } = usePopups();
+  // Dialog zamknięty w trakcie żądania (Esc, tło) jest odmontowany: wtedy nie cofamy drugi raz.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const profile = useProfile(client, id);
   const member = profile.data;
 
@@ -43,7 +52,7 @@ export function DeleteMemberDialog({ id }: { readonly id: string }) {
     mutationFn: () => deleteMember(client, id),
     onSuccess: () => {
       if (member) toast.show(format(text.toast, { name: fullName(member) }), 'success');
-      back();
+      if (mounted.current) back();
       // Profil (stan „usunięty”), lista i widżet członków odświeżają się z bazy.
       void queryClient.invalidateQueries({
         queryKey: ['profiles'],

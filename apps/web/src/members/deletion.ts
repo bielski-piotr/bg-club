@@ -45,7 +45,9 @@ async function invoke(client: SupabaseClient, name: string, body: object): Promi
   const failure = await functionFailure(error);
   if (failure.network) throw new DeletionError('network');
   const code = typeof failure.body.error === 'string' ? failure.body.error : '';
-  throw new DeletionError(FAILURES[code] ?? 'unknown');
+  throw new DeletionError(
+    Object.hasOwn(FAILURES, code) ? (FAILURES[code] ?? 'unknown') : 'unknown',
+  );
 }
 
 /**

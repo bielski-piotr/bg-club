@@ -5,27 +5,18 @@
  *
  * Klucz service role jest tylko tutaj (PRD §6.1). Logika żądania: `handler.ts`.
  */
-import { serviceClient } from '../_shared/supabase.ts';
+import { accountStore, serviceClient } from '../_shared/supabase.ts';
 import { handleCreateMember } from './handler.ts';
 
 const service = serviceClient();
+const store = accountStore(service);
 
 Deno.serve((request) =>
   handleCreateMember(request, {
-    authenticate: async (token) => {
-      const { data, error } = await service.auth.getUser(token);
-      return error ? null : (data.user?.id ?? null);
-    },
+    authenticate: (token) => store.authenticate(token),
     isActiveAdmin: async (userId) => {
-      const { data, error } = await service
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .eq('role', 'admin')
-        .is('deleted_at', null)
-        .maybeSingle();
-      if (error) throw new Error(`profiles: ${error.message}`);
-      return data !== null;
+      const profile = await store.findProfile(userId);
+      return profile !== null && profile.role === 'admin' && !profile.deleted;
     },
     accounts: {
       // Także profile usuniętych członków: ich hook zostaje w historii i nie wraca do puli.
