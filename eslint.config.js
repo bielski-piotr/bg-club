@@ -14,7 +14,7 @@ export default tseslint.config(
       '**/playwright-report/**',
       '**/test-results/**',
       'supabase/.temp/**',
-      // Edge Functions działają w Deno; dostaną osobny lint (`deno lint`) w zadaniu [005].
+      // Edge Functions działają w Deno; dostaną osobny lint (`deno lint`) z pierwszą funkcją ([009]).
       'supabase/functions/**',
     ],
   },

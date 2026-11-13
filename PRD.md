@@ -445,7 +445,7 @@ Schemat wdrożony w zadaniu [003] (`supabase/migrations/`) realizuje ten model. 
 - `club`, `games`, `scorepads`, `meetings`, `meeting_games`: zapis tylko admin (funkcja `is_admin()`).
 - `game_votes`: insert/delete tylko własne głosy, tylko uczestnik spotkania, tylko przy `voting_open`.
 - `plays` i `play_results`: zapis przez RPC (security definer) z kontrolą „admin lub `host_id`”. Usuwanie tylko admin.
-- **Edge Functions** (klucz service role tylko po stronie serwera): `create-member`, `delete-member`, `delete-own-account`, `bootstrap-admin` (jednorazowo).
+- **Edge Functions** (klucz service role tylko po stronie serwera): `create-member`, `delete-member`, `delete-own-account`. Pierwszego administratora tworzy jednorazowo skrypt instalacyjny `pnpm bootstrap:admin` (AUTH-3), a nie publiczna funkcja, więc pustej instancji nie da się przejąć (zadanie [005], README „Konta i logowanie”).
 
 ---
 
@@ -483,8 +483,8 @@ bg-club/
   packages/score-pad/       # źródła notesu + edytora (przeniesione z POC) z trybem klubowym
   packages/scoring/         # czysta logika: miejsca, remisy, punkty, serie, osiągnięcia (+ testy)
   supabase/migrations/      # schemat, RLS, funkcje SQL
-  supabase/functions/       # create-member, delete-member, delete-own-account, bootstrap-admin
-  supabase/seed/            # skrypt pierwszego admina
+  supabase/functions/       # create-member, delete-member, delete-own-account
+  supabase/seed/            # seed i dane pierwszego admina (skrypt: packages/accounts, `pnpm bootstrap:admin`)
   PRD.md, README.md
 ```
 

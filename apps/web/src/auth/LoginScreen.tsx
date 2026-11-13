@@ -1,0 +1,133 @@
+import { isValidHook, normalizeHook } from '@bg-club/accounts';
+import { useRef, useState, type FormEvent } from 'react';
+import { t } from '../i18n';
+import { Banner, Button, PasswordField, TextField } from '../ui';
+import { useAuth, type AuthNotice } from './authContext';
+import type { LoginErrorKind } from './errors';
+import './LoginScreen.css';
+
+interface FieldErrors {
+  readonly hook?: string | undefined;
+  readonly password?: string | undefined;
+}
+
+function validate(hook: string, password: string): FieldErrors {
+  return {
+    hook:
+      hook === ''
+        ? t.auth.errors.hookRequired
+        : isValidHook(hook)
+          ? undefined
+          : t.auth.errors.hookFormat,
+    password: password === '' ? t.auth.errors.passwordRequired : undefined,
+  };
+}
+
+const NOTICE_TEXT: Readonly<Record<AuthNotice, string>> = {
+  sessionExpired: t.auth.notices.sessionExpired,
+  accountInactive: t.auth.errors.accountInactive,
+};
+
+/**
+ * Ekran logowania hookiem i hasłem (PRD §4, AUTH-1). Techniczny e-mail konta nigdy nie pojawia
+ * się w interfejsie. Brak samodzielnej rejestracji i resetu hasła (PRD §1.2): konto i hasło
+ * daje administrator.
+ */
+export function LoginScreen({ notice }: { readonly notice: AuthNotice | null }) {
+  const { signIn } = useAuth();
+  const [hook, setHook] = useState('');
+  const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [serverError, setServerError] = useState<LoginErrorKind | null>(null);
+  const [pending, setPending] = useState(false);
+  const hookRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (pending) return;
+    const normalized = normalizeHook(hook);
+    const errors = validate(normalized, password);
+    setFieldErrors(errors);
+    setServerError(null);
+    if (errors.hook) {
+      hookRef.current?.focus();
+      return;
+    }
+    if (errors.password) {
+      passwordRef.current?.focus();
+      return;
+    }
+
+    setHook(normalized);
+    setPending(true);
+    const result = await signIn(normalized, password);
+    // Po udanym logowaniu ekran znika (AuthProvider przełącza widok); tu tylko błędy.
+    if (!result.ok) {
+      setPending(false);
+      setServerError(result.error);
+      if (result.error === 'invalidCredentials') {
+        setPassword('');
+        passwordRef.current?.focus();
+      }
+    }
+  };
+
+  const message = serverError ? t.auth.errors[serverError] : null;
+  const shownNotice = message === null && notice !== null ? NOTICE_TEXT[notice] : null;
+
+  return (
+    <main className="shell">
+      <section className="start-card login" aria-labelledby="login-title">
+        <p className="eyebrow">{t.app.name}</p>
+        <h1 id="login-title" className="title">
+          {t.auth.title}
+        </h1>
+        <p className="body">{t.auth.intro}</p>
+
+        {shownNotice ? (
+          <Banner
+            variant={notice === 'accountInactive' ? 'error' : 'warning'}
+            className="login__banner"
+          >
+            {shownNotice}
+          </Banner>
+        ) : null}
+
+        <form className="login__form" noValidate onSubmit={onSubmit}>
+          <TextField
+            ref={hookRef}
+            label={t.auth.hookLabel}
+            name="username"
+            mono
+            value={hook}
+            onChange={(event) => setHook(event.target.value)}
+            placeholder={t.auth.hookPlaceholder}
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
+            required
+            error={fieldErrors.hook}
+          />
+          <PasswordField
+            ref={passwordRef}
+            label={t.auth.passwordLabel}
+            name="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            enterKeyHint="go"
+            required
+            error={fieldErrors.password}
+          />
+          {message ? <Banner variant="error">{message}</Banner> : null}
+          <Button type="submit" fullWidth loading={pending} className="login__submit">
+            {t.auth.submit}
+          </Button>
+        </form>
+      </section>
+    </main>
+  );
+}
