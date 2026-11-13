@@ -8,7 +8,6 @@ export interface OwnProfile {
   readonly first_name: string;
   readonly last_name: string;
   readonly role: 'admin' | 'player';
-  readonly avatar_path: string | null;
 }
 
 export const ownProfileKey = (userId: string) => ['profiles', 'own', userId] as const;
@@ -23,7 +22,7 @@ export function useOwnProfile(client: SupabaseClient, userId: string) {
     queryFn: async (): Promise<OwnProfile | null> => {
       const { data, error } = await client
         .from('profiles')
-        .select('id, hook, first_name, last_name, role, avatar_path')
+        .select('id, hook, first_name, last_name, role')
         .eq('id', userId)
         .maybeSingle<OwnProfile>();
       if (error) throw error;

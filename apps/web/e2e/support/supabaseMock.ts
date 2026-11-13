@@ -16,7 +16,6 @@ export const ADA = {
   first_name: 'Ada',
   last_name: 'Adminowska',
   role: 'admin',
-  avatar_path: null,
 } as const;
 
 export const ADA_EMAIL = `${ADA.hook}@users.bgclub.invalid`;

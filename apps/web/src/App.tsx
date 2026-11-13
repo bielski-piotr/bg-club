@@ -1,7 +1,8 @@
 import { AuthProvider } from './auth/AuthProvider';
 import { useAuth } from './auth/authContext';
 import { LoginScreen } from './auth/LoginScreen';
-import { LoadingScreen, SignedInScreen } from './auth/SignedInScreen';
+import { LoadingScreen } from './auth/LoadingScreen';
+import { SignedInScreen } from './auth/SignedInScreen';
 import type { ConfigIssue, ConfigResult } from './config/env';
 import { format, t } from './i18n';
 import { getSupabase } from './lib/supabase';

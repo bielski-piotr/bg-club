@@ -61,7 +61,9 @@ export function LoginScreen({ notice }: { readonly notice: AuthNotice | null }) 
 
     setHook(normalized);
     setPending(true);
-    const result = await signIn(normalized, password);
+    const result = await signIn(normalized, password).catch(
+      () => ({ ok: false, error: 'unknown' }) as const,
+    );
     // Po udanym logowaniu ekran znika (AuthProvider przełącza widok); tu tylko błędy.
     if (!result.ok) {
       setPending(false);
@@ -101,7 +103,10 @@ export function LoginScreen({ notice }: { readonly notice: AuthNotice | null }) 
             name="username"
             mono
             value={hook}
-            onChange={(event) => setHook(event.target.value)}
+            onChange={(event) => {
+              setHook(event.target.value);
+              setFieldErrors((errors) => ({ ...errors, hook: undefined }));
+            }}
             placeholder={t.auth.hookPlaceholder}
             autoComplete="username"
             autoCapitalize="none"
@@ -116,7 +121,10 @@ export function LoginScreen({ notice }: { readonly notice: AuthNotice | null }) 
             label={t.auth.passwordLabel}
             name="password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              setFieldErrors((errors) => ({ ...errors, password: undefined }));
+            }}
             autoComplete="current-password"
             enterKeyHint="go"
             required

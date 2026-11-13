@@ -19,6 +19,10 @@ function sameSession(state: AuthState, session: Session): boolean {
   );
 }
 
+function isExpired(session: Session): boolean {
+  return session.expires_at !== undefined && session.expires_at * 1000 <= Date.now();
+}
+
 /**
  * Sesja Supabase Auth dla całej aplikacji (AUTH-1, AUTH-5).
  *
@@ -53,15 +57,15 @@ export function AuthProvider({ client, children }: AuthProviderProps) {
       pendingNotice.current = undefined;
       setState((prev) => {
         if (requested !== undefined) return { status: 'signedOut', notice: requested };
-        // Wylogowanie, którego aplikacja nie zleciła: supabase-js usunął sesję po odrzuconym
-        // odświeżeniu tokenu.
-        if (event === 'SIGNED_OUT') {
-          return {
-            status: 'signedOut',
-            notice: prev.status === 'signedOut' ? prev.notice : 'sessionExpired',
-          };
-        }
-        return prev.status === 'signedOut' ? prev : { status: 'signedOut', notice: null };
+        if (prev.status === 'signedOut') return prev;
+        // Wylogowanie, którego ta karta nie zleciła. supabase-js usuwa sesję po odrzuconym
+        // odświeżeniu tylko wtedy, gdy token dostępu już wygasł; przy wciąż ważnym tokenie to
+        // wylogowanie w innej karcie, więc bez komunikatu o wygaśnięciu.
+        const expired = prev.status === 'signedIn' && isExpired(prev.session);
+        return {
+          status: 'signedOut',
+          notice: event === 'SIGNED_OUT' && expired ? 'sessionExpired' : null,
+        };
       });
     };
 

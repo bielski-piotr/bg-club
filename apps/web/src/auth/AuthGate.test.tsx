@@ -19,15 +19,14 @@ const ADA: OwnProfile = {
   first_name: 'Ada',
   last_name: 'Adminowska',
   role: 'admin',
-  avatar_path: null,
 };
 
-function sessionFor(userId: string, token = 'token-1'): Session {
+function sessionFor(userId: string, token = 'token-1', expiresIn = 3600): Session {
   return {
     access_token: token,
     refresh_token: 'refresh-1',
     expires_in: 3600,
-    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
     token_type: 'bearer',
     user: {
       id: userId,
@@ -109,6 +108,11 @@ describe('logowanie hookiem (AUTH-1)', () => {
     expect(screen.getByText('Wpisz swój hook.')).toBeInTheDocument();
     expect(screen.getByText('Wpisz hasło.')).toBeInTheDocument();
     expect(screen.getByLabelText('Hook')).toHaveFocus();
+
+    // Poprawianie pola zdejmuje jego błąd jeszcze przed kolejną próbą.
+    fireEvent.change(screen.getByLabelText('Hasło'), { target: { value: 'h' } });
+    expect(screen.queryByText('Wpisz hasło.')).not.toBeInTheDocument();
+    expect(screen.getByText('Wpisz swój hook.')).toBeInTheDocument();
 
     await submit('jan@example.com', 'haslo');
     expect(
@@ -206,13 +210,24 @@ describe('sesja (AUTH-5, AUTH-7)', () => {
     expect(screen.getByRole('heading', { name: 'Zaloguj się' })).toBeInTheDocument();
   });
 
-  it('odrzucone odświeżenie sesji wraca do logowania z komunikatem', async () => {
-    const fake = fakeSupabase({ session: sessionFor(ADA.id) });
+  it('odrzucone odświeżenie wygasłej sesji wraca do logowania z komunikatem', async () => {
+    // supabase-js usuwa sesję po odrzuconym odświeżeniu tylko przy wygasłym tokenie dostępu.
+    const fake = fakeSupabase({ session: sessionFor(ADA.id, 'token-1', -5) });
     renderGate(fake);
     await screen.findByRole('heading', { name: 'Cześć, Ada!' });
 
     fake.emit('SIGNED_OUT', null);
     expect(await screen.findByRole('heading', { name: 'Zaloguj się' })).toBeInTheDocument();
     expect(screen.getByText('Sesja wygasła. Zaloguj się ponownie.')).toBeInTheDocument();
+  });
+
+  it('wylogowanie w innej karcie (ważny token) nie mówi o wygaśnięciu sesji', async () => {
+    const fake = fakeSupabase({ session: sessionFor(ADA.id) });
+    renderGate(fake);
+    await screen.findByRole('heading', { name: 'Cześć, Ada!' });
+
+    fake.emit('SIGNED_OUT', null);
+    expect(await screen.findByRole('heading', { name: 'Zaloguj się' })).toBeInTheDocument();
+    expect(screen.queryByText('Sesja wygasła. Zaloguj się ponownie.')).not.toBeInTheDocument();
   });
 });

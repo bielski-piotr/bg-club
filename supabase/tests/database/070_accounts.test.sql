@@ -10,7 +10,7 @@ create extension if not exists pgtap with schema extensions;
 -- Wyzwalacz konta jest odroczony do końca transakcji; w teście sprawdzamy go od razu.
 set constraints all immediate;
 
-select plan(23);
+select plan(24);
 
 -- ---------------------------------------------------------------------------------------------
 -- Struktura i prawa
@@ -117,6 +117,11 @@ select lives_ok(
   $$ update auth.users set email = email, encrypted_password = 'zmienione-haslo', email_change = ''
       where id = '00000000-0000-4000-a000-000000000002' $$,
   'inne zmiany konta (hasło, zapis tego samego e-maila) działają'
+);
+select lives_ok(
+  $$ update auth.users set email = 'zatarty-0000@deleted.invalid', deleted_at = now()
+      where id = '00000000-0000-4000-a000-000000000002' $$,
+  'miękkie usunięcie konta w Auth (zatarcie e-maila) nie jest blokowane'
 );
 
 -- ---------------------------------------------------------------------------------------------

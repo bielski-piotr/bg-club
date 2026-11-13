@@ -116,6 +116,11 @@ language plpgsql
 set search_path = ''
 as $$
 begin
+  -- Miękkie usunięcie konta w Auth (`auth.admin.deleteUser(id, true)`) zaciera e-mail i ustawia
+  -- `deleted_at`; tej zmiany nie blokujemy. Profil oznacza jako usunięty Edge Function ([011]).
+  if new.deleted_at is not null then
+    return new;
+  end if;
   if new.email is distinct from old.email
      or (coalesce(new.email_change, '') <> '' and new.email_change is distinct from old.email_change) then
     raise exception 'account email is derived from the immutable hook and cannot change'

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { format, t } from '../i18n';
-import { Avatar, Badge, Banner, Button, Spinner } from '../ui';
+import { Avatar, Badge, Banner, Button } from '../ui';
 import { useAuth } from './authContext';
+import { LoadingScreen } from './LoadingScreen';
 import { useOwnProfile } from './useOwnProfile';
 import './LoginScreen.css';
 
@@ -22,7 +23,8 @@ export function SignedInScreen({ userId }: { readonly userId: string }) {
 
   const onSignOut = () => {
     setSigningOut(true);
-    void signOut();
+    // Po udanym wylogowaniu ekran znika; przy błędzie przycisk wraca do zwykłego stanu.
+    signOut().catch(() => setSigningOut(false));
   };
 
   if (profile.isPending || inactive) {
@@ -86,14 +88,6 @@ export function SignedInScreen({ userId }: { readonly userId: string }) {
           </Button>
         </div>
       </section>
-    </main>
-  );
-}
-
-export function LoadingScreen() {
-  return (
-    <main className="shell">
-      <Spinner size={24} label={t.auth.loading} className="loading-screen__spinner" />
     </main>
   );
 }
