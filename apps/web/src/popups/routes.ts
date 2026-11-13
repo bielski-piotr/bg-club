@@ -8,6 +8,8 @@
  */
 export type PopupRoute =
   | { readonly kind: 'members' }
+  /** Formularz „Dodaj członka” (MEM-3, admin), adres `members/new`. */
+  | { readonly kind: 'add-member' }
   | { readonly kind: 'profile'; readonly id: string }
   /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (CLUB-2, admin). */
   | { readonly kind: 'club' }
@@ -30,6 +32,7 @@ export function isUuid(value: string): boolean {
 export function parseRoute(raw: string): PopupRoute {
   const [kind, ...args] = raw.split('/');
   if (kind === 'members' && args.length === 0) return { kind: 'members' };
+  if (kind === 'members' && args.length === 1 && args[0] === 'new') return { kind: 'add-member' };
   if (kind === 'club' && args.length === 0) return { kind: 'club' };
   if (kind === 'profile' && args.length === 1 && isUuid(args[0] ?? '')) {
     return { kind: 'profile', id: (args[0] ?? '').toLowerCase() };
@@ -41,6 +44,8 @@ export function serializeRoute(route: PopupRoute): string {
   switch (route.kind) {
     case 'members':
       return 'members';
+    case 'add-member':
+      return 'members/new';
     case 'club':
       return 'club';
     case 'profile':

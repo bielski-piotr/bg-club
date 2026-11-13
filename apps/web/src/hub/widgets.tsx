@@ -1,5 +1,6 @@
 import { useAuth } from '../auth/authContext';
 import { format, plural, t } from '../i18n';
+import { usePopups } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { ProfileLink } from '../profile/ProfileLink';
 import { avatarPerson, fullName, useMembers, type Profile } from '../profile/profiles';
@@ -61,11 +62,13 @@ export function CollectionWidget() {
 }
 
 /**
- * Widżet członków (MEM-1, DS §6). Każdy awatar otwiera profil, licznik `+N`, podpis
- * i „Zobacz więcej” otwierają popup członków.
+ * Widżet członków (MEM-1, DS §6). Każdy awatar otwiera profil, licznik `+N` i „Zobacz więcej”
+ * otwierają popup członków. Pusty stan administratora ma CTA „Dodaj członka” (MEM-3).
  */
 export function MembersWidget({ me }: { readonly me: Profile }) {
   const { client } = useAuth();
+  const { open } = usePopups();
+  const isAdmin = me.role === 'admin';
   const members = useMembers(client);
   const list = members.data;
   const count = list ? plural(list.length, t.hub.members.count) : undefined;
@@ -110,7 +113,14 @@ export function MembersWidget({ me }: { readonly me: Profile }) {
             </ProfileLink>
           }
           title={t.hub.members.emptyTitle}
-          helper={t.hub.members.emptyHelper}
+          helper={isAdmin ? t.hub.members.emptyHelperAdmin : t.hub.members.emptyHelper}
+          action={
+            isAdmin ? (
+              <Button icon="plus" fullWidth onClick={() => open({ kind: 'add-member' })}>
+                {t.hub.members.add}
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <MembersStack members={list ?? []} />

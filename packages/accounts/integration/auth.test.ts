@@ -1,6 +1,7 @@
 /**
- * Testy integracyjne kont i logowania na lokalnym Supabase (PRD AUTH-1…AUTH-5, AUTH-7)
- * oraz zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10).
+ * Testy integracyjne kont i logowania na lokalnym Supabase (PRD AUTH-1…AUTH-5, AUTH-7),
+ * zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10) i dodawania członków przez
+ * Edge Function `create-member` (MEM-3, AUTH-2, AUTH-4, USR-1).
  *
  * Idą przez prawdziwe API (Auth, PostgREST) z tymi samymi kluczami co aplikacja i skrypt
  * bootstrapu. Startują od pustej instalacji i nie sprzątają po sobie (konta administratora nie
@@ -25,6 +26,39 @@ const options = {
 } as const;
 const service = createClient(stack.apiUrl, stack.serviceRoleKey, options);
 const anonClient = (): SupabaseClient => createClient(stack.apiUrl, stack.anonKey, options);
+
+/**
+ * Adres Edge Functions. Domyślnie bramka lokalnego Supabase; `BG_CLUB_FUNCTIONS_URL` pozwala
+ * wskazać funkcję uruchomioną osobno (np. `deno run` w `supabase/functions`).
+ */
+const FUNCTIONS_URL = process.env.BG_CLUB_FUNCTIONS_URL ?? `${stack.apiUrl}/functions/v1`;
+
+interface CreateMemberReply {
+  readonly status: number;
+  readonly body: {
+    readonly member?: { id: string; hook: string; first_name: string; last_name: string };
+    readonly password?: string;
+    readonly error?: string;
+    readonly problems?: Record<string, string>;
+  };
+}
+
+/** `POST create-member` z tokenem sesji (albo bez niego, `accessToken` = `null`). */
+async function callCreateMember(
+  accessToken: string | null,
+  body: unknown,
+): Promise<CreateMemberReply> {
+  const response = await fetch(`${FUNCTIONS_URL}/create-member`, {
+    method: 'POST',
+    headers: {
+      apikey: stack.anonKey,
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, body: (await response.json()) as CreateMemberReply['body'] };
+}
 
 /** Tabele aplikacji poza profilami: po bootstrapie muszą być puste (bez klubu i danych demo). */
 const OTHER_TABLES = [
@@ -337,6 +371,92 @@ describe('konta i logowanie na pustej instalacji', () => {
     it('na koniec w klubie jest dokładnie jeden administrator', async () => {
       const { data } = await service.from('profiles').select('hook').eq('role', 'admin');
       expect(data).toEqual([{ hook: admin.hook }]);
+    });
+  });
+
+  describe('dodawanie członków przez Edge Function (MEM-3, [009])', () => {
+    const session = { admin: '' };
+
+    beforeAll(async () => {
+      const { data, error } = await signIn(admin.hook, admin.password);
+      if (error || !data.session) throw error ?? new Error('brak sesji administratora');
+      session.admin = data.session.access_token;
+    });
+
+    it('administrator tworzy konto i profil; członek loguje się hookiem i hasłem', async () => {
+      const { status, body } = await callCreateMember(session.admin, {
+        firstName: ' Łukasz ',
+        lastName: 'Żółw',
+      });
+      expect(status).toBe(201);
+      const hook = body.member?.hook ?? '';
+      expect(hook).toMatch(/^lukasz-zolw-[0-9a-f]{4}$/);
+      expect(body.password?.length).toBeGreaterThanOrEqual(12);
+
+      const { data: profile } = await service
+        .from('profiles')
+        .select('id, hook, first_name, last_name, role, deleted_at')
+        .eq('hook', hook)
+        .single();
+      expect(profile).toEqual({
+        id: body.member?.id,
+        hook,
+        first_name: 'Łukasz',
+        last_name: 'Żółw',
+        role: 'player',
+        deleted_at: null,
+      });
+      const { data: user } = await service.auth.admin.getUserById(body.member?.id ?? '');
+      expect(user.user?.email).toBe(hookToEmail(hook));
+
+      const login = await signIn(hook, body.password ?? '');
+      expect(login.error).toBeNull();
+    });
+
+    it('te same imię i nazwisko dają różne hooki (kolizja)', async () => {
+      const replies = await Promise.all(
+        Array.from({ length: 3 }, () =>
+          callCreateMember(session.admin, { firstName: 'Zoë', lastName: 'Ćwik-Łąka' }),
+        ),
+      );
+      expect(replies.map((reply) => reply.status)).toEqual([201, 201, 201]);
+      const hooks = replies.map((reply) => reply.body.member?.hook ?? '');
+      expect(new Set(hooks).size).toBe(3);
+      for (const hook of hooks) expect(hook).toMatch(/^zoe-cwik-laka-[0-9a-f]{4}$/);
+    });
+
+    it('gracz i niezalogowany nie dodadzą członka; nic nie powstaje', async () => {
+      const player = await createPlayer('Filip', 'Zwykły');
+      const { data } = await signIn(player.hook, player.password);
+      const before = (await authUsers()).length;
+
+      const asPlayer = await callCreateMember(data.session?.access_token ?? '', {
+        firstName: 'Przemycony',
+        lastName: 'Gracz',
+      });
+      expect(asPlayer).toEqual({ status: 403, body: { error: 'forbidden' } });
+      const anonymous = await callCreateMember(null, { firstName: 'Anonim', lastName: 'Obcy' });
+      expect(anonymous.status).toBe(401);
+
+      expect(await authUsers()).toHaveLength(before);
+      const { count } = await service
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .in('first_name', ['Przemycony', 'Anonim']);
+      expect(count).toBe(0);
+    });
+
+    it('złe dane nie zostawiają konta Auth ani profilu', async () => {
+      const before = (await authUsers()).length;
+      const reply = await callCreateMember(session.admin, {
+        firstName: 'Ola',
+        lastName: 'x'.repeat(51),
+      });
+      expect(reply).toEqual({
+        status: 400,
+        body: { error: 'invalid_input', problems: { lastName: 'tooLong' } },
+      });
+      expect(await authUsers()).toHaveLength(before);
     });
   });
 

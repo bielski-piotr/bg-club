@@ -17,11 +17,9 @@ import {
   generatePassword,
   hookToEmail,
   MIN_PASSWORD_LENGTH,
+  NAME_MAX_LENGTH,
   randomHookSuffix,
 } from './index.ts';
-
-/** Maksymalna długość imienia i nazwiska (CHECK w `profiles`). */
-export const NAME_MAX_LENGTH = 50;
 
 export interface BootstrapAdminInput {
   readonly firstName: string;

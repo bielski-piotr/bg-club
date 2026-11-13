@@ -17,6 +17,9 @@ export const TECHNICAL_EMAIL_DOMAIN = 'users.bgclub.invalid';
 /** Maksymalna długość hooka (CHECK `profiles_hook_length`). */
 export const HOOK_MAX_LENGTH = 64;
 
+/** Maksymalna długość imienia i nazwiska (CHECK `profiles_*_name_length`). */
+export const NAME_MAX_LENGTH = 50;
+
 /** Długość losowego sufiksu hooka (4 znaki szesnastkowe, USR-1). */
 export const HOOK_SUFFIX_LENGTH = 4;
 

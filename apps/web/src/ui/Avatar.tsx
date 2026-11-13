@@ -24,7 +24,7 @@ const MONOGRAM: Readonly<Record<AvatarSize, readonly [number, number]>> = {
 };
 
 export interface AvatarPerson {
-  /** Stały klucz koloru (id profilu). Bez niego kolor wynika z imienia. */
+  /** Stały klucz koloru (hook profilu, USR-2; id gry). Bez niego kolor wynika z imienia. */
   readonly id?: string | undefined;
   /** Imię i nazwisko; także tekst alternatywny (NFR-6). */
   readonly name: string;

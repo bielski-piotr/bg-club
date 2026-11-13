@@ -71,6 +71,8 @@ export const pl = {
       count: { one: '{n} osoba', few: '{n} osoby', many: '{n} osób' },
       emptyTitle: 'Na razie jesteś tu tylko Ty',
       emptyHelper: 'Gdy administrator doda członków klubu, zobaczysz ich tutaj.',
+      emptyHelperAdmin: 'Dodaj członków klubu. Każdy dostanie własny hook i hasło.',
+      add: 'Dodaj członka',
       and: 'i',
       /** Dopisek po imionach w widżecie: „Bartek, Ania, Ewa, Julia i 8 innych osób” (DS §6). */
       others: { one: 'i {n} inna osoba', few: 'i {n} inne osoby', many: 'i {n} innych osób' },
@@ -149,11 +151,55 @@ export const pl = {
     notFoundTitle: 'Nie znaleziono gracza',
     notFoundBody: 'Profilu z tego linku nie ma w klubie. Link może być nieaktualny.',
   },
-  /** Popup członków (PRD MEM-2). Wyszukiwanie i dodawanie członka dochodzą w zadaniu [009]. */
+  /** Popup członków (PRD MEM-2): lista aktywnych członków z wyszukiwaniem. */
   membersPopup: {
     title: 'Członkowie',
     listLabel: 'Lista członków',
     openProfile: 'Otwórz profil: {name}',
+    searchLabel: 'Szukaj członka',
+    searchPlaceholder: 'Szukaj po imieniu, nazwisku lub hooku',
+    /** Licznik wyników wyszukiwania dla czytnika ekranu. */
+    results: { one: '{n} wynik', few: '{n} wyniki', many: '{n} wyników' },
+    noResultsTitle: 'Nikt nie pasuje do „{query}”',
+    noResultsHelper: 'Sprawdź pisownię albo wpisz fragment imienia, nazwiska lub hooka.',
+    add: 'Dodaj członka',
+    addShort: 'Dodaj',
+  },
+  /** Formularz „Dodaj członka” i jednorazowe dane logowania (PRD MEM-3, AUTH-4, USR-1). */
+  addMember: {
+    title: 'Dodaj członka',
+    doneTitle: 'Członek dodany',
+    intro:
+      'Hook i hasło wygenerujemy automatycznie. Hook powstaje z imienia i nazwiska i nie zmieni się później.',
+    firstNameLabel: 'Imię',
+    firstNamePlaceholder: 'np. Łukasz',
+    lastNameLabel: 'Nazwisko',
+    lastNamePlaceholder: 'np. Żółw',
+    cancel: 'Anuluj',
+    submit: 'Dodaj członka',
+    done: 'Gotowe',
+    addAnother: 'Dodaj kolejnego',
+    credentialsIntro: 'Przekaż te dane nowemu członkowi. Hook służy jako login.',
+    passwordOnce:
+      'Hasło pokazujemy tylko teraz. Po zamknięciu tego okna nie da się go odczytać, więc skopiuj je przed zamknięciem.',
+    hookLabel: 'Hook (login)',
+    passwordLabel: 'Hasło',
+    copy: 'Kopiuj',
+    copyHook: 'Kopiuj hook',
+    copyPassword: 'Kopiuj hasło',
+    copied: 'Skopiowano',
+    copiedHook: 'Skopiowano hook',
+    copiedPassword: 'Skopiowano hasło',
+    copyFailed: 'Nie udało się skopiować. Zaznacz tekst i skopiuj go ręcznie.',
+    errors: {
+      firstNameRequired: 'Wpisz imię.',
+      lastNameRequired: 'Wpisz nazwisko.',
+      tooLong: 'Może mieć najwyżej {max} znaków.',
+      forbidden: 'Członków może dodawać tylko administrator.',
+      session: 'Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.',
+      network: 'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.',
+      failed: 'Nie udało się dodać członka. Nic nie zostało zapisane, spróbuj ponownie.',
+    },
   },
   config: {
     errorTitle: 'Brak konfiguracji aplikacji',

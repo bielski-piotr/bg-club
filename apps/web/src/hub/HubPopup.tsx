@@ -1,4 +1,5 @@
 import { ClubPopup } from '../club/ClubPopup';
+import { AddMemberPopup } from '../members/AddMemberPopup';
 import { MembersPopup } from '../members/MembersPopup';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
@@ -14,7 +15,10 @@ interface HubPopupProps {
 export function HubPopup({ route, me }: HubPopupProps) {
   switch (route.kind) {
     case 'members':
-      return <MembersPopup />;
+      return <MembersPopup isAdmin={me.role === 'admin'} />;
+    case 'add-member':
+      // Członków dodaje tylko administrator (MEM-3); bazę i tak chroni Edge Function (403).
+      return me.role === 'admin' ? <AddMemberPopup /> : <InvalidPopup />;
     case 'profile':
       return <ProfilePopup id={route.id} />;
     case 'club':

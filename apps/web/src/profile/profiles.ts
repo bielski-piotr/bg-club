@@ -23,9 +23,14 @@ export function fullName(profile: Pick<Profile, 'first_name' | 'last_name'>): st
   return `${profile.first_name} ${profile.last_name}`;
 }
 
-/** Dane awatara (DS §8). Kolor monogramu zależy od id, jak w całej aplikacji. */
-export function avatarPerson(profile: Profile): AvatarPerson {
-  return { id: profile.id, name: fullName(profile), removed: profile.deleted_at !== null };
+/**
+ * Dane awatara (DS §8). Kolor monogramu wynika deterministycznie z hooka (USR-2): hook jest
+ * niezmienny, więc kolor nie zmienia się po zmianie imienia i jest ten sam na każdym urządzeniu.
+ */
+export function avatarPerson(
+  profile: Pick<Profile, 'hook' | 'first_name' | 'last_name' | 'deleted_at'>,
+): AvatarPerson {
+  return { id: profile.hook, name: fullName(profile), removed: profile.deleted_at !== null };
 }
 
 /**

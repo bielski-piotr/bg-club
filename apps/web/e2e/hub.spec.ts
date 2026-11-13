@@ -184,11 +184,18 @@ test('klawiatura: fokus w popupie, pętla Tab, Esc i powrót fokusu', async ({ p
   await expect(list).toBeFocused();
   await expect(list.getByRole('listitem')).toHaveCount(7);
 
-  // Kolejność: × w nagłówku, potem wiersze; Tab nigdy nie wychodzi poza popup.
+  // Kolejność: „Dodaj członka” i × w nagłówku, wyszukiwarka, potem wiersze; Tab nigdy nie
+  // wychodzi poza popup.
   const close = list.getByRole('button', { name: 'Zamknij' });
   await close.focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(list.getByRole('button', { name: 'Dodaj członka' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(list.getByRole('searchbox', { name: 'Szukaj członka' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(list.getByRole('link', { name: /Ada Adminowska/ })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Shift+Tab');
   await expect(close).toBeFocused();
   for (let i = 0; i < 20; i += 1) {

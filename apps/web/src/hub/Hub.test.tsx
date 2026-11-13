@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { PopupRouter } from '../popups/PopupRouter';
@@ -38,6 +38,11 @@ interface FakeOptions {
   club?: FakeClub | null;
   /** Błąd PostgREST przy zapisie klubu (np. `23505` przy równoległej próbie). */
   saveError?: { code: string; message: string };
+  /** Odpowiedź Edge Function `create-member` (domyślnie: utworzony członek). */
+  createMember?: (body: { firstName: string; lastName: string }) => {
+    data: unknown;
+    error: unknown;
+  };
 }
 
 const PLANSZOWKI: FakeClub = { name: 'Planszówki', logo_path: null, timezone: 'Europe/Warsaw' };
@@ -101,7 +106,32 @@ function fakeClient(members: Profile[], options: FakeOptions = {}) {
       remove: vi.fn(async () => ({ data: [], error: null })),
     }),
   };
-  return { client: { from, storage } as unknown as SupabaseClient, writes, db };
+  const invoke = vi.fn(
+    async (name: string, { body }: { body: { firstName: string; lastName: string } }) => {
+      if (name !== 'create-member') throw new Error(`nieznana funkcja ${name}`);
+      if (options.createMember) return options.createMember(body);
+      return {
+        data: {
+          member: {
+            id: '00000000-0000-4000-a000-0000000000aa',
+            hook: 'lukasz-zolw-7c1e',
+            first_name: body.firstName,
+            last_name: body.lastName,
+            role: 'player',
+            deleted_at: null,
+          },
+          password: 'Tajne7HasloXyz23',
+        },
+        error: null,
+      };
+    },
+  );
+  return {
+    client: { from, storage, functions: { invoke } } as unknown as SupabaseClient,
+    writes,
+    db,
+    invoke,
+  };
 }
 
 function renderHub(members: Profile[], options: FakeOptions = {}, me: Profile = ADA) {
@@ -112,10 +142,9 @@ function renderHub(members: Profile[], options: FakeOptions = {}, me: Profile = 
     signIn: vi.fn(),
     signOut: vi.fn(async () => undefined),
   } as unknown as AuthContextValue;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
+    <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <AuthContext.Provider value={auth}>
           <PopupRouter>
@@ -125,7 +154,7 @@ function renderHub(members: Profile[], options: FakeOptions = {}, me: Profile = 
       </ToastProvider>
     </QueryClientProvider>,
   );
-  return { auth, ...fake };
+  return { auth, queryClient, ...fake };
 }
 
 describe('widżet członków (MEM-1)', () => {
@@ -330,5 +359,125 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
       await screen.findByRole('heading', { level: 1, name: 'Planszówki' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edytuj klub' })).not.toBeInTheDocument();
+  });
+});
+
+describe('dodawanie członka (MEM-3, AUTH-4)', () => {
+  it('admin dodaje członka z pustego widżetu i raz widzi hook oraz hasło', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { invoke, queryClient } = renderHub([ADA]);
+    const widget = await screen.findByRole('region', { name: 'Członkowie' });
+    fireEvent.click(await within(widget).findByRole('button', { name: 'Dodaj członka' }));
+    const form = await screen.findByRole('dialog', { name: 'Dodaj członka' });
+    expect(window.location.search).toBe('?p=members/new');
+
+    // Puste pola: komunikaty i brak wywołania funkcji.
+    fireEvent.click(within(form).getByRole('button', { name: 'Dodaj członka' }));
+    expect(await within(form).findByText('Wpisz imię.')).toBeInTheDocument();
+    expect(within(form).getByText('Wpisz nazwisko.')).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalled();
+
+    fireEvent.change(within(form).getByLabelText('Imię'), { target: { value: ' Łukasz ' } });
+    fireEvent.change(within(form).getByLabelText('Nazwisko'), { target: { value: 'Żółw' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Dodaj członka' }));
+
+    const done = await screen.findByRole('dialog', { name: 'Członek dodany' });
+    expect(invoke).toHaveBeenCalledWith('create-member', {
+      method: 'POST',
+      body: { firstName: 'Łukasz', lastName: 'Żółw' },
+    });
+    expect(within(done).getByLabelText('Hook (login)')).toHaveValue('lukasz-zolw-7c1e');
+    expect(within(done).getByLabelText('Hasło')).toHaveValue('Tajne7HasloXyz23');
+    expect(done).toHaveTextContent('Hasło pokazujemy tylko teraz.');
+    // Hasło nie trafia do cache'u zapytań ani do adresu.
+    expect(
+      JSON.stringify(
+        queryClient
+          .getQueryCache()
+          .getAll()
+          .map((q) => q.state.data),
+      ),
+    ).not.toContain('Tajne7HasloXyz23');
+    expect(window.location.href).not.toContain('Tajne7HasloXyz23');
+
+    fireEvent.click(within(done).getByRole('button', { name: 'Kopiuj hasło' }));
+    expect(writeText).toHaveBeenCalledWith('Tajne7HasloXyz23');
+    expect(await screen.findByText('Skopiowano hasło')).toBeInTheDocument();
+    fireEvent.click(within(done).getByRole('button', { name: 'Kopiuj hook' }));
+    expect(writeText).toHaveBeenCalledWith('lukasz-zolw-7c1e');
+
+    fireEvent.click(within(done).getByRole('button', { name: 'Gotowe' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(document.body).not.toHaveTextContent('Tajne7HasloXyz23');
+  });
+
+  it('błąd funkcji pokazuje komunikat i zostawia formularz', async () => {
+    window.history.replaceState(null, '', '/?p=members&p=members/new');
+    renderHub([ADA, BEA], {
+      createMember: () => ({
+        data: null,
+        error: Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+          name: 'FunctionsHttpError',
+          context: new Response(JSON.stringify({ error: 'failed' }), { status: 500 }),
+        }),
+      }),
+    });
+    const form = await screen.findByRole('dialog', { name: 'Dodaj członka' });
+    fireEvent.change(within(form).getByLabelText('Imię'), { target: { value: 'Ola' } });
+    fireEvent.change(within(form).getByLabelText('Nazwisko'), { target: { value: 'Nowak' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Dodaj członka' }));
+    expect(
+      await within(form).findByText(
+        'Nie udało się dodać członka. Nic nie zostało zapisane, spróbuj ponownie.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(form).getByLabelText('Imię')).toHaveValue('Ola');
+  });
+
+  it('gracz nie ma „Dodaj członka”, a formularz z linku jest niedostępny', async () => {
+    window.history.replaceState(null, '', '/?p=members/new');
+    const { invoke } = renderHub([ADA, BEA], {}, BEA);
+    expect(await screen.findByRole('dialog', { name: 'Nie znaleziono' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dodaj członka' })).not.toBeInTheDocument();
+
+    window.history.replaceState(null, '', '/?p=members');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    const list = await screen.findByRole('dialog', { name: 'Członkowie' });
+    expect(within(list).queryByRole('button', { name: 'Dodaj członka' })).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('pusty widżet gracza nie ma CTA', async () => {
+    renderHub([BEA], {}, BEA);
+    expect(await screen.findByText('Na razie jesteś tu tylko Ty')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dodaj członka' })).not.toBeInTheDocument();
+  });
+});
+
+describe('wyszukiwanie członków (MEM-2)', () => {
+  it('filtruje po imieniu i hooku bez polskich znaków; brak wyników ma pusty stan', async () => {
+    window.history.replaceState(null, '', '/?p=members');
+    const lukasz = person(30, 'Łukasz', { last_name: 'Żółw', hook: 'lukasz-zolw-7c1e' });
+    renderHub([ADA, ...OTHERS, lukasz]);
+    const list = await screen.findByRole('dialog', { name: 'Członkowie' });
+    expect(await within(list).findAllByRole('listitem')).toHaveLength(8);
+    expect(within(list).getByRole('button', { name: 'Dodaj członka' })).toBeInTheDocument();
+
+    const search = within(list).getByRole('searchbox', { name: 'Szukaj członka' });
+    fireEvent.change(search, { target: { value: 'lukasz zol' } });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(list).getByRole('link', { name: /Łukasz Żółw/ })).toBeInTheDocument();
+    expect(within(list).getByRole('status')).toHaveTextContent('1 wynik');
+
+    fireEvent.change(search, { target: { value: '7C1E' } });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+
+    fireEvent.change(search, { target: { value: 'nikogo' } });
+    expect(within(list).queryAllByRole('listitem')).toHaveLength(0);
+    expect(within(list).getByText('Nikt nie pasuje do „nikogo”')).toBeInTheDocument();
+
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(8);
   });
 });
