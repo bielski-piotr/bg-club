@@ -64,3 +64,6 @@ jobs:
       - run: pnpm exec supabase db start
       - run: pnpm test:sql
       - run: pnpm db:lint
+      # Reset pustej bazy i ponowne zastosowanie migracji też muszą przechodzić testy.
+      - run: pnpm db:reset
+      - run: pnpm test:sql

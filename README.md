@@ -94,10 +94,29 @@ Repozytorium jest przygotowane do upublicznienia (PRD §1.1, NFR-9): nie zawiera
 
 Interfejs jest po polsku, a wszystkie teksty są w jednym module: [`apps/web/src/i18n/pl.ts`](apps/web/src/i18n/pl.ts) (PRD §1.1). Komponenty importują `t` i `format` z `apps/web/src/i18n`. Nowy tekst dodaje się najpierw do słownika, nigdy jako literał w komponencie.
 
+## Schemat bazy
+
+Migracje w [`supabase/migrations/`](supabase/migrations) odtwarzają cały schemat od zera (`pnpm db:reset`). Model danych opisuje PRD §6; poniżej reguły, które wymusza sama baza.
+
+| Tabela                             | Co przechowuje                                        | Najważniejsze reguły w bazie                                                                                                                                                                                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `club`                             | jedyny klub: nazwa, logo, strefa IANA                 | jeden wiersz (`id = 1`), strefa sprawdzana z `pg_timezone_names`                                                                                                                                                                                                                              |
+| `profiles`                         | gracze; `id` = `auth.users.id`                        | bez klucza obcego do Auth: usunięcie konta Auth tylko ustawia `deleted_at`; oznaczenie jako usunięty wypisuje z zaplanowanych spotkań (z głosami) i oddaje prowadzenie adminowi (MEM-6); jeden admin; admina nie da się usunąć; `hook` unikalny i niezmienny                                  |
+| `games`                            | kolekcja gier                                         | `1 ≤ min ≤ max`, bez górnego limitu; `placement_points` ma długość `max_players`, wartości ≥ 0; `title_search` do wyszukiwania bez polskich znaków (`unaccent` + `pg_trgm`)                                                                                                                   |
+| `scorepads`, `scorepad_versions`   | notesy gry i ich wersje                               | wersje niezmienne i nieusuwalne, numerowane w bazie; `current_version_id` wskazuje wersję tego samego notesu                                                                                                                                                                                  |
+| `meetings`, `meeting_participants` | spotkania i uczestnicy                                | najwyżej jedno spotkanie `in_progress`; przejścia `planned → in_progress → finished` (oraz `finished → in_progress`); zakończenie wymaga braku szkiców; prowadzący jest uczestnikiem innym niż admin (`NULL` = admin); usunięty członek nie dołączy do spotkania                              |
+| `game_votes`, `meeting_games`      | głosy i opublikowane gry                              | jeden głos na grę; głosuje tylko uczestnik; usunięcie uczestnika kasuje jego głosy                                                                                                                                                                                                            |
+| `plays`, `play_results`            | partie (szkic lub zapisana karteczka) i wyniki graczy | szkic tylko w spotkaniu w trakcie; snapshot punktacji i bieżącej wersji notesu ustawiany w bazie przy utworzeniu szkicu; jedna partia gracza na karteczce; najwyżej min(max gry, miejsca w notesie) graczy, przy zapisie co najmniej 2; `saved_at` nadaje baza; zapisana karteczka niezmienna |
+| `achievement_unlocks`              | odblokowane osiągnięcia                               | identyfikator z katalogu w kodzie                                                                                                                                                                                                                                                             |
+
+Znaczniki czasu to wyłącznie `timestamptz` (NFR-10). Gry i profile usuwa się miękko, a klucze obce do nich blokują twarde usunięcie, więc historia zostaje. Strażnicy czytający inne tabele są `security definer` z pustym `search_path`, więc polityki RLS ich nie omijają. RLS jest włączone na każdej tabeli; polityki dostępu, RPC i buckety Storage dochodzą w zadaniu [004].
+
+Kolejność zdarzeń (PRD §5.6.6): spotkania `starts_at, id`, partie w spotkaniu `saved_at, id`; obie mają indeksy.
+
 ## Testy (NFR-11)
 
 - **Jednostkowe:** Vitest, pliki `*.test.ts(x)` obok kodu. Logika wyników w `packages/scoring`.
-- **SQL:** pgTAP w `supabase/tests/database/*.test.sql`, uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback`.
+- **SQL:** pgTAP w `supabase/tests/database/*.test.sql`, uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych.
 - **E2E:** Playwright w `apps/web/e2e/`. Każdy test przechodzi w czterech projektach: `mobile-light`, `mobile-dark` (360×740) oraz `desktop-light`, `desktop-dark` (1280×900).
 
 ## CI
@@ -106,7 +125,7 @@ Interfejs jest po polsku, a wszystkie teksty są w jednym module: [`apps/web/src
 
 1. **check:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`,
 2. **e2e:** Playwright (Chromium), raport HTML jako artefakt przy błędzie,
-3. **sql:** lokalny Postgres Supabase (`supabase db start`), migracje i seed, `pnpm test:sql`, `pnpm db:lint`.
+3. **sql:** lokalny Postgres Supabase (`supabase db start`), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql`.
 
 ## Wdrożenie (zarys)
 

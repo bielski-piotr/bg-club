@@ -1,7 +1,7 @@
 -- Test dymny środowiska testów SQL (pgTAP, `pnpm test:sql`).
 -- Sprawdza, że lokalna baza działa na oczekiwanej wersji Postgresa i zna strefy IANA,
 -- od których zależy rok w filtrze leaderboardu (NFR-10).
--- Testy schematu, RLS i funkcji leaderboardu dochodzą w zadaniach [003], [004] i [032].
+-- Testy schematu są w 010–030 ([003]); testy RLS i leaderboardu dochodzą w zadaniach [004] i [032].
 begin;
 
 create extension if not exists pgtap with schema extensions;
