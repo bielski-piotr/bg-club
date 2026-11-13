@@ -41,6 +41,7 @@ import {
   normalizeSheet,
   playerActive,
   playerCount,
+  rankSheet,
   spots,
   stepValue,
   validateTemplate,
@@ -1651,16 +1652,26 @@ export class ScorePad {
 
   private recordSheet(d: SheetData, t: PadTemplate): HistoryEntry | null {
     if (!anyValue(d)) return null;
-    const players: { name: string; total: number }[] = [];
+    const seats: { seat: number; name: string; values: Record<string, number | null> }[] = [];
     for (let p = 0; p < playerCount(t); p++) {
       if (!playerActive(t, d, p)) continue;
-      players.push({
+      seats.push({
+        seat: p,
         name: d.names[p]?.text || `Gracz ${p + 1}`,
-        total: computePlayer(t, valuesOf(t, d, p)).__total ?? 0,
+        values: valuesOf(t, d, p),
       });
     }
-    if (!players.length) return null;
-    const best = Math.max(...players.map((p) => p.total));
+    if (!seats.length) return null;
+    const players = seats.map((p) => ({
+      name: p.name,
+      total: computePlayer(t, p.values).__total ?? 0,
+    }));
+    // Zwycięzcy według reguły miejsc notesu (EDT-2…EDT-4): każdy na miejscu 1, także wspólnym.
+    const first = new Set(
+      rankSheet(t, seats)
+        .filter((r) => r.place === 1)
+        .map((r) => r.seat),
+    );
     return {
       id: uid(),
       tpl: t.id,
@@ -1668,7 +1679,7 @@ export class ScorePad {
       game: d.game,
       at: new Date().toISOString(),
       players,
-      winners: players.filter((p) => p.total === best).map((p) => p.name),
+      winners: seats.filter((p) => first.has(p.seat)).map((p) => p.name),
     };
   }
 

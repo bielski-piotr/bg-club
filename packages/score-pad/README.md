@@ -29,6 +29,7 @@ Nie przeniesiono: `dist/`, `build.mjs` (esbuild, IIFE), stron pokazowych `demo.h
   - nadal wczytuje pliki notesu v2 (`config`, „Wczytaj notes z pliku…”, `importConfig`), ale tylko do pamięci osadzenia.
 - **Motyw**: atrybut `theme="light|dark"` na `<score-pad>` (kolor otoczenia stołu i winieta; nakładki notesu zostają ciemne, bo leżą na stole) i na `<score-pad-editor>` (był w POC).
 - **Opcje obiektem**: `element.options` (notes) i `element.template` (edytor) ustawione przed dołączeniem elementu do strony mają pierwszeństwo przed atrybutami. Atrybuty `controls`, `help`, `sound` i `builtins` bez wartości nie nadpisują już domyślnych.
+- **Reguła miejsc (EDT-7, zadanie [014])**: `PadTemplate.ranking` (kategoria decydująca, kierunek, remisy). `validateTemplate` zachowuje poprawną regułę i pomija błędną, edytor przenosi regułę wczytanego notesu do eksportu. Sumy (`computePlayer`, `effectiveOf`, `finalTotalIndex`) liczy `@bg-club/scoring`; suma na cyklu jest pusta. Zwycięzca zakreślony na kartce i `winners` w `scorepad:save` to wszyscy gracze na 1. miejscu według reguły notesu.
 - **Zdarzenie `scorepad:save`** ma dodatkowo `sheet`: pełne wpisy z oderwanej kartki (format `sheet` z pliku notesu). Pełny wynik z miejscami (PAD-7) dojdzie w późniejszych zadaniach.
 - Kod sformatowany Prettierem i poprawiony pod ESLint repozytorium (`import type`, kilka drobnych reguł), bez zmian zachowania.
 

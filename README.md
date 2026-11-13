@@ -13,7 +13,7 @@ Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres
 apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; klub: src/club; członkowie: src/members; profil i ustawienia: src/profile; popupy: src/popups
 packages/accounts/     konta: hook, techniczny e-mail, hasła, tworzenie członka, skrypt bootstrapu admina (+ testy)
 packages/score-pad/    web componenty <score-pad> i <score-pad-editor> z POC w trybie klubowym (+ testy); adaptery React: apps/web/src/score-pad
-packages/scoring/      czysta logika wyników: miejsca, remisy, punkty, serie (+ testy)
+packages/scoring/      czysta logika wyników: sumy, miejsca, remisy, punkty, walidacja notesu (+ wspólne przypadki TS/SQL)
 supabase/config.toml   konfiguracja lokalnego Supabase (CLI)
 supabase/migrations/   schemat, RLS i funkcje SQL
 supabase/functions/    Edge Functions (Deno): create-member, delete-member, delete-own-account, _shared (+ testy deno)
@@ -209,6 +209,31 @@ Wymagania: PRD §8.4–8.5, PAD-1, EDT-8. Kod: [`packages/score-pad`](packages/s
 - **Podgląd:** galeria `/design-system`, sekcja „Notes i edytor” (przykładowy notes z 10 miejscami). Partie (PAD-2…PAD-9) i kreator edytora (EDT-1…EDT-14) dochodzą w kolejnych zadaniach.
 - Testy: Vitest w pakiecie (`src/club.test.ts`) i aplikacji (`score-pad/ScorePadView.test.tsx`), E2E `e2e/score-pad.spec.ts` (leniwe chunki, brak żądań poza aplikację, brak wpisów w `localStorage` i IndexedDB, 10 miejsc, motyw, brak błędów konsoli).
 
+## Wyniki: ranking, sumy i punkty
+
+Wymagania: PRD §5.6, §8.3, EDT-2…EDT-4, EDT-7, EDT-13. Kod: [`packages/scoring`](packages/scoring/src/index.ts) i funkcja SQL `public.play_points` ([migracja `…0800_scoring.sql`](supabase/migrations/20261113000800_scoring.sql)).
+
+**Kontrakt formatu notesu** (`ScorePadTemplate` w `@bg-club/score-pad`, część wyników: `ScoringTemplate`). Plik notesu v2 zostaje wstecznie zgodny i może mieć regułę miejsc:
+
+```jsonc
+"ranking": {
+  "line": "total", // kategoria decydująca: punktacja (input) albo suma (total, sum, bonus)
+  "dir": "desc", // "desc" = więcej lepiej, "asc" = mniej lepiej
+  "tiebreak": [
+    { "type": "line", "line": "a", "dir": "desc" }, // kolejne reguły tylko dla nadal zremisowanych
+    { "type": "shared" }, // wspólne miejsce; { "type": "manual" } (EDT-5, poza MVP) działa tak samo
+  ],
+}
+```
+
+- **Starszy format bez `ranking`:** decyduje najwyższa suma końcowa (`total`, którego nie sumuje żadna inna suma), a bez sumy końcowej suma punktacji i premii, jak w POC.
+- **Miejsca** (`rankPlayers`): sortowanie po kategorii decydującej, remisy rozstrzygane hierarchicznie, numeracja „1, 1, 3”. Puste pole jest za każdą liczbą, w obu kierunkach. Reguły po `shared`/`manual` nie działają (walidacja zgłasza `unreachable-rule`).
+- **Sumy** (`computeTotals`): logika POC przeniesiona do pakietu i używana przez notes i edytor. Sumy mogą liczyć się z innych sum; suma na cyklu nie ma wartości (w POC dawała sumę częściową).
+- **Punkty** (`placementPoints` i `public.play_points`): zremisowani na miejscach k…k+m−1 dostają `floor` ze średniej punktów tych miejsc; błędne miejsca albo za krótka punktacja to błąd (`RangeError`, w SQL `22023`). Funkcja SQL nie jest API klienta: wywoła ją RPC zapisu partii ([029]).
+- **Walidacja** (`validateScoring`, `parseRanking`): kody problemów ze ścieżką w szablonie (np. `ranking.tiebreak[1].line`): błędne referencje sum i reguł, kategorie bez wartości, cykle sum, zakresy i listy wartości punktacji, jedna kategoria imion, co najmniej jedna punktacja. Notes przy wczytaniu pomija błędną regułę (działa domyślna), edytor zachowuje regułę wczytanego notesu, dopóki wskazuje istniejące kategorie.
+- **Notes**: zwycięzca zakreślony na kartce i `winners` w `scorepad:save` wynikają z reguły miejsc (także wspólne 1. miejsce).
+- **Wspólne przypadki** (NFR-11): [`packages/scoring/src/cases/play-cases.json`](packages/scoring/src/cases/play-cases.json) (m.in. przykład 10/6/4/2/0 → 8/8/4/2/0, `floor`, ujemne wyniki, remisy wieloosobowe i w remisach, starszy format). Vitest liczy z nich miejsca i punkty, a test pgTAP `110_scoring.test.sql` jest z nich generowany: po zmianie przypadków `pnpm --filter @bg-club/scoring gen:sql` (test Vitest pilnuje, że plik SQL jest aktualny).
+
 ## Schemat bazy
 
 Migracje w [`supabase/migrations/`](supabase/migrations) odtwarzają cały schemat od zera (`pnpm db:reset`). Model danych opisuje PRD §6; poniżej reguły, które wymusza sama baza.
@@ -286,7 +311,7 @@ deno test
 ## Testy (NFR-11)
 
 - **Jednostkowe:** Vitest, pliki `*.test.ts(x)` obok kodu. Logika wyników w `packages/scoring`.
-- **SQL:** pgTAP w `supabase/tests/database/*.test.sql` (profil i ustawienia: `090`, kolekcja gier: `100`), uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych. Testy uprawnień (`050`, `060`) przełączają się na role `anon` i `authenticated` z tokenem w `request.jwt.claims`, tak jak PostgREST i Storage API.
+- **SQL:** pgTAP w `supabase/tests/database/*.test.sql` (profil i ustawienia: `090`, kolekcja gier: `100`, punkty za miejsca: `110`, generowany ze wspólnych przypadków), uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych. Testy uprawnień (`050`, `060`) przełączają się na role `anon` i `authenticated` z tokenem w `request.jwt.claims`, tak jak PostgREST i Storage API.
 - **Edge Functions:** `deno test` w `supabase/functions` (obsługa żądania z atrapami Auth i bazy: 401, 403 dla gracza, 400, brak hasła w logach). Logika hooka i hasła (polskie znaki, kolizje, wyczerpanie prób) ma testy Vitest w `packages/accounts`.
 - **Integracyjne (Auth):** Vitest w `packages/accounts/integration/`, uruchamiane przez `pnpm test:auth` na lokalnym Supabase (Auth, PostgREST, Edge Functions). Idą przez prawdziwe API: bootstrap na pustej instalacji (także równoległy), ponowienie, zamknięta rejestracja, logowanie hookiem, odświeżenie i wylogowanie, konto usunięte, dodawanie członków przez `create-member` (logowanie nowym kontem, kolizje hooków przy równoległych żądaniach, odmowa dla gracza i bez sesji, brak konta po złych danych), usuwanie członka i własnego konta (`delete-member`, `delete-own-account`: odmowa dla gracza i dla konta admina, istniejąca sesja bez danych i odświeżenia, brak logowania, skutki MEM-6 w spotkaniach zaplanowanym, trwającym i zakończonym, zakaz dodania usuniętego do spotkania, ponowienie, hasło przy własnym koncie), równoległe zakładanie klubu i zmiana strefy, ustawienia profilu (flaga AUTH-6, zmiana hasła tylko z poprawnym obecnym hasłem i co najmniej 12 znakami, zdjęcie we własnym folderze, odmowa edycji cudzego profilu przez admina). Wymagają pustej bazy: przed kolejnym uruchomieniem `pnpm db:reset`. Zmienna `BG_CLUB_FUNCTIONS_URL` wskazuje funkcje uruchomione osobno (np. `deno run` w `supabase/functions`), domyślnie bramka lokalnego Supabase.
 - **E2E:** Playwright w `apps/web/e2e/`. Każdy test przechodzi w czterech projektach: `mobile-light`, `mobile-dark` (360×740) oraz `desktop-light`, `desktop-dark` (1280×900). API Supabase jest w nich atrapą ([`e2e/support/supabaseMock.ts`](apps/web/e2e/support/supabaseMock.ts)); prawdziwe Auth sprawdza `pnpm test:auth`.
