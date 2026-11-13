@@ -1667,9 +1667,10 @@ export class ScorePad {
       total: computePlayer(t, p.values).__total ?? 0,
     }));
     // Zwycięzcy według reguły miejsc notesu (EDT-2…EDT-4): każdy na miejscu 1, także wspólnym.
+    // Puste pole jest za każdą liczbą; bez żadnej wartości kategorii decydującej nikt nie wygrywa.
     const first = new Set(
       rankSheet(t, seats)
-        .filter((r) => r.place === 1)
+        .filter((r) => r.place === 1 && r.rankingValue != null)
         .map((r) => r.seat),
     );
     return {

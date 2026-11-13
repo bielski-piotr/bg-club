@@ -29,7 +29,12 @@ export type ScoringIssueCode =
   | 'invalid-ranking'
   /** Kierunek inny niż `desc` i `asc`. */
   | 'invalid-dir'
-  /** Reguła po „wspólnym miejscu” albo „rozstrzyga prowadzący” nigdy nie zadziała. */
+  /** Kategoria bez identyfikatora albo z nieznanym typem, `of`/`values` niebędące listą. */
+  | 'invalid-line'
+  /**
+   * Reguła po „wspólnym miejscu” albo „rozstrzyga prowadzący” nigdy nie zadziała. Jedyny problem,
+   * który nie unieważnia reguły miejsc: `parseRanking` zwraca ją bez martwych reguł.
+   */
   | 'unreachable-rule';
 
 export interface ScoringIssue {
@@ -42,6 +47,24 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
 const isDir = (v: unknown): v is Direction => v === 'desc' || v === 'asc';
+
+const KINDS: readonly LineKind[] = ['input', 'names', 'sum', 'bonus', 'total', 'skip'];
+
+/** Kształt kategorii z JSON-a: identyfikator, znany typ, listy tam, gdzie mają być listy. */
+function shapeIssues(lines: readonly unknown[]): ScoringIssue[] {
+  return lines.flatMap((l, i): ScoringIssue[] => {
+    const at = `lines[${i}]`;
+    if (!isObject(l) || typeof l.id !== 'string' || !l.id)
+      return [{ code: 'invalid-line', path: at }];
+    if (!KINDS.includes(l.kind as LineKind)) return [{ code: 'invalid-line', path: `${at}.kind` }];
+    const out: ScoringIssue[] = [];
+    if (l.of !== undefined && !(Array.isArray(l.of) && l.of.every((x) => typeof x === 'string')))
+      out.push({ code: 'invalid-line', path: `${at}.of` });
+    if (l.values !== undefined && !Array.isArray(l.values))
+      out.push({ code: 'invalid-line', path: `${at}.values` });
+    return out;
+  });
+}
 
 function lineIssues(lines: readonly ScoringLine[]): ScoringIssue[] {
   const issues: ScoringIssue[] = [];
@@ -126,23 +149,28 @@ export function parseRanking(raw: unknown, lines: readonly ScoringLine[]): Parse
     let finalRule = false;
     raw.tiebreak.forEach((rule: unknown, k) => {
       const at = `ranking.tiebreak[${k}]`;
-      if (finalRule) issues.push({ code: 'unreachable-rule', path: at });
+      if (finalRule) {
+        // Martwa reguła nie trafia do wyniku, ale jej postać nadal sprawdzamy poniżej.
+        issues.push({ code: 'unreachable-rule', path: at });
+      }
       if (!isObject(rule)) {
         issues.push({ code: 'invalid-ranking', path: at });
         return;
       }
+      const live = !finalRule;
       if (rule.type === 'shared' || rule.type === 'manual') {
         finalRule = true;
-        tiebreak.push({ type: rule.type });
+        if (live) tiebreak.push({ type: rule.type });
       } else if (rule.type === 'line') {
         const okLine = checkLine(rule.line, `${at}.line`);
         const okDir = checkDir(rule.dir, `${at}.dir`);
-        if (okLine && okDir)
+        if (okLine && okDir && live)
           tiebreak.push({ type: 'line', line: rule.line as string, dir: rule.dir as Direction });
       } else issues.push({ code: 'invalid-ranking', path: `${at}.type` });
     });
   }
-  if (issues.length || !okLine || !okDir) return { ranking: undefined, issues };
+  const blocking = issues.some((i) => i.code !== 'unreachable-rule');
+  if (blocking || !okLine || !okDir) return { ranking: undefined, issues };
   return { ranking: { line: raw.line as string, dir: raw.dir as Direction, tiebreak }, issues };
 }
 
@@ -151,8 +179,12 @@ export function parseRanking(raw: unknown, lines: readonly ScoringLine[]): Parse
  * `ranking` jest `unknown`, bo zwykle pochodzi z pliku albo z JSON-a w bazie.
  */
 export function validateScoring(t: {
-  readonly lines: readonly ScoringLine[];
+  readonly lines: readonly ScoringLine[] | readonly unknown[];
   readonly ranking?: unknown;
 }): ScoringIssue[] {
-  return [...lineIssues(t.lines), ...parseRanking(t.ranking, t.lines).issues];
+  if (!Array.isArray(t.lines)) return [{ code: 'invalid-line', path: 'lines' }];
+  const shape = shapeIssues(t.lines);
+  if (shape.length) return shape;
+  const lines = t.lines as readonly ScoringLine[];
+  return [...lineIssues(lines), ...parseRanking(t.ranking, lines).issues];
 }

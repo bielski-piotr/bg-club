@@ -16,6 +16,9 @@ import { computeTotals, finalTotalIndex } from './totals';
  * jest zawsze gorsze od każdej liczby, niezależnie od kierunku; dwa puste pola remisują.
  */
 export function compareByDirection(a: number | null, b: number | null, dir: Direction): number {
+  // NaN i nieskończoności (np. z uszkodzonego pliku) liczą się jak puste pole.
+  if (a !== null && !Number.isFinite(a)) a = null;
+  if (b !== null && !Number.isFinite(b)) b = null;
   if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
   return dir === 'desc' ? b - a : a - b;
 }
@@ -87,8 +90,9 @@ export function rankPlayers(t: ScoringTemplate, players: readonly PlayerEntry[])
   const scored = players.map((p) => {
     const totals = computeTotals(t, p.values);
     const value = (line: string): number | null => {
-      if (line === FINAL_TOTAL || lines.get(line)?.kind !== 'input') return totals[line] ?? null;
-      return p.values[line] ?? null;
+      const v =
+        line === FINAL_TOTAL || lines.get(line)?.kind !== 'input' ? totals[line] : p.values[line];
+      return typeof v === 'number' && Number.isFinite(v) ? v : null;
     };
     return { player: p, totals, key: criteria.map((c) => value(c.line)) };
   });

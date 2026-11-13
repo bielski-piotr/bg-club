@@ -171,8 +171,11 @@ class Painter {
         t,
         act.map((p) => ({ seat: p, values: vals[p] })),
       );
-      winners = ranked.filter((r) => r.place === 1).map((r) => r.seat);
-      winKey = winners.join(',') + ':' + ranked[0].rankingValue;
+      // Bez wartości kategorii decydującej (np. suma na cyklu) nikt nie wygrywa.
+      if (ranked[0].rankingValue != null) {
+        winners = ranked.filter((r) => r.place === 1).map((r) => r.seat);
+        winKey = winners.join(',') + ':' + ranked[0].rankingValue;
+      }
     }
     if (winKey !== s.winKey) {
       s.winKey = winKey;

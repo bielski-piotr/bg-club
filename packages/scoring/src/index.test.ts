@@ -287,4 +287,57 @@ describe('validateScoring: referencje i zakresy', () => {
         .ranking,
     ).toBeUndefined();
   });
+
+  it('martwa reguła po „wspólnym miejscu” nie unieważnia reguły miejsc', () => {
+    const raw = {
+      line: 'a',
+      dir: 'asc',
+      tiebreak: [{ type: 'shared' }, { type: 'line', line: 't', dir: 'desc' }],
+    };
+    expect(parseRanking(raw, lines)).toEqual({
+      ranking: { line: 'a', dir: 'asc', tiebreak: [{ type: 'shared' }] },
+      issues: [{ code: 'unreachable-rule', path: 'ranking.tiebreak[1]' }],
+    });
+  });
+
+  it('zniekształcony JSON daje problemy, nie wyjątek', () => {
+    const check = (raw: unknown[]): unknown => validateScoring({ lines: raw });
+    expect(check([null, { id: '', kind: 'input' }])).toEqual([
+      { code: 'invalid-line', path: 'lines[0]' },
+      { code: 'invalid-line', path: 'lines[1]' },
+    ]);
+    expect(
+      check([
+        { id: 'a', kind: 'weird' },
+        { id: 's', kind: 'sum', of: 'a' },
+        { id: 'b', kind: 'input', values: 'abc' },
+      ]),
+    ).toEqual([
+      { code: 'invalid-line', path: 'lines[0].kind' },
+      { code: 'invalid-line', path: 'lines[1].of' },
+      { code: 'invalid-line', path: 'lines[2].values' },
+    ]);
+    expect(validateScoring({ lines: 'x' as unknown as unknown[] })).toEqual([
+      { code: 'invalid-line', path: 'lines' },
+    ]);
+  });
+});
+
+describe('wartości spoza liczb skończonych', () => {
+  it('NaN liczy się jak puste pole', () => {
+    const t: ScoringTemplate = {
+      lines: [names, { id: 'a', kind: 'input', free: true }],
+      ranking: { line: 'a', dir: 'desc', tiebreak: [] },
+    };
+    const ranked = rankPlayers(t, [
+      { seat: 0, values: { a: Number.NaN } },
+      { seat: 1, values: { a: 1 } },
+      { seat: 2, values: { a: 3 } },
+    ]);
+    expect(ranked.map((r) => [r.seat, r.place, r.rankingValue])).toEqual([
+      [2, 1, 3],
+      [1, 2, 1],
+      [0, 3, null],
+    ]);
+  });
 });
