@@ -6,7 +6,7 @@ create extension if not exists pgtap with schema extensions;
 
 set constraints all immediate;
 
-select plan(47);
+select plan(49);
 
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe
@@ -171,22 +171,25 @@ select throws_like(
 );
 select throws_like(
   $$ delete from public.scorepad_versions where id = '00000000-0000-4000-e000-000000000002' $$,
-  '%plays_scorepad_version_id_fkey%',
-  'wersji użytej w partii nie da się usunąć'
+  '%immutable%',
+  'wersji notesu nie da się usunąć (numer wersji nie wróci)'
 );
 
 -- ---------------------------------------------------------------------------------------------
 -- play_results: gracze partii (PAD-3, PLAN-4)
 -- ---------------------------------------------------------------------------------------------
-select throws_like(
+select lives_ok(
   $$ insert into public.play_results (play_id, meeting_id, profile_id, seat) values
      ('00000000-0000-4000-f000-000000000001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000002', 1) $$,
+  'skład szkicu można budować w osobnych żądaniach (chwilowo 1 gracz)'
+);
+select throws_like(
+  $$ update public.plays set status = 'saved', sheet = '{}' where id = '00000000-0000-4000-f000-000000000001' $$,
   '%at least 2 required%',
-  'partia ma co najmniej 2 graczy (Q2)'
+  'zapisana partia ma co najmniej 2 graczy (Q2)'
 );
 select lives_ok(
   $$ insert into public.play_results (play_id, meeting_id, profile_id, seat) values
-     ('00000000-0000-4000-f000-000000000001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000002', 1),
      ('00000000-0000-4000-f000-000000000001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000003', 2) $$,
   'szkic z dwoma graczami'
 );
@@ -255,18 +258,18 @@ select lives_ok(
      $d$ $$,
   'graczy szkicu można dodawać pojedynczo w jednej transakcji'
 );
-select throws_like(
-  $$ delete from public.play_results
-      where play_id = '00000000-0000-4000-f000-000000000002' and seat = 3 $$,
-  '%at least 3 required%',
-  'partia ma co najmniej min. liczbę graczy gry'
+update public.games set min_players = 4 where id = '00000000-0000-4000-b000-000000000002';
+select lives_ok(
+  $$ update public.play_results set scores = '{"kwiaty": 3}'
+      where play_id = '00000000-0000-4000-f000-000000000002' and seat = 1 $$,
+  'zmiana min. graczy gry nie blokuje rozpoczętej partii (GAME-9)'
 );
 
 -- ---------------------------------------------------------------------------------------------
 -- Zapis karteczki
 -- ---------------------------------------------------------------------------------------------
 select throws_like(
-  $$ update public.plays set status = 'saved', saved_at = now(), sheet = '{}'
+  $$ update public.plays set status = 'saved', sheet = '{}'
       where id = '00000000-0000-4000-f000-000000000001' $$,
   '%without place%',
   'zapisana partia wymaga miejsc wszystkich graczy'
@@ -276,9 +279,14 @@ update public.play_results set place = 1, tied = false, points = 10, is_win = tr
 update public.play_results set place = 2, tied = false, points = 6, is_win = false, ranking_value = 30
  where play_id = '00000000-0000-4000-f000-000000000001' and seat = 2;
 select lives_ok(
-  $$ update public.plays set status = 'saved', saved_at = now(), sheet = '{"cells": []}'
+  $$ update public.plays set status = 'saved', saved_at = '2020-01-01', sheet = '{"cells": []}'
       where id = '00000000-0000-4000-f000-000000000001' $$,
   'partię z kompletnymi wynikami można zapisać'
+);
+select is(
+  (select saved_at from public.plays where id = '00000000-0000-4000-f000-000000000001'),
+  now(),
+  'czas zapisu nadaje baza, nie klient (kolejność partii, §5.6.6)'
 );
 select throws_like(
   $$ update public.play_results set points = 100

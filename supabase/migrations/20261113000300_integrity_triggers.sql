@@ -2,7 +2,13 @@
 --
 -- Tu są reguły, których nie da się zapisać jako CHECK albo klucz obcy, bo dotyczą innych
 -- wierszy: niezmienność, snapshoty w bazie (GAME-9), miękko usunięte encje (MEM-6, GAME-8),
--- liczba graczy partii (PAD-3). Uprawnienia (kto może pisać) są w zadaniu [004].
+-- przejścia statusów spotkania, liczba graczy partii (PAD-3). Uprawnienia (kto może pisać)
+-- są w zadaniu [004].
+--
+-- Strażnicy, którzy czytają inne tabele, są SECURITY DEFINER (właściciel tabel omija RLS):
+-- polityki RLS z [004] nie mogą ukryć im wierszy, przez co reguła cicho by nie zadziałała,
+-- a klient nie potrzebuje praw do funkcji pomocniczych. Wszystkie mają pusty search_path.
+-- Prawo EXECUTE do tych funkcji jest odebrane rolom klienta (wyzwalacz go nie potrzebuje).
 --
 -- Komunikaty błędów są techniczne (po angielsku) i mają kody SQLSTATE; aplikacja mapuje je
 -- na polskie teksty ze słownika.
@@ -61,9 +67,41 @@ $$;
 create trigger profiles_guard_update before update on public.profiles
   for each row execute function public.profiles_guard_update();
 
--- Usunięcie konta Auth nie usuwa profilu, tylko oznacza go jako usunięty (MEM-4). Profil
--- administratora łamie wtedy CHECK profiles_admin_not_deleted, więc konta admina nie da się
--- usunąć także bezpośrednio w Auth.
+-- Skutki usunięcia członka (MEM-6, Q22), niezależnie od tego, czy usunął go admin, czy sam
+-- usunął konto: znika z zaplanowanych spotkań (razem z głosami, kaskada), a prowadzenie
+-- wszystkich niezakończonych spotkań, które prowadził, wraca do admina. W spotkaniu w trakcie
+-- jego uczestnictwo i szkice zostają. Zakończone spotkania zachowują prowadzącego.
+create function public.profiles_after_soft_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.meetings
+     set host_id = null
+   where host_id = new.id
+     and status <> 'finished';
+
+  delete from public.meeting_participants mp
+   using public.meetings m
+   where m.id = mp.meeting_id
+     and m.status = 'planned'
+     and mp.profile_id = new.id;
+
+  return null;
+end;
+$$;
+
+create trigger profiles_after_soft_delete
+  after update of deleted_at on public.profiles
+  for each row
+  when (old.deleted_at is null and new.deleted_at is not null)
+  execute function public.profiles_after_soft_delete();
+
+-- Usunięcie konta Auth nie usuwa profilu, tylko oznacza go jako usunięty (MEM-4, AUTH-7).
+-- Profil administratora łamie wtedy CHECK profiles_admin_not_deleted, więc konta admina nie da
+-- się usunąć także bezpośrednio w Auth.
 create function public.handle_auth_user_deleted()
 returns trigger
 language plpgsql
@@ -77,8 +115,6 @@ begin
   return old;
 end;
 $$;
-
-revoke execute on function public.handle_auth_user_deleted() from public, anon, authenticated;
 
 create trigger on_auth_user_deleted after delete on auth.users
   for each row execute function public.handle_auth_user_deleted();
@@ -104,14 +140,20 @@ create trigger scorepads_guard_update before update on public.scorepads
   for each row execute function public.scorepads_guard_update();
 
 -- Numer wersji nadaje baza: kolejny w obrębie notesu. Blokada wiersza notesu szereguje
--- równoległe zapisy wersji tego samego notesu.
+-- równoległe zapisy wersji tego samego notesu. Wersji nie da się usunąć, więc numer nigdy
+-- nie zostanie użyty ponownie.
 create function public.scorepad_versions_before_insert()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
   perform 1 from public.scorepads where id = new.scorepad_id for update;
+  if not found then
+    raise exception 'scorepad % does not exist', new.scorepad_id
+      using errcode = '23503', constraint = 'scorepad_versions_scorepad_id_fkey';
+  end if;
   select coalesce(max(v.version), 0) + 1
     into new.version
     from public.scorepad_versions v
@@ -124,8 +166,8 @@ $$;
 create trigger scorepad_versions_before_insert before insert on public.scorepad_versions
   for each row execute function public.scorepad_versions_before_insert();
 
--- Wersje są niezmienne (GAME-9). Edycja notesu = nowa wersja + zmiana current_version_id.
--- Usunąć można tylko wersję, której nie wskazuje żadna partia ani notes (klucze obce).
+-- Wersje są niezmienne i trwałe (GAME-9): bez zmian i bez usuwania. Edycja notesu = nowa
+-- wersja + zmiana current_version_id; notes usuwa się miękko (scorepads.deleted_at).
 create function public.scorepad_versions_immutable()
 returns trigger
 language plpgsql
@@ -136,15 +178,44 @@ begin
 end;
 $$;
 
-create trigger scorepad_versions_immutable before update on public.scorepad_versions
+create trigger scorepad_versions_immutable before update or delete on public.scorepad_versions
   for each row execute function public.scorepad_versions_immutable();
 
 -- ---------------------------------------------------------------------------------------------
--- meetings: prowadzący i zakończenie
+-- Wspólny strażnik: gra usunięta z kolekcji znika z głosowań, publikacji i nowych partii (GAME-8)
+-- ---------------------------------------------------------------------------------------------
+create function public.require_active_game()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if exists (select 1 from public.games where id = new.game_id and deleted_at is not null) then
+    raise exception 'game % is deleted', new.game_id
+      using errcode = '23514', constraint = tg_table_name || '_game_active';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger game_votes_require_active_game
+  before insert or update of game_id on public.game_votes
+  for each row execute function public.require_active_game();
+create trigger meeting_games_require_active_game
+  before insert or update of game_id on public.meeting_games
+  for each row execute function public.require_active_game();
+create trigger plays_require_active_game
+  before insert on public.plays
+  for each row execute function public.require_active_game();
+
+-- ---------------------------------------------------------------------------------------------
+-- meetings: przejścia statusów, prowadzący, zakończenie
 -- ---------------------------------------------------------------------------------------------
 create function public.meetings_validate()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
@@ -165,8 +236,26 @@ begin
     end if;
   end if;
 
+  if tg_op = 'INSERT' then
+    if new.status <> 'planned' then
+      raise exception 'meeting must be created as planned'
+        using errcode = '23514', constraint = 'meetings_created_as_planned';
+    end if;
+    return new;
+  end if;
+
+  -- Dozwolone przejścia (§5.8): planned → in_progress → finished oraz finished → in_progress
+  -- (RUN-5, dogranie zapomnianej partii). Powrotu do planned nie ma.
+  if new.status is distinct from old.status
+     and (old.status, new.status) not in (
+       ('planned', 'in_progress'), ('in_progress', 'finished'), ('finished', 'in_progress')
+     ) then
+    raise exception 'meeting status cannot change from % to %', old.status, new.status
+      using errcode = '23514', constraint = 'meetings_status_transition';
+  end if;
+
   -- Partie w toku trzeba dokończyć albo porzucić przed zakończeniem spotkania (RUN-4).
-  if tg_op = 'UPDATE' and new.status = 'finished' and old.status is distinct from 'finished'
+  if new.status = 'finished' and old.status <> 'finished'
      and exists (select 1 from public.plays p where p.meeting_id = new.id and p.status = 'draft') then
     raise exception 'meeting has draft plays; save or discard them before finishing'
       using errcode = '23514', constraint = 'meetings_no_drafts_when_finished';
@@ -183,6 +272,7 @@ create trigger meetings_validate before insert or update on public.meetings
 create function public.meeting_participants_validate()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
@@ -198,39 +288,18 @@ create trigger meeting_participants_validate
   before insert or update of profile_id on public.meeting_participants
   for each row execute function public.meeting_participants_validate();
 
--- Gra usunięta z kolekcji znika z głosowań i publikacji (GAME-8).
-create function public.require_active_game()
-returns trigger
-language plpgsql
-set search_path = ''
-as $$
-begin
-  if exists (select 1 from public.games where id = new.game_id and deleted_at is not null) then
-    raise exception 'game % is deleted', new.game_id
-      using errcode = '23514', constraint = tg_table_name || '_game_active';
-  end if;
-  return new;
-end;
-$$;
-
-create trigger game_votes_require_active_game
-  before insert or update of game_id on public.game_votes
-  for each row execute function public.require_active_game();
-create trigger meeting_games_require_active_game
-  before insert or update of game_id on public.meeting_games
-  for each row execute function public.require_active_game();
-
 -- ---------------------------------------------------------------------------------------------
 -- plays: snapshot w bazie przy rozpoczęciu partii (GAME-9, Q23)
 -- ---------------------------------------------------------------------------------------------
 create function public.plays_before_insert()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
   meeting_status text;
-  game public.games;
+  points int[];
   pad public.scorepads;
 begin
   -- Szkic powstaje zawsze jako szkic; zapis karteczki to osobny krok (save_play, [029]).
@@ -240,42 +309,43 @@ begin
   end if;
 
   -- Blokada współdzielona: spotkanie nie zmieni statusu w trakcie tworzenia szkicu.
+  -- Brak wiersza (nieistniejące spotkanie) też odrzucamy.
   select status into meeting_status from public.meetings where id = new.meeting_id for share;
-  if found and meeting_status <> 'in_progress' then
+  if meeting_status is distinct from 'in_progress' then
     raise exception 'plays can be started only in an in-progress meeting'
       using errcode = '23514', constraint = 'plays_meeting_in_progress';
-  end if;
-
-  select * into game from public.games where id = new.game_id;
-  if found and game.deleted_at is not null then
-    raise exception 'game % is deleted', new.game_id
-      using errcode = '23514', constraint = 'plays_game_active';
   end if;
 
   select s.* into pad
     from public.scorepad_versions v
     join public.scorepads s on s.id = v.scorepad_id
    where v.id = new.scorepad_version_id;
-  if found then
-    if pad.game_id <> new.game_id then
-      raise exception 'scorepad version does not belong to game %', new.game_id
-        using errcode = '23514', constraint = 'plays_scorepad_matches_game';
-    end if;
-    if pad.deleted_at is not null then
-      raise exception 'scorepad % is deleted', pad.id
-        using errcode = '23514', constraint = 'plays_scorepad_active';
-    end if;
-    -- Partia startuje z bieżącą wersją notesu; starsze wersje są tylko dla historii.
-    if pad.current_version_id is distinct from new.scorepad_version_id then
-      raise exception 'scorepad version is not the current version of scorepad %', pad.id
-        using errcode = '23514', constraint = 'plays_scorepad_version_current';
-    end if;
+  if not found then
+    raise exception 'scorepad version % does not exist', new.scorepad_version_id
+      using errcode = '23503', constraint = 'plays_scorepad_version_id_fkey';
+  end if;
+  if pad.game_id is distinct from new.game_id then
+    raise exception 'scorepad version does not belong to game %', new.game_id
+      using errcode = '23514', constraint = 'plays_scorepad_matches_game';
+  end if;
+  if pad.deleted_at is not null then
+    raise exception 'scorepad % is deleted', pad.id
+      using errcode = '23514', constraint = 'plays_scorepad_active';
+  end if;
+  -- Partia startuje z bieżącą wersją notesu; starsze wersje są tylko dla historii.
+  if pad.current_version_id is distinct from new.scorepad_version_id then
+    raise exception 'scorepad version is not the current version of scorepad %', pad.id
+      using errcode = '23514', constraint = 'plays_scorepad_version_current';
   end if;
 
   -- Snapshot punktacji zawsze z bazy, niezależnie od tego, co przysłał klient.
-  if game.id is not null then
-    new.points_snapshot := game.placement_points;
+  -- (Usuniętą grę odrzuca wcześniej wyzwalacz plays_require_active_game.)
+  select g.placement_points into points from public.games g where g.id = new.game_id;
+  if not found then
+    raise exception 'game % does not exist', new.game_id
+      using errcode = '23503', constraint = 'plays_game_id_fkey';
   end if;
+  new.points_snapshot := points;
   new.started_at := now();
   return new;
 end;
@@ -286,10 +356,11 @@ create trigger plays_before_insert before insert on public.plays
 
 -- Po rozpoczęciu partii jej gra, notes, snapshot i spotkanie są stałe. Zapisana karteczka
 -- jest niezmienna (PRD §1.2: bez edycji wpisów); można tylko dopisać ścieżkę obrazu (PAD-6)
--- albo usunąć partię (§5.6.5).
+-- albo usunąć partię (§5.6.5). Czas zapisu (klucz kolejności partii, §5.6.6) nadaje baza.
 create function public.plays_before_update()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
@@ -316,6 +387,9 @@ begin
       raise exception 'plays can be saved only in an in-progress meeting'
         using errcode = '23514', constraint = 'plays_meeting_in_progress';
     end if;
+    new.saved_at := now();
+  else
+    new.saved_at := null;
   end if;
 
   return new;
@@ -331,26 +405,33 @@ create trigger plays_before_update before update on public.plays
 create function public.play_results_before_write()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
   play public.plays;
   slots int;
 begin
-  -- Przy kaskadowym usunięciu partii jej wiersz jest już niewidoczny: wyniki znikają razem z nią.
-  select * into play from public.plays where id = coalesce(new.play_id, old.play_id);
+  if tg_op = 'UPDATE' and (new.play_id is distinct from old.play_id or new.meeting_id is distinct from old.meeting_id) then
+    raise exception 'play_results.play_id and meeting_id are immutable'
+      using errcode = '23514', constraint = 'play_results_play_immutable';
+  end if;
+
+  -- Blokada wiersza partii szereguje równoległe zmiany graczy tej samej partii (dwa urządzenia),
+  -- więc sprawdzenie liczby graczy na końcu transakcji widzi wszystkie zatwierdzone zmiany.
+  select * into play from public.plays where id = coalesce(new.play_id, old.play_id) for update;
   if not found then
-    return coalesce(new, old);
+    if tg_op = 'DELETE' then
+      -- Kaskadowe usunięcie partii: jej wiersz jest już usunięty, wyniki znikają razem z nią.
+      return old;
+    end if;
+    raise exception 'play % does not exist', new.play_id
+      using errcode = '23503', constraint = 'play_results_play_id_meeting_id_fkey';
   end if;
 
   if play.status = 'saved' then
     raise exception 'results of a saved play are immutable'
       using errcode = '23514', constraint = 'play_results_saved_immutable';
-  end if;
-
-  if tg_op = 'UPDATE' and (new.play_id is distinct from old.play_id) then
-    raise exception 'play_results.play_id is immutable'
-      using errcode = '23514', constraint = 'play_results_play_immutable';
   end if;
 
   if tg_op <> 'DELETE' then
@@ -368,18 +449,23 @@ $$;
 create trigger play_results_before_write before insert or update or delete on public.play_results
   for each row execute function public.play_results_before_write();
 
--- Sprawdzane na końcu transakcji, bo graczy dodaje się wierszami. Partia z wynikami ma
--- co najmniej 2 graczy (Q2) i najwyżej tylu, ilu mieści punktacja gry i notes (PAD-3).
--- Zapisana partia ma uzupełnione miejsca, punkty i wygrane wszystkich graczy.
+-- Sprawdzane na końcu transakcji, bo graczy dodaje się wierszami.
+-- - Szkic: najwyżej tylu graczy, ilu mieści snapshot punktacji gry i notes (PAD-3, EDT-8);
+--   skład szkicu można zmieniać w osobnych żądaniach, także przez stan z 0 lub 1 graczem.
+-- - Zapisana partia: dodatkowo co najmniej 2 graczy (Q2) i uzupełnione wyniki wszystkich.
+-- Min. liczbę graczy gry sprawdza wybór graczy przy rozpoczęciu partii ([027]); baza nie
+-- porównuje z bieżącym games.min_players, bo edycja gry nie może zmieniać rozpoczętej partii
+-- (GAME-9), a snapshotem jest tylko punktacja (jej długość = max graczy).
 create function public.check_play_players(target_play_id uuid)
 returns void
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
   play public.plays;
-  min_players int;
   slots int;
+  max_players int;
   players int;
   incomplete int;
 begin
@@ -393,26 +479,23 @@ begin
     from public.play_results r
    where r.play_id = target_play_id;
 
-  if players = 0 and play.status = 'draft' then
-    -- Szkic tuż po utworzeniu, zanim prowadzący przypisze graczy.
-    return;
-  end if;
-
-  select g.min_players into min_players from public.games g where g.id = play.game_id;
   select v.player_slots into slots from public.scorepad_versions v where v.id = play.scorepad_version_id;
+  max_players := least(cardinality(play.points_snapshot), slots);
 
-  if players < greatest(2, min_players) then
-    raise exception 'play % has % players, at least % required', target_play_id, players, greatest(2, min_players)
-      using errcode = '23514', constraint = 'plays_min_players';
-  end if;
-  if players > least(cardinality(play.points_snapshot), slots) then
-    raise exception 'play % has % players, at most % allowed', target_play_id, players,
-      least(cardinality(play.points_snapshot), slots)
+  if players > max_players then
+    raise exception 'play % has % players, at most % allowed', target_play_id, players, max_players
       using errcode = '23514', constraint = 'plays_max_players';
   end if;
-  if play.status = 'saved' and incomplete > 0 then
-    raise exception 'saved play % has results without place', target_play_id
-      using errcode = '23514', constraint = 'plays_saved_results_complete';
+
+  if play.status = 'saved' then
+    if players < 2 then
+      raise exception 'saved play % has % players, at least 2 required', target_play_id, players
+        using errcode = '23514', constraint = 'plays_min_players';
+    end if;
+    if incomplete > 0 then
+      raise exception 'saved play % has results without place', target_play_id
+        using errcode = '23514', constraint = 'plays_saved_results_complete';
+    end if;
   end if;
 end;
 $$;
@@ -420,15 +503,11 @@ $$;
 create function public.play_results_check_players()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
-  if tg_op in ('UPDATE', 'DELETE') then
-    perform public.check_play_players(old.play_id);
-  end if;
-  if tg_op in ('INSERT', 'UPDATE') and (tg_op = 'INSERT' or new.play_id is distinct from old.play_id) then
-    perform public.check_play_players(new.play_id);
-  end if;
+  perform public.check_play_players(coalesce(new.play_id, old.play_id));
   return null;
 end;
 $$;
@@ -441,6 +520,7 @@ create constraint trigger play_results_check_players
 create function public.plays_check_players()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
@@ -454,6 +534,25 @@ create constraint trigger plays_check_players
   deferrable initially deferred
   for each row execute function public.plays_check_players();
 
--- Funkcje wyzwalaczy i pomocnicze nie są API: odbieramy prawo wykonania rolom klienta.
--- (Wyzwalacze działają niezależnie od uprawnienia EXECUTE.)
-revoke execute on function public.check_play_players(uuid) from public, anon, authenticated;
+-- ---------------------------------------------------------------------------------------------
+-- Funkcje z tej migracji nie są API. Supabase domyślnie nadaje EXECUTE rolom anon i
+-- authenticated, więc odbieramy je jawnie (wyzwalacze działają bez tego uprawnienia).
+-- ---------------------------------------------------------------------------------------------
+revoke execute on function
+  public.club_validate(),
+  public.profiles_guard_update(),
+  public.profiles_after_soft_delete(),
+  public.handle_auth_user_deleted(),
+  public.scorepads_guard_update(),
+  public.scorepad_versions_before_insert(),
+  public.scorepad_versions_immutable(),
+  public.require_active_game(),
+  public.meetings_validate(),
+  public.meeting_participants_validate(),
+  public.plays_before_insert(),
+  public.plays_before_update(),
+  public.play_results_before_write(),
+  public.check_play_players(uuid),
+  public.play_results_check_players(),
+  public.plays_check_players()
+from public, anon, authenticated;

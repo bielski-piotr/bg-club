@@ -121,9 +121,13 @@ select is(
   (select prosecdef from pg_proc where oid = 'public.handle_auth_user_deleted()'::regprocedure),
   true, 'handle_auth_user_deleted jest security definer'
 );
-select ok(
-  not has_function_privilege('authenticated', 'public.handle_auth_user_deleted()', 'execute'),
-  'authenticated nie może wywołać handle_auth_user_deleted'
+select is_empty(
+  $$ select p.oid::regprocedure::text from pg_proc p
+      where p.pronamespace = 'public'::regnamespace
+        and (p.prorettype = 'trigger'::regtype or p.prosecdef)
+        and (has_function_privilege('anon', p.oid, 'execute')
+             or has_function_privilege('authenticated', p.oid, 'execute')) $$,
+  'anon i authenticated nie mają EXECUTE na funkcjach wyzwalaczy i security definer'
 );
 
 -- Wartości domyślne.

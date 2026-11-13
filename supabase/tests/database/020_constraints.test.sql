@@ -7,7 +7,7 @@ create extension if not exists pgtap with schema extensions;
 -- Odroczone ograniczenia sprawdzamy od razu po każdym poleceniu.
 set constraints all immediate;
 
-select plan(40);
+select plan(47);
 
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe
@@ -205,6 +205,24 @@ select throws_like(
   'status zakończony wymaga finished_at'
 );
 select throws_like(
+  $$ update public.meetings set status = 'planned', started_at = null, voting_open = true
+      where id = '00000000-0000-4000-c000-000000000001' $$,
+  '%cannot change from in_progress to planned%',
+  'spotkanie w trakcie nie wraca do zaplanowanych'
+);
+select throws_like(
+  $$ update public.meetings set status = 'finished', voting_open = false, started_at = now(), finished_at = now()
+      where id = '00000000-0000-4000-c000-000000000002' $$,
+  '%cannot change from planned to finished%',
+  'zaplanowanego spotkania nie da się zakończyć bez rozpoczęcia'
+);
+select throws_like(
+  $$ insert into public.meetings (title, starts_at, status, voting_open, started_at, created_by)
+     values ('Od razu w trakcie', now(), 'in_progress', false, now(), '00000000-0000-4000-a000-000000000001') $$,
+  '%created as planned%',
+  'spotkanie powstaje jako zaplanowane'
+);
+select throws_like(
   $$ update public.meetings set host_id = '00000000-0000-4000-a000-000000000001'
       where id = '00000000-0000-4000-c000-000000000001' $$,
   '%must not be the admin%',
@@ -269,6 +287,41 @@ select throws_like(
      ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-b000-000000000002', 0) $$,
   '%is deleted%',
   'gry usuniętej z kolekcji nie da się opublikować (GAME-8)'
+);
+
+-- MEM-6: usunięcie członka, który prowadzi zaplanowane spotkanie i ma w nim głosy.
+insert into public.meeting_participants (meeting_id, profile_id) values
+  ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-a000-000000000003');
+insert into public.game_votes (meeting_id, game_id, profile_id) values
+  ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000003');
+update public.meetings set host_id = '00000000-0000-4000-a000-000000000003'
+ where id = '00000000-0000-4000-c000-000000000002';
+-- W spotkaniu w trakcie ten sam gracz jest uczestnikiem i prowadzącym.
+update public.meetings set host_id = '00000000-0000-4000-a000-000000000003'
+ where id = '00000000-0000-4000-c000-000000000001';
+update public.profiles set deleted_at = now() where id = '00000000-0000-4000-a000-000000000003';
+
+select is(
+  (select count(*)::int from public.meeting_participants
+    where meeting_id = '00000000-0000-4000-c000-000000000002' and profile_id = '00000000-0000-4000-a000-000000000003'),
+  0,
+  'usunięty członek znika z zaplanowanych spotkań (MEM-6)'
+);
+select is(
+  (select count(*)::int from public.game_votes where profile_id = '00000000-0000-4000-a000-000000000003'),
+  0,
+  'razem ze swoimi głosami (MEM-6)'
+);
+select results_eq(
+  $$ select host_id from public.meetings order by title $$,
+  array[null::uuid, null::uuid],
+  'prowadzenie zaplanowanego i trwającego spotkania wraca do admina (MEM-6, Q22)'
+);
+select is(
+  (select count(*)::int from public.meeting_participants
+    where meeting_id = '00000000-0000-4000-c000-000000000001' and profile_id = '00000000-0000-4000-a000-000000000003'),
+  1,
+  'w spotkaniu w trakcie uczestnictwo usuniętego członka zostaje (MEM-6)'
 );
 
 delete from public.meetings where id = '00000000-0000-4000-c000-000000000002';

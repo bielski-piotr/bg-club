@@ -80,3 +80,5 @@ set search_path = ''
 return exists (select 1 from pg_catalog.pg_timezone_names where name = tz);
 
 comment on function public.is_valid_timezone(text) is 'Czy tekst jest nazwą strefy czasowej znaną bazie (IANA).';
+
+revoke execute on function public.set_updated_at() from public, anon, authenticated;
