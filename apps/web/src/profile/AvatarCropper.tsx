@@ -36,6 +36,19 @@ export function AvatarCropper({ src, image, crop, onCropChange }: AvatarCropperP
   const [dragging, setDragging] = useState(false);
   const box = imageBox(crop, image, CROP_VIEW);
 
+  // Bieżący kadr w refie: kilka zdarzeń (pointermove, kółko) przed kolejnym renderem liczy się
+  // od wyniku poprzedniego, a nie od kadru z ostatniego renderu, więc żaden ruch nie ginie.
+  const latest = useRef({ crop, image, onCropChange });
+  useEffect(() => {
+    latest.current = { crop, image, onCropChange };
+  });
+  const update = (change: (current: CropState, image: ImageSize) => CropState) => {
+    const current = latest.current;
+    const next = change(current.crop, current.image);
+    latest.current = { ...current, crop: next };
+    current.onCropChange(next);
+  };
+
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -49,7 +62,7 @@ export function AvatarCropper({ src, image, crop, onCropChange }: AvatarCropperP
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     drag.current = { id: start.id, x: event.clientX, y: event.clientY };
-    onCropChange(panCrop(crop, dx, dy, image, CROP_VIEW));
+    update((current, size) => panCrop(current, dx, dy, size, CROP_VIEW));
   };
 
   const endDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -61,18 +74,19 @@ export function AvatarCropper({ src, image, crop, onCropChange }: AvatarCropperP
   // Kółko myszy powiększa zdjęcie zamiast przewijać popup: React podpina `wheel` jako pasywny,
   // więc nasłuch z `passive: false` jest podpięty ręcznie (z bieżącym stanem w refie).
   const stage = useRef<HTMLDivElement>(null);
-  const latest = useRef({ crop, image, onCropChange });
+  const updateRef = useRef(update);
   useEffect(() => {
-    latest.current = { crop, image, onCropChange };
+    updateRef.current = update;
   });
   useEffect(() => {
     const node = stage.current;
     if (!node) return;
     const onWheel = (event: globalThis.WheelEvent) => {
       event.preventDefault();
-      const current = latest.current;
-      const next = current.crop.zoom * (event.deltaY < 0 ? 1.08 : 1 / 1.08);
-      current.onCropChange(zoomCrop(current.crop, next, current.image, CROP_VIEW));
+      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
+      updateRef.current((current, size) =>
+        zoomCrop(current, current.zoom * factor, size, CROP_VIEW),
+      );
     };
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
@@ -89,16 +103,16 @@ export function AvatarCropper({ src, image, crop, onCropChange }: AvatarCropperP
     const pan = pans[event.key];
     if (pan) {
       event.preventDefault();
-      onCropChange(panCrop(crop, pan[0], pan[1], image, CROP_VIEW));
+      update((current, size) => panCrop(current, pan[0], pan[1], size, CROP_VIEW));
     } else if (event.key === '+' || event.key === '=') {
       event.preventDefault();
-      onCropChange(zoomCrop(crop, crop.zoom + ZOOM_STEP, image, CROP_VIEW));
+      update((current, size) => zoomCrop(current, current.zoom + ZOOM_STEP, size, CROP_VIEW));
     } else if (event.key === '-') {
       event.preventDefault();
-      onCropChange(zoomCrop(crop, crop.zoom - ZOOM_STEP, image, CROP_VIEW));
+      update((current, size) => zoomCrop(current, current.zoom - ZOOM_STEP, size, CROP_VIEW));
     } else if (event.key === '0') {
       event.preventDefault();
-      onCropChange(clampCrop(INITIAL_CROP, image, CROP_VIEW));
+      update((_, size) => clampCrop(INITIAL_CROP, size, CROP_VIEW));
     }
   };
 
@@ -134,7 +148,9 @@ export function AvatarCropper({ src, image, crop, onCropChange }: AvatarCropperP
         step={1}
         value={Math.round(crop.zoom * 100)}
         formatValue={(value) => format(t.crop.zoomValue, { n: value })}
-        onValueChange={(value) => onCropChange(zoomCrop(crop, value / 100, image, CROP_VIEW))}
+        onValueChange={(value) =>
+          update((current, size) => zoomCrop(current, value / 100, size, CROP_VIEW))
+        }
       />
     </div>
   );

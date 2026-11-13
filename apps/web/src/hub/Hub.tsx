@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { FirstRun } from '../club/FirstRun';
@@ -86,17 +86,20 @@ export function Hub({ me }: { readonly me: OwnProfile }) {
 }
 
 /**
- * Pierwsze logowanie kontem z wygenerowanym hasłem (AUTH-6): raz na wczytanie aplikacji, gdy nad
- * hubem nie ma popupów, otwiera propozycję własnego hasła. „Pomiń” zapisuje rezygnację w profilu,
- * a zamknięcie (×, Esc) tylko odkłada propozycję do kolejnego uruchomienia.
+ * Pierwsze logowanie kontem z wygenerowanym hasłem (AUTH-6): przy wejściu do aplikacji bez
+ * popupów w adresie otwiera propozycję własnego hasła. Wejście z linku do popupu jej nie
+ * przerywa (ani po jego zamknięciu). „Pomiń” zapisuje rezygnację w profilu, a zamknięcie (×, Esc)
+ * tylko odkłada propozycję do kolejnego uruchomienia.
  */
 function usePasswordSuggestion(me: OwnProfile) {
   const { stack, open } = usePopups();
-  const shown = useRef(false);
-  const suggest = me.password_change_suggested && stack.length === 0;
+  // Decyzja zapada raz, przy pierwszym renderze huba.
+  const [suggest] = useState(() => me.password_change_suggested && stack.length === 0);
+  // Ref chroni przed podwójnym otwarciem, gdy StrictMode uruchamia efekt drugi raz.
+  const opened = useRef(false);
   useEffect(() => {
-    if (!suggest || shown.current) return;
-    shown.current = true;
+    if (!suggest || opened.current) return;
+    opened.current = true;
     open({ kind: 'first-login' });
   }, [suggest, open]);
 }

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import type { ScaledImage } from '../club/image';
+import { signedUrlQuery } from '../lib/storage';
 
 /** Jedyny klub instancji (PRD §1.1, CLUB-2). */
 export interface Club {
@@ -32,23 +33,9 @@ export function useClub(client: SupabaseClient) {
   });
 }
 
-/** Podpisany URL ważny godzinę; zapytanie odświeża go wcześniej. */
-const SIGNED_URL_SECONDS = 60 * 60;
-
 /** Adres pliku z prywatnego bucketu `covers` (logo klubu). Bez ścieżki: brak zapytania. */
 export function useCoverUrl(client: SupabaseClient, path: string | null) {
-  return useQuery({
-    queryKey: ['storage', COVERS_BUCKET, path],
-    enabled: path !== null,
-    staleTime: (SIGNED_URL_SECONDS - 10 * 60) * 1000,
-    queryFn: async (): Promise<string> => {
-      const { data, error } = await client.storage
-        .from(COVERS_BUCKET)
-        .createSignedUrl(path ?? '', SIGNED_URL_SECONDS);
-      if (error) throw error;
-      return data.signedUrl;
-    },
-  });
+  return useQuery(signedUrlQuery(client, COVERS_BUCKET, path));
 }
 
 /** Co zrobić z logo przy zapisie formularza. */

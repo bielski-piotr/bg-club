@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
+import { signedUrlQuery } from '../lib/storage';
 import { isUuid } from '../popups/routes';
 import type { AvatarPerson } from '../ui';
 
@@ -40,32 +41,12 @@ export function avatarPerson(
   return { id: profile.hook, name: fullName(profile), removed: profile.deleted_at !== null, src };
 }
 
-/** Podpisany URL ważny godzinę; zapytanie odświeża go wcześniej. */
-const SIGNED_URL_SECONDS = 60 * 60;
-
-export const avatarUrlKey = (path: string | null) => ['storage', AVATARS_BUCKET, path] as const;
-
 /**
- * Adres zdjęcia profilowego z prywatnego bucketu (USR-3). Nazwa pliku zmienia się przy każdym
- * wgraniu, więc adres z cache'u nigdy nie pokaże starego zdjęcia. Bez ścieżki: brak zapytania.
+ * Adres zdjęcia profilowego z prywatnego bucketu (USR-3). Każde wgranie ma nową nazwę pliku,
+ * więc adres z cache'u nigdy nie pokaże starego zdjęcia. Bez ścieżki: brak zapytania.
  */
-export function avatarUrlQuery(client: SupabaseClient, path: string | null) {
-  return {
-    queryKey: avatarUrlKey(path),
-    enabled: path !== null,
-    staleTime: (SIGNED_URL_SECONDS - 10 * 60) * 1000,
-    queryFn: async (): Promise<string> => {
-      const { data, error } = await client.storage
-        .from(AVATARS_BUCKET)
-        .createSignedUrl(path ?? '', SIGNED_URL_SECONDS);
-      if (error) throw error;
-      return data.signedUrl;
-    },
-  };
-}
-
 export function useAvatarUrl(client: SupabaseClient, path: string | null) {
-  return useQuery(avatarUrlQuery(client, path));
+  return useQuery(signedUrlQuery(client, AVATARS_BUCKET, path));
 }
 
 /**

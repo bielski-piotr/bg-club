@@ -233,6 +233,15 @@ describe('pierwsze logowanie (AUTH-6)', () => {
     expect(fake.updateUser).not.toHaveBeenCalled();
   });
 
+  it('wejście z linku do popupu nie dostaje propozycji, także po zamknięciu popupu', async () => {
+    window.history.replaceState(null, '', '/?p=members');
+    renderHub({ ...BEA, password_change_suggested: true });
+    const list = await screen.findByRole('dialog', { name: 'Członkowie' });
+    fireEvent.click(within(list).getByRole('button', { name: 'Zamknij' }));
+    await waitFor(() => expect(window.location.search).toBe(''));
+    expect(screen.queryByRole('dialog', { name: 'Ustaw własne hasło' })).not.toBeInTheDocument();
+  });
+
   it('konto z własnym hasłem nie dostaje propozycji', async () => {
     window.history.replaceState(null, '', '/');
     renderHub(BEA);

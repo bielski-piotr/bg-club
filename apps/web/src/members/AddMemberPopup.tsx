@@ -7,6 +7,7 @@ import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { fullName, membersKey, profileKey } from '../profile/profiles';
+import { nameProblem } from '../profile/settings';
 import { Banner, Button, Icon, TextField, useToast } from '../ui';
 import {
   createMember,
@@ -29,12 +30,7 @@ const SAVE_ERRORS: Readonly<Record<Exclude<CreateMemberFailure, 'invalid'>, stri
 };
 
 /** Ta sama walidacja co w Edge Function (`validateMemberInput`), żeby nie wysyłać złych danych. */
-function fieldError(value: string): FieldProblem | undefined {
-  const trimmed = value.trim();
-  if (trimmed === '') return 'required';
-  if (trimmed.length > NAME_MAX_LENGTH) return 'tooLong';
-  return undefined;
-}
+const fieldError = (value: string): FieldProblem | undefined => nameProblem(value);
 
 function problemText(problem: FieldProblem | undefined, required: string): string | undefined {
   if (problem === 'required') return required;

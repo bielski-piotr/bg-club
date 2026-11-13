@@ -7,7 +7,7 @@ import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme';
-import { useTheme } from '../theme/useTheme';
+import { getThemePreference, useTheme } from '../theme/useTheme';
 import {
   Avatar,
   Banner,
@@ -131,7 +131,10 @@ export function SettingsPopup({ me }: { readonly me: OwnProfile }) {
     onSuccess: (profile) => {
       queryClient.setQueryData(ownProfileKey(me.id), profile);
       // Imię i zdjęcie widać też w profilu, na liście i w widżecie członków.
-      void queryClient.invalidateQueries({ queryKey: ['profiles'], refetchType: 'active' });
+      void queryClient.invalidateQueries({
+        queryKey: ['profiles'],
+        predicate: (query) => query.queryKey[1] !== 'own',
+      });
       toast.show(text.toasts.saved, 'success');
       back();
     },
@@ -149,8 +152,9 @@ export function SettingsPopup({ me }: { readonly me: OwnProfile }) {
         old ? { ...old, theme: next } : old,
       );
     },
-    onError: (_, { previous }) => {
-      theme.setPreference(previous);
+    onError: (_, { next, previous }) => {
+      // Przywracamy tylko wtedy, gdy nikt nie wybrał w międzyczasie kolejnego motywu.
+      if (getThemePreference() === next) theme.setPreference(previous);
       toast.show(text.errors.theme, 'error');
     },
   });
@@ -229,11 +233,7 @@ export function SettingsPopup({ me }: { readonly me: OwnProfile }) {
           src={cropping.url}
           image={cropping.bitmap}
           crop={cropping.crop}
-          onCropChange={(crop) => {
-            const next = { ...cropping, crop };
-            resources.current.cropping = next;
-            setCropping(next);
-          }}
+          onCropChange={(crop) => setCropping((open) => (open ? { ...open, crop } : open))}
         />
       </PopupModal>
     );
@@ -265,7 +265,7 @@ export function SettingsPopup({ me }: { readonly me: OwnProfile }) {
           <Button variant="secondary" onClick={back}>
             {text.cancel}
           </Button>
-          <Button type="submit" form={formId} loading={save.isPending}>
+          <Button type="submit" form={formId} loading={save.isPending || processing}>
             {text.save}
           </Button>
         </>

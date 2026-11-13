@@ -86,6 +86,7 @@ describe('kadrowanie awatara (USR-3)', () => {
     expect(checkAvatarFile({ type: 'image/jpeg', size: 1000 })).toBeNull();
     expect(checkAvatarFile({ type: 'image/png', size: 1000 })).toBeNull();
     expect(checkAvatarFile({ type: 'image/webp', size: AVATAR_INPUT_MAX_BYTES })).toBeNull();
+    expect(checkAvatarFile({ type: '', size: 1000 })).toBeNull();
     expect(checkAvatarFile({ type: 'image/gif', size: 1000 })).toBe('type');
     expect(checkAvatarFile({ type: 'image/heic', size: 1000 })).toBe('type');
     expect(checkAvatarFile({ type: 'image/jpeg', size: AVATAR_INPUT_MAX_BYTES + 1 })).toBe('size');

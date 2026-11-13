@@ -121,9 +121,12 @@ export class AvatarImageFailure extends Error {
 
 const ACCEPTED = new Set(AVATAR_ACCEPT.split(','));
 
-/** Sprawdza plik przed dekodowaniem: typ JPG/PNG/WebP i rozsądny rozmiar. */
+/**
+ * Sprawdza plik przed dekodowaniem: typ JPG/PNG/WebP i rozsądny rozmiar. Pusty typ (część
+ * systemów nie zna np. WebP) przepuszczamy: o poprawności rozstrzyga wtedy dekodowanie.
+ */
 export function checkAvatarFile(file: Pick<File, 'type' | 'size'>): AvatarImageError | null {
-  if (!ACCEPTED.has(file.type)) return 'type';
+  if (file.type !== '' && !ACCEPTED.has(file.type)) return 'type';
   if (file.size > AVATAR_INPUT_MAX_BYTES) return 'size';
   return null;
 }
