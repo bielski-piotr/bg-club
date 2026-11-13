@@ -50,7 +50,7 @@ select results_eq(
        ('meeting_participants', 'DELETE,SELECT'),
        ('meetings', 'DELETE,SELECT'),
        ('play_results', 'SELECT'),
-       ('plays', 'DELETE,SELECT'),
+       ('plays', 'SELECT'),
        ('profiles', 'SELECT'),
        ('scorepad_versions', 'SELECT'),
        ('scorepads', 'SELECT') $$,
@@ -93,6 +93,7 @@ select results_eq(
        ('private.is_active_member()'),
        ('private.is_admin()'),
        ('private.is_meeting_runner(uuid)'),
+       ('private.is_voting_open(uuid)'),
        ('private.try_uuid(text)'),
        ('search_text(text)') $$,
   'authenticated wykona tylko funkcje czyste i sprawdzające role'
@@ -153,7 +154,7 @@ select results_eq(
        ('meeting_participants', 'DELETE,INSERT,SELECT'),
        ('meetings', 'DELETE,INSERT,SELECT,UPDATE'),
        ('play_results', 'SELECT'),
-       ('plays', 'DELETE,SELECT'),
+       ('plays', 'SELECT'),
        ('profiles', 'SELECT,UPDATE'),
        ('scorepad_versions', 'INSERT,SELECT'),
        ('scorepads', 'INSERT,SELECT,UPDATE') $$,
@@ -176,10 +177,11 @@ select is_empty(
         and not exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%') $$,
   'każda funkcja w private ma ustawiony search_path'
 );
-select is(
-  (select count(*)::int from pg_proc where pronamespace = 'private'::regnamespace and prosecdef),
-  6,
-  'funkcje sprawdzające role są SECURITY DEFINER (omijają RLS bez rekurencji polityk)'
+select results_eq(
+  $$ select proname::text collate "default" from pg_proc
+      where pronamespace = 'private'::regnamespace and prosecdef order by 1 $$,
+  $$ values ('is_active_member'), ('is_admin'), ('is_meeting_runner'), ('is_voting_open') $$,
+  'tylko funkcje sprawdzające role są SECURITY DEFINER (omijają RLS bez rekurencji polityk)'
 );
 
 -- ---------------------------------------------------------------------------------------------

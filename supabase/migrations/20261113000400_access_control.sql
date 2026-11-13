@@ -8,9 +8,10 @@
 --   niczego i niczego nie zapisze.
 -- - `service_role` (Edge Functions) omija RLS i jest jedyną drogą do pól `role`, `hook`,
 --   `deleted_at` oraz do tworzenia i usuwania profili (§6.1). Ten klucz nie trafia do SPA.
--- - Zapis partii i wyników (`plays`, `play_results`), rozpoczęcie i zakończenie spotkania oraz
---   przeliczenie osiągnięć idą przez RPC SECURITY DEFINER z kolejnych zadań. Każde takie RPC
---   zaczyna od `private.require_admin()` albo `private.require_meeting_runner(meeting_id)`.
+-- - Zapis i usuwanie partii i wyników (`plays`, `play_results`), rozpoczęcie i zakończenie
+--   spotkania oraz przeliczenie osiągnięć idą przez RPC SECURITY DEFINER z kolejnych zadań
+--   (jedna transakcja: zmiana + przeliczenie, §5.6.5). Każde takie RPC zaczyna od
+--   `private.require_admin()` albo `private.require_meeting_runner(meeting_id)`.
 -- - Funkcje sprawdzające role są w schemacie `private`, którego PostgREST nie udostępnia, więc
 --   klient nie wywoła ich przez /rpc. Są SECURITY DEFINER z pustym search_path: czytają
 --   `profiles` i `meetings` z pominięciem RLS (bez rekurencji polityk) i nie dają się
@@ -63,9 +64,10 @@ return exists (
 comment on function private.is_admin() is 'Czy auth.uid() jest aktywnym administratorem (§2).';
 
 -- Czy zalogowany użytkownik może prowadzić istniejące spotkanie (§2.1): admin zawsze (także
--- RUN-5 po zakończeniu), prowadzący (`host_id`) tylko w swoim niezakończonym spotkaniu. Po
--- zakończeniu spotkania prowadzący zostaje zapisany w historii, ale traci uprawnienia.
--- Nieistniejące spotkanie i NULL dają false.
+-- zakończone, żeby cofnąć zakończenie, RUN-5), prowadzący (`host_id`) tylko w swoim
+-- niezakończonym spotkaniu. Zakończone spotkanie zachowuje prowadzącego w historii, ale ten
+-- traci uprawnienia; gdy admin cofnie zakończenie, prowadzący znów prowadzi spotkanie w
+-- trakcie (admin może go wcześniej zmienić, PLAN-4). Nieistniejące spotkanie i NULL: false.
 create function private.is_meeting_runner(target_meeting_id uuid)
 returns boolean
 language sql
@@ -103,13 +105,24 @@ end;
 
 comment on function private.try_uuid(text) is 'Rzutowanie tekstu na uuid; NULL zamiast błędu dla złego formatu.';
 
+-- Czy w spotkaniu trwa głosowanie (VOTE-1). Flaga jest dozwolona tylko w statusie planned.
+create function private.is_voting_open(target_meeting_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+return exists (select 1 from public.meetings m where m.id = target_meeting_id and m.voting_open);
+
+comment on function private.is_voting_open(uuid) is 'Czy spotkanie ma otwarte głosowanie (polityki game_votes).';
+
 -- Strażnicy dla RPC SECURITY DEFINER (które omijają RLS): pierwsza instrukcja każdego RPC
 -- zapisującego dane. Kod 42501 (insufficient_privilege) aplikacja mapuje na polski komunikat.
+-- Same nie potrzebują podwyższonych praw: wywołują funkcje is_* (SECURITY DEFINER).
 create function private.require_active_member()
 returns void
 language plpgsql
 stable
-security definer
 set search_path = ''
 as $$
 begin
@@ -123,7 +136,6 @@ create function private.require_admin()
 returns void
 language plpgsql
 stable
-security definer
 set search_path = ''
 as $$
 begin
@@ -137,7 +149,6 @@ create function private.require_meeting_runner(target_meeting_id uuid)
 returns void
 language plpgsql
 stable
-security definer
 set search_path = ''
 as $$
 begin
@@ -160,6 +171,7 @@ grant execute on function
   private.is_active_member(),
   private.is_admin(),
   private.is_meeting_runner(uuid),
+  private.is_voting_open(uuid),
   private.try_uuid(text)
 to authenticated;
 
@@ -226,9 +238,9 @@ grant insert (meeting_id, game_id, position) on public.meeting_games to authenti
 grant update (position) on public.meeting_games to authenticated;
 grant delete on public.meeting_games to authenticated;
 
--- Partie tworzy i zapisuje RPC (§6.1); klient może tylko usunąć partię (admin) albo porzucić
--- szkic (prowadzący). Wyniki i osiągnięcia znikają razem z partią (kaskada).
-grant delete on public.plays to authenticated;
+-- plays, play_results, achievement_unlocks: tylko odczyt. Tworzenie, zapis i usuwanie partii
+-- (także porzucenie szkicu) robi RPC, bo usunięcie musi w tej samej transakcji przeliczyć
+-- statystyki, serie, rekordy i osiągnięcia (§5.6.5).
 
 -- Autor spotkania z tokenu, a nie z treści żądania.
 alter table public.meetings alter column created_by set default auth.uid();
@@ -286,7 +298,9 @@ create policy scorepad_versions_insert_admin on public.scorepad_versions for ins
   with check ((select private.is_admin()));
 
 -- meetings, meeting_participants, meeting_games: odczyt aktywni, zapis admin (PLAN-1…PLAN-5,
--- VOTE-5, PLAN-4). Prowadzący nie edytuje spotkania ani uczestników (Q14).
+-- VOTE-5, PLAN-4). Prowadzący nie edytuje spotkania ani uczestników (Q14). Skład uczestników
+-- zmienia się tylko przed zakończeniem spotkania (PLAN-3, PLAN-4); usunięcia uczestnika z
+-- partią i spotkania z partiami blokują klucze obce (PLAN-4, PLAN-5).
 create policy meetings_select on public.meetings for select to authenticated
   using ((select private.is_active_member()));
 create policy meetings_insert_admin on public.meetings for insert to authenticated
@@ -300,9 +314,15 @@ create policy meetings_delete_admin on public.meetings for delete to authenticat
 create policy meeting_participants_select on public.meeting_participants for select to authenticated
   using ((select private.is_active_member()));
 create policy meeting_participants_insert_admin on public.meeting_participants for insert to authenticated
-  with check ((select private.is_admin()));
+  with check (
+    (select private.is_admin())
+    and exists (select 1 from public.meetings m where m.id = meeting_id and m.status <> 'finished')
+  );
 create policy meeting_participants_delete_admin on public.meeting_participants for delete to authenticated
-  using ((select private.is_admin()));
+  using (
+    (select private.is_admin())
+    and exists (select 1 from public.meetings m where m.id = meeting_id and m.status <> 'finished')
+  );
 
 create policy meeting_games_select on public.meeting_games for select to authenticated
   using ((select private.is_active_member()));
@@ -323,21 +343,43 @@ create policy game_votes_insert_own on public.game_votes for insert to authentic
   with check (
     profile_id = (select auth.uid())
     and (select private.is_active_member())
-    and exists (select 1 from public.meetings m where m.id = meeting_id and m.voting_open)
+    and private.is_voting_open(meeting_id)
   );
 create policy game_votes_delete_own on public.game_votes for delete to authenticated
   using (
     profile_id = (select auth.uid())
     and (select private.is_active_member())
-    and exists (select 1 from public.meetings m where m.id = meeting_id and m.voting_open)
+    and private.is_voting_open(meeting_id)
   );
 
--- plays, play_results: odczyt aktywni; zapis przez RPC. Zapisaną partię usuwa tylko admin
--- (VIEW-6, §5.6.5); szkic może porzucić też prowadzący (RUN-4).
+-- Głos dodany równolegle z zamknięciem głosowania (VOTE-5) nie może się prześlizgnąć: blokada
+-- współdzielona wiersza spotkania czeka na transakcję, która zamyka głosowanie, i widzi jej
+-- wynik. Dotyczy też service_role. Usuwanie głosów tylko przez RLS, bo kaskada (usunięcie
+-- uczestnika lub spotkania) musi działać także po zamknięciu głosowania.
+create function public.game_votes_require_open_voting()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not coalesce((select m.voting_open from public.meetings m where m.id = new.meeting_id for share), false) then
+    raise exception 'voting is closed in meeting %', new.meeting_id
+      using errcode = '23514', constraint = 'game_votes_voting_open';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger game_votes_require_open_voting
+  before insert or update on public.game_votes
+  for each row execute function public.game_votes_require_open_voting();
+
+revoke execute on function public.game_votes_require_open_voting() from public, anon, authenticated;
+
+-- plays, play_results: odczyt aktywni; zapis i usuwanie przez RPC (§6.1, §5.6.5).
 create policy plays_select on public.plays for select to authenticated
   using ((select private.is_active_member()));
-create policy plays_delete on public.plays for delete to authenticated
-  using ((select private.is_admin()) or (status = 'draft' and private.is_meeting_runner(meeting_id)));
 
 create policy play_results_select on public.play_results for select to authenticated
   using ((select private.is_active_member()));
@@ -362,11 +404,14 @@ on conflict (id) do update
       allowed_mime_types = excluded.allowed_mime_types;
 
 -- Ścieżki:
--- - avatars:   `<profile_id>/<plik>`: właściciel profilu (USR-3),
+-- - avatars:   `<profile_id>/<plik>` (bez podfolderów, jak profiles.avatar_path): właściciel
+--              profilu (USR-3),
 -- - covers:    okładki gier i logo klubu: admin (GAME-6, CLUB-2),
 -- - scorepads: zdjęcia szablonów notesów: admin (GAME-7),
--- - sheets:    `<meeting_id>/<plik>`: obraz karteczki zapisuje admin lub prowadzący spotkania
---              (PAD-6), bez nadpisywania; usuwa admin razem z partią (§5.6.5).
+-- - sheets:    `<meeting_id>/<play_id>-<losowy sufiks>.webp`: obraz karteczki zapisuje admin
+--              lub prowadzący spotkania (PAD-6), bez nadpisywania. Każda próba zapisu ma nową
+--              nazwę, więc ponowienie po błędzie nie trafia na istniejący plik; ścieżkę wpisuje
+--              do partii RPC zapisu. Usuwa admin razem z partią (§5.6.5).
 create policy bg_club_objects_select on storage.objects for select to authenticated
   using (
     bucket_id in ('avatars', 'covers', 'scorepads', 'sheets')
@@ -377,6 +422,7 @@ create policy bg_club_avatars_insert_own on storage.objects for insert to authen
   with check (
     bucket_id = 'avatars'
     and (storage.foldername(name))[1] = (select auth.uid())::text
+    and array_length(storage.foldername(name), 1) = 1
     and (select private.is_active_member())
   );
 create policy bg_club_avatars_update_own on storage.objects for update to authenticated
@@ -388,6 +434,7 @@ create policy bg_club_avatars_update_own on storage.objects for update to authen
   with check (
     bucket_id = 'avatars'
     and (storage.foldername(name))[1] = (select auth.uid())::text
+    and array_length(storage.foldername(name), 1) = 1
   );
 create policy bg_club_avatars_delete_own on storage.objects for delete to authenticated
   using (

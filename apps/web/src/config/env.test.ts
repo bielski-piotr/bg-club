@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isSecretKey, parseConfig } from './env';
+import { parseConfig } from './env';
+import { isSecretKey } from './secretKey';
 
 /** Token w formacie JWT z podanymi claimami (bez prawdziwego podpisu). */
 function fakeJwt(claims: Record<string, unknown>): string {

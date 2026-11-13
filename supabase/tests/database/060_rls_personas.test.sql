@@ -12,7 +12,7 @@ set constraints all immediate;
 -- Storage blokuje bezpośrednie DELETE na storage.objects; w teście sprawdzamy same polityki.
 set local storage.allow_delete_query = 'true';
 
-select plan(96);
+select plan(101);
 
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe (jako właściciel, bez RLS)
@@ -250,11 +250,12 @@ select results_eq(
 select throws_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000004', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000002') $$,
-  '42501', null, 'gracz: nie głosuje po zamknięciu głosowania');
+  '23514', 'voting is closed in meeting 00000000-0000-4000-c000-000000000004',
+  'gracz: nie głosuje po zamknięciu głosowania');
 select throws_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000002') $$,
-  '42501', null, 'gracz: nie głosuje w spotkaniu w trakcie');
+  '23514', null, 'gracz: nie głosuje w spotkaniu w trakcie');
 select throws_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000005', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000002') $$,
@@ -275,11 +276,9 @@ select throws_ok(
 select throws_ok(
   $$ update public.plays set sheet = '{}' where id = '00000000-0000-4000-f000-000000000001' $$,
   '42501', 'permission denied for table plays', 'gracz: nie zmienia partii bezpośrednio');
-select results_eq(
-  $$ with d as (delete from public.plays returning 1) select count(*)::int from d $$,
-  $$ values (0) $$,
-  'gracz: nie usuwa partii ani szkiców'
-);
+select throws_ok(
+  $$ delete from public.plays $$,
+  '42501', 'permission denied for table plays', 'gracz: nie usuwa partii ani szkiców');
 select throws_ok(
   $$ update public.play_results set points = 100 where profile_id = '00000000-0000-4000-a000-000000000002' $$,
   '42501', 'permission denied for table play_results', 'gracz: nie zmienia wyników');
@@ -297,6 +296,10 @@ select lives_ok(
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('avatars', '00000000-0000-4000-a000-000000000003/podmiana.webp') $$,
   '42501', null, 'gracz: nie wgra pliku do cudzego folderu awatarów');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values
+     ('avatars', '00000000-0000-4000-a000-000000000002/2026/bartek.webp') $$,
+  '42501', null, 'gracz: awatar tylko bezpośrednio we własnym folderze (jak avatar_path)');
 select results_eq(
   $$ with u as (update storage.objects set metadata = '{}' where name like '00000000-0000-4000-a000-000000000003/%' returning 1)
      select count(*)::int from u $$,
@@ -370,18 +373,12 @@ select throws_ok(
   $$ insert into public.meeting_participants (meeting_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000006') $$,
   '42501', null, 'prowadzący: nie dodaje uczestników (PLAN-4)');
-select results_eq(
-  $$ with d as (delete from public.plays where id = '00000000-0000-4000-f000-000000000002' returning 1)
-     select count(*)::int from d $$,
-  $$ values (0) $$,
-  'prowadzący: nie usuwa zapisanej partii'
-);
-select results_eq(
-  $$ with d as (delete from public.plays where id = '00000000-0000-4000-f000-000000000001' returning 1)
-     select count(*)::int from d $$,
-  $$ values (1) $$,
-  'prowadzący: porzuca szkic w swoim spotkaniu (RUN-4)'
-);
+select throws_ok(
+  $$ delete from public.plays where id = '00000000-0000-4000-f000-000000000002' $$,
+  '42501', 'permission denied for table plays', 'prowadzący: nie usuwa zapisanej partii');
+select throws_ok(
+  $$ delete from public.plays where id = '00000000-0000-4000-f000-000000000001' $$,
+  '42501', 'permission denied for table plays', 'prowadzący: szkic porzuca tylko przez RPC (RUN-4)');
 select throws_ok(
   $$ select private.require_meeting_runner('00000000-0000-4000-c000-000000000001') $$,
   '42501', 'permission denied for function require_meeting_runner',
@@ -389,6 +386,13 @@ select throws_ok(
 );
 
 reset role;
+
+-- Głosowanie zamknięte także dla service_role i właściciela tabel (wyzwalacz, nie tylko RLS).
+select throws_ok(
+  $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
+     ('00000000-0000-4000-c000-000000000004', '00000000-0000-4000-b000-000000000002', '00000000-0000-4000-a000-000000000002') $$,
+  '23514', 'voting is closed in meeting 00000000-0000-4000-c000-000000000004',
+  'głos w zamkniętym głosowaniu odrzuca baza, nie tylko RLS');
 
 -- Strażnicy RPC: wywołanie jak z funkcji SECURITY DEFINER (rola właściciela, token klienta).
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000004", "role": "authenticated"}';
@@ -465,11 +469,26 @@ select results_eq(
 select throws_ok(
   $$ update public.profiles set role = 'player' where id = '00000000-0000-4000-a000-000000000001' $$,
   '42501', 'permission denied for table profiles', 'admin: nie zmienia ról przez API');
+select throws_ok(
+  $$ delete from public.plays where id = '00000000-0000-4000-f000-000000000002' $$,
+  '42501', 'permission denied for table plays',
+  'admin: usuwa partię tylko przez RPC, które przelicza statystyki (§5.6.5)');
+select lives_ok(
+  $$ insert into public.meeting_participants (meeting_id, profile_id) values
+     ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000006') $$,
+  'admin: dodaje uczestnika do spotkania w trakcie (PLAN-4)'
+);
+select throws_ok(
+  $$ insert into public.meeting_participants (meeting_id, profile_id) values
+     ('00000000-0000-4000-c000-000000000003', '00000000-0000-4000-a000-000000000006') $$,
+  '42501', null, 'admin: nie zmienia uczestników zakończonego spotkania');
 select results_eq(
-  $$ with d as (delete from public.plays where id = '00000000-0000-4000-f000-000000000002' returning 1)
+  $$ with d as (delete from public.meeting_participants
+                 where meeting_id = '00000000-0000-4000-c000-000000000003'
+                   and profile_id = '00000000-0000-4000-a000-000000000001' returning 1)
      select count(*)::int from d $$,
-  $$ values (1) $$,
-  'admin: usuwa zapisaną partię (VIEW-6)'
+  $$ values (0) $$,
+  'admin: nie usuwa uczestników zakończonego spotkania'
 );
 select lives_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id) values
