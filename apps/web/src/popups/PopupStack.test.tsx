@@ -26,7 +26,9 @@ function TestPopup({ route }: { readonly route: PopupRoute }) {
       </PopupModal>
     );
   }
-  return <PopupModal title="Nie znaleziono">{route.raw}</PopupModal>;
+  return (
+    <PopupModal title="Nie znaleziono">{route.kind === 'invalid' ? route.raw : null}</PopupModal>
+  );
 }
 
 function renderStack() {

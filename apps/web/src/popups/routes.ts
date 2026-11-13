@@ -9,6 +9,8 @@
 export type PopupRoute =
   | { readonly kind: 'members' }
   | { readonly kind: 'profile'; readonly id: string }
+  /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (CLUB-2, admin). */
+  | { readonly kind: 'club' }
   /** Adres, którego aplikacja nie zna albo który jest uszkodzony. Popup pokazuje czytelny stan. */
   | { readonly kind: 'invalid'; readonly raw: string };
 
@@ -28,6 +30,7 @@ export function isUuid(value: string): boolean {
 export function parseRoute(raw: string): PopupRoute {
   const [kind, ...args] = raw.split('/');
   if (kind === 'members' && args.length === 0) return { kind: 'members' };
+  if (kind === 'club' && args.length === 0) return { kind: 'club' };
   if (kind === 'profile' && args.length === 1 && isUuid(args[0] ?? '')) {
     return { kind: 'profile', id: (args[0] ?? '').toLowerCase() };
   }
@@ -38,6 +41,8 @@ export function serializeRoute(route: PopupRoute): string {
   switch (route.kind) {
     case 'members':
       return 'members';
+    case 'club':
+      return 'club';
     case 'profile':
       return `profile/${route.id}`;
     case 'invalid':

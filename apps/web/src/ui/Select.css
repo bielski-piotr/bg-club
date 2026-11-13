@@ -176,3 +176,67 @@
   line-height: 18px;
   color: var(--c-muted);
 }
+
+/* Panel z wyszukiwarką (DS §17 „Timezone select”): pigułka h40 nad listą, panel względem okna. */
+.select__menu--search {
+  z-index: 60;
+  max-height: 340px;
+  overflow: hidden;
+}
+
+.select__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  height: 40px;
+  padding-inline: 12px;
+  background: var(--c-tint);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+}
+
+.select__search:focus-within {
+  border-color: var(--c-accent-text);
+  box-shadow: inset 0 0 0 0.5px var(--c-accent-text);
+}
+
+.select__search-icon {
+  flex-shrink: 0;
+  color: var(--c-muted);
+}
+
+.select__search-control {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-ink);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.select__search-control:focus-visible {
+  outline: none;
+}
+
+.select__search-control::placeholder {
+  color: var(--c-muted);
+  opacity: 1;
+}
+
+.select__options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}

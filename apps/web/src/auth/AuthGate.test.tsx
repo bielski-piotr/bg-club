@@ -44,11 +44,14 @@ interface FakeOptions {
   readonly signInError?: AuthError;
 }
 
+/** Założony klub (CLUB-2); pierwsze uruchomienie sprawdza Hub.test.tsx. */
+const CLUB = { name: 'Klub Testowy', logo_path: null, timezone: 'Europe/Warsaw' };
+
 /**
  * Zapytanie PostgREST: każda metoda filtra zwraca to samo zapytanie, `maybeSingle` daje jeden
  * wiersz, a samo `await` listę (np. członkowie klubu).
  */
-function fakeQuery(row: OwnProfile | null) {
+function fakeQuery(row: object | null) {
   const result = { data: row ? [{ ...row, deleted_at: null }] : [], error: null };
   const query = {
     select: () => query,
@@ -82,7 +85,9 @@ function fakeSupabase({ session = null, profile = ADA, signInError }: FakeOption
       return { error: null };
     }),
   };
-  const from = vi.fn((table: string) => fakeQuery(table === 'profiles' ? profile : null));
+  const from = vi.fn((table: string) =>
+    fakeQuery(table === 'profiles' ? profile : table === 'club' ? CLUB : null),
+  );
   return { client: { auth, from } as unknown as SupabaseClient, auth, from, emit };
 }
 
@@ -98,7 +103,7 @@ function renderGate(fake: ReturnType<typeof fakeSupabase>) {
   return { queryClient };
 }
 
-const hubHeading = () => screen.findByRole('heading', { level: 1, name: 'BG Club' });
+const hubHeading = () => screen.findByRole('heading', { level: 1, name: CLUB.name });
 
 /** Własny profil otwiera chip użytkownika w nagłówku huba. */
 async function openOwnProfile() {
@@ -205,7 +210,7 @@ describe('sesja (AUTH-5, AUTH-7)', () => {
     const queries = fake.from.mock.calls.length;
 
     fake.emit('TOKEN_REFRESHED', sessionFor(ADA.id, 'token-2'));
-    expect(screen.getByRole('heading', { level: 1, name: 'BG Club' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: CLUB.name })).toBeInTheDocument();
     expect(fake.from).toHaveBeenCalledTimes(queries);
   });
 

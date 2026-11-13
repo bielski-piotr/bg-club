@@ -102,6 +102,24 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Stopka formularza na telefonie: dwa przyciski po równo, padding 12/16/24 (DS §17). */
+.modal__footer {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 12px 16px 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  background: var(--c-surface);
+}
+
+.modal__footer > * {
+  flex: 1;
+}
+
+.modal__body:has(+ .modal__footer) {
+  padding-bottom: 12px;
+}
+
 @media (min-width: 768px) {
   .popup-layer {
     display: grid;
@@ -152,6 +170,20 @@
 
   .modal__body {
     padding: 20px 28px 28px;
+  }
+
+  /* Desktop: stopka paddingTop 28, przyciski do prawej (DS §7). */
+  .modal__body:has(+ .modal__footer) {
+    padding-bottom: 0;
+  }
+
+  .modal__footer {
+    justify-content: flex-end;
+    padding: 28px;
+  }
+
+  .modal__footer > * {
+    flex: none;
   }
 }
 

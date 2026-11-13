@@ -1,0 +1,204 @@
+/* Klub: logo, pierwsze uruchomienie i formularz (DS §8, §17). */
+
+/* Kafelek logo: 36 (nagłówek, promień 12) albo 88 (formularz, promień 26). */
+.club-logo {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--c-inverse);
+  color: var(--c-on-inverse);
+  font-family: var(--font-display);
+  font-weight: 700;
+  user-select: none;
+}
+
+.club-logo--36 {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.club-logo--88 {
+  width: 88px;
+  height: 88px;
+  border-radius: 26px;
+  font-size: 30px;
+  line-height: 36px;
+}
+
+.club-logo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--c-surface);
+}
+
+/* Pierwsze uruchomienie (CLUB-1, CLUB-3): wyśrodkowany blok, ilustracja 280 / 400. */
+.first-run {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 24px 0 64px;
+  text-align: center;
+}
+
+.first-run__art {
+  width: 280px;
+  max-width: 100%;
+  height: auto;
+
+  --illu-table: var(--c-surface);
+  --illu-hairline: var(--c-border);
+  --illu-shadow: rgb(30 40 90 / 8%);
+  --illu-die: var(--c-inverse);
+  --illu-die-pip: var(--c-on-inverse);
+}
+
+.first-run__title {
+  margin: 0;
+  padding-top: 24px;
+  font: 700 24px/30px var(--font-display);
+  color: var(--c-ink);
+}
+
+.first-run__text {
+  max-width: 400px;
+  margin: 0;
+  padding-top: 8px;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.first-run__action {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  padding-top: 24px;
+}
+
+/* Formularz klubu (DS §17): pola co 20 px. */
+.club-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.club-form__logo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.club-form__tile {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* DS §8: kółko 30 z ramką w prawym dolnym rogu (-2, -2). */
+.club-form__badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-ink);
+}
+
+.club-form__logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.club-form__logo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 16px;
+  row-gap: 4px;
+}
+
+.club-form__link {
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--c-accent-text);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.club-form__link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.club-form__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.club-form__link:disabled {
+  color: var(--c-muted);
+  cursor: default;
+}
+
+.club-form__link--muted {
+  color: var(--c-muted);
+}
+
+.club-form__helper {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.club-form__helper--error {
+  color: var(--c-danger-text);
+}
+
+@media (min-width: 768px) {
+  .first-run__art {
+    width: 400px;
+  }
+
+  .first-run__title {
+    padding-top: 28px;
+    font-size: 28px;
+    line-height: 32px;
+  }
+
+  .first-run__action {
+    align-self: center;
+  }
+}
+
+/* Motyw ciemny: cień stołu mocniejszy, bo tło jest ciemne. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .first-run__art {
+    --illu-shadow: rgb(0 0 0 / 35%);
+  }
+}
+
+:root[data-theme='dark'] .first-run__art {
+  --illu-shadow: rgb(0 0 0 / 35%);
+}

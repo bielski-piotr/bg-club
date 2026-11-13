@@ -24,6 +24,7 @@ export { focusableIn } from './focusable';
 export { Modal, type ModalProps } from './Modal';
 export { iconNames } from './iconPaths';
 export { Select, type SelectOption } from './Select';
+export { normalizeSearch } from './search';
 export { Spinner } from './Spinner';
 export { Tabs, type TabItem } from './Tabs';
 export { Toast, ToastProvider } from './Toast';

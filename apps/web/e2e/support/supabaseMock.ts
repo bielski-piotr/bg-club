@@ -105,15 +105,42 @@ export interface MockOptions {
   profile?: MockProfile | null;
   /** Pozostali członkowie klubu, także usunięci (`deleted_at`). */
   members?: readonly MockProfile[];
-  /** Klub (`null` = jeszcze nie założony). */
-  club?: { readonly name: string; readonly logo_path: string | null } | null;
+  /** Klub (`null` = jeszcze nie założony). Zapis z aplikacji zmienia tę wartość. */
+  club?: MockClub | null;
+  /**
+   * Zakładanie klubu odrzucone jak przy równoległej próbie (`23505`, klucz `club_pkey`):
+   * w tej chwili inna karta zapisuje klub `club`.
+   */
+  clubConflict?: MockClub;
 }
+
+export interface MockClub {
+  readonly name: string;
+  readonly logo_path: string | null;
+  readonly timezone?: string;
+}
+
+/** Zapis klubu (`POST` = INSERT, `PATCH` = UPDATE) z treścią żądania. */
+export interface ClubWrite {
+  readonly method: 'POST' | 'PATCH';
+  readonly body: Record<string, unknown>;
+}
+
+/** Plik 1×1 PNG odsyłany jako każdy obraz z prywatnego bucketu. */
+const PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
 
 export interface SupabaseMock {
   readonly options: MockOptions;
   /** Żądania do API w kolejności, np. `POST /auth/v1/token?grant_type=password`. */
   readonly calls: string[];
   readonly passwordBodies: unknown[];
+  readonly clubWrites: ClubWrite[];
+  /** Ścieżki plików wysłanych do bucketu `covers` i z niego usuniętych. */
+  readonly uploads: string[];
+  readonly removed: string[];
 }
 
 async function reply(route: Route, kind: AuthReply) {
@@ -141,7 +168,14 @@ function describe(request: Request): string {
 }
 
 export async function mockSupabase(page: Page, options: MockOptions = {}): Promise<SupabaseMock> {
-  const mock: SupabaseMock = { options, calls: [], passwordBodies: [] };
+  const mock: SupabaseMock = {
+    options,
+    calls: [],
+    passwordBodies: [],
+    clubWrites: [],
+    uploads: [],
+    removed: [],
+  };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204 });
@@ -173,8 +207,46 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return route.fulfill({ json: rows });
     }
     if (url.pathname === '/rest/v1/club') {
+      const method = request.method();
+      if (method === 'POST' || method === 'PATCH') {
+        const body = request.postDataJSON() as Record<string, unknown>;
+        mock.clubWrites.push({ method, body });
+        const current = mock.options.club ?? null;
+        if (method === 'POST' && (current || mock.options.clubConflict)) {
+          if (mock.options.clubConflict) mock.options.club = mock.options.clubConflict;
+          return route.fulfill({
+            status: 409,
+            json: {
+              code: '23505',
+              message: 'duplicate key value violates unique constraint "club_pkey"',
+            },
+          });
+        }
+        const next = { ...(current ?? {}), ...body } as unknown as MockClub;
+        mock.options.club = next;
+        // `.single()` prosi o obiekt (`Accept: application/vnd.pgrst.object+json`).
+        return route.fulfill({ json: next });
+      }
       const club = mock.options.club ?? null;
-      return route.fulfill({ json: club ? [club] : [] });
+      return route.fulfill({ json: club ? [{ timezone: 'Europe/Warsaw', ...club }] : [] });
+    }
+    // Storage (bucket `covers`): wysyłka, podpisany URL, pobranie i usunięcie pliku.
+    const objectPrefix = '/storage/v1/object/';
+    if (url.pathname.startsWith(`${objectPrefix}sign/covers/`)) {
+      const path = url.pathname.slice(`${objectPrefix}sign/covers/`.length);
+      if (request.method() === 'GET') {
+        return route.fulfill({ contentType: 'image/png', body: PIXEL_PNG });
+      }
+      return route.fulfill({ json: { signedURL: `/object/sign/covers/${path}?token=e2e` } });
+    }
+    if (url.pathname.startsWith(`${objectPrefix}covers/`) && request.method() === 'POST') {
+      mock.uploads.push(decodeURIComponent(url.pathname.slice(`${objectPrefix}covers/`.length)));
+      return route.fulfill({ json: { Key: url.pathname.slice(objectPrefix.length) } });
+    }
+    if (url.pathname === `${objectPrefix}covers` && request.method() === 'DELETE') {
+      const { prefixes } = request.postDataJSON() as { prefixes: string[] };
+      mock.removed.push(...prefixes);
+      return route.fulfill({ json: [] });
     }
     return route.fulfill({ status: 501, json: { msg: `brak atrapy: ${describe(request)}` } });
   });
