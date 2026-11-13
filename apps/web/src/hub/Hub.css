@@ -44,16 +44,33 @@
   min-width: 0;
 }
 
-.app-header__logo {
+.app-header__edit {
+  flex-shrink: 0;
+}
+
+/* Przed założeniem klubu: przezroczysty wiersz z samym chipem po prawej (DS §17). */
+.app-header--bare {
+  justify-content: flex-end;
+  padding-inline: 0;
+  background: none;
+  border-color: transparent;
+}
+
+/* Pierwsze uruchomienie: blok wyśrodkowany w wysokości okna (min. 812 / 900, DS §17). */
+.hub--first-run {
+  min-height: 100dvh;
+}
+
+.hub--first-run .hub__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.hub__status {
   display: grid;
   place-items: center;
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: var(--c-inverse);
-  color: var(--c-on-inverse);
-  font: 700 13px/16px var(--font-display);
+  padding-block: 64px;
 }
 
 .app-header__name {

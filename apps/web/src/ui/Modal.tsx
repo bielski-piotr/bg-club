@@ -24,6 +24,11 @@ export interface ModalProps {
   /** Poziom na stosie (atrybut `data-popup-level`, po nim host przenosi fokus). */
   readonly level?: number | undefined;
   readonly children: ReactNode;
+  /**
+   * Stopka formularza (DS §7, §17): na desktopie przyciski do prawej, na telefonie dwa
+   * przyciski po równo na dole arkusza. Zostaje widoczna, gdy treść się przewija.
+   */
+  readonly footer?: ReactNode | undefined;
   readonly className?: string | undefined;
 }
 
@@ -43,6 +48,7 @@ export function Modal({
   covered = false,
   level,
   children,
+  footer,
   className,
 }: ModalProps) {
   const titleId = useId();
@@ -99,6 +105,7 @@ export function Modal({
           {count ? <p className="modal__count-line">{count}</p> : null}
           {children}
         </div>
+        {footer ? <footer className="modal__footer">{footer}</footer> : null}
       </div>
     </div>
   );

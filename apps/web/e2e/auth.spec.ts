@@ -15,7 +15,9 @@ import {
  */
 
 const loginHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'Zaloguj się' });
-const homeHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'BG Club' });
+// Atrapa domyślnie jest pustą instalacją: admin po zalogowaniu widzi pierwsze uruchomienie (CLUB-1).
+const homeHeading = (page: Page) =>
+  page.getByRole('heading', { level: 1, name: 'Załóż swój klub' });
 
 async function logIn(page: Page, hook: string, password: string) {
   await page.getByLabel('Hook').fill(hook);

@@ -155,7 +155,7 @@ test('zagnieżdżone popupy: adres, odświeżenie, Wstecz i Dalej', async ({ pag
 });
 
 test('link do popupu działa po zalogowaniu i nie wyprowadza z aplikacji', async ({ page }) => {
-  await mockSupabase(page, { members: MEMBERS });
+  await mockSupabase(page, { members: MEMBERS, club: { name: 'Planszówki', logo_path: null } });
   await page.goto('/');
   const start = page.url();
   await page.goto(`/?p=members&p=profile/${EWA.id}`);
@@ -170,7 +170,7 @@ test('link do popupu działa po zalogowaniu i nie wyprowadza z aplikacji', async
   await expect(page.getByRole('dialog', { name: 'Członkowie' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('heading', { level: 1, name: 'BG Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Planszówki' })).toBeVisible();
   await page.goBack();
   expect(page.url()).toBe(start);
 });

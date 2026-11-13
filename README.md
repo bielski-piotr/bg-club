@@ -10,7 +10,7 @@ Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres
 ## Struktura repozytorium
 
 ```
-apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; popupy: src/popups
+apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; klub: src/club; popupy: src/popups
 packages/accounts/     konta: hook, techniczny e-mail, hasła, skrypt bootstrapu admina (+ testy)
 packages/score-pad/    web componenty <score-pad> i <score-pad-editor> (źródła z POC, zadanie [013])
 packages/scoring/      czysta logika wyników: miejsca, remisy, punkty, serie (+ testy)
@@ -67,24 +67,24 @@ Studio Supabase (podgląd bazy) jest pod <http://127.0.0.1:54323>. Zatrzymanie: 
 
 Uruchamiane w katalogu głównym repozytorium.
 
-| Komenda                          | Co robi                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `pnpm dev`                       | serwer deweloperski aplikacji (port 5173)                                                        |
-| `pnpm build`                     | build produkcyjny do `apps/web/dist`                                                             |
-| `pnpm preview`                   | podgląd buildu (port 4173)                                                                       |
-| `pnpm typecheck`                 | sprawdzenie typów we wszystkich pakietach                                                        |
-| `pnpm lint`                      | ESLint i Prettier (`--check`)                                                                    |
-| `pnpm format`                    | formatowanie Prettierem                                                                          |
-| `pnpm test`                      | testy jednostkowe (Vitest) we wszystkich pakietach                                               |
-| `pnpm test:e2e`                  | testy E2E (Playwright): telefon 360 px i desktop, motyw jasny i ciemny                           |
-| `pnpm check`                     | typy, lint, testy jednostkowe i build naraz                                                      |
-| `pnpm db:start` / `pnpm db:stop` | start i stop lokalnego Supabase                                                                  |
-| `pnpm db:reset`                  | odtworzenie lokalnej bazy z migracji i seeda                                                     |
-| `pnpm bootstrap:admin:local`     | konto pierwszego administratora w lokalnym Supabase (dane z `supabase/seed/.env`)                |
-| `pnpm bootstrap:admin`           | to samo dla dowolnego projektu: adres i klucz service role ze zmiennych środowiskowych           |
-| `pnpm db:lint`                   | lint schematu bazy (`supabase db lint`)                                                          |
-| `pnpm test:sql`                  | testy SQL (pgTAP) na lokalnej bazie; wymaga `pnpm db:start` albo `pnpm exec supabase db start`   |
-| `pnpm test:auth`                 | testy integracyjne kont i logowania na lokalnym Supabase; wymagają pustej bazy (`pnpm db:reset`) |
+| Komenda                          | Co robi                                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                       | serwer deweloperski aplikacji (port 5173)                                                               |
+| `pnpm build`                     | build produkcyjny do `apps/web/dist`                                                                    |
+| `pnpm preview`                   | podgląd buildu (port 4173)                                                                              |
+| `pnpm typecheck`                 | sprawdzenie typów we wszystkich pakietach                                                               |
+| `pnpm lint`                      | ESLint i Prettier (`--check`)                                                                           |
+| `pnpm format`                    | formatowanie Prettierem                                                                                 |
+| `pnpm test`                      | testy jednostkowe (Vitest) we wszystkich pakietach                                                      |
+| `pnpm test:e2e`                  | testy E2E (Playwright): telefon 360 px i desktop, motyw jasny i ciemny                                  |
+| `pnpm check`                     | typy, lint, testy jednostkowe i build naraz                                                             |
+| `pnpm db:start` / `pnpm db:stop` | start i stop lokalnego Supabase                                                                         |
+| `pnpm db:reset`                  | odtworzenie lokalnej bazy z migracji i seeda                                                            |
+| `pnpm bootstrap:admin:local`     | konto pierwszego administratora w lokalnym Supabase (dane z `supabase/seed/.env`)                       |
+| `pnpm bootstrap:admin`           | to samo dla dowolnego projektu: adres i klucz service role ze zmiennych środowiskowych                  |
+| `pnpm db:lint`                   | lint schematu bazy (`supabase db lint`)                                                                 |
+| `pnpm test:sql`                  | testy SQL (pgTAP) na lokalnej bazie; wymaga `pnpm db:start` albo `pnpm exec supabase db start`          |
+| `pnpm test:auth`                 | testy integracyjne kont, logowania i klubu na lokalnym Supabase; wymagają pustej bazy (`pnpm db:reset`) |
 
 Pierwsze uruchomienie E2E na nowym komputerze wymaga przeglądarki Playwright:
 
@@ -113,19 +113,33 @@ Wygląd opisuje [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md). W kodzie:
 
 - **Tokeny i motywy:** [`apps/web/src/styles/tokens.css`](apps/web/src/styles/tokens.css). Motyw jasny, ciemny albo systemowy wybiera atrybut `data-theme` na `<html>` (`src/theme`); wybór jest na razie w `localStorage`, w zadaniu [010] trafi do profilu. Test `tokens.test.ts` sprawdza kontrast WCAG AA wszystkich par tekst/tło w obu motywach.
 - **Fonty:** Bricolage Grotesque, Instrument Sans i DM Mono z pakietów `@fontsource*` (bez zewnętrznego CDN).
-- **Komponenty:** [`apps/web/src/ui`](apps/web/src/ui), import z `src/ui`: przyciski, pola, wyszukiwarka, stepper, lista rozwijana, checkbox, radio, pigułki wyboru, chipy, próbki kolorów, awatary i stosy, karta widżetu z tacą i wierszami, zakładki, badge i chipy statusu, toasty (`ToastProvider` + `useToast`), banery, puste stany, spinner, szkielety, switch, slider i popup (`Modal`: okno 560/880 na desktopie, pełnoekranowy arkusz na telefonie). Teksty wbudowane w komponenty są w `t.ui`.
+- **Komponenty:** [`apps/web/src/ui`](apps/web/src/ui), import z `src/ui`: przyciski, pola, wyszukiwarka, stepper, lista rozwijana (opcjonalnie z wyszukiwarką, `searchLabel`), checkbox, radio, pigułki wyboru, chipy, próbki kolorów, awatary i stosy, karta widżetu z tacą i wierszami, zakładki, badge i chipy statusu, toasty (`ToastProvider` + `useToast`), banery, puste stany, spinner, szkielety, switch, slider i popup (`Modal`: okno 560/880 na desktopie, pełnoekranowy arkusz na telefonie; opcjonalna stopka formularza `footer`). Teksty wbudowane w komponenty są w `t.ui`.
 - **Galeria:** `pnpm dev` i <http://localhost:5173/design-system>. Pokazuje wszystkie komponenty i stany z przełącznikiem motywu; E2E sprawdza ją na 360 px i desktopie w obu motywach, także z axe (WCAG A/AA).
 
 ## Hub i popupy
 
 Wymagania: PRD §4, NFR-4, NFR-6; wygląd DS §6, §7, §17. Kod: [`apps/web/src/hub`](apps/web/src/hub), [`apps/web/src/popups`](apps/web/src/popups).
 
-- **Widok Klubu** (`/`) jest jedynym pełnoekranowym widokiem po zalogowaniu: nagłówek z klubem i chipem użytkownika oraz pięć widżetów w kolejności PRD (Spotkanie, Ranking, Timeline, Kolekcja, Członkowie). Od 1112 px treść ma 1064 px i dwie kolumny po 520 px o niezależnych wysokościach (`useMasonry`), węższe ekrany mają jedną kolumnę. Kolejność dokumentu (czytnik ekranu, Tab) jest zawsze ta z PRD. Widżety Spotkanie, Ranking, Timeline i Kolekcja mają na razie puste stany; ich treść dochodzi w kolejnych zadaniach.
+- **Widok Klubu** (`/`) jest jedynym pełnoekranowym widokiem po zalogowaniu (przed założeniem klubu: pierwsze uruchomienie, sekcja „Klub”): nagłówek z klubem i chipem użytkownika oraz pięć widżetów w kolejności PRD (Spotkanie, Ranking, Timeline, Kolekcja, Członkowie). Od 1112 px treść ma 1064 px i dwie kolumny po 520 px o niezależnych wysokościach (`useMasonry`), węższe ekrany mają jedną kolumnę. Kolejność dokumentu (czytnik ekranu, Tab) jest zawsze ta z PRD. Widżety Spotkanie, Ranking, Timeline i Kolekcja mają na razie puste stany; ich treść dochodzi w kolejnych zadaniach.
 - **Adres popupu:** stos popupów jest w parametrach `p`, od dołu do góry, np. `/?p=members&p=profile/<uuid>`. Odświeżenie i link wysłany komuś odtwarzają cały stos (także po zalogowaniu). Nieznany lub uszkodzony wpis otwiera popup „Nie znaleziono”, profil spoza klubu pokazuje „Nie znaleziono gracza”, a nieznana ścieżka stronę „Nie ma takiej strony”. Stos ma najwyżej 8 poziomów.
 - **Historia:** otwarcie popupu dodaje wpis historii, więc Wstecz zamyka górny popup, a Dalej otwiera go ponownie. ← i Esc zamykają górny popup, × cały stos. Popup otwarty z linku nie ma wpisu pod sobą, więc zamknięcie podmienia adres zamiast wychodzić z aplikacji.
 - **Dostępność:** popup ma `role="dialog"`, fokus po otwarciu, pętlę Tab, Esc, a po zamknięciu oddaje fokus elementowi, który go otworzył. Hub i niższe popupy dostają `inert`. Strona pod popupem się nie przewija, a arkusz na telefonie ma wysokość widocznego obszaru (`visualViewport`), więc klawiatura ekranowa nie zasłania treści.
 - **Awatar gracza** w dowolnym miejscu to link `ProfileLink` do jego profilu (`?p=profile/<id>`); Ctrl/Cmd+klik otwiera go w nowej karcie.
 - **Nowy popup:** rodzaj w `popups/routes.ts` (`PopupRoute`, `parseRoute`, `serializeRoute`), komponent z `PopupModal` i wpis w `hub/HubPopup.tsx`. Link do niego: `PopupLink` albo `usePopups().open(route)`.
+
+## Klub: pierwsze uruchomienie i strefa czasowa
+
+Wymagania: PRD CLUB-1…CLUB-4, NFR-10; wygląd DS §17. Kod: [`apps/web/src/club`](apps/web/src/club), dane w [`apps/web/src/hub/club.ts`](apps/web/src/hub/club.ts).
+
+- **Pierwsze uruchomienie** (CLUB-1, CLUB-3). Dopóki tabela `club` jest pusta, widok Klubu zamiast widżetów pokazuje ilustrację SVG (kolory stołu, cienia i ciemnej kostki z motywu, więc działa w obu motywach), powitanie i dla administratora przycisk **Dodaj klub**. Gracz widzi tekst „Klub nie został jeszcze założony” bez przycisku. Nagłówek ma wtedy tylko chip użytkownika.
+- **Formularz klubu** (CLUB-2) to popup `?p=club`: „Dodaj klub” przed założeniem, „Edytuj klub” z ołówka w nagłówku potem. Gracz pod tym adresem dostaje „Nie znaleziono”, a bazę i tak chroni RLS. Pola:
+  - **logo** (opcjonalne): przeglądarka zmniejsza obraz do 800 px po dłuższym boku i koduje do WebP (`club/image.ts`, jak okładki GAME-6), plik trafia do bucketu `covers` pod nową nazwą `club/logo-<uuid>.webp`. Bez logo kafelek pokazuje monogram nazwy. Po zapisie poprzedni plik jest usuwany, a przy nieudanym zapisie wiersza usuwany jest nowy;
+  - **nazwa** (wymagana, do 80 znaków, bez spacji na brzegach);
+  - **strefa czasowa**: lista stref IANA z przesunięciem UTC i wyszukiwarką (po nazwie bez `_` i `/`, bez polskich znaków albo po przesunięciu, np. „utc-05”). Domyślnie strefa przeglądarki, a gdy jej nie ma lub jest nieznana, `Europe/Warsaw`. Bazę sprawdza dodatkowo wyzwalacz `club_validate` (`pg_timezone_names`).
+- **Drugi klub nie powstanie.** Klucz główny `id = 1` odrzuca drugi wiersz (`23505`), także przy równoległych próbach. Formularz traktuje to jako „Klub został już założony”, zamyka się i pokazuje istniejący klub.
+- **Strefa a terminy** (NFR-10). Terminy spotkań są `timestamptz`, więc zmiana strefy klubu zmienia tylko sposób wyświetlania dat i granice roku, a nie zapisane chwile. Sprawdzają to test SQL `080_club` i `pnpm test:auth`.
+- **Logo w nagłówku** jest pobierane z prywatnego bucketu przez podpisany URL (ważny godzinę, `useCoverUrl`).
+- **Widżety po założeniu klubu** (CLUB-4) mają puste stany. Akcje admina w pustych stanach („Zaplanuj spotkanie”, „Dodaj grę”, „Dodaj członka”) dochodzą razem z tymi funkcjami (dodawanie członków w [009], planowanie spotkań i kolekcja w kolejnych zadaniach).
 
 ## Schemat bazy
 
@@ -192,7 +206,7 @@ Wymagania: PRD AUTH-1…AUTH-5, AUTH-7. Kod: migracja [`20261113000500_accounts_
 
 - **Jednostkowe:** Vitest, pliki `*.test.ts(x)` obok kodu. Logika wyników w `packages/scoring`.
 - **SQL:** pgTAP w `supabase/tests/database/*.test.sql`, uruchamiane przez `supabase test db`. Każdy plik działa w transakcji zakończonej `rollback` i używa wyłącznie fikcyjnych danych. Testy uprawnień (`050`, `060`) przełączają się na role `anon` i `authenticated` z tokenem w `request.jwt.claims`, tak jak PostgREST i Storage API.
-- **Integracyjne (Auth):** Vitest w `packages/accounts/integration/`, uruchamiane przez `pnpm test:auth` na lokalnym Supabase (Auth, PostgREST). Idą przez prawdziwe API: bootstrap na pustej instalacji (także równoległy), ponowienie, zamknięta rejestracja, logowanie hookiem, odświeżenie i wylogowanie, konto usunięte. Wymagają pustej bazy: przed kolejnym uruchomieniem `pnpm db:reset`.
+- **Integracyjne (Auth):** Vitest w `packages/accounts/integration/`, uruchamiane przez `pnpm test:auth` na lokalnym Supabase (Auth, PostgREST). Idą przez prawdziwe API: bootstrap na pustej instalacji (także równoległy), ponowienie, zamknięta rejestracja, logowanie hookiem, odświeżenie i wylogowanie, konto usunięte, równoległe zakładanie klubu i zmiana strefy. Wymagają pustej bazy: przed kolejnym uruchomieniem `pnpm db:reset`.
 - **E2E:** Playwright w `apps/web/e2e/`. Każdy test przechodzi w czterech projektach: `mobile-light`, `mobile-dark` (360×740) oraz `desktop-light`, `desktop-dark` (1280×900). API Supabase jest w nich atrapą ([`e2e/support/supabaseMock.ts`](apps/web/e2e/support/supabaseMock.ts)); prawdziwe Auth sprawdza `pnpm test:auth`.
 
 ## CI

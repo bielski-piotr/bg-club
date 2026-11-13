@@ -1,6 +1,16 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
 import { t } from '../i18n';
 import { cx } from './cx';
+import { normalizeSearch } from './search';
 import { hintId } from './fieldIds';
 import { Icon, type IconName } from './Icon';
 import './Field.css';
@@ -28,6 +38,43 @@ export interface SelectProps<T extends string> {
   readonly error?: string | undefined;
   readonly disabled?: boolean | undefined;
   readonly className?: string | undefined;
+  /**
+   * Wyszukiwarka nad listą (DS §17, strefa czasowa): etykieta pola wyszukiwania. Z nią panel
+   * jest pozycjonowany względem okna (`position: fixed`), więc nie przycina go przewijany popup.
+   */
+  readonly searchLabel?: string | undefined;
+  /** Czy opcja pasuje do wpisanego tekstu; domyślnie etykieta zawiera tekst (`normalizeSearch`). */
+  readonly matches?: ((option: SelectOption<T>, query: string) => boolean) | undefined;
+}
+
+const defaultMatches = (option: SelectOption<string>, query: string) =>
+  normalizeSearch(option.label).includes(query);
+
+/** Odstęp panelu od pola i od krawędzi okna; docelowa wysokość panelu z wyszukiwarką. */
+const PANEL_GAP = 6;
+const VIEW_MARGIN = 8;
+const PANEL_MAX_HEIGHT = 340;
+const PANEL_MIN_BELOW = 200;
+
+/** Położenie panelu z wyszukiwarką względem okna: pod polem, a gdy brak miejsca, nad nim. */
+function floatingStyle(trigger: HTMLElement): CSSProperties {
+  const rect = trigger.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const viewTop = viewport?.offsetTop ?? 0;
+  const viewBottom = viewTop + (viewport?.height ?? window.innerHeight);
+  const below = viewBottom - rect.bottom - PANEL_GAP - VIEW_MARGIN;
+  const above = rect.top - viewTop - PANEL_GAP - VIEW_MARGIN;
+  const down = below >= PANEL_MIN_BELOW || below >= above;
+  const space = Math.max(0, down ? below : above);
+  return {
+    position: 'fixed',
+    left: rect.left,
+    width: rect.width,
+    maxHeight: Math.min(PANEL_MAX_HEIGHT, space),
+    ...(down
+      ? { top: rect.bottom + PANEL_GAP }
+      : { top: 'auto', bottom: document.documentElement.clientHeight - rect.top + PANEL_GAP }),
+  };
 }
 
 /**
@@ -48,6 +95,8 @@ export function Select<T extends string>({
   error,
   disabled = false,
   className,
+  searchLabel,
+  matches = defaultMatches,
 }: SelectProps<T>) {
   const id = useId();
   const labelId = `${id}-label`;
@@ -58,14 +107,29 @@ export function Select<T extends string>({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const searchable = searchLabel !== undefined;
+  const [query, setQuery] = useState('');
+  const [panelStyle, setPanelStyle] = useState<CSSProperties | undefined>(undefined);
 
-  const selectedIndex = options.findIndex((o) => o.value === value);
-  const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined;
-  const enabledIndexes = options.flatMap((o, i) => (o.disabled ? [] : [i]));
+  const selected = options.find((o) => o.value === value);
+  const normalizedQuery = normalizeSearch(query);
+  const visible = useMemo(
+    () =>
+      searchable && normalizedQuery !== ''
+        ? options.filter((option) => matches(option, normalizedQuery))
+        : options,
+    [searchable, normalizedQuery, options, matches],
+  );
+  const enabledIndexes = visible.flatMap((o, i) => (o.disabled ? [] : [i]));
 
-  const openList = (index: number) => {
+  const openList = () => {
     if (disabled) return;
-    setActive(enabledIndexes.includes(index) ? index : (enabledIndexes[0] ?? -1));
+    setQuery('');
+    const index = options.findIndex((o) => o.value === value);
+    const enabled = options.flatMap((o, i) => (o.disabled ? [] : [i]));
+    setActive(enabled.includes(index) ? index : (enabled[0] ?? -1));
     setOpen(true);
   };
 
@@ -75,29 +139,63 @@ export function Select<T extends string>({
   };
 
   const choose = (index: number) => {
-    const option = options[index];
+    const option = visible[index];
     if (!option || option.disabled) return;
     if (option.value !== value) onChange(option.value);
     close(true);
   };
 
+  const onQueryChange = (next: string) => {
+    setQuery(next);
+    const normalized = normalizeSearch(next);
+    const list =
+      normalized === '' ? options : options.filter((option) => matches(option, normalized));
+    const index = list.findIndex((o) => o.value === value && !o.disabled);
+    setActive(index >= 0 ? index : list.findIndex((o) => !o.disabled));
+  };
+
   useEffect(() => {
     if (!open) return;
-    listRef.current?.focus();
+    (searchable ? searchRef.current : listRef.current)?.focus();
     const onPointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
+  }, [open, searchable]);
+
+  // Panel z wyszukiwarką idzie za polem przy przewijaniu popupu i zmianie okna (klawiatura).
+  useLayoutEffect(() => {
+    if (!open || !searchable) return;
+    const place = () => {
+      if (triggerRef.current) setPanelStyle(floatingStyle(triggerRef.current));
+    };
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Node && panelRef.current?.contains(event.target)) return;
+      place();
+    };
+    place();
+    const viewport = window.visualViewport;
+    window.addEventListener('resize', place);
+    document.addEventListener('scroll', onScroll, true);
+    viewport?.addEventListener('resize', place);
+    viewport?.addEventListener('scroll', place);
+    return () => {
+      window.removeEventListener('resize', place);
+      document.removeEventListener('scroll', onScroll, true);
+      viewport?.removeEventListener('resize', place);
+      viewport?.removeEventListener('scroll', place);
+    };
+  }, [open, searchable]);
 
   useEffect(() => {
     if (!open || active < 0) return;
     const el = document.getElementById(optionId(active));
     // jsdom nie ma scrollIntoView.
     el?.scrollIntoView?.({ block: 'nearest' });
+    // Panel z wyszukiwarką dostaje wysokość po pierwszym pomiarze, więc przewijamy też potem.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, active]);
+  }, [open, active, panelStyle, query]);
 
   const move = (delta: number) => {
     if (enabledIndexes.length === 0) return;
@@ -109,11 +207,11 @@ export function Select<T extends string>({
   const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
       event.preventDefault();
-      openList(selectedIndex);
+      openList();
     }
   };
 
-  const onListKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
+  const onListKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
@@ -124,15 +222,18 @@ export function Select<T extends string>({
         move(-1);
         return;
       case 'Home':
-        event.preventDefault();
-        setActive(enabledIndexes[0] ?? -1);
-        return;
       case 'End':
+        // W wyszukiwarce Home i End przesuwają kursor w tekście.
+        if (searchable) return;
         event.preventDefault();
-        setActive(enabledIndexes.at(-1) ?? -1);
+        setActive((event.key === 'Home' ? enabledIndexes[0] : enabledIndexes.at(-1)) ?? -1);
+        return;
+      case ' ':
+        if (searchable) return;
+        event.preventDefault();
+        choose(active);
         return;
       case 'Enter':
-      case ' ':
         event.preventDefault();
         choose(active);
         return;
@@ -146,7 +247,7 @@ export function Select<T extends string>({
         close(true);
         return;
       default:
-        if (event.key.length === 1 && /\S/.test(event.key)) {
+        if (!searchable && event.key.length === 1 && /\S/.test(event.key)) {
           const key = event.key.toLocaleLowerCase('pl-PL');
           const start = enabledIndexes.indexOf(active);
           const ordered = [
@@ -154,7 +255,7 @@ export function Select<T extends string>({
             ...enabledIndexes.slice(0, start + 1),
           ];
           const match = ordered.find((i) =>
-            options[i]?.label.toLocaleLowerCase('pl-PL').startsWith(key),
+            visible[i]?.label.toLocaleLowerCase('pl-PL').startsWith(key),
           );
           if (match !== undefined) setActive(match);
         }
@@ -162,6 +263,36 @@ export function Select<T extends string>({
   };
 
   const message = error || hint;
+
+  const items =
+    visible.length === 0 ? (
+      <li className="menu__empty" role="presentation">
+        {t.ui.noOptions}
+      </li>
+    ) : (
+      visible.map((option, index) => (
+        <li
+          key={option.value}
+          id={optionId(index)}
+          role="option"
+          aria-selected={option.value === value}
+          aria-disabled={option.disabled || undefined}
+          className={cx(
+            'menu__item',
+            option.value === value && 'menu__item--selected',
+            index === active && 'menu__item--active',
+          )}
+          onPointerMove={() => !option.disabled && setActive(index)}
+          onClick={() => choose(index)}
+        >
+          <span className="menu__label">{option.label}</span>
+          {option.meta ? <span className="menu__meta tnum">{option.meta}</span> : null}
+          <span className="menu__check">
+            {option.value === value ? <Icon name="check" /> : null}
+          </span>
+        </li>
+      ))
+    );
 
   return (
     <div className={cx('field', 'select', `select--${appearance}`, className)} ref={rootRef}>
@@ -186,7 +317,7 @@ export function Select<T extends string>({
           aria-describedby={message ? hintId(id) : undefined}
           aria-invalid={error ? true : undefined}
           disabled={disabled}
-          onClick={() => (open ? close(false) : openList(selectedIndex))}
+          onClick={() => (open ? close(false) : openList())}
           onKeyDown={onTriggerKeyDown}
         >
           {leadingIcon ? <Icon name={leadingIcon} className="select__lead" /> : null}
@@ -197,45 +328,59 @@ export function Select<T extends string>({
           <Icon name={open ? 'chevron-up' : 'chevron-down'} className="select__chevron" />
         </button>
         {open ? (
-          <ul
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            tabIndex={-1}
-            className="menu select__menu"
-            aria-labelledby={labelId}
-            aria-activedescendant={active >= 0 ? optionId(active) : undefined}
-            onKeyDown={onListKeyDown}
-          >
-            {options.length === 0 ? (
-              <li className="menu__empty" role="presentation">
-                {t.ui.noOptions}
-              </li>
-            ) : (
-              options.map((option, index) => (
-                <li
-                  key={option.value}
-                  id={optionId(index)}
-                  role="option"
-                  aria-selected={option.value === value}
-                  aria-disabled={option.disabled || undefined}
-                  className={cx(
-                    'menu__item',
-                    option.value === value && 'menu__item--selected',
-                    index === active && 'menu__item--active',
-                  )}
-                  onPointerMove={() => !option.disabled && setActive(index)}
-                  onClick={() => choose(index)}
-                >
-                  <span className="menu__label">{option.label}</span>
-                  {option.meta ? <span className="menu__meta tnum">{option.meta}</span> : null}
-                  <span className="menu__check">
-                    {option.value === value ? <Icon name="check" /> : null}
-                  </span>
-                </li>
-              ))
-            )}
-          </ul>
+          searchable ? (
+            <div
+              ref={panelRef}
+              className="menu select__menu select__menu--search"
+              style={panelStyle}
+            >
+              <div className="select__search">
+                <Icon name="search" className="select__search-icon" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  role="combobox"
+                  className="select__search-control"
+                  aria-label={searchLabel}
+                  aria-expanded="true"
+                  aria-controls={listId}
+                  aria-autocomplete="list"
+                  aria-activedescendant={active >= 0 ? optionId(active) : undefined}
+                  placeholder={searchLabel}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="done"
+                  value={query}
+                  onChange={(event) => onQueryChange(event.target.value)}
+                  onKeyDown={onListKeyDown}
+                />
+              </div>
+              <ul
+                ref={listRef}
+                id={listId}
+                role="listbox"
+                tabIndex={-1}
+                className="select__options"
+                aria-labelledby={labelId}
+              >
+                {items}
+              </ul>
+            </div>
+          ) : (
+            <ul
+              ref={listRef}
+              id={listId}
+              role="listbox"
+              tabIndex={-1}
+              className="menu select__menu"
+              aria-labelledby={labelId}
+              aria-activedescendant={active >= 0 ? optionId(active) : undefined}
+              onKeyDown={onListKeyDown}
+            >
+              {items}
+            </ul>
+          )
         ) : null}
       </div>
       {message ? (

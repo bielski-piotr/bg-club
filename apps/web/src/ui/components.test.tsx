@@ -330,6 +330,53 @@ describe('poprawki po code review', () => {
     expect(input).not.toHaveAttribute('aria-invalid');
   });
 
+  it('z wyszukiwarką filtruje bez polskich znaków i wybiera Enterem (DS §17)', () => {
+    const onChange = vi.fn();
+    render(
+      <Select
+        label="Strefa"
+        options={[
+          { value: 'Europe/Warsaw', label: 'Europe/Warsaw', meta: 'UTC+01:00' },
+          { value: 'America/New_York', label: 'America/New_York', meta: 'UTC−05:00' },
+          { value: 'Asia/Ho_Chi_Minh', label: 'Asia/Ho_Chi_Minh', meta: 'UTC+07:00' },
+        ]}
+        value="Europe/Warsaw"
+        onChange={onChange}
+        searchLabel="Szukaj strefy"
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: /Strefa/ });
+    fireEvent.click(trigger);
+    const search = screen.getByRole('combobox', { name: 'Szukaj strefy' });
+    expect(search).toHaveFocus();
+    expect(screen.getAllByRole('option')).toHaveLength(3);
+    // Zaznaczona jest bieżąca wartość.
+    expect(search).toHaveAttribute(
+      'aria-activedescendant',
+      screen.getByRole('option', { name: /Europe\/Warsaw/ }).id,
+    );
+
+    fireEvent.change(search, { target: { value: 'hó chi' } });
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Asia/Ho_Chi_MinhUTC+07:00',
+    ]);
+    fireEvent.change(search, { target: { value: 'xyz' } });
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.getByText(t.ui.noOptions)).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'america' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('America/New_York');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+
+    // Esc zamyka listę i nie zamyka popupu wyżej (stopPropagation).
+    fireEvent.click(trigger);
+    // `fireEvent` zwraca `false`, gdy obsługa wywołała `preventDefault`.
+    expect(fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' })).toBe(false);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
   it('Tab w otwartej liście oddaje fokus przyciskowi listy', () => {
     render(
       <Select label="Rok" options={[{ value: 'a', label: 'A' }]} value="a" onChange={() => {}} />,

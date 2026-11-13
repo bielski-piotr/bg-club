@@ -1,5 +1,6 @@
 /**
- * Testy integracyjne kont i logowania na lokalnym Supabase (PRD AUTH-1…AUTH-5, AUTH-7).
+ * Testy integracyjne kont i logowania na lokalnym Supabase (PRD AUTH-1…AUTH-5, AUTH-7)
+ * oraz zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10).
  *
  * Idą przez prawdziwe API (Auth, PostgREST) z tymi samymi kluczami co aplikacja i skrypt
  * bootstrapu. Startują od pustej instalacji i nie sprzątają po sobie (konta administratora nie
@@ -336,6 +337,69 @@ describe('konta i logowanie na pustej instalacji', () => {
     it('na koniec w klubie jest dokładnie jeden administrator', async () => {
       const { data } = await service.from('profiles').select('hook').eq('role', 'admin');
       expect(data).toEqual([{ hook: admin.hook }]);
+    });
+  });
+
+  describe('zakładanie klubu (CLUB-2, [008])', () => {
+    const clubAdmin: { client?: SupabaseClient } = {};
+
+    it('gracz nie założy klubu na pustej instalacji', async () => {
+      const player = await createPlayer('Ewa', 'Klubowa');
+      const { client } = await signIn(player.hook, player.password);
+      const { error } = await client
+        .from('club')
+        .insert({ name: 'Klub Ewy', timezone: 'Europe/Warsaw' });
+      expect(error?.code).toBe('42501');
+      expect(await countRows('club')).toBe(0);
+    });
+
+    it('równoległe próby admina tworzą dokładnie jeden klub', async () => {
+      // Jedna sesja (limit logowań Auth), ale cztery równoległe żądania jak z czterech kart.
+      const { client } = await signIn(admin.hook, admin.password);
+      clubAdmin.client = client;
+      const attempts = await Promise.all(
+        Array.from({ length: 4 }, (_, i) =>
+          client
+            .from('club')
+            .insert({ name: `Klub z karty ${i + 1}`, timezone: 'Europe/Warsaw' })
+            .select('name, timezone, logo_path')
+            .single(),
+        ),
+      );
+      const created = attempts.filter((attempt) => attempt.error === null);
+      expect(created).toHaveLength(1);
+      expect(attempts.filter((attempt) => attempt.error?.code === '23505')).toHaveLength(3);
+      const { data } = await service.from('club').select('name');
+      expect(data).toEqual([{ name: created[0]?.data?.name }]);
+    });
+
+    it('zmiana strefy nie przesuwa zapisanych terminów (NFR-10)', async () => {
+      const { client } = clubAdmin;
+      if (!client) throw new Error('brak sesji administratora z poprzedniego testu');
+      const startsAt = '2026-11-20T17:00:00+00:00';
+      const meeting = await client
+        .from('meetings')
+        .insert({ title: 'Listopadowe granie', starts_at: startsAt })
+        .select('id')
+        .single();
+      expect(meeting.error).toBeNull();
+
+      const update = await client
+        .from('club')
+        .update({ timezone: 'America/New_York' })
+        .eq('id', 1)
+        .select('timezone')
+        .single();
+      expect(update.data).toEqual({ timezone: 'America/New_York' });
+      const { data } = await client
+        .from('meetings')
+        .select('starts_at')
+        .eq('id', meeting.data?.id ?? '')
+        .single();
+      expect(new Date(data?.starts_at ?? '').toISOString()).toBe('2026-11-20T17:00:00.000Z');
+
+      const invalid = await client.from('club').update({ timezone: 'Europa/Warszawa' }).eq('id', 1);
+      expect(invalid.error?.code).toBe('23514');
     });
   });
 });
