@@ -224,6 +224,8 @@ describe('sesja (AUTH-5, AUTH-7)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('Sesja wygasła. Zaloguj się ponownie.')).not.toBeInTheDocument();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    // Popup poprzedniej sesji nie zostaje w adresie dla kolejnej osoby.
+    expect(window.location.search).toBe('');
   });
 
   it('kończy sesję usuniętego konta, gdy RLS nie zwraca profilu', async () => {

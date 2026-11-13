@@ -41,6 +41,12 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
   const stack = useMemo(() => parseStack(search), [search]);
   /** Po `history.go(-n)` z „zamknij wszystko”: wyczyść popupy z wpisu, na który wrócimy. */
   const clearAfterPop = useRef(false);
+  /**
+   * Trwa cofanie historii zlecone przez aplikację (`history.back` / `go` są asynchroniczne).
+   * Do zdarzenia `popstate` adres jest jeszcze stary, więc kolejne Esc, ← albo × byłyby liczone
+   * od złego wpisu i mogłyby wyjść poza aplikację; do tego czasu są ignorowane.
+   */
+  const navigating = useRef(false);
   const openerList = useRef<(Element | null)[]>([]);
   const openers = useMemo<PopupOpeners>(
     () => ({
@@ -58,6 +64,7 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
 
   useEffect(() => {
     const onPopState = () => {
+      navigating.current = false;
       if (clearAfterPop.current) {
         clearAfterPop.current = false;
         if (parseStack(window.location.search).length > 0) {
@@ -72,6 +79,7 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
 
   const open = useCallback(
     (route: PopupRoute) => {
+      if (navigating.current) return;
       const current = parseStack(window.location.search);
       openers.remember(current.length, document.activeElement);
       const state: PopupHistoryState = { bgPopupDepth: currentDepth() + 1 };
@@ -82,9 +90,11 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
   );
 
   const back = useCallback(() => {
+    if (navigating.current) return;
     const current = parseStack(window.location.search);
     if (current.length === 0) return;
     if (currentDepth() > 0) {
+      navigating.current = true;
       window.history.back();
       return;
     }
@@ -93,9 +103,10 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
   }, []);
 
   const closeAll = useCallback(() => {
-    if (parseStack(window.location.search).length === 0) return;
+    if (navigating.current || parseStack(window.location.search).length === 0) return;
     const depth = currentDepth();
     if (depth > 0) {
+      navigating.current = true;
       clearAfterPop.current = true;
       window.history.go(-depth);
       return;

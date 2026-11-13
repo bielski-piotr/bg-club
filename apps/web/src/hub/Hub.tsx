@@ -35,7 +35,7 @@ export function Hub({ me }: { readonly me: Profile }) {
   return (
     <PopupHost renderPopup={renderPopup} fallbackFocusId={MAIN_ID}>
       <div className="hub">
-        <AppHeader club={club.data ?? null} me={me} />
+        <AppHeader club={club.isPending ? undefined : (club.data ?? null)} me={me} />
         <main id={MAIN_ID} className="hub__main" tabIndex={-1} aria-label={t.hub.widgetsLabel}>
           <div ref={grid} className="hub__grid">
             <div className="hub__slot hub__slot--left">

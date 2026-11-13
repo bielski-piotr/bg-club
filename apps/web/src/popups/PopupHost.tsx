@@ -74,17 +74,21 @@ export function PopupHost({ children, renderPopup, fallbackFocusId }: PopupHostP
       if (!viewport) return;
       root.style.setProperty('--vv-height', `${viewport.height}px`);
       root.style.setProperty('--vv-top', `${viewport.offsetTop}px`);
+    };
+    const resize = () => {
+      sync();
       // Klawiatura ekranowa zmniejsza widoczny obszar: pole z fokusem ma zostać widoczne.
+      // Tylko przy zmianie rozmiaru, nie przy przewijaniu (to walczyłoby z przesuwaniem palcem).
       const active = document.activeElement;
       if (active instanceof HTMLElement && active.matches('input, textarea, [contenteditable]')) {
         active.scrollIntoView({ block: 'nearest' });
       }
     };
     sync();
-    viewport?.addEventListener('resize', sync);
+    viewport?.addEventListener('resize', resize);
     viewport?.addEventListener('scroll', sync);
     return () => {
-      viewport?.removeEventListener('resize', sync);
+      viewport?.removeEventListener('resize', resize);
       viewport?.removeEventListener('scroll', sync);
       root.classList.remove('popup-open');
       root.style.removeProperty('--vv-height');

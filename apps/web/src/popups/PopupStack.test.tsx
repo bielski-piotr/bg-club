@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PopupLink } from './PopupLink';
 import { PopupHost } from './PopupHost';
 import { PopupModal } from './PopupModal';
@@ -108,6 +108,21 @@ describe('stos popupów', () => {
     expect(window.location.search).toBe('');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Członkowie klubu' })).toHaveFocus();
+  });
+
+  it('szybkie podwójne Esc nie cofa historii poza aplikację', async () => {
+    renderStack();
+    fireEvent.click(screen.getByRole('link', { name: 'Członkowie klubu' }));
+    const back = vi.spyOn(window.history, 'back');
+    await act(async () => {
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      fireEvent.click(screen.getByRole('button', { name: 'Zamknij' }));
+      await new Promise((resolve) => window.addEventListener('popstate', resolve, { once: true }));
+    });
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe('');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('Esc obsłużone przez pole w popupie nie zamyka popupu', () => {

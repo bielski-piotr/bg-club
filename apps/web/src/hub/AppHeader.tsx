@@ -1,12 +1,15 @@
 import { format, t } from '../i18n';
 import { ProfileLink } from '../profile/ProfileLink';
 import { avatarPerson, fullName, type Profile } from '../profile/profiles';
-import { Avatar, monogram } from '../ui';
+import { Avatar, monogram, Skeleton } from '../ui';
 import type { Club } from './club';
 
 interface AppHeaderProps {
-  /** `null` = klub jeszcze nie założony (zadanie [008]); wtedy nazwa aplikacji. */
-  readonly club: Club | null;
+  /**
+   * `null` = klub jeszcze nie założony (zadanie [008]) albo błąd wczytania: wtedy nazwa aplikacji.
+   * `undefined` = wczytywanie: szkielet zamiast nazwy, żeby nie mignęła nazwa aplikacji.
+   */
+  readonly club: Club | null | undefined;
   readonly me: Profile;
 }
 
@@ -15,14 +18,26 @@ interface AppHeaderProps {
  * otwiera własny profil (PRD §4). Ołówek edycji klubu i menu awatara: zadania [008], [010].
  */
 export function AppHeader({ club, me }: AppHeaderProps) {
-  const name = club?.name ?? t.app.name;
+  const name = club === undefined ? undefined : (club?.name ?? t.app.name);
   return (
     <header className="app-header">
       <div className="app-header__club">
-        <span className="app-header__logo" aria-hidden="true">
-          {monogram(name)}
-        </span>
-        <h1 className="app-header__name">{name}</h1>
+        {name === undefined ? (
+          <>
+            <Skeleton width={36} height={36} radius={12} />
+            <h1 className="app-header__name">
+              <Skeleton width={140} height={18} />
+              <span className="sr-only">{t.ui.loading}</span>
+            </h1>
+          </>
+        ) : (
+          <>
+            <span className="app-header__logo" aria-hidden="true">
+              {monogram(name)}
+            </span>
+            <h1 className="app-header__name">{name}</h1>
+          </>
+        )}
       </div>
       <ProfileLink
         id={me.id}

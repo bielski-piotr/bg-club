@@ -81,7 +81,7 @@ describe('widżet członków (MEM-1)', () => {
 
   it('pokazuje widżety w kolejności PRD i awatary prowadzące do profili', async () => {
     renderHub([ADA, ...OTHERS]);
-    expect(screen.getByRole('heading', { level: 1, name: 'BG Club' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'BG Club' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Spotkanie',
       'Ranking',
