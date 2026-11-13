@@ -408,12 +408,14 @@ club                id (jeden wiersz, wymuszony ograniczeniem), name, logo_path,
 profiles            id (uuid = auth.users.id, bez kaskady), hook (unique), first_name, last_name,
                     avatar_path, role ('admin'|'player'), theme ('light'|'dark'|'system'),
                     created_at, deleted_at
-games               id, title, cover_path, min_players, max_players,
+games               id, title, title_search (unaccent + lower, generowana), cover_path,
+                    min_players, max_players,
                     placement_points int[]  -- długość = max_players
                     created_at, updated_at, deleted_at
 scorepads           id, game_id, name, current_version_id, created_at, deleted_at
-scorepad_versions   id, scorepad_id, template jsonb (format score-pad v2 + ranking),
-                    image_path, player_slots, created_at          -- niezmienne
+scorepad_versions   id, scorepad_id, version (1, 2, … w notesie), template jsonb
+                    (format score-pad v2 + ranking), image_path, player_slots,
+                    created_at                                     -- niezmienne
 meetings            id, title, starts_at timestamptz, status ('planned'|'in_progress'|'finished'),
                     voting_open bool, host_id (prowadzący, null = admin), created_by,
                     started_at, finished_at, created_at, updated_at
@@ -423,11 +425,14 @@ meeting_games       meeting_id, game_id, position                     -- opublik
 plays               id, meeting_id, game_id, scorepad_version_id,
                     status ('draft'|'saved'), sheet jsonb, sheet_image_path,
                     points_snapshot int[], started_by, started_at, saved_at
-play_results        play_id, profile_id, seat, values jsonb, ranking_value numeric,
-                    place int, tied bool, points int, is_win bool     PK (play_id, profile_id)
+play_results        play_id, meeting_id, profile_id, seat, scores jsonb (`values` z PAD-7),
+                    ranking_value numeric, place int, tied bool, points int, is_win bool
+                    PK (play_id, profile_id)
 achievement_unlocks profile_id, achievement_id, unlocked_at, meeting_id, play_id
                     PK (profile_id, achievement_id)
 ```
+
+Schemat wdrożony w zadaniu [003] (`supabase/migrations/`) realizuje ten model. Ograniczenia wymuszane w bazie opisuje README (sekcja „Schemat bazy”).
 
 - **Statystyki i leaderboardy** liczone są w bazie: widoki i funkcje SQL, np. `leaderboard(kind, year)`, `player_stats(profile_id, year)`, `game_stats(game_id)`. Przy skali jednego klubu (dziesiątki graczy, tysiące partii) wystarczą zwykłe zapytania. Seria jest wyliczana funkcją okienkową po spotkaniach.
 - **Zapis partii** odbywa się przez funkcję RPC `save_play(play_id, results)` w jednej transakcji. Funkcja sprawdza uprawnienia (admin lub prowadzący, spotkanie w trakcie, gracze są uczestnikami), wylicza punkty i wygrane (§5.6) i przelicza osiągnięcia graczy partii.
