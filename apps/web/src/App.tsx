@@ -8,7 +8,7 @@ interface AppProps {
 export function App({ config }: AppProps) {
   return (
     <main className="shell">
-      <section className="card" aria-labelledby="page-title">
+      <section className="start-card" aria-labelledby="page-title">
         <p className="eyebrow">{t.app.tagline}</p>
         {config.ok ? (
           <StartScreen supabaseUrl={config.config.supabaseUrl} />

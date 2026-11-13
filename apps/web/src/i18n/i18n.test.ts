@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { format, t } from './index';
+import { format, plural, t } from './index';
 
 describe('format', () => {
   it('podstawia parametry', () => {
@@ -31,5 +31,25 @@ describe('słownik pl', () => {
     };
     walk(t, '');
     expect(empty).toEqual([]);
+  });
+});
+
+describe('plural', () => {
+  const forms = { one: '{n} głos', few: '{n} głosy', many: '{n} głosów' };
+
+  it('wybiera polską formę liczby mnogiej', () => {
+    expect(plural(1, forms)).toBe('1 głos');
+    expect(plural(2, forms)).toBe('2 głosy');
+    expect(plural(4, forms)).toBe('4 głosy');
+    expect(plural(5, forms)).toBe('5 głosów');
+    expect(plural(12, forms)).toBe('12 głosów');
+    expect(plural(22, forms)).toBe('22 głosy');
+    expect(plural(0, forms)).toBe('0 głosów');
+  });
+
+  it('podstawia dodatkowe parametry', () => {
+    expect(plural(8, t.ui.stackOthers, { names: 'Ania, Bartek' })).toBe(
+      'Ania, Bartek i 8 innych osób',
+    );
   });
 });

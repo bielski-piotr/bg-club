@@ -1,0 +1,70 @@
+/* Awatary i stosy (DS §8). */
+.avatar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  color: var(--c-on-avatar);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  user-select: none;
+}
+
+.avatar--removed {
+  background: var(--c-avatar-removed);
+  color: var(--c-on-avatar-removed);
+}
+
+.avatar--ring-white {
+  box-shadow: 0 0 0 2px var(--c-on-accent);
+}
+
+.avatar--ring-accent {
+  box-shadow:
+    0 0 0 3px var(--c-surface),
+    0 0 0 6px var(--c-accent);
+}
+
+.avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar__monogram {
+  white-space: nowrap;
+}
+
+/* DS §8: w stosie 64 litery przesunięte w lewo od zakładki. */
+.avatar--shifted .avatar__monogram {
+  padding-right: 12px;
+}
+
+.avatar-stack {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.avatar-stack__item {
+  position: absolute;
+  top: 0;
+  box-shadow: 0 0 0 2px var(--c-surface);
+}
+
+.avatar-stack--large .avatar-stack__item {
+  box-shadow: 0 0 0 3px var(--c-surface);
+}
+
+.avatar-stack__more {
+  background: var(--c-tint);
+  color: var(--c-ink);
+  font: 700 13px/16px var(--font-display);
+}
+
+.avatar-stack--large .avatar-stack__more {
+  font-size: 20px;
+  line-height: 24px;
+}

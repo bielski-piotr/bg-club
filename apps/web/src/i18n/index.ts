@@ -17,3 +17,21 @@ export function format(template: string, params: FormatParams): string {
     return value === undefined ? match : String(value);
   });
 }
+
+export interface PluralForms {
+  /** 1 (np. „1 głos”). */
+  readonly one: string;
+  /** 2–4, 22–24, … bez 12–14 (np. „3 głosy”). */
+  readonly few: string;
+  /** 0, 5–21, 25–31, … (np. „5 głosów”). */
+  readonly many: string;
+}
+
+const pluralRules = new Intl.PluralRules('pl-PL');
+
+/** Wybiera polską formę liczby mnogiej i podstawia `{n}` oraz pozostałe parametry. */
+export function plural(n: number, forms: PluralForms, params: FormatParams = {}): string {
+  const rule = Number.isInteger(n) ? pluralRules.select(n) : 'other';
+  const template = rule === 'one' ? forms.one : rule === 'few' ? forms.few : forms.many;
+  return format(template, { ...params, n });
+}

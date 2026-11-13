@@ -1,69 +1,9 @@
 /*
- * Podstawowe tokeny z DESIGN-SYSTEM.md §3–§5. Motyw jasny pochodzi z DS,
- * ciemny jest wyprowadzony (DS §0, NFR-5). Pełny system motywów: zadanie [006].
+ * Style aplikacji. Tokeny motywów: styles/tokens.css (DS §3–§5), style globalne: styles/base.css.
+ * Komponenty design systemu mają własne pliki CSS w src/ui.
  */
-:root {
-  color-scheme: light;
-  --color-page: #f3f4f8;
-  --color-surface: #ffffff;
-  --color-border: #e4e7f0;
-  --color-tint: #f1f3f9;
-  --color-ink: #161a2b;
-  --color-muted: #6b7188;
-  --color-accent: #2f54eb;
-  --color-danger: #d63a3a;
-  --shadow-card: 0 20px 48px -28px #1e285a47;
-  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-ui: 'Instrument Sans', system-ui, sans-serif;
-  --font-mono: 'DM Mono', ui-monospace, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
-    --color-page: #0f1220;
-    --color-surface: #181c2e;
-    --color-border: #2a2f45;
-    --color-tint: #22273b;
-    --color-ink: #edeff7;
-    --color-muted: #a3a9c0;
-    --color-accent: #8da2ff;
-    --color-danger: #ff8a8a;
-    --shadow-card: 0 20px 48px -28px #00000099;
-  }
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --color-page: #0f1220;
-  --color-surface: #181c2e;
-  --color-border: #2a2f45;
-  --color-tint: #22273b;
-  --color-ink: #edeff7;
-  --color-muted: #a3a9c0;
-  --color-accent: #8da2ff;
-  --color-danger: #ff8a8a;
-  --shadow-card: 0 20px 48px -28px #00000099;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-}
-
-body {
-  min-height: 100dvh;
-  background: var(--color-page);
-  color: var(--color-ink);
-  font: 500 12px/16px var(--font-ui);
-  -webkit-font-smoothing: antialiased;
-}
+@import './styles/tokens.css';
+@import './styles/base.css';
 
 .shell {
   display: grid;
@@ -72,21 +12,21 @@ body {
   padding: 16px;
 }
 
-.card {
+.start-card {
   width: 100%;
   max-width: 520px;
   padding: 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 24px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
   box-shadow: var(--shadow-card);
   overflow-wrap: anywhere;
 }
 
 @media (min-width: 768px) {
-  .card {
+  .start-card {
     padding: 28px;
-    border-radius: 28px;
+    border-radius: var(--r-card-lg);
   }
 }
 
@@ -95,7 +35,7 @@ body {
   font-size: 13px;
   line-height: 16px;
   font-weight: 600;
-  color: var(--color-accent);
+  color: var(--c-accent-text);
 }
 
 .title {
@@ -115,14 +55,14 @@ body {
   margin: 8px 0 0;
   font-size: 14px;
   line-height: 20px;
-  color: var(--color-muted);
+  color: var(--c-muted);
 }
 
 .hint {
   margin-top: 16px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: var(--color-tint);
+  background: var(--c-tint);
 }
 
 .issues {
@@ -130,7 +70,7 @@ body {
   padding-left: 20px;
   font-size: 14px;
   line-height: 20px;
-  color: var(--color-danger);
+  color: var(--c-danger-text);
 }
 
 .meta {
@@ -143,7 +83,7 @@ body {
 
 .meta dt {
   font-weight: 600;
-  color: var(--color-muted);
+  color: var(--c-muted);
 }
 
 .meta dd {

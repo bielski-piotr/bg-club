@@ -1,0 +1,196 @@
+/*
+ * Tokeny design systemu (DESIGN-SYSTEM.md §3–§5, §8–§12, §18).
+ *
+ * Motyw jasny odwzorowuje wartości hex z DS. Trzy wartości są przyciemnione minimalnie,
+ * żeby tekst spełniał WCAG AA (NFR-6); opis w DS §3.1:
+ *   - tekst pomocniczy #6B7188 → #686D84 (na #F1F3F9 miał 4,36:1),
+ *   - tekst „danger” na tle #FDECEC → #CC2A2A (4,06:1),
+ *   - wypełnienia awatarów (białe monogramy) → paleta --c-avatar-* poniżej.
+ * Motyw ciemny nie ma artboardów w DS (§0); jest wyprowadzony z tych samych ról. Akcent jest
+ * w nim jaśniejszy (#4064F0), żeby wypełnienia (checkbox, switch) miały 3:1 na tle karty.
+ *
+ * Motyw wybiera atrybut `data-theme` na <html>: `light`, `dark` albo brak (systemowy).
+ * Test `tokens.test.ts` sprawdza kontrast par tekst/tło w obu motywach.
+ */
+:root {
+  color-scheme: light;
+
+  /* Powierzchnie */
+  --c-page: #f3f4f8;
+  --c-surface: #ffffff;
+  --c-border: #e4e7f0;
+  --c-tint: #f1f3f9;
+  --c-tint-hover: #e4e7f0;
+
+  /* Tekst */
+  --c-ink: #161a2b;
+  --c-muted: #686d84;
+  --c-disabled: #c9cdda;
+  --c-disabled-bg: #f1f3f9;
+
+  /* Akcent */
+  --c-accent: #2f54eb;
+  --c-accent-hover: #2545d6;
+  --c-accent-text: #2f54eb;
+  --c-on-accent: #ffffff;
+  --c-on-accent-muted: #ffffffe6;
+  --c-accent-tint: #eef2ff;
+  --c-accent-tint-strong: #eaf0ff;
+  --c-accent-wash: #2f54eb14;
+
+  /* Stany */
+  --c-danger: #d63a3a;
+  --c-danger-hover: #c02e2e;
+  --c-danger-text: #d63a3a;
+  --c-danger-strong: #cc2a2a;
+  --c-danger-tint: #fdecec;
+  --c-warning-bg: #fff4d6;
+  --c-warning-icon: #8a5a00;
+  --c-warning-text: #6b4500;
+  --c-success-text: #1f7a4d;
+  --c-success-bg: #e3f5ea;
+
+  /* Odwrócone (aktywna zakładka, toast) */
+  --c-inverse: #161a2b;
+  --c-inverse-hover: #2a2f45;
+  --c-on-inverse: #ffffff;
+  --c-toast: #161a2b;
+  --c-toast-success: #7ce0a3;
+  --c-toast-error: #ffb4b4;
+
+  --c-scrim: #161a2b80;
+  --c-knob: #ffffff;
+
+  /* Cienie (granat #1E285A) */
+  --shadow-card: 0 20px 48px -28px #1e285a47;
+  --shadow-modal: 0 32px 80px -24px #1e285a59;
+  --shadow-menu: 0 16px 40px -12px #1e285a40;
+  --shadow-toast: 0 16px 40px -16px #1e285a59;
+
+  /* Paleta awatarów i okładek (DS §3), przyciemniona do 4,5:1 z białym monogramem */
+  --c-avatar-0: #986c15; /* amber #E09F1F */
+  --c-avatar-1: #d1441b; /* vermilion #E4572E */
+  --c-avatar-2: #c35037; /* brick #C8553D */
+  --c-avatar-3: #607e34; /* olive #6C8E3B */
+  --c-avatar-4: #2b7d9f; /* teal-blue #2E86AB */
+  --c-avatar-5: #8d59d5; /* purple #8E5BD6 */
+  --c-avatar-6: #30835c; /* green #3A9D6E */
+  --c-avatar-7: #d42e8c; /* pink #D9479A */
+  --c-avatar-8: #4b6bdb; /* blue #4B6BDB */
+  --c-avatar-9: #228175; /* teal #2A9D8F */
+  --c-avatar-removed: #c9cdda;
+  --c-on-avatar-removed: #4a5068;
+  --c-on-avatar: #ffffff;
+
+  /* Typografia (DS §4) */
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-ui: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+
+  /* Promienie (DS §5) */
+  --r-pill: 999px;
+  --r-row: 14px;
+  --r-tray: 22px;
+  --r-card: 24px;
+  --r-card-lg: 28px;
+  --r-dialog: 24px;
+  --r-menu: 16px;
+  --r-menu-item: 10px;
+  --r-toast: 16px;
+
+  --focus-ring: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--c-accent-text);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Motyw ciemny: wartości wspólne dla `prefers-color-scheme: dark` i `data-theme="dark"`. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --c-page: #0f1220;
+    --c-surface: #181c2e;
+    --c-border: #2a2f45;
+    --c-tint: #22273b;
+    --c-tint-hover: #2e3450;
+    --c-ink: #edeff7;
+    --c-muted: #a3a9c0;
+    --c-disabled: #5a6080;
+    --c-disabled-bg: #22273b;
+    --c-accent: #4064f0;
+    --c-accent-hover: #3558ee;
+    --c-accent-text: #8da2ff;
+    --c-on-accent: #ffffff;
+    --c-on-accent-muted: #ffffff;
+    --c-accent-tint: #232c55;
+    --c-accent-tint-strong: #232c55;
+    --c-accent-wash: #8da2ff1f;
+    --c-danger: #d63a3a;
+    --c-danger-hover: #c02e2e;
+    --c-danger-text: #ff8a8a;
+    --c-danger-strong: #ff8a8a;
+    --c-danger-tint: #3a1f26;
+    --c-warning-bg: #3a2f12;
+    --c-warning-icon: #e0b44f;
+    --c-warning-text: #f5d48a;
+    --c-success-text: #6fd39c;
+    --c-success-bg: #15301f;
+    --c-inverse: #edeff7;
+    --c-inverse-hover: #d5d9e8;
+    --c-on-inverse: #161a2b;
+    --c-toast: #2a2f45;
+    --c-toast-success: #7ce0a3;
+    --c-toast-error: #ffb4b4;
+    --c-scrim: #000000a6;
+    --c-knob: #ffffff;
+    --shadow-card: 0 20px 48px -28px #00000099;
+    --shadow-modal: 0 32px 80px -24px #000000b3;
+    --shadow-menu: 0 16px 40px -12px #00000099;
+    --shadow-toast: 0 16px 40px -16px #000000b3;
+    --c-avatar-removed: #4a5068;
+    --c-on-avatar-removed: #edeff7;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --c-page: #0f1220;
+  --c-surface: #181c2e;
+  --c-border: #2a2f45;
+  --c-tint: #22273b;
+  --c-tint-hover: #2e3450;
+  --c-ink: #edeff7;
+  --c-muted: #a3a9c0;
+  --c-disabled: #5a6080;
+  --c-disabled-bg: #22273b;
+  --c-accent: #4064f0;
+  --c-accent-hover: #3558ee;
+  --c-accent-text: #8da2ff;
+  --c-on-accent: #ffffff;
+  --c-on-accent-muted: #ffffff;
+  --c-accent-tint: #232c55;
+  --c-accent-tint-strong: #232c55;
+  --c-accent-wash: #8da2ff1f;
+  --c-danger: #d63a3a;
+  --c-danger-hover: #c02e2e;
+  --c-danger-text: #ff8a8a;
+  --c-danger-strong: #ff8a8a;
+  --c-danger-tint: #3a1f26;
+  --c-warning-bg: #3a2f12;
+  --c-warning-icon: #e0b44f;
+  --c-warning-text: #f5d48a;
+  --c-success-text: #6fd39c;
+  --c-success-bg: #15301f;
+  --c-inverse: #edeff7;
+  --c-inverse-hover: #d5d9e8;
+  --c-on-inverse: #161a2b;
+  --c-toast: #2a2f45;
+  --c-toast-success: #7ce0a3;
+  --c-toast-error: #ffb4b4;
+  --c-scrim: #000000a6;
+  --c-knob: #ffffff;
+  --shadow-card: 0 20px 48px -28px #00000099;
+  --shadow-modal: 0 32px 80px -24px #000000b3;
+  --shadow-menu: 0 16px 40px -12px #00000099;
+  --shadow-toast: 0 16px 40px -16px #000000b3;
+  --c-avatar-removed: #4a5068;
+  --c-on-avatar-removed: #edeff7;
+}

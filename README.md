@@ -94,6 +94,15 @@ Repozytorium jest przygotowane do upublicznienia (PRD §1.1, NFR-9): nie zawiera
 
 Interfejs jest po polsku, a wszystkie teksty są w jednym module: [`apps/web/src/i18n/pl.ts`](apps/web/src/i18n/pl.ts) (PRD §1.1). Komponenty importują `t` i `format` z `apps/web/src/i18n`. Nowy tekst dodaje się najpierw do słownika, nigdy jako literał w komponencie.
 
+## Design system
+
+Wygląd opisuje [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md). W kodzie:
+
+- **Tokeny i motywy:** [`apps/web/src/styles/tokens.css`](apps/web/src/styles/tokens.css). Motyw jasny, ciemny albo systemowy wybiera atrybut `data-theme` na `<html>` (`src/theme`); wybór jest na razie w `localStorage`, w zadaniu [010] trafi do profilu. Test `tokens.test.ts` sprawdza kontrast WCAG AA wszystkich par tekst/tło w obu motywach.
+- **Fonty:** Bricolage Grotesque, Instrument Sans i DM Mono z pakietów `@fontsource*` (bez zewnętrznego CDN).
+- **Komponenty:** [`apps/web/src/ui`](apps/web/src/ui), import z `src/ui`: przyciski, pola, wyszukiwarka, stepper, lista rozwijana, checkbox, radio, pigułki wyboru, chipy, próbki kolorów, awatary i stosy, karta widżetu z tacą i wierszami, zakładki, badge i chipy statusu, toasty (`ToastProvider` + `useToast`), banery, puste stany, spinner, szkielety, switch i slider. Teksty wbudowane w komponenty są w `t.ui`.
+- **Galeria:** `pnpm dev` i <http://localhost:5173/design-system>. Pokazuje wszystkie komponenty i stany z przełącznikiem motywu; E2E sprawdza ją na 360 px i desktopie w obu motywach, także z axe (WCAG A/AA).
+
 ## Schemat bazy
 
 Migracje w [`supabase/migrations/`](supabase/migrations) odtwarzają cały schemat od zera (`pnpm db:reset`). Model danych opisuje PRD §6; poniżej reguły, które wymusza sama baza.
