@@ -29,7 +29,8 @@ export interface ScorePadViewProps {
 /**
  * Notes 3D `<score-pad>` w trybie klubowym (PAD-1, PRD §8.5): szablony tylko z propsów,
  * bez lokalnej biblioteki i historii POC. Motyw idzie za motywem aplikacji.
- * Nowy `config`, `templates` lub `template` (inna referencja) tworzy notes od nowa.
+ * Nowy `config`, `templates` lub `template` (inna referencja) tworzy notes od nowa i czyści
+ * kartkę, więc rodzic przekazuje stabilne obiekty (dane z zapytania albo `useMemo`).
  */
 export function ScorePadView({
   config,
@@ -41,19 +42,18 @@ export function ScorePadView({
   className,
 }: ScorePadViewProps) {
   const { resolved } = useTheme();
-  const themeRef = useRef(resolved);
   const handlers = useRef({ onReady, onSave });
 
   useEffect(() => {
     handlers.current = { onReady, onSave };
   });
 
-  const { hostRef, elementRef, state, retry } = useScorePadElement(
+  const { hostRef, state, retry } = useScorePadElement(
     'pad',
+    resolved,
     () => {
       const element = document.createElement('score-pad');
       element.options = { club: true, config, templates, template, controls };
-      element.setAttribute('theme', themeRef.current);
       element.addEventListener('scorepad:ready', () => handlers.current.onReady?.());
       element.addEventListener('scorepad:save', (event: ScorePadEventMap['scorepad:save']) =>
         handlers.current.onSave?.(event.detail),
@@ -62,11 +62,6 @@ export function ScorePadView({
     },
     [config, templates, template, controls],
   );
-
-  useEffect(() => {
-    themeRef.current = resolved;
-    elementRef.current?.setAttribute('theme', resolved);
-  }, [resolved, elementRef]);
 
   return (
     <div

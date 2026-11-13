@@ -3,6 +3,7 @@ import { isConfig, packSheet, unpackSheet, type PadConfig } from './core/setting
 import { TemplateStore } from './core/storage';
 import {
   BUILTINS,
+  SEAT_SANITY_LIMIT,
   playerCount,
   validateTemplate,
   type FreeField,
@@ -70,6 +71,16 @@ describe('brak limitu graczy (EDT-8)', () => {
 
     const explicit = roundTrip({ ...freeTemplate(3), players: 16 });
     expect(explicit && playerCount(explicit)).toBe(16);
+  });
+
+  it('uszkodzony plik z absurdalną liczbą miejsc nie zamraża notesu', () => {
+    expect(roundTrip({ ...freeTemplate(3), players: 100_000_000 })).toMatchObject({
+      players: SEAT_SANITY_LIMIT,
+    });
+    const huge = freeTemplate(2);
+    huge.fields = [...(huge.fields ?? []), { ...(huge.fields?.[0] as FreeField), id: 'x', p: 1e8 }];
+    expect(roundTrip(huge) && playerCount(roundTrip(huge) as PadTemplate)).toBe(2);
+    expect(roundTrip(gridTemplate(SEAT_SANITY_LIMIT + 1))).toBeNull();
   });
 
   it('nadal odrzuca notes bez miejsc dla graczy', () => {
@@ -181,5 +192,34 @@ describe('tryb klubowy (PAD-1)', () => {
     expect(frame()?.dataset.theme).toBe('dark');
     el.remove();
     expect(el.pad).toBeNull();
+  });
+});
+
+describe('sprzątanie po usunięciu elementu', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+  });
+
+  it('edytor odpina nasłuch wklejania i obserwatora rozmiaru', async () => {
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect = disconnect;
+      },
+    );
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    await import('./editor/index');
+    const editor = document.createElement('score-pad-editor');
+    document.body.append(editor);
+    const paste = add.mock.calls.find(([type]) => type === 'paste')?.[1];
+    expect(paste).toBeTypeOf('function');
+
+    editor.remove();
+    expect(remove).toHaveBeenCalledWith('paste', paste);
+    expect(disconnect).toHaveBeenCalled();
   });
 });

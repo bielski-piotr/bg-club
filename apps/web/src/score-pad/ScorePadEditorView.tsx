@@ -18,19 +18,18 @@ export interface ScorePadEditorViewProps {
 /** Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). */
 export function ScorePadEditorView({ template, onExport, className }: ScorePadEditorViewProps) {
   const { resolved } = useTheme();
-  const themeRef = useRef(resolved);
   const onExportRef = useRef(onExport);
 
   useEffect(() => {
     onExportRef.current = onExport;
   });
 
-  const { hostRef, elementRef, state, retry } = useScorePadElement(
+  const { hostRef, state, retry } = useScorePadElement(
     'editor',
+    resolved,
     () => {
       const element = document.createElement('score-pad-editor');
       element.template = template;
-      element.setAttribute('theme', themeRef.current);
       element.addEventListener(
         'scorepad-editor:export',
         (event: ScorePadEditorEventMap['scorepad-editor:export']) =>
@@ -40,11 +39,6 @@ export function ScorePadEditorView({ template, onExport, className }: ScorePadEd
     },
     [template],
   );
-
-  useEffect(() => {
-    themeRef.current = resolved;
-    elementRef.current?.setAttribute('theme', resolved);
-  }, [resolved, elementRef]);
 
   return (
     <div

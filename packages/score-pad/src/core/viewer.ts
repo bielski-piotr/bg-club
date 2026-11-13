@@ -403,11 +403,16 @@ export class ScorePad {
   }
 
   destroy(): void {
+    if (this.destroyed) return;
     this.destroyed = true;
     cancelAnimationFrame(this.rafId);
     for (const o of this.observers) o.disconnect();
+    document.fonts?.removeEventListener?.('loadingdone', this.onFontsLoaded);
     if (this.hostApi) hostGone(this.hostApi);
+    this.sfx.close();
+    // dispose() nie zwalnia kontekstu WebGL; przeglądarka trzyma ich ograniczoną liczbę (~16)
     this.renderer?.dispose();
+    this.renderer?.forceContextLoss();
     this.root.innerHTML = '';
   }
 
@@ -518,6 +523,7 @@ export class ScorePad {
     // kolory w hex traktujemy jako sRGB
     (THREE.ColorManagement as unknown as { legacyMode: boolean }).legacyMode = false;
     const conf = await this.loadConfig();
+    if (this.destroyed) return;
     if (conf?.settings) {
       this.baseCfg = mergeSettings(this.baseCfg, conf.settings);
       this.replaceSettings(
@@ -527,6 +533,7 @@ export class ScorePad {
     this.setupScene();
     this.bindUi();
     await this.loadTemplates(conf);
+    if (this.destroyed) return;
     this.viz = new DebugViz();
     this.scene.add(this.viz.group);
     const want = [
@@ -541,18 +548,22 @@ export class ScorePad {
       return;
     }
     await this.useTemplate(want);
+    // notes zamknięty w trakcie wczytywania: bez rejestracji wtyczek, zdarzeń i nasłuchu fontów
+    if (this.destroyed) return;
     this.applySettings();
     this.wrap.classList.add('ready');
     this.hostApi = this.makeHost();
     hostReady(this.hostApi);
     this.updateChip(false);
     this.host.dispatchEvent(new CustomEvent('scorepad:ready', { bubbles: true, composed: true }));
-    document.fonts?.addEventListener?.('loadingdone', () => {
-      refreshBuiltinPrints();
-      if (this.pad) this.pad.topTex.needsUpdate = true;
-      if (this.active) this.active.dirty = true;
-    });
+    document.fonts?.addEventListener?.('loadingdone', this.onFontsLoaded);
   }
+
+  private onFontsLoaded = (): void => {
+    refreshBuiltinPrints();
+    if (this.pad) this.pad.topTex.needsUpdate = true;
+    if (this.active) this.active.dirty = true;
+  };
 
   /** Plik notesu podany w atrybucie `config` (adres, JSON albo obiekt). */
   private async loadConfig(): Promise<PadConfig | null> {
@@ -1058,7 +1069,9 @@ export class ScorePad {
     });
 
     this.syncHelp();
-    new ResizeObserver(() => this.syncHelp()).observe(this.wrap);
+    const helpRo = new ResizeObserver(() => this.syncHelp());
+    helpRo.observe(this.wrap);
+    this.observers.push(helpRo);
     (this.root.querySelector('.help-close') as HTMLElement).addEventListener('click', () => {
       this.saved.help = false;
       this.syncHelp();

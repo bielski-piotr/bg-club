@@ -53,6 +53,11 @@ export class ScorePadEditorElement extends HTMLElement {
     this.editor = mountEditor(this, this.template ? { template: this.template } : {});
   }
 
+  disconnectedCallback(): void {
+    this.editor?.destroy();
+    this.editor = null;
+  }
+
   /** Bieżący plik notesu (null, gdy notes nie jest jeszcze gotowy). */
   exportConfig(): PadConfig | null {
     return this.editor?.exportConfig() ?? null;

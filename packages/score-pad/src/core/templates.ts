@@ -170,6 +170,12 @@ export function playerTracks(t: PadTemplate): number[] {
   return out;
 }
 
+/**
+ * Zabezpieczenie przed uszkodzonym plikiem (np. `players: 100000000` zamroziłoby kartę),
+ * a nie limit produktu: EDT-8 nie ogranicza liczby graczy, a tylu miejsc nie ma żaden notes.
+ */
+export const SEAT_SANITY_LIMIT = 200;
+
 export function playerCount(t: PadTemplate): number {
   if (t.grid) return playerTracks(t).length;
   const fromFields = Math.max(0, ...(t.fields ?? []).map((f) => f.p + 1));
@@ -500,7 +506,14 @@ export function validateTemplate(raw: unknown): PadTemplate | null {
       h: clamp(num(f?.h), 0, 1),
       shape: f?.shape === 'round' ? ('round' as const) : ('rect' as const),
     }))
-    .filter((f) => f.line && f.w > 0.002 && f.h > 0.002 && Number.isFinite(f.x + f.y + f.w + f.h));
+    .filter(
+      (f) =>
+        f.line &&
+        f.p < SEAT_SANITY_LIMIT &&
+        f.w > 0.002 &&
+        f.h > 0.002 &&
+        Number.isFinite(f.x + f.y + f.w + f.h),
+    );
   if (!g && !fields.length) return null;
   const t: PadTemplate = {
     v: 2,
@@ -528,7 +541,10 @@ export function validateTemplate(raw: unknown): PadTemplate | null {
     binding: r.binding === 'left' ? 'left' : undefined,
     players: g
       ? undefined
-      : Math.max(1, Math.floor(num(r.players)) || Math.max(1, ...fields.map((f) => f.p + 1))),
+      : Math.min(
+          SEAT_SANITY_LIMIT,
+          Math.max(1, Math.floor(num(r.players)) || Math.max(1, ...fields.map((f) => f.p + 1))),
+        ),
     lines: r.lines.map((l, i) => ({
       id: typeof l.id === 'string' && l.id ? l.id : `l${i}`,
       label: typeof l.label === 'string' ? l.label : `Kategoria ${i + 1}`,
@@ -558,8 +574,8 @@ export function validateTemplate(raw: unknown): PadTemplate | null {
   };
   // kategorii może być więcej niż pasów siatki: nadmiarowe mają tylko pola dowolne
   if (t.grid && lineCount(t) > t.lines.length) return null;
-  // bez górnego limitu graczy (EDT-8): o liczbie miejsc decyduje sam notes
-  if (playerCount(t) < 1) return null;
+  // bez limitu graczy (EDT-8): o liczbie miejsc decyduje sam notes; odrzucamy tylko uszkodzone pliki
+  if (playerCount(t) < 1 || playerCount(t) > SEAT_SANITY_LIMIT) return null;
   const ids = new Set(t.lines.map((l) => l.id));
   if (t.fields) t.fields = t.fields.filter((f) => ids.has(f.line));
   return t;

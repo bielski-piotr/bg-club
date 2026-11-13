@@ -237,6 +237,13 @@ export class Sfx {
   private noise: AudioBuffer | null = null;
   on = true;
 
+  /** Zamyka kontekst audio (przy zamknięciu notesu). */
+  close(): void {
+    void this.ctx?.close().catch(() => undefined);
+    this.ctx = null;
+    this.noise = null;
+  }
+
   unlock(): void {
     if (this.ctx || !this.on) return;
     try {

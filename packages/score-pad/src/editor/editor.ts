@@ -74,6 +74,8 @@ function rotateShape(s: SheetShape | undefined, dir: 1 | -1): SheetShape | undef
 export class Editor {
   readonly root: HTMLDivElement;
   readonly svg: SVGSVGElement;
+  private onDocPaste: ((e: ClipboardEvent) => void) | null = null;
+  private resizeObs: ResizeObserver | null = null;
   private baseImg: SVGImageElement;
   private ov: SVGGElement;
   private loupe: SVGGElement;
@@ -261,14 +263,24 @@ export class Editor {
     };
     r.addEventListener('paste', (e) => paste(e, true));
     // krok 1: obraz wklejony gdziekolwiek na stronie (fokus nie musi być w edytorze)
-    document.addEventListener('paste', (e) => paste(e, false));
+    this.onDocPaste = (e) => paste(e, false);
+    document.addEventListener('paste', this.onDocPaste);
     r.addEventListener('keydown', (e) => this.onKey(e));
     this.svg.addEventListener('pointerdown', (e) => this.onDown(e));
     this.svg.addEventListener('pointermove', (e) => this.onMove(e));
     const up = (e: PointerEvent): void => this.onUp(e);
     this.svg.addEventListener('pointerup', up);
     this.svg.addEventListener('pointercancel', up);
-    new ResizeObserver(() => this.render()).observe(this.svg);
+    this.resizeObs = new ResizeObserver(() => this.render());
+    this.resizeObs.observe(this.svg);
+  }
+
+  /** Odpina nasłuch dokumentu i obserwatora (element usunięty ze strony). */
+  destroy(): void {
+    if (this.onDocPaste) document.removeEventListener('paste', this.onDocPaste);
+    this.onDocPaste = null;
+    this.resizeObs?.disconnect();
+    this.resizeObs = null;
   }
 
   private onKey(e: KeyboardEvent): void {

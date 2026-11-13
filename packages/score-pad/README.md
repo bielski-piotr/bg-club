@@ -20,6 +20,8 @@ Nie przeniesiono: `dist/`, `build.mjs` (esbuild, IIFE), stron pokazowych `demo.h
 - **Three.js z npm.** Pliki używające `THREE` importują `three` (`import * as THREE from 'three'`), zamiast globalnego skryptu z jsDelivr. `ensureThree()` zostało dla zgodności API i nic nie pobiera.
 - **Fonty z npm** (`src/fonts.ts`), bez żądań do Google Fonts (DS §4).
 - **Brak limitu graczy (EDT-8).** Usunięte `MAX_PLAYERS = 8` z `core/util.ts` i jego użycia w `core/templates.ts` (`playerCount`, `validateTemplate`) oraz `editor/fields.ts` (wykrywanie tabeli, wczytanie notesu, przycisk „Gracze +”, zmiana osi graczy). Karteczka z wynikiem przewija listę graczy.
+- **Ochrona przed uszkodzonym plikiem:** `SEAT_SANITY_LIMIT = 200` odrzuca notes z absurdalną liczbą miejsc (np. `players: 100000000` zamroziłoby kartę). To nie jest limit produktu: żaden notes nie ma tylu miejsc.
+- **Sprzątanie po zamknięciu.** `destroy()` notesu zwalnia kontekst WebGL (`forceContextLoss`), zamyka kontekst audio i odpina nasłuch fontów, a notes zamknięty w trakcie wczytywania nie rejestruje się już jako gotowy. `<score-pad-editor>` po usunięciu ze strony odpina nasłuch wklejania i obserwatora rozmiaru. W POC elementy nie były wielokrotnie montowane, w aplikacji są (popupy).
 - **Tryb klubowy (PAD-1)**: opcja `club` (`ScorePadOptions`, atrybut `club`). Notes:
   - nie otwiera IndexedDB (`TemplateStore(ns, false)` trzyma szablony w pamięci) i nie czyta ani nie zapisuje stanu kartek i historii w `localStorage`;
   - nie prowadzi historii partii (licznik i lista „Zapisane partie” znikają) i nie pokazuje „Usuń ten notes”;
