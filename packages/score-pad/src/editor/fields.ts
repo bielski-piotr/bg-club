@@ -1,12 +1,14 @@
 // Krok 3 edytora: pola punktacji — tabela (wiersze i kolumny), pola dowolne i kategorie.
 
+import type { Ranking } from '@bg-club/scoring';
+import { parseRanking } from '@bg-club/scoring';
 import type { FreeField, GridDef, LineDef, LineKind, PadTemplate } from '../core/templates';
 import {
   bounds,
   effectiveOf,
-  finalTotalIndex,
   inputLeaves,
   isComputed,
+  padRanking,
   playerCount,
   trackCount,
   uniform,
@@ -25,6 +27,8 @@ export interface Draft {
   /** Kategorie: pierwsze `rows()` to wiersze tabeli, reszta ma tylko pola dowolne. */
   lines: LineDef[];
   fields: FreeField[];
+  /** Reguła miejsc wczytanego notesu (EDT-7); edycję reguły przyniesie krok „Kategorie”. */
+  ranking?: Ranking;
 }
 
 /** To, czego krok potrzebuje od edytora. */
@@ -142,6 +146,7 @@ export class FieldsStep {
       grid: d.grid,
       lines: d.lines,
       fields: d.fields,
+      ranking: d.ranking,
     };
   }
 
@@ -325,7 +330,8 @@ export class FieldsStep {
       lines.unshift(...lines.splice(ni, 1));
       grid = { x: [0.06, ...uniform(0.3, 0.94, n)], y: [0.03, 0.08], players: 'cols', labels: 1 };
     }
-    this.draft = { name: t.name, tape: t.tape, grid, lines, fields };
+    const ranking = t.ranking ? (JSON.parse(JSON.stringify(t.ranking)) as Ranking) : undefined;
+    this.draft = { name: t.name, tape: t.tape, grid, lines, fields, ranking };
     this.ready = true;
     this.sel = 0;
     this.mode = t.fields?.length && !t.grid ? 'free' : 'grid';
@@ -771,9 +777,8 @@ export class FieldsStep {
             if (of.has(leaf)) twice.push(t.lines.find((x) => x.id === leaf)?.label ?? '');
         }
         const decides =
-          l.kind === 'total' &&
-          finalTotalIndex(t) === i &&
-          t.lines.filter((x) => x.kind === 'total' || x.kind === 'sum').length > 1;
+          padRanking(t).line === l.id &&
+          (!!t.ranking || t.lines.filter((x) => x.kind === 'total' || x.kind === 'sum').length > 1);
         more += `<div class="spe-of">
             <div class="spe-of-head"><span>Sumuje</span>${l.of ? `<button type="button" class="spe-link" data-f="of-reset">domyślnie</button>` : ''}</div>
             ${opts.length ? opts.map((o) => `<label class="spe-check"><input type="checkbox" data-of="${o.id}" ${of.has(o.id) ? 'checked' : ''}><span data-ofname="${o.id}">${esc(o.label)}</span></label>`).join('') : `<span class="spe-muted">Brak kategorii z punktami.</span>`}
@@ -1221,7 +1226,7 @@ export class FieldsStep {
   }
 
   /** Część szablonu: tabela, kategorie i pola (zaokrąglone). */
-  output(): Pick<PadTemplate, 'name' | 'tape' | 'grid' | 'lines' | 'fields'> {
+  output(): Pick<PadTemplate, 'name' | 'tape' | 'grid' | 'lines' | 'fields' | 'ranking'> {
     const d = this.draft;
     const n = this.players();
     const ids = new Set(d.lines.map((l) => l.id));
@@ -1264,6 +1269,8 @@ export class FieldsStep {
       },
       lines,
       fields: fields.length ? fields : undefined,
+      // Reguła wskazująca usuniętą albo zmienioną kategorię przestaje obowiązywać (domyślna reguła).
+      ranking: d.ranking && parseRanking(d.ranking, lines).ranking,
     };
   }
 }

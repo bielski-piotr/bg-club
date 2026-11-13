@@ -4,7 +4,7 @@
  */
 import type { ScorePadElement as PadElementImpl } from './core/index';
 import type { PadConfig } from './core/settings';
-import type { PadTemplate } from './core/templates';
+import type { LineDef, PadTemplate } from './core/templates';
 import type { PadSaveDetail, ScorePadOptions } from './core/viewer';
 import type { ScorePadEditorElement as EditorElementImpl } from './editor/element';
 import type {
@@ -13,6 +13,7 @@ import type {
   ScorePadEditorElement,
   ScorePadElement,
   ScorePadFile,
+  ScorePadLine,
   ScorePadSaveDetail,
   ScorePadTemplate,
 } from './index';
@@ -24,6 +25,7 @@ type Listeners = 'addEventListener' | 'removeEventListener';
 
 export type Contract = [
   Assert<Extends<PadTemplate, ScorePadTemplate>>,
+  Assert<Extends<LineDef, ScorePadLine>>,
   Assert<Extends<PadConfig, ScorePadFile>>,
   Assert<Extends<PadSaveDetail, ScorePadSaveDetail>>,
   // Szablony i plik notesu z bazy są dla aplikacji danymi; notes sprawdza je w czasie działania

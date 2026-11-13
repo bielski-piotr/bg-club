@@ -21,14 +21,38 @@ export const SCORE_PAD_POC_VERSION = '2.4.0';
 /** Motyw przekazywany do notesu i edytora (rozwiązany motyw aplikacji, bez „systemowego”). */
 export type ScorePadTheme = 'light' | 'dark';
 
+import type { Ranking, ScoringLine } from '@bg-club/scoring';
+
+export type { Direction, Ranking, ScoringLine, TiebreakRule } from '@bg-club/scoring';
+
+/** Kategoria notesu (`LineDef` w `core/templates.ts`): pola liczenia i opis na kartce. */
+export interface ScorePadLine extends ScoringLine {
+  readonly label: string;
+  /** Opis kategorii (chmurka w notesie). */
+  readonly hint?: string | undefined;
+  /** Punktację można skreślić („x”). */
+  readonly scratch?: boolean | undefined;
+  /** Ikona z notesów wbudowanych. */
+  readonly icon?: string | undefined;
+}
+
 /**
- * Szablon notesu (`PadTemplate` w `core/templates.ts`). Aplikacja traktuje go jako dane:
- * zapisuje w bazie i przekazuje notesowi bez zmian. Kontrakt formatu ustala zadanie [014].
+ * Szablon notesu (`PadTemplate` w `core/templates.ts`) w formacie v2 z regułą miejsc (EDT-7).
+ * Aplikacja zapisuje go w bazie (`scorepad_versions.template`) i przekazuje notesowi; wygląd
+ * i pola zna tylko notes, a kategorie i `ranking` czyta też `@bg-club/scoring`.
+ *
+ * Zgodność wstecz: plik bez `ranking` działa jak dotąd (najwyższa suma końcowa). Notes przy
+ * wczytaniu pomija błędną regułę (`parseRanking`); przed zapisem w bazie aplikacja sprawdza
+ * szablon przez `validateScoring`.
  */
 export interface ScorePadTemplate {
   readonly v: 2;
   readonly id: string;
   readonly name: string;
+  /** Kategorie: imiona, punktacje, sumy, premie i puste pola (EDT-13). */
+  readonly lines: readonly ScorePadLine[];
+  /** Kategoria decydująca, kierunek i reguły remisów; brak = najwyższa suma końcowa. */
+  readonly ranking?: Ranking | undefined;
 }
 
 /** Wpisy z kartki w pliku notesu: imiona i wartości (liczba, "x" = skreślone, null = puste). */

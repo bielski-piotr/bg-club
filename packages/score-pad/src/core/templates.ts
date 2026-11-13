@@ -1,11 +1,18 @@
 // Model notesu: szablon (wygląd + siatka pól + reguły liczenia) i dane jednej kartki.
 
+import type {
+  PlayerEntry,
+  RankedPlayer,
+  LineKind as ScoringLineKind,
+  Ranking,
+} from '@bg-club/scoring';
+import { computeTotals, parseRanking, rankPlayers, rankingOf } from '@bg-club/scoring';
 import type { Ink } from './util';
 import { clamp, fmtDate, inkDone, range } from './util';
 import type { SheetShape } from './shape';
 import { normalizeShape } from './shape';
 
-export type LineKind = 'input' | 'names' | 'sum' | 'bonus' | 'total' | 'skip';
+export type LineKind = ScoringLineKind;
 export type IconKind =
   | 'd1'
   | 'd2'
@@ -115,6 +122,11 @@ export interface PadTemplate {
   shape?: SheetShape;
   /** Krawędź klejona do grzbietu: u góry (domyślnie) albo z lewej — notes leży wtedy poziomo. */
   binding?: 'top' | 'left';
+  /**
+   * Kategoria decydująca o miejscu, kierunek i reguły remisów (EDT-7). Brak = najwyższa suma
+   * końcowa, jak w starszych plikach.
+   */
+  ranking?: Ranking;
 }
 
 export interface Entry {
@@ -294,104 +306,29 @@ export function uniform(a: number, b: number, n: number): number[] {
 
 // ─────────────────────────────────────────────────────────── liczenie
 
-export const isComputed = (k: LineKind): boolean => k === 'sum' || k === 'bonus' || k === 'total';
-export const isNumeric = (k: LineKind): boolean => k === 'input' || isComputed(k);
-
-/** Kategorie sumowane przez linię `i` (jawna lista albo domyślna). */
-export function effectiveOf(t: PadTemplate, i: number): string[] {
-  const ln = t.lines[i];
-  const ids = new Set(t.lines.map((l) => l.id));
-  if (ln.of) return ln.of.filter((id) => id !== ln.id && ids.has(id));
-  const inputsBetween = (a: number, b: number): string[] =>
-    t.lines
-      .slice(a, b)
-      .filter((l) => l.kind === 'input')
-      .map((l) => l.id);
-  if (ln.kind === 'total')
-    return t.lines.filter((l) => l.kind === 'input' || l.kind === 'bonus').map((l) => l.id);
-  // początek bieżącego odcinka: za poprzednią sumą
-  let start = 0;
-  for (let k = i - 1; k >= 0; k--) {
-    if (t.lines[k].kind === 'sum') {
-      if (ln.kind === 'bonus') return effectiveOf(t, k);
-      start = k + 1;
-      break;
-    }
-  }
-  return inputsBetween(start, i);
-}
-
-/** Wszystkie kategorie punktowe, z których (pośrednio) składa się lista. */
-export function inputLeaves(t: PadTemplate, ids: string[], seen = new Set<string>()): string[] {
-  const out: string[] = [];
-  for (const id of ids) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const i = t.lines.findIndex((l) => l.id === id);
-    if (i < 0) continue;
-    const ln = t.lines[i];
-    if (ln.kind === 'input') out.push(id);
-    else if (ln.kind === 'sum' || ln.kind === 'total')
-      out.push(...inputLeaves(t, effectiveOf(t, i), seen));
-  }
-  return out;
-}
+// Sumy i kategoria decydująca liczą się w `@bg-club/scoring` (PRD §8.3, EDT-13): ten sam kod
+// liczy notes, edytor i testy wyników. Nazwy zostają z POC.
+export { effectiveOf, finalTotalIndex, inputLeaves, isComputed, isNumeric } from '@bg-club/scoring';
 
 /**
- * Suma (`total`), która rozstrzyga o zwycięzcy: ostatnia z tych, których nie sumuje
- * żadna inna (gdy jedna suma zbiera kilka innych, decyduje ta zbierająca).
+ * Reguła miejsc notesu (EDT-7): `ranking`, gdy jest poprawna, inaczej najwyższa suma końcowa.
+ * `validateTemplate` usuwa błędną regułę, ale szablon mógł zostać zmieniony po wczytaniu.
  */
-export function finalTotalIndex(t: PadTemplate): number {
-  const totals = t.lines.map((l, i) => (l.kind === 'total' ? i : -1)).filter((i) => i >= 0);
-  if (!totals.length) return -1;
-  const used = new Set<string>();
-  for (const i of totals) for (const id of effectiveOf(t, i)) used.add(id);
-  const top = totals.filter((i) => !used.has(t.lines[i].id));
-  return (top.length ? top : totals)[(top.length ? top : totals).length - 1];
+export function padRanking(t: PadTemplate): Ranking {
+  return (t.ranking && parseRanking(t.ranking, t.lines).ranking) || rankingOf({ lines: t.lines });
 }
 
-/** Sumy, premie i wynik końcowy jednego gracza. */
+/** Miejsca graczy kartki według reguły notesu (PRD §5.6.1), w kolejności miejsc. */
+export function rankSheet(t: PadTemplate, players: PlayerEntry[]): RankedPlayer[] {
+  return rankPlayers({ lines: t.lines, ranking: padRanking(t) }, players);
+}
+
+/** Sumy, premie i wynik końcowy (`__total`) jednego gracza; sumy na cyklu są puste. */
 export function computePlayer(
   t: PadTemplate,
   v: Record<string, number | null>,
 ): Record<string, number | null> {
-  const out: Record<string, number | null> = {};
-  const idx = new Map(t.lines.map((l, i) => [l.id, i]));
-  const memo = new Map<string, number | null>();
-  const active = new Set<string>();
-  const val = (id: string): number | null => {
-    const i = idx.get(id);
-    if (i === undefined) return null;
-    const ln = t.lines[i];
-    if (ln.kind === 'input') return v[id] ?? null;
-    if (!isComputed(ln.kind)) return null;
-    if (memo.has(id)) return memo.get(id) as number | null;
-    if (active.has(id)) return null; // pętla w definicji sum
-    active.add(id);
-    const of = effectiveOf(t, i);
-    const parts = of.map(val);
-    const s = parts.some((x) => x != null) ? parts.reduce<number>((a, b) => a + (b ?? 0), 0) : null;
-    let r: number | null = s;
-    if (ln.kind === 'bonus') {
-      const leaves = inputLeaves(t, of);
-      const done = leaves.length > 0 && leaves.every((x) => v[x] != null);
-      r = s != null && s >= (ln.threshold ?? 0) ? (ln.bonus ?? 0) : done ? 0 : null;
-    }
-    active.delete(id);
-    memo.set(id, r);
-    return r;
-  };
-  for (const ln of t.lines) if (isComputed(ln.kind)) out[ln.id] = val(ln.id);
-  const fi = finalTotalIndex(t);
-  if (fi >= 0) out.__total = out[t.lines[fi].id] ?? null;
-  else {
-    const ids = t.lines.filter((l) => l.kind === 'input' || l.kind === 'bonus').map((l) => l.id);
-    const parts = ids.map(val);
-    out.__total = parts.some((x) => x != null)
-      ? parts.reduce<number>((a, b) => a + (b ?? 0), 0)
-      : null;
-  }
-  return out;
+  return computeTotals(t, v);
 }
 
 // ─────────────────────────────────────────────────────────── dane kartki
@@ -578,6 +515,9 @@ export function validateTemplate(raw: unknown): PadTemplate | null {
   if (playerCount(t) < 1 || playerCount(t) > SEAT_SANITY_LIMIT) return null;
   const ids = new Set(t.lines.map((l) => l.id));
   if (t.fields) t.fields = t.fields.filter((f) => ids.has(f.line));
+  // Błędna reguła miejsc (np. kategoria spoza notesu) nie psuje notesu: działa reguła domyślna.
+  const ranking = parseRanking(r.ranking, t.lines).ranking;
+  if (ranking) t.ranking = ranking;
   return t;
 }
 

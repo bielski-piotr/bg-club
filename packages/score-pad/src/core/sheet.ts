@@ -15,6 +15,8 @@ import {
   finalTotalIndex,
   playerActive,
   playerCount,
+  padRanking,
+  rankSheet,
   spots,
   valuesOf,
 } from './templates';
@@ -152,28 +154,36 @@ class Painter {
       }
     }
 
-    // zwycięzca zakreślony, gdy każda kategoria punktowa każdego grającego ma wartość
+    // zwycięzca (miejsce 1, także wspólne) zakreślony w kategorii decydującej (EDT-2), gdy każda
+    // kategoria punktowa każdego grającego ma wartość
     const act = range(0, n - 1).filter((p) => playerActive(t, d, p));
     const inputs = t.lines.filter((l) => l.kind === 'input').map((l) => l.id);
+    const rankLine = t.lines.findIndex((l) => l.id === padRanking(t).line);
     const complete =
-      totalLine >= 0 &&
+      rankLine >= 0 &&
       act.length > 0 &&
       inputs.length > 0 &&
       act.every((p) => inputs.every((id) => vals[p][id] != null));
     let winKey = '';
     let winners: number[] = [];
     if (complete) {
-      const best = Math.max(...act.map((p) => comps[p].__total ?? 0));
-      winners = act.filter((p) => (comps[p].__total ?? 0) === best);
-      winKey = winners.join(',') + ':' + best;
+      const ranked = rankSheet(
+        t,
+        act.map((p) => ({ seat: p, values: vals[p] })),
+      );
+      // Bez wartości kategorii decydującej (np. suma na cyklu) nikt nie wygrywa.
+      if (ranked[0].rankingValue != null) {
+        winners = ranked.filter((r) => r.place === 1).map((r) => r.seat);
+        winKey = winners.join(',') + ':' + ranked[0].rankingValue;
+      }
     }
     if (winKey !== s.winKey) {
       s.winKey = winKey;
       s.winInk = winKey ? (s.compInit ? inkNow(1100) : inkDone()) : null;
     }
-    if (s.winInk && totalLine >= 0) {
+    if (s.winInk && rankLine >= 0) {
       for (const sp of all) {
-        if (sp.li !== totalLine || !winners.includes(sp.p)) continue;
+        if (sp.li !== rankLine || !winners.includes(sp.p)) continue;
         const r = px(sp.rect);
         const prog = (now - s.winInk.t) / (650 / inkStyle.speed);
         penStroke(

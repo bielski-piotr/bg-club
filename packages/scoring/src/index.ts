@@ -1,19 +1,19 @@
 /**
- * Pakiet `@bg-club/scoring`: logika miejsc i remisów współdzielona przez notes
- * i testy (PRD §8.3). Punkty i serie liczy SQL, ale oba miejsca przechodzą
- * ten sam zestaw przypadków z `src/cases/`.
+ * Pakiet `@bg-club/scoring`: logika wyników współdzielona przez notes, aplikację i testy
+ * (PRD §5.6, §8.3).
  *
- * Funkcje domenowe dochodzą w zadaniach [014] (ranking i sumy), [029] (zapis
- * wyników) i [032] (serie). Tu jest tylko wspólny typ porównania.
+ * - `template.ts`: kontrakt formatu notesu w części wyników (kategorie, `ranking`, EDT-7),
+ * - `totals.ts`: sumy bez cykli (EDT-13),
+ * - `ranking.ts`: miejsca z kierunkami i remisami hierarchicznymi (EDT-2…EDT-4, §5.6.1),
+ * - `points.ts`: punkty leaderboardu z `floor` i wygrane (§5.6.2, §5.6.3),
+ * - `validate.ts`: walidacja referencji, cykli i zakresów.
+ *
+ * Punkty liczy też baza (`public.play_points`). Obie implementacje przechodzą ten sam zestaw
+ * przypadków `cases/play-cases.json`; test pgTAP jest z niego generowany (`sql.ts`).
+ * Serie (zadanie [032]) dojdą osobno.
  */
-
-/** Kierunek kategorii decydującej i reguł remisu (PRD Q6). */
-export type Direction = 'higher' | 'lower';
-
-/**
- * Porównuje dwie wartości tak, że wynik ujemny oznacza lepszy wynik `a`.
- * Nadaje się wprost do `Array.prototype.sort`.
- */
-export function compareByDirection(a: number, b: number, direction: Direction): number {
-  return direction === 'higher' ? b - a : a - b;
-}
+export * from './template';
+export * from './totals';
+export * from './ranking';
+export * from './points';
+export * from './validate';
