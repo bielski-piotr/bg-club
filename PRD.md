@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Produkt** | BG Club — aplikacja webowa dla klubu planszówkowego |
-| **Wersja dokumentu** | 1.2 |
-| **Data** | 2026-11-12 |
+| **Wersja dokumentu** | 1.3 |
+| **Data** | 2026-11-13 |
 | **Status** | Do akceptacji |
 | **Powiązane repozytoria** | `digital-scorepad-poc` (notes punktacji 3D `<score-pad>`), `digital-scorepad-editor-poc` (edytor notesu `<score-pad-editor>`) |
 
@@ -150,7 +150,7 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 | MEM-3 | Admin: **Dodaj członka** (imię, nazwisko, opcjonalnie awatar). Po zapisie pokazuje hook i wygenerowane hasło (AUTH-4). | M |
 | MEM-4 | Admin: **Usuń członka** (z potwierdzeniem). Usunięcie jest miękkie: profil zostaje w historii, na karteczkach i w statystykach. Konto Auth jest blokowane lub usuwane. Administratora nie da się usunąć. | M |
 | MEM-5 | Usunięci członkowie nie są pokazywani w widżecie i na liście członków. Ich awatary w historii są wyszarzone z dopiskiem „(usunięty)”, a profil otwiera się w trybie tylko do odczytu. | M |
-| MEM-6 | Usuniętego członka nie można dodać do nowego spotkania. Z zaplanowanych, nierozpoczętych spotkań jest usuwany automatycznie. | M |
+| MEM-6 | Usuniętego członka nie można dodać do nowego spotkania. Z zaplanowanych, nierozpoczętych spotkań jest usuwany automatycznie (razem z jego głosami). Jeśli był w nich albo w spotkaniu *w trakcie* **prowadzącym**, prowadzenie wraca do admina (`host_id = null`). W spotkaniu *w trakcie* jego uczestnictwo i szkice partii zostają, a admin może je dokończyć albo porzucić. Zakończone spotkania zachowują prowadzącego. Dotyczy to także usunięcia własnego konta (USR-6). Decyzja Q22. | M |
 
 ### 5.4 Kolekcja gier
 
@@ -158,7 +158,7 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 
 | ID | Wymaganie | P |
 |---|---|:-:|
-| GAME-1 | **Widżet:** kilka (domyślnie 5) tytułów z okładkami (ostatnio dodane albo ostatnio grane, do decyzji w UI) i link „Zobacz więcej”. | M |
+| GAME-1 | **Widżet:** kilka (domyślnie 5) tytułów z okładkami (w kolejności Q11: najpierw gry z zapisanymi partiami według daty ostatniej partii malejąco, potem pozostałe według daty dodania malejąco) i link „Zobacz więcej”. | M |
 | GAME-2 | **Popup kolekcji:** pełna lista gier (siatka okładek) z wyszukiwaniem po tytule, bez rozróżniania wielkości liter i polskich znaków (`unaccent`), filtrowanym na bieżąco. | M |
 | GAME-3 | Admin widzi przycisk **Dodaj grę**, a przy każdej grze **Edytuj** i **Usuń**. Dodanie i edycja otwierają formularz w tym samym popupie (zmiana widoku, ze strzałką „wstecz”). | M |
 | GAME-4 | Walidacja: tytuł wymagany; `1 ≤ min ≤ max`. Aplikacja **nie ma górnego limitu** liczby graczy: o tym, ilu graczy zmieści się w partii, decyduje liczba miejsc dla graczy zdefiniowana w notesie (PAD-3, EDT-8). | M |
@@ -166,9 +166,9 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 | GAME-6 | Okładka: upload do Supabase Storage, skalowanie w przeglądarce (np. dłuższy bok 800 px, WebP). Bez okładki gra ma placeholder z monogramem tytułu. | M |
 | GAME-7 | **Notesy gry:** lista notesów przypisanych do gry (nazwa, miniatura). Admin może dodać notes (edytor, §5.5, albo import pliku `.json`), edytować go, zmienić nazwę i usunąć. Liczba notesów na grę jest dowolna. | M |
 | GAME-8 | Usunięcie gry jest miękkie: znika z kolekcji, wyszukiwania i głosowań, ale jej partie, karteczki i punkty zostają w historii i statystykach. W historii pokazuje się z oznaczeniem „(usunięta z kolekcji)”. | M |
-| GAME-9 | Edycja punktacji lub notesu **nie zmienia** rozegranych partii: każda partia przechowuje snapshot punktacji i szablonu notesu z chwili rozegrania (decyzja Q1, §12). | M |
+| GAME-9 | Edycja punktacji lub notesu **nie zmienia** rozegranych partii: każda partia przechowuje snapshot punktacji i wersji szablonu notesu, pobierany w bazie przy **rozpoczęciu partii** (utworzeniu szkicu). Zmiany gry lub notesu w trakcie partii dotyczą dopiero kolejnych partii (decyzje Q1 i Q23, §12). | M |
 | GAME-10 | **Szczegóły gry** (kolejny widok popupu): okładka, dane gry, statystyki gry i galeria wszystkich oderwanych karteczek tej gry (od najnowszej). Kliknięcie karteczki pokazuje ją w powiększeniu z wynikami i linkiem do spotkania. | M |
-| GAME-11 | Statystyki gry: liczba partii, data ostatniej partii, najczęstszy zwycięzca, najwyższy wynik w historii (kto, kiedy), średni wynik zwycięzcy, ranking graczy w tej grze (wygrane, punkty). | M |
+| GAME-11 | Statystyki gry: liczba partii, data ostatniej partii, najczęstszy zwycięzca, rekord gry (najlepsza wartość kategorii decydującej w historii, kto i kiedy; przy równej wartości pokazujemy wszystkich, którzy ją osiągnęli, Q25), średni wynik zwycięzcy, ranking graczy w tej grze (wygrane, punkty). | M |
 | GAME-12 | W szczegółach gry widać liczbę głosów oddanych na nią we wszystkich głosowaniach. | C |
 
 ### 5.5 Notes punktacji i edytor notesu: integracja
@@ -181,7 +181,7 @@ Bazą są istniejące POC: `<score-pad>` (notes 3D, Three.js) i `<score-pad-edit
 |---|---|:-:|
 | PAD-1 | Notes jest osadzany w popupie partii z szablonem wczytanym z bazy, a nie z `localStorage` ani IndexedDB. Lokalne szablony i historia notesu są w tym trybie wyłączone. | M |
 | PAD-2 | **Wybór graczy zamiast wpisywania imion.** Przed rozpoczęciem partii prowadzący wybiera graczy spośród uczestników spotkania i przypisuje ich do miejsc (kolumn/wierszy) notesu. Kategoria typu `names` nie otwiera klawiatury, tylko selektor uczestnika. Na kartce pole gracza pokazuje **awatar + imię i nazwisko**. | M |
-| PAD-3 | Liczba graczy partii musi mieścić się w zakresie min…max gry i nie może przekraczać liczby miejsc dla graczy w notesie. Niepasujące notesy są niedostępne do wyboru, z wyjaśnieniem dlaczego. | M |
+| PAD-3 | Partia ma **co najmniej 2 graczy** (Q2), także gdy gra ma min = 1. Liczba graczy partii musi mieścić się w zakresie min…max gry i nie może przekraczać liczby miejsc dla graczy w notesie. Niepasujące notesy są niedostępne do wyboru, z wyjaśnieniem dlaczego. | M |
 | PAD-4 | Stan wypełnianej kartki jest zapisywany na bieżąco jako **szkic partii** w bazie (z opóźnieniem, np. 1–2 s) i w `localStorage`. Odświeżenie strony ani awaria przeglądarki nie gubią wpisów. Szkic może dokończyć admin lub prowadzący na innym urządzeniu, ale bez synchronizacji na żywo. | M |
 | PAD-5 | **Oderwanie karteczki** kończy partię: notes wylicza wyniki kategorii i miejsca według reguł szablonu (§5.5.2) i pokazuje podsumowanie (miejsca, wyniki, punkty leaderboardu). Po potwierdzeniu partia trafia do bazy. Można też anulować i wrócić do kartki. | M |
 | PAD-6 | Przy oderwaniu notes generuje **obraz karteczki** (PNG/WebP z tekstury kartki, z pismem), który trafia do Storage jako miniatura i podgląd w historii. Razem z nim zapisywane są pełne dane kartki (`SheetData`) i snapshot szablonu, więc karteczkę można później wyrenderować ponownie, także w 3D w trybie tylko do odczytu. | M |
@@ -255,6 +255,10 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 
 - Partia (i jej karteczka) jest trwale usuwana po potwierdzeniu. Leaderboardy, statystyki, serie i osiągnięcia przeliczają się, więc osiągnięcie może zostać cofnięte, jeśli przestało być spełnione.
 
+#### 5.6.6 Kolejność zdarzeń
+
+Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po `id`. Partie w spotkaniu: rosnąco po `saved_at` (zatwierdzenie karteczki, nie utworzenie szkicu), potem po `id`. Serie, osiągnięcia i rekordy odtwarzamy według spotkań, a w spotkaniu według partii. Widoki „od najnowszej” odwracają tę kolejność.
+
 ### 5.7 Leaderboard
 
 | ID | Wymaganie | P |
@@ -296,7 +300,7 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 | PLAN-1 | Formularz: **tytuł**, **data**, **godzina**, **uczestnicy** (wielokrotny wybór z aktywnych członków), opcjonalnie **prowadzący** (jeden z uczestników innych niż admin). | M |
 | PLAN-2 | Zapisanie zaplanowanego spotkania **otwiera głosowanie** na gry. | M |
 | PLAN-3 | Admin może dowolnie edytować zaplanowane spotkanie (wszystkie pola, uczestników i prowadzącego), także po zamknięciu głosowania. Może też je usunąć, a usunięcie kasuje głosy. | M |
-| PLAN-4 | W spotkaniu *w trakcie* admin może dodać uczestnika (np. spóźnionego gościa klubu) i zmienić prowadzącego. Nie może usunąć uczestnika, który ma już partię. | S |
+| PLAN-4 | W spotkaniu *w trakcie* admin może dodać uczestnika (np. spóźnionego gościa klubu) i zmienić prowadzącego. Prowadzący nie ma tych akcji (Q14). Nie może usunąć uczestnika, który ma już partię. | S |
 | PLAN-5 | Spotkania zakończonego nie można usunąć, dopóki ma partie (decyzja Q4, §12). | M |
 
 #### 5.8.4 Głosowanie na gry
@@ -336,7 +340,7 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 | ID | Wymaganie | P |
 |---|---|:-:|
 | STAT-1 | Spotkania (obecność), rozegrane partie, wygrane, % wygranych, suma punktów, rekord serii, bieżąca seria, aktualne miejsca w trzech leaderboardach. | M |
-| STAT-2 | Ulubiona gra (najczęściej grana), najlepsza gra (najwięcej wygranych lub najwyższy % przy ≥ 3 partiach), ostatnie partie (lista z linkami do spotkań). | M |
+| STAT-2 | Ulubiona gra (najczęściej grana; przy remisie więcej wygranych, potem tytuł alfabetycznie), najlepsza gra (Q21: spośród gier z ≥ 3 partiami gracza najwyższy % wygranych; przy remisie więcej wygranych, potem więcej partii, potem tytuł alfabetycznie; bez takiej gry pusty stan), ostatnie partie (lista z linkami do spotkań). | M |
 | STAT-3 | Filtr roku jak w leaderboardzie. | S |
 
 ### 5.10 Osiągnięcia
@@ -344,11 +348,11 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 | ID | Wymaganie | P |
 |---|---|:-:|
 | ACH-1 | Katalog osiągnięć jest **zdefiniowany w kodzie**: identyfikator, nazwa, opis, ikona, warunek liczony z historii. Zmiana katalogu wymaga zmiany kodu. | M |
-| ACH-2 | Osiągnięcia są przeliczane automatycznie po zapisaniu i po usunięciu partii oraz po zakończeniu spotkania. Data odblokowania to data spotkania, na którym warunek został spełniony po raz pierwszy (odtwarzana chronologicznie, więc wynik jest deterministyczny). | M |
+| ACH-2 | Osiągnięcia są przeliczane automatycznie po zapisaniu i po usunięciu partii oraz po zakończeniu spotkania. `voter-10` jest przeliczane przy zamknięciu głosowania (publikacja gier albo rozpoczęcie spotkania) oraz przy usunięciu spotkania (Q18). Data odblokowania to data spotkania, na którym warunek został spełniony po raz pierwszy (odtwarzana chronologicznie w kolejności z §5.6.6, więc wynik jest deterministyczny). | M |
 | ACH-3 | **Gablota** w profilu: wszystkie osiągnięcia z katalogu. Odblokowane są kolorowe z datą, nieodblokowane wyszarzone, z opisem warunku i (gdzie ma to sens) postępem, np. „7/10 spotkań”. | M |
 | ACH-4 | Krótkie powiadomienie (toast) w aplikacji po odblokowaniu osiągnięcia na urządzeniu prowadzącym partię. | C |
 
-**Proponowany katalog startowy** (do akceptacji lub korekty):
+**Katalog MVP** (zatwierdzony bez zmian, Q16):
 
 | Grupa | ID | Nazwa | Warunek |
 |---|---|---|---|
@@ -373,7 +377,7 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 | | `versatile-5` | Wszechstronny | Wygrane w 5 różnych grach |
 | | `specialist` | Specjalista | 10 wygranych w jednej grze |
 | | `beginners-luck` | Szczęście debiutanta | Wygrana w swojej pierwszej partii danej gry |
-| Wyjątkowe | `record` | Rekordzista | Ustanowienie najwyższego wyniku w historii danej gry (zostaje na zawsze) |
+| Wyjątkowe | `record` | Rekordzista | Ustanowienie rekordu danej gry (GAME-11; zostaje na zawsze, Q17) |
 | | `big-table` | Wielki stół | Partia z ≥ 6 graczami |
 | | `tie-top` | Ex aequo | Wspólne 1. miejsce |
 | | `comeback` | Powrót z popiołów | Wygrana na spotkaniu bezpośrednio po spotkaniu, które przerwało serię ≥ 3 |
@@ -381,6 +385,18 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 | Punkty | `pts-100` | Setka punktów | 100 punktów leaderboardu |
 | | `pts-500` | Pół tysiąca | 500 punktów |
 | Klub | `voter-10` | Głos ludu | Głos oddany w 10 głosowaniach |
+
+**Doprecyzowanie warunków:**
+
+- Progi oznaczają „co najmniej”. Liczą się tylko zapisane partie (szkice nie). Gry usunięte z kolekcji liczą się jak pozostałe.
+- `meet-*`: spotkania, na których gracz rozegrał ≥ 1 partię. Sama obecność na liście uczestników nie wystarcza.
+- `win-*`, `hattrick`, `flawless`, `versatile-5`, `specialist`, `beginners-luck`: wygrana według §5.6.3, także wspólne 1. miejsce. `flawless` jest sprawdzane przy zakończeniu spotkania.
+- `record`: rekord ustanawia wynik **lepszy** od wszystkich wcześniejszych partii tej gry (według kierunku kategorii decydującej). Pierwsza partia gry nie daje osiągnięcia, a samo wyrównanie rekordu też nie. Kilku graczy z tym samym nowym rekordem w jednej partii dostaje osiągnięcie razem. Późniejsze pobicie rekordu go nie odbiera. Usunięcie partii, w której rekord padł, przelicza rekordy od nowa, więc osiągnięcie może zniknąć (§5.6.5, Q17).
+- `tie-top`: wspólne 1. miejsce co najmniej dwóch graczy.
+- `comeback`: wygrana na pierwszym spotkaniu z partią gracza po spotkaniu, na którym jego seria ≥ 3 została przerwana.
+- `lantern-10`: ostatnie miejsce w partii, także wspólne (nikt nie zajął niższego miejsca).
+- `pts-*`: suma punktów leaderboardu (§5.6.2).
+- `voter-10`: liczba różnych spotkań, w których gracz miał ≥ 1 głos w chwili zamknięcia głosowania. Kilka głosów albo ponowne otwarcie głosowania w jednym spotkaniu liczą się raz (Q18).
 
 ---
 
@@ -450,9 +466,9 @@ achievement_unlocks profile_id, achievement_id, unlocked_at, meeting_id, play_id
 
 ### 8.1 Stos
 
-- **Frontend:** Vite + TypeScript. Framework UI do wyboru: rekomendacja **React** albo **Preact** z TanStack Query (cache danych z Supabase). Notes i edytor zostają web componentami (vanilla TS, Three.js), osadzanymi bez przepisywania.
+- **Frontend:** Vite + TypeScript + **React** z TanStack Query (cache danych z Supabase), decyzja Q13. Notes i edytor zostają web componentami (vanilla TS, Three.js), osadzanymi bez przepisywania (§8.5).
 - **Backend:** Supabase: Postgres (migracje w repo, `supabase/migrations`), Auth, Storage, Edge Functions (Deno).
-- **Wdrożenie:** Cloudflare Pages budowane z gałęzi `main`, z preview dla PR. Migracje uruchamiane przez Supabase CLI (ręcznie albo w CI).
+- **Wdrożenie:** Cloudflare Pages budowane z gałęzi `master` (domyślna gałąź repozytorium, Q20), z preview dla PR. Migracje uruchamiane przez Supabase CLI (ręcznie albo w CI).
 
 ### 8.2 Struktura repozytorium (propozycja)
 
@@ -483,6 +499,12 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 - Edytor ma dziś trzy kroki (Zdjęcie, Kształt, Pola), a kształt można poprawiać różdżką i lassem. Zastąpi to kreator pięciu kroków (§5.5.2) z edycją obszaru punktami (EDT-10). Różdżka i lasso są usuwane.
 
 ---
+
+### 8.5 Integracja POC
+
+- **Jedyne źródło kodu** obu komponentów to TypeScript w `digital-scorepad-poc`, katalog `example/score-pad/score-pad/src/` (`core/` dla `<score-pad>`, `editor/` dla `<score-pad-editor>`), wersja 2.4.0, commit `e6b7dd2`. Repozytorium `digital-scorepad-editor-poc` (commit `7e6d379`) zawiera tylko zbudowany bundle, identyczny bajt w bajt z `dist/score-pad-editor.js` z pierwszego repo, i nie jest osobnym źródłem.
+- Źródła przenosimy do `packages/score-pad/` (bez plików `dist/`). Three.js pochodzi z zależności npm, a nie z CDN.
+- React osadza oba elementy przez cienki adapter: przekazuje szablon, uczestników, szkic i motyw, nasłuchuje zdarzeń (PAD-7) i przy zamknięciu popupu wywołuje `destroy()`. Notes i edytor są ładowane leniwie (`import()`, NFR-2).
 
 ## 9. Kluczowe przepływy (skrót)
 
@@ -554,3 +576,21 @@ Założenia zaproponowane w wersji 1.0 i zaakceptowane przez właściciela produ
 | Q10 | Czy zakończone spotkanie można „otworzyć” ponownie, żeby dograć partię? | Tak, tylko admin (**C**, RUN-5). |
 | Q11 | Kryterium kolejności gier w widżecie kolekcji. | Ostatnio grane, potem ostatnio dodane. |
 | Q12 | Czy potrzebny jest limit liczby uczestników spotkania? | Brak limitu. Limit dotyczy tylko partii (min/max gry, miejsca w notesie). |
+
+### 12.1 Decyzje startowe (wersja 1.3, zadanie #4)
+
+| # | Pytanie | Decyzja |
+|---|---|---|
+| Q13 | React czy Preact? Jak włączyć POC? | **React** z TanStack Query. POC jako web componenty z jednego źródła TS (§8.5). |
+| Q14 | Menu prowadzącego w DS §15 zawiera „Dodaj uczestnika” i „Zmień prowadzącego”, a macierz §2.1 nie. | Rozstrzyga PRD: obie akcje ma **tylko admin** (PLAN-4). DS poprawiony. |
+| Q15 | Gdzie są `design/reference-jsx/` i generatory `design/*/_build.mjs`? | **Utracone.** Jedynym źródłem projektu jest DESIGN-SYSTEM.md i plik Paper. Odwołania usunięte z DS. |
+| Q16 | Katalog osiągnięć. | Zatwierdzone **wszystkie 29** pozycje z §5.10, z doprecyzowaniem warunków. |
+| Q17 | Czy `record` przetrwa usunięcie partii, w której padł rekord? | **Nie.** Usunięcie partii przelicza rekordy od nowa. „Na zawsze” znaczy, że pobicie rekordu przez innego gracza nie odbiera osiągnięcia. |
+| Q18 | Kiedy przeliczać `voter-10`? | Przy **zamknięciu głosowania** (publikacja gier albo rozpoczęcie spotkania) i przy usunięciu spotkania, a nie przy każdym głosie. |
+| Q19 | Sprzeczności wewnątrz DS (ilustracja §14/§17, switch §10/§18). | Późniejsza, szczegółowa sekcja DS ma pierwszeństwo. DS opisuje wygląd, PRD zachowanie i uprawnienia. |
+| Q20 | Gałąź wdrożeniowa: `main` z PRD czy istniejąca `master`? | **`master`.** |
+| Q21 | Definicja „najlepszej gry” (STAT-2). | Najwyższy % wygranych spośród gier z ≥ 3 partiami. Remis: więcej wygranych, więcej partii, tytuł. |
+| Q22 | Usunięcie konta aktywnego prowadzącego. | Prowadzenie wraca do admina we wszystkich niezakończonych spotkaniach (MEM-6). |
+| Q23 | Moment snapshotu punktacji i szablonu. | Przy rozpoczęciu partii (utworzeniu szkicu), w bazie (GAME-9). |
+| Q24 | Kolejność zdarzeń o tym samym czasie. | `starts_at`, potem `id` dla spotkań; `saved_at`, potem `id` dla partii (§5.6.6). |
+| Q25 | Remisy rekordów gry. | Rekord wymaga wyniku lepszego od dotychczasowego. Równy wynik w historii pokazuje wszystkich rekordzistów (GAME-11, §5.10). |

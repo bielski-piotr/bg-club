@@ -1,15 +1,18 @@
 # BG Club — Design System
 
-Źródło: plik Paper "bg-club" (odczyt 2026-11-12). Wartości pochodzą z get_jsx / get_computed_styles. Czytaj ten plik zamiast ponownie pobierać dane z Paper; aktualizuj go, gdy zmienia się język wizualny. Wzorcowy JSX komponentów: `design/reference-jsx/`.
+Źródło: plik Paper "bg-club" (odczyt 2026-11-12). Wartości pochodzą z get_jsx / get_computed_styles. Czytaj ten plik zamiast ponownie pobierać dane z Paper; aktualizuj go, gdy zmienia się język wizualny.
 Paper file id: 01M75APESFSP8980YWVTY0EAXT.
-Strony Leaderboard, Game collection, Members i Profile odczytano 2026-11-12; projekty Spotkań (30 artboardów) pochodzą z generatora, nie z odczytu Paper. Source HTML and generator for the Meetings designs are in `design/meetings/` (`_build.mjs`, `manifest.json`, `_PAPER-INSTRUCTIONS.md`). The timeline widget and calendar popup (5 artboards, added 2026-11-12, all checked by screenshot in Paper) come from `design/calendar/_build.mjs`; see §15.1.
+Strony Leaderboard, Game collection, Members i Profile odczytano 2026-11-12; projekty Spotkań (30 artboardów) pochodzą z generatora, nie z odczytu Paper. The timeline widget and calendar popup (5 artboards, added 2026-11-12, all checked by screenshot in Paper) are described in §15.1.
+
+**Sources (PRD Q15).** The reference JSX exports and the `design/*/_build.mjs` generators used to build the Meetings, Calendar, Hub and Editor artboards were not preserved and are not in any repository. This file and the Paper file are the only design sources. Where a section says "values from the generator", the values written here are binding. To change a design, edit Paper and update this file.
 
 ## 0. Important facts first
+- **Precedence (PRD Q19).** The PRD defines behavior, scope and permissions; this file defines only the look. Within this file a later, specific section overrides an earlier general statement: §17 (first-run illustration) overrides §14, and §18 (switch) overrides §10. No component here grants a permission the PRD does not.
 - **The file's design tokens are not used anywhere.** The file holds the stock Tailwind v4 token set (gray/blue oklch scales, text-xs…9xl, radius-xs…4xl, `--font-sans: "Inter"`), but `find_nodes` for any `var(--…)` returns 0 hits. Every design uses **hard-coded hex values** and the fonts below. Inter is **not** used. Copy the hex values, not the tokens.
-- **Light theme only.** There are no dark artboards and no "Light/Dark" suffix in any name.
+- **Light theme only.** There are no dark artboards and no "Light/Dark" suffix in any name. The app still needs a dark theme (PRD NFR-5); it is derived from these values during implementation.
 - **No section labels or text on the canvas.** Pages hold only artboards.
 - **Meetings page** (`p-6-0`): holds 30 artboards for "Aktywne/najbliższe spotkanie" (see §1). They have not been visually reviewed yet. New components are in §8–§11 and §15. The **Club Hub** page (`p-8-0`) holds 10 artboards (added 2026-11-12, see §17).
-- One existing reference to meetings is the "Meeting link" row inside "Kolekcja / Karteczka / Desktop": a calendar icon in a #EEF2FF circle, the meeting title "Listopadowe granie" and the subtitle "Spotkanie · 8 lis 2026, 18:00" (see jsx-h-components.txt h8). Removing a member says they "znikną … z zaplanowanych spotkań", so planned meetings have a member list.
+- One existing reference to meetings is the "Meeting link" row inside "Kolekcja / Karteczka / Desktop": a calendar icon in a #EEF2FF circle, the meeting title "Listopadowe granie" and the subtitle "Spotkanie · 8 lis 2026, 18:00". Removing a member says they "znikną … z zaplanowanych spotkań", so planned meetings have a member list.
 
 ## 1. Pages and artboards
 
@@ -228,7 +231,7 @@ There are no hover or disabled button variants in the file.
 - **Warning banner**: bg #FFF4D6, radius 14, padding 12/14, gap 10, alert-triangle 16px #8A5A00, text 13/18/500 #6B4500.
 - **Info banner** (accent tint, next to the warning banner): bg #EEF2FF, radius 14, padding 12/14, gap 10, check icon 16px #2F54EB, text 13/18/500 #161A2B.
 - **Date / time field**: the standard input (h48) with a leading calendar/clock icon (16px, #6B7188, stroke 1.75); in the picker artboard both are in the focus state (1.5px #2F54EB). Date flexes; time is 160 wide (desktop form), 120 (mobile form), 140 (picker artboard). Optional field: label "Prowadzący (opcjonalnie)" with a leading 24px avatar and a trailing chevron-down.
-- Checkbox, radio, date picker calendar, time dropdown, member selection row: see §15. There is still no toggle switch.
+- Checkbox, radio, date picker calendar, time dropdown, member selection row: see §15. The toggle switch is defined in §18.
 
 ## 11. Chips / badges
 - **Row badge**: pill, padding 2/8, 11/14/600.
@@ -264,14 +267,14 @@ There are no hover or disabled button variants in the file.
   - More: 3 dots `r1.25` at x 3.5/8/12.5
 
 ## 14. Illustration / imagery style
-- There are no photos and no illustrations. "Images" are flat colored tiles.
+- There are no photos. "Images" are flat colored tiles. The only illustration is the first-run one (§17).
 - **Game cover**: a solid palette color, radius 18 (148px) or 10 (36px thumbnail).
   - Large cover: a soft geometric motif (a large circle #FFFFFF29 and a small dot #FFFFFF99 in the top area) with the game title in white Bricolage 16/18/700 at the bottom-left (inset 12).
   - Small thumbnail: a single white Bricolage initial.
 - "Karteczka" (score sheet) is drawn as an SVG paper sheet (300×400) on a 400×540 stage.
 - Overall look: airy, rounded and friendly, with a cool gray-lavender page (#F3F4F8), white cards with very soft navy drop shadows, one strong cobalt accent (#2F54EB), dark-ink pills for active tabs, and warm multicolor avatars. Density is medium: rows are 54–64px.
 
-## 15. Meetings components ("Spotkania"; values from `design/meetings/_build.mjs`)
+## 15. Meetings components ("Spotkania"; values from the original generator, not preserved)
 Shared: section head = title 15/20/600 #161A2B + right note 13/16/500 #6B7188 (space-between). Game thumbnail 36 (radius 10, Bricolage 16/20/700 initial; Terraformacja Marsa uses #F1F3F9 with #6B7188 initial); 44 in live cards. Icons added: clock, play, flag, pencil, refresh, trophy, pad (notes), userplus, chevron-down (`M4 6L8 10L12 6`), check (`M3.5 8.5L6.5 11.5L12.5 4.5`).
 
 | Component | Spec |
@@ -299,11 +302,11 @@ Shared: section head = title 15/20/600 #161A2B + right note 13/16/500 #6B7188 (s
 | Seat row | Row gap 12: number circle 28 (bg #F1F3F9, 13/16/600 #6B7188) + field flex h48 radius 14. **Filled**: 1px #E4E7F0, padding 0 14 0 8, gap 10, avatar 32, name 15/20/500, chevron-down #6B7188. **Empty**: 1.5px dashed #C9CDDA, padding 0 14, + icon #6B7188, "Wybierz gracza" 15/20/500 #6B7188. Seats column gap 10; label "Gracze i miejsca w notesie" + right "Zajęte 4 z 5 miejsc". Below: "Poza partią:" 13/16/500 #6B7188 + pill h28 (padding 0 10 0 4, #F1F3F9) with avatar 20 and name 13/16/600 |
 | Date picker calendar | 278 wide, white, 1px #E4E7F0, radius 16, padding 12, gap 4, menu shadow. Header: chevron buttons 32 + "Listopad 2026" Bricolage 16/20/700. Weekday cells 36 wide, 12/16/600 #6B7188 ("Pn Wt Śr Cz Pt So Nd"), padding 4/0. Day cell 36×36 circle, 14/18/500 tnum: selected bg #2F54EB + white 600; today 1.5px #2F54EB ring + #2F54EB 600; past #C9CDDA. Footer "Dziś" 14/18/600 #2F54EB centered, paddingTop 8, border-top 1px #E4E7F0 |
 | Time dropdown | Menu from §7, 140 wide; half-hour slots 17:00–19:30; selected row #EEF2FF, #2F54EB/600, check |
-| Meeting menus | Menu from §7 but 260 wide, icons 16px stroke 1.75: admin menu "Edytuj spotkanie" (pencil), "Otwórz głosowanie ponownie" (refresh), "Usuń spotkanie" (trash, danger); host menu "Dodaj uczestnika" (userplus), "Zmień prowadzącego" (user), "Zakończ spotkanie" (flag) |
+| Meeting menus | Menu from §7 but 260 wide, icons 16px stroke 1.75: admin menu "Edytuj spotkanie" (pencil), "Otwórz głosowanie ponownie" (refresh), "Usuń spotkanie" (trash, danger); host menu "Zakończ spotkanie" (flag) only. "Dodaj uczestnika" (userplus) and "Zmień prowadzącego" (user) are admin actions (PRD §2.1, PLAN-4, Q14) and appear only in the admin menu of a meeting in progress |
 | Dialog variants | §7 small dialog with icon circle 44 (icon 20, stroke 1.75): accent play/flag on #EEF2FF (start/end meeting); #8A5A00 alert on #FFF4D6 (plays in progress; includes a tray radius 18 / padding 6 with a row h56); #D63A3A trash on #FDECEC + destructive button (delete meeting, abandon play) |
 | Toasts | §12 standard toast. Success texts: "Spotkanie zaplanowane. Głosowanie otwarte.", "Głos zapisany", "Gry opublikowane. Głosowanie zamknięte.", "Spotkanie rozpoczęte", "Partia zapisana", "Spotkanie zakończone". Error (alert icon #FFB4B4): "Trwa już inne spotkanie. Najpierw je zakończ." |
 
-### 15.1 Timeline widget and calendar popup (values from `design/calendar/_build.mjs`)
+### 15.1 Timeline widget and calendar popup (values from the original generator, not preserved)
 Requirements: PRD MTG-3, CAL-1…CAL-3, CLUB-4. Sample data assumes today = czwartek, 12 lis 2026.
 
 | Component | Spec |
@@ -325,17 +328,16 @@ Behavior: a timeline row, a calendar chip and an agenda row open the meeting pop
 Popup structure: mobile sheet header h60 (padding 12/16, title 22/28, optional back, "more" 36 for admin, close 36); body padding 4/16/24, blocks separated by paddingTop 20; meta row (status chip + date + time, gap 8, wrap), then participants stack row (paddingTop 14). Desktop 880 popup: header (title 24/30 + status chip, more + close), meta chip row paddingTop 14, columns paddingTop 24 (left flex = votes/games/plays, right 300 = admin box + participants or summary). Participants list: rows h48 (avatar 36, name, badges Admin/Ty/Prowadzi).
 
 ## 16. Working with Paper (lessons learned)
-- Paper does **not inherit text styles** from artboards or frames: every text element must carry its own `font-family`, `font-weight` and `color` (plus size and line-height). The generator emits them on every text node.
+- Paper does **not inherit text styles** from artboards or frames: every text element must carry its own `font-family`, `font-weight` and `color` (plus size and line-height).
 - `margin` (including negative) is **not applied**: use gap, padding or absolute positioning (avatar stacks use absolute `left`).
 - `create_artboard` ignores position: set `left`/`top` afterwards with `update_styles`. Text properties in the artboard style are dropped on frames.
 - `write_html` accepts a whole artboard in one call (verified up to ~34 KB).
-- `<x-paper-clone node-id="…">` works for reusing desktop blocks in mobile artboards, and clones stretch to the column width (`manifest.json` `cloneSources` lists the block paths; `*.lite.html` files use them).
-- Regeneration: `node design/meetings/_build.mjs` (writes `*.html`, `*.lite.html`, `manifest.json`), then place per `design/meetings/_PAPER-INSTRUCTIONS.md`.
+- `<x-paper-clone node-id="…">` works for reusing desktop blocks in mobile artboards, and clones stretch to the column width.
 - **Avatar stacks in Paper:** fixed in place on all 12 affected Meetings artboards (32 stacks). Recipe: container gets fixed `width`/`height` and `flexShrink: 0` (Paper ignores `position: relative` on it and keeps flex display); avatar i gets `position: absolute`, `top: 0`, `left: i × step`.
 - **Known caveat:** the Meetings artboards were placed before the generator dropped `margin`, so in Paper the score-sheet thumbnail lines may lack their 6px side inset. Only four artboards were spot-checked by screenshot after the stack fix; the rest have not been visually reviewed.
 
-## 17. Club Hub ("Klub"; values from `design/hub/_build.mjs`)
-Requirements: PRD §4, CLUB-1…CLUB-4. The current user in all samples is Bartek Wójcik (BW, admin). Regenerate with `node design/hub/_build.mjs`.
+## 17. Club Hub ("Klub"; values from the original generator, not preserved)
+Requirements: PRD §4, CLUB-1…CLUB-4. The current user in all samples is Bartek Wójcik (BW, admin).
 
 | Component | Spec |
 |---|---|
@@ -350,8 +352,8 @@ Requirements: PRD §4, CLUB-1…CLUB-4. The current user in all samples is Barte
 
 Icons added: pencil (`M10.5 3L13 5.5L6 12.5L3 13L3.5 10L10.5 3Z` + `M9 4.5L11.5 7`), upload (`M8 11V3.5M5 6.5L8 3.5L11 6.5M3.5 13H12.5`), globe, dice, chevron-up (`M4 10L8 6L12 10`).
 
-## 18. Notepad editor ("Edytor notesu"; values from `design/editor/_build.mjs`)
-Requirements: PRD §5.5.2, EDT-1…EDT-14. A five-step wizard opened from "Dodaj notes" / "Edytuj" in the game details. Sample: a new notepad "Turniejowy" for Wingspan with 4 player seats and 8 categories. Regenerate with `node design/editor/_build.mjs`. Page `p-9-0`, 14 artboards (added 2026-11-12).
+## 18. Notepad editor ("Edytor notesu"; values from the original generator, not preserved)
+Requirements: PRD §5.5.2, EDT-1…EDT-14. A five-step wizard opened from "Dodaj notes" / "Edytuj" in the game details. Sample: a new notepad "Turniejowy" for Wingspan with 4 player seats and 8 categories. Page `p-9-0`, 14 artboards (added 2026-11-12).
 
 **Frame**
 | Part | Spec |
