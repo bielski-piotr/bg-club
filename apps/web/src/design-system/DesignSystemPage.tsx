@@ -41,6 +41,9 @@ import {
   type AvatarSize,
   type SelectOption,
 } from '../ui';
+import { ScorePadEditorView } from '../score-pad/ScorePadEditorView';
+import { ScorePadView } from '../score-pad/ScorePadView';
+import { SAMPLE_SCORE_PAD } from './scorePadSample';
 import './DesignSystemPage.css';
 
 const s = t.designSystem.samples;
@@ -132,6 +135,7 @@ export default function DesignSystemPage() {
   const [smooth, setSmooth] = useState(true);
   const [strength, setStrength] = useState(4);
   const [loading, setLoading] = useState(false);
+  const [scorePad, setScorePad] = useState<'none' | 'pad' | 'editor'>('none');
 
   const save = () => {
     setLoading(true);
@@ -567,6 +571,32 @@ export default function DesignSystemPage() {
             onValueChange={setStrength}
             disabled={!smooth}
           />
+        </Section>
+
+        <Section id="score-pad" title={sections.scorePad}>
+          <p className="ds-note">{s.scorePadIntro}</p>
+          <Row>
+            <Button
+              variant={scorePad === 'pad' ? 'primary' : 'secondary'}
+              icon="pad"
+              aria-pressed={scorePad === 'pad'}
+              onClick={() => setScorePad(scorePad === 'pad' ? 'none' : 'pad')}
+            >
+              {s.showScorePad}
+            </Button>
+            <Button
+              variant={scorePad === 'editor' ? 'primary' : 'secondary'}
+              icon="pencil"
+              aria-pressed={scorePad === 'editor'}
+              onClick={() => setScorePad(scorePad === 'editor' ? 'none' : 'editor')}
+            >
+              {s.showScorePadEditor}
+            </Button>
+          </Row>
+          {scorePad === 'pad' ? (
+            <ScorePadView config={SAMPLE_SCORE_PAD} className="ds-score-pad" />
+          ) : null}
+          {scorePad === 'editor' ? <ScorePadEditorView className="ds-score-pad" /> : null}
         </Section>
 
         <Section id="icons" title={sections.icons}>

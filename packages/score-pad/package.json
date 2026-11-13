@@ -5,9 +5,30 @@
   "type": "module",
   "description": "Web componenty <score-pad> i <score-pad-editor> w trybie klubowym (PRD §8.5).",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./pad": {
+      "types": "./src/register.d.ts",
+      "default": "./src/register-pad.ts"
+    },
+    "./editor": {
+      "types": "./src/register.d.ts",
+      "default": "./src/register-editor.ts"
+    }
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fontsource/alegreya-sc": "5.3.0",
+    "@fontsource/archivo-narrow": "5.3.0",
+    "@fontsource/caveat": "5.3.0",
+    "three": "0.149.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.149.0",
+    "jsdom": "^31.0.0",
+    "vitest": "5.1.0"
   }
 }

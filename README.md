@@ -12,7 +12,7 @@ Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres
 ```
 apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; klub: src/club; członkowie: src/members; profil i ustawienia: src/profile; popupy: src/popups
 packages/accounts/     konta: hook, techniczny e-mail, hasła, tworzenie członka, skrypt bootstrapu admina (+ testy)
-packages/score-pad/    web componenty <score-pad> i <score-pad-editor> (źródła z POC, zadanie [013])
+packages/score-pad/    web componenty <score-pad> i <score-pad-editor> z POC w trybie klubowym (+ testy); adaptery React: apps/web/src/score-pad
 packages/scoring/      czysta logika wyników: miejsca, remisy, punkty, serie (+ testy)
 supabase/config.toml   konfiguracja lokalnego Supabase (CLI)
 supabase/migrations/   schemat, RLS i funkcje SQL
@@ -197,6 +197,17 @@ Wymagania: PRD GAME-1…GAME-6, GAME-8, GAME-9; wygląd DS §6, §7, §14. Kod: 
 - **Usuń grę** (GAME-8, `?p=game/<uuid>/delete`) jest miękkie i nieodwracalne: `deleted_at` ustawia baza (`now()`), a wyzwalacz `games_guard_update` blokuje dalszą edycję i przywrócenie. Gra znika z kolekcji, wyszukiwania, głosów i list gier **zaplanowanych** spotkań (wyzwalacz `games_after_soft_delete`); spotkania w trakcie i zakończone zachowują historię. Partie, karteczki, punkty i okładka zostają (historia pokaże „(usunięta z kolekcji)”). Usunięcie jest idempotentne.
 - **Edycja punktacji nie zmienia historii** (GAME-9): partia ma snapshot `points_snapshot` ustawiany w bazie przy rozpoczęciu (migracja [003]); formularz edycji przypomina, że zmiana dotyczy tylko kolejnych partii.
 - Testy: SQL `100_game_collection` (uprawnienia, wyszukiwanie, kolejność widżetu, skutki usunięcia, snapshot), Vitest (`games/form.test.ts`, `games/Collection.test.tsx`, `club/image.test.ts`), E2E `e2e/games.spec.ts`.
+
+## Notes i edytor notesu
+
+Wymagania: PRD §8.4–8.5, PAD-1, EDT-8. Kod: [`packages/score-pad`](packages/score-pad) (źródła POC 2.4.0, commit `e6b7dd2`; pochodzenie, licencje i lista zmian w [README pakietu](packages/score-pad/README.md)) i adaptery React w [`apps/web/src/score-pad`](apps/web/src/score-pad).
+
+- **Leniwe ładowanie** (NFR-2): `ScorePadView` i `ScorePadEditorView` pobierają `@bg-club/score-pad/pad` albo `/editor` przez `import()` dopiero przy pierwszym pokazaniu. Three.js 0.149 (npm, nie CDN) i fonty kartki (npm, nie Google Fonts) są tylko w tych chunkach. Błąd pobrania pokazuje komunikat z „Spróbuj ponownie”.
+- **Tryb klubowy** (PAD-1): adapter zawsze ustawia `club: true`. Notes nie czyta i nie zapisuje lokalnej biblioteki szablonów (IndexedDB) ani stanu i historii POC (`localStorage`) i nie dokłada notesów wbudowanych. Pliki notesu v2 nadal się wczytują (`config`, „Wczytaj notes z pliku…”), tylko do pamięci.
+- **Bez limitu graczy** (EDT-8): `MAX_PLAYERS = 8` usunięte z notesu, edytora i walidacji pliku.
+- **Motyw i zdarzenia**: rozwiązany motyw aplikacji trafia do atrybutu `theme` obu elementów i zmienia się na żywo; `scorepad:save`, `scorepad:ready` i `scorepad-editor:export` są propsami `onSave`, `onReady`, `onExport`. Zamknięcie widoku usuwa element, co wywołuje `destroy()` (animacja, WebGL).
+- **Podgląd:** galeria `/design-system`, sekcja „Notes i edytor” (przykładowy notes z 10 miejscami). Partie (PAD-2…PAD-9) i kreator edytora (EDT-1…EDT-14) dochodzą w kolejnych zadaniach.
+- Testy: Vitest w pakiecie (`src/club.test.ts`) i aplikacji (`score-pad/ScorePadView.test.tsx`), E2E `e2e/score-pad.spec.ts` (leniwe chunki, brak żądań poza aplikację, brak wpisów w `localStorage` i IndexedDB, 10 miejsc, motyw, brak błędów konsoli).
 
 ## Schemat bazy
 

@@ -245,3 +245,16 @@
   background: var(--c-tint);
   text-align: center;
 }
+
+/* Podgląd notesu i edytora (zadanie [013]): wysokość jak w popupie partii na telefonie. */
+.ds-score-pad {
+  height: min(640px, 80vh);
+}
+
+.ds-note {
+  margin: 0;
+  max-width: 640px;
+  color: var(--c-muted);
+  font-size: 13px;
+  line-height: 18px;
+}

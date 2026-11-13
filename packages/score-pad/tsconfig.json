@@ -2,7 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": []
+    "types": [],
+    // Źródła POC (`src/core`, `src/editor`) są przeniesione bez przepisywania (PRD §8.5)
+    // i pisane bez tych dwóch flag. Aplikacja nie kompiluje ich swoimi ustawieniami:
+    // widzi tylko `src/index.ts` i deklaracje `src/register.d.ts` (pole `exports`).
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false
   },
   "include": ["src"]
 }
