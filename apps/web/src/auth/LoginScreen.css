@@ -22,39 +22,6 @@
   margin-top: 8px;
 }
 
-.signed-in__who {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 12px;
-}
-
-.signed-in__text {
-  min-width: 0;
-}
-
-.signed-in__name {
-  margin-top: 0;
-}
-
-.signed-in__hook {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--c-muted);
-}
-
-/* Hook w DM Mono (DS §4). */
-.signed-in__hook-value {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-
 .signed-in__banner {
   margin-top: 16px;
 }

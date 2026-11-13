@@ -10,7 +10,7 @@ Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres
 ## Struktura repozytorium
 
 ```
-apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts
+apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; popupy: src/popups
 packages/accounts/     konta: hook, techniczny e-mail, hasła, skrypt bootstrapu admina (+ testy)
 packages/score-pad/    web componenty <score-pad> i <score-pad-editor> (źródła z POC, zadanie [013])
 packages/scoring/      czysta logika wyników: miejsca, remisy, punkty, serie (+ testy)
@@ -113,8 +113,19 @@ Wygląd opisuje [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md). W kodzie:
 
 - **Tokeny i motywy:** [`apps/web/src/styles/tokens.css`](apps/web/src/styles/tokens.css). Motyw jasny, ciemny albo systemowy wybiera atrybut `data-theme` na `<html>` (`src/theme`); wybór jest na razie w `localStorage`, w zadaniu [010] trafi do profilu. Test `tokens.test.ts` sprawdza kontrast WCAG AA wszystkich par tekst/tło w obu motywach.
 - **Fonty:** Bricolage Grotesque, Instrument Sans i DM Mono z pakietów `@fontsource*` (bez zewnętrznego CDN).
-- **Komponenty:** [`apps/web/src/ui`](apps/web/src/ui), import z `src/ui`: przyciski, pola, wyszukiwarka, stepper, lista rozwijana, checkbox, radio, pigułki wyboru, chipy, próbki kolorów, awatary i stosy, karta widżetu z tacą i wierszami, zakładki, badge i chipy statusu, toasty (`ToastProvider` + `useToast`), banery, puste stany, spinner, szkielety, switch i slider. Teksty wbudowane w komponenty są w `t.ui`.
+- **Komponenty:** [`apps/web/src/ui`](apps/web/src/ui), import z `src/ui`: przyciski, pola, wyszukiwarka, stepper, lista rozwijana, checkbox, radio, pigułki wyboru, chipy, próbki kolorów, awatary i stosy, karta widżetu z tacą i wierszami, zakładki, badge i chipy statusu, toasty (`ToastProvider` + `useToast`), banery, puste stany, spinner, szkielety, switch, slider i popup (`Modal`: okno 560/880 na desktopie, pełnoekranowy arkusz na telefonie). Teksty wbudowane w komponenty są w `t.ui`.
 - **Galeria:** `pnpm dev` i <http://localhost:5173/design-system>. Pokazuje wszystkie komponenty i stany z przełącznikiem motywu; E2E sprawdza ją na 360 px i desktopie w obu motywach, także z axe (WCAG A/AA).
+
+## Hub i popupy
+
+Wymagania: PRD §4, NFR-4, NFR-6; wygląd DS §6, §7, §17. Kod: [`apps/web/src/hub`](apps/web/src/hub), [`apps/web/src/popups`](apps/web/src/popups).
+
+- **Widok Klubu** (`/`) jest jedynym pełnoekranowym widokiem po zalogowaniu: nagłówek z klubem i chipem użytkownika oraz pięć widżetów w kolejności PRD (Spotkanie, Ranking, Timeline, Kolekcja, Członkowie). Od 1112 px treść ma 1064 px i dwie kolumny po 520 px o niezależnych wysokościach (`useMasonry`), węższe ekrany mają jedną kolumnę. Kolejność dokumentu (czytnik ekranu, Tab) jest zawsze ta z PRD. Widżety Spotkanie, Ranking, Timeline i Kolekcja mają na razie puste stany; ich treść dochodzi w kolejnych zadaniach.
+- **Adres popupu:** stos popupów jest w parametrach `p`, od dołu do góry, np. `/?p=members&p=profile/<uuid>`. Odświeżenie i link wysłany komuś odtwarzają cały stos (także po zalogowaniu). Nieznany lub uszkodzony wpis otwiera popup „Nie znaleziono”, profil spoza klubu pokazuje „Nie znaleziono gracza”, a nieznana ścieżka stronę „Nie ma takiej strony”. Stos ma najwyżej 8 poziomów.
+- **Historia:** otwarcie popupu dodaje wpis historii, więc Wstecz zamyka górny popup, a Dalej otwiera go ponownie. ← i Esc zamykają górny popup, × cały stos. Popup otwarty z linku nie ma wpisu pod sobą, więc zamknięcie podmienia adres zamiast wychodzić z aplikacji.
+- **Dostępność:** popup ma `role="dialog"`, fokus po otwarciu, pętlę Tab, Esc, a po zamknięciu oddaje fokus elementowi, który go otworzył. Hub i niższe popupy dostają `inert`. Strona pod popupem się nie przewija, a arkusz na telefonie ma wysokość widocznego obszaru (`visualViewport`), więc klawiatura ekranowa nie zasłania treści.
+- **Awatar gracza** w dowolnym miejscu to link `ProfileLink` do jego profilu (`?p=profile/<id>`); Ctrl/Cmd+klik otwiera go w nowej karcie.
+- **Nowy popup:** rodzaj w `popups/routes.ts` (`PopupRoute`, `parseRoute`, `serializeRoute`), komponent z `PopupModal` i wpis w `hub/HubPopup.tsx`. Link do niego: `PopupLink` albo `usePopups().open(route)`.
 
 ## Schemat bazy
 

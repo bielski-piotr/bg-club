@@ -1,0 +1,162 @@
+/*
+ * Popup (DS §7). Telefon: pełnoekranowy biały arkusz bez tła, promienia i cienia.
+ * Desktop (≥ 768 px): okno 560/880 na tle #161A2B80, promień 28, cień modala.
+ * Wysokość arkusza na telefonie idzie za widocznym obszarem (`--vv-height`, `--vv-top` ustawia
+ * PopupHost z visualViewport), więc klawiatura ekranowa nie zasłania pól ani stopki.
+ */
+.popup-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.popup-layer--covered {
+  visibility: hidden;
+}
+
+.popup-layer__scrim {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  top: var(--vv-top, 0px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: var(--vv-height, 100dvh);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  overflow: hidden;
+}
+
+.modal:focus {
+  outline: none;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  min-height: 60px;
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+.modal__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.modal__title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.modal__title {
+  margin: 0;
+  font: 700 22px/28px var(--font-display);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal__count {
+  display: none;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.modal__count-line {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.modal__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.modal__body {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 16px 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 768px) {
+  .popup-layer {
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+
+  .popup-layer__scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: var(--c-scrim);
+  }
+
+  .modal {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: min(100%, 560px);
+    height: auto;
+    max-height: min(800px, calc(var(--vv-height, 100dvh) - 48px));
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-card-lg);
+    box-shadow: var(--shadow-modal);
+  }
+
+  .modal--880 {
+    width: min(100%, 880px);
+  }
+
+  .modal__header {
+    min-height: 0;
+    padding: 28px 28px 0;
+  }
+
+  .modal__title {
+    font-size: 24px;
+    line-height: 30px;
+  }
+
+  .modal__count {
+    display: inline;
+  }
+
+  .modal__count-line {
+    display: none;
+  }
+
+  .modal__body {
+    padding: 20px 28px 28px;
+  }
+}
+
+/* Przewijanie strony pod popupem jest wyłączone (PopupHost). */
+html.popup-open,
+html.popup-open body {
+  overflow: hidden;
+}

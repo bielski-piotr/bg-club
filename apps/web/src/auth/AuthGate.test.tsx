@@ -7,7 +7,7 @@ import {
   type SupabaseClient,
 } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthGate } from '../App';
 import { AuthProvider } from './AuthProvider';
@@ -44,6 +44,23 @@ interface FakeOptions {
   readonly signInError?: AuthError;
 }
 
+/**
+ * Zapytanie PostgREST: każda metoda filtra zwraca to samo zapytanie, `maybeSingle` daje jeden
+ * wiersz, a samo `await` listę (np. członkowie klubu).
+ */
+function fakeQuery(row: OwnProfile | null) {
+  const result = { data: row ? [{ ...row, deleted_at: null }] : [], error: null };
+  const query = {
+    select: () => query,
+    eq: () => query,
+    is: () => query,
+    order: () => query,
+    maybeSingle: async () => ({ data: row ? { ...row, deleted_at: null } : null, error: null }),
+    then: (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve),
+  };
+  return query;
+}
+
 /** Atrapa klienta Supabase: zdarzenia Auth emitujemy ręcznie, jak supabase-js. */
 function fakeSupabase({ session = null, profile = ADA, signInError }: FakeOptions = {}) {
   let listener: ((event: AuthChangeEvent, session: Session | null) => void) | undefined;
@@ -65,8 +82,7 @@ function fakeSupabase({ session = null, profile = ADA, signInError }: FakeOption
       return { error: null };
     }),
   };
-  const maybeSingle = vi.fn(async () => ({ data: profile, error: null }));
-  const from = vi.fn(() => ({ select: () => ({ eq: () => ({ maybeSingle }) }) }));
+  const from = vi.fn((table: string) => fakeQuery(table === 'profiles' ? profile : null));
   return { client: { auth, from } as unknown as SupabaseClient, auth, from, emit };
 }
 
@@ -80,6 +96,14 @@ function renderGate(fake: ReturnType<typeof fakeSupabase>) {
     </QueryClientProvider>,
   );
   return { queryClient };
+}
+
+const hubHeading = () => screen.findByRole('heading', { level: 1, name: 'BG Club' });
+
+/** Własny profil otwiera chip użytkownika w nagłówku huba. */
+async function openOwnProfile() {
+  fireEvent.click(await screen.findByRole('link', { name: 'Twój profil: Ada Adminowska' }));
+  return screen.findByRole('dialog', { name: 'Profil' });
 }
 
 async function submit(hook: string, password: string) {
@@ -131,11 +155,10 @@ describe('logowanie hookiem (AUTH-1)', () => {
       email: 'ada-adminowska-a001@users.bgclub.invalid',
       password: 'tajne-haslo-123',
     });
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Cześć, Ada!' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('ada-adminowska-a001')).toBeInTheDocument();
-    expect(screen.getByText('Admin')).toBeInTheDocument();
+    expect(await hubHeading()).toBeInTheDocument();
+    const profile = await openOwnProfile();
+    expect(await within(profile).findByText('ada-adminowska-a001')).toBeInTheDocument();
+    expect(within(profile).getByText('Admin')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/bgclub\.invalid/);
   });
 
@@ -177,21 +200,24 @@ describe('sesja (AUTH-5, AUTH-7)', () => {
     const session = sessionFor(ADA.id);
     const fake = fakeSupabase({ session });
     renderGate(fake);
-    expect(await screen.findByRole('heading', { name: 'Cześć, Ada!' })).toBeInTheDocument();
+    expect(await hubHeading()).toBeInTheDocument();
+    await screen.findByText('Na razie jesteś tu tylko Ty');
+    const queries = fake.from.mock.calls.length;
 
     fake.emit('TOKEN_REFRESHED', sessionFor(ADA.id, 'token-2'));
-    expect(screen.getByRole('heading', { name: 'Cześć, Ada!' })).toBeInTheDocument();
-    expect(fake.from).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'BG Club' })).toBeInTheDocument();
+    expect(fake.from).toHaveBeenCalledTimes(queries);
   });
 
   it('wylogowuje tylko to urządzenie i czyści dane poprzedniej sesji', async () => {
     const fake = fakeSupabase({ session: sessionFor(ADA.id) });
     const { queryClient } = renderGate(fake);
-    await screen.findByRole('heading', { name: 'Cześć, Ada!' });
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(1);
+    await hubHeading();
+    const profile = await openOwnProfile();
+    expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Wyloguj się' }));
+      fireEvent.click(await within(profile).findByRole('button', { name: 'Wyloguj się' }));
     });
     expect(fake.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(await screen.findByRole('heading', { name: 'Zaloguj się' })).toBeInTheDocument();
@@ -214,7 +240,7 @@ describe('sesja (AUTH-5, AUTH-7)', () => {
     // supabase-js usuwa sesję po odrzuconym odświeżeniu tylko przy wygasłym tokenie dostępu.
     const fake = fakeSupabase({ session: sessionFor(ADA.id, 'token-1', -5) });
     renderGate(fake);
-    await screen.findByRole('heading', { name: 'Cześć, Ada!' });
+    await hubHeading();
 
     fake.emit('SIGNED_OUT', null);
     expect(await screen.findByRole('heading', { name: 'Zaloguj się' })).toBeInTheDocument();
@@ -224,7 +250,7 @@ describe('sesja (AUTH-5, AUTH-7)', () => {
   it('wylogowanie w innej karcie (ważny token) nie mówi o wygaśnięciu sesji', async () => {
     const fake = fakeSupabase({ session: sessionFor(ADA.id) });
     renderGate(fake);
-    await screen.findByRole('heading', { name: 'Cześć, Ada!' });
+    await hubHeading();
 
     fake.emit('SIGNED_OUT', null);
     expect(await screen.findByRole('heading', { name: 'Zaloguj się' })).toBeInTheDocument();

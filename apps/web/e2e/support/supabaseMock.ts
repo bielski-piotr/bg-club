@@ -10,13 +10,39 @@ export const SUPABASE_URL = 'http://127.0.0.1:54321';
 /** Klucz sesji supabase-js: `sb-<pierwszy człon hosta>-auth-token`. */
 export const SESSION_STORAGE_KEY = 'sb-127-auth-token';
 
-export const ADA = {
+export interface MockProfile {
+  readonly id: string;
+  readonly hook: string;
+  readonly first_name: string;
+  readonly last_name: string;
+  readonly role: 'admin' | 'player';
+  readonly deleted_at: string | null;
+}
+
+export const ADA: MockProfile = {
   id: '00000000-0000-4000-a000-000000000001',
   hook: 'ada-adminowska-a001',
   first_name: 'Ada',
   last_name: 'Adminowska',
   role: 'admin',
-} as const;
+  deleted_at: null,
+};
+
+/** Fikcyjny członek klubu o numerze `n` (id i hook wyprowadzone z numeru). */
+export function member(n: number, first: string, last: string, deleted = false): MockProfile {
+  const suffix = n.toString(16).padStart(4, '0');
+  return {
+    id: `00000000-0000-4000-a000-${n.toString(16).padStart(12, '0')}`,
+    hook: `${first}-${last}-${suffix}`
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[^a-z0-9-]/g, ''),
+    first_name: first,
+    last_name: last,
+    role: 'player',
+    deleted_at: deleted ? '2026-11-01T10:00:00Z' : null,
+  };
+}
 
 export const ADA_EMAIL = `${ADA.hook}@users.bgclub.invalid`;
 
@@ -75,8 +101,12 @@ export interface MockOptions {
   password?: AuthReply;
   /** Odpowiedź na odświeżenie sesji (domyślnie: nowa sesja). */
   refresh?: AuthReply;
-  /** Profil zwracany przez RLS (`null` = konto usunięte, RLS nic nie zwraca). */
-  profile?: typeof ADA | null;
+  /** Profil zalogowanej Ady zwracany przez RLS (`null` = konto usunięte, RLS nic nie zwraca). */
+  profile?: MockProfile | null;
+  /** Pozostali członkowie klubu, także usunięci (`deleted_at`). */
+  members?: readonly MockProfile[];
+  /** Klub (`null` = jeszcze nie założony). */
+  club?: { readonly name: string; readonly logo_path: string | null } | null;
 }
 
 export interface SupabaseMock {
@@ -129,8 +159,22 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     }
     if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204 });
     if (url.pathname === '/rest/v1/profiles') {
-      const profile = mock.options.profile === undefined ? ADA : mock.options.profile;
-      return route.fulfill({ json: profile ? [profile] : [] });
+      const own = mock.options.profile === undefined ? ADA : mock.options.profile;
+      // Konto usunięte nie widzi nic (RLS wymaga aktywnego profilu).
+      let rows = own ? [own, ...(mock.options.members ?? [])] : [];
+      const id = url.searchParams.get('id');
+      if (id?.startsWith('eq.')) rows = rows.filter((row) => row.id === id.slice(3));
+      if (url.searchParams.get('deleted_at') === 'is.null') {
+        rows = rows.filter((row) => row.deleted_at === null);
+      }
+      rows = [...rows].sort((a, b) =>
+        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'pl'),
+      );
+      return route.fulfill({ json: rows });
+    }
+    if (url.pathname === '/rest/v1/club') {
+      const club = mock.options.club ?? null;
+      return route.fulfill({ json: club ? [club] : [] });
     }
     return route.fulfill({ status: 501, json: { msg: `brak atrapy: ${describe(request)}` } });
   });
