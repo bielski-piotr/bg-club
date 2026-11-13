@@ -228,6 +228,8 @@ export interface StepperProps {
   readonly max?: number | undefined;
   readonly step?: number | undefined;
   readonly hint?: string | undefined;
+  /** Komunikat błędu (zdanie, DS §10): ramka 1,5 px #D63A3A, zastępuje podpowiedź. */
+  readonly error?: string | undefined;
   readonly disabled?: boolean | undefined;
 }
 
@@ -247,8 +249,10 @@ export function Stepper({
   max = Number.MAX_SAFE_INTEGER,
   step = 1,
   hint,
+  error,
   disabled = false,
 }: StepperProps) {
+  const message = error || hint;
   const id = useId();
   const labelId = `${id}-label`;
   const set = (next: number) => {
@@ -280,7 +284,9 @@ export function Stepper({
       <span id={labelId} className="field__label">
         {label}
       </span>
-      <div className={cx('input', 'stepper', disabled && 'input--disabled')}>
+      <div
+        className={cx('input', 'stepper', error && 'input--error', disabled && 'input--disabled')}
+      >
         <button
           type="button"
           className="icon-btn icon-btn--36"
@@ -296,7 +302,8 @@ export function Stepper({
           tabIndex={disabled ? -1 : 0}
           className="stepper__value tnum"
           aria-labelledby={labelId}
-          aria-describedby={hint ? hintId(id) : undefined}
+          aria-describedby={message ? hintId(id) : undefined}
+          aria-invalid={error ? true : undefined}
           aria-valuenow={value}
           aria-valuemin={min}
           aria-valuemax={max === Number.MAX_SAFE_INTEGER ? undefined : max}
@@ -316,9 +323,9 @@ export function Stepper({
           <Icon name="plus" />
         </button>
       </div>
-      {hint ? (
-        <p id={hintId(id)} className="field__hint">
-          {hint}
+      {message ? (
+        <p id={hintId(id)} className={cx('field__hint', error && 'field__hint--error')}>
+          {message}
         </p>
       ) : null}
     </div>

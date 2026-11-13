@@ -72,6 +72,8 @@ function fakeClient(members: Profile[], options: FakeOptions = {}) {
     const query = {
       select: () => query,
       order: () => query,
+      limit: () => query,
+      returns: () => query,
       insert: (row: Partial<FakeClub>) => {
         pending = write('insert', row);
         return query;

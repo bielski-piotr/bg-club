@@ -23,6 +23,14 @@ export type PopupRoute =
   | { readonly kind: 'first-login' }
   /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (CLUB-2, admin). */
   | { readonly kind: 'club' }
+  /** Popup kolekcji gier (GAME-2), adres `games`. */
+  | { readonly kind: 'games' }
+  /** Formularz „Dodaj grę” (GAME-3, admin), adres `games/new`. */
+  | { readonly kind: 'add-game' }
+  /** Formularz „Edytuj grę” (GAME-3, admin), adres `game/<uuid>/edit`. */
+  | { readonly kind: 'edit-game'; readonly id: string }
+  /** Potwierdzenie „Usuń grę” (GAME-8, admin), adres `game/<uuid>/delete`. */
+  | { readonly kind: 'delete-game'; readonly id: string }
   /** Adres, którego aplikacja nie zna albo który jest uszkodzony. Popup pokazuje czytelny stan. */
   | { readonly kind: 'invalid'; readonly raw: string };
 
@@ -44,6 +52,13 @@ export function parseRoute(raw: string): PopupRoute {
   if (kind === 'members' && args.length === 0) return { kind: 'members' };
   if (kind === 'members' && args.length === 1 && args[0] === 'new') return { kind: 'add-member' };
   if (kind === 'club' && args.length === 0) return { kind: 'club' };
+  if (kind === 'games' && args.length === 0) return { kind: 'games' };
+  if (kind === 'games' && args.length === 1 && args[0] === 'new') return { kind: 'add-game' };
+  if (kind === 'game' && args.length === 2 && isUuid(args[0] ?? '')) {
+    const id = (args[0] ?? '').toLowerCase();
+    if (args[1] === 'edit') return { kind: 'edit-game', id };
+    if (args[1] === 'delete') return { kind: 'delete-game', id };
+  }
   if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
   if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
     return { kind: 'change-password' };
@@ -69,6 +84,14 @@ export function serializeRoute(route: PopupRoute): string {
       return 'members/new';
     case 'club':
       return 'club';
+    case 'games':
+      return 'games';
+    case 'add-game':
+      return 'games/new';
+    case 'edit-game':
+      return `game/${route.id}/edit`;
+    case 'delete-game':
+      return `game/${route.id}/delete`;
     case 'profile':
       return `profile/${route.id}`;
     case 'delete-member':
