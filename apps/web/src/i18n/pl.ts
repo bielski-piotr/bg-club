@@ -20,6 +20,8 @@ export const pl = {
       'Aplikacja nie może połączyć się z Supabase. Uzupełnij zmienne środowiskowe i uruchom ją ponownie.',
     missing: 'Brakujące zmienne: {names}.',
     invalidUrl: 'Zmienna {name} musi być adresem http:// lub https://.',
+    secretKey:
+      'Zmienna {name} zawiera sekretny klucz serwera (service_role). Wpisz klucz publiczny (anon / publishable).',
     hint: 'Skopiuj apps/web/.env.example do apps/web/.env.local i wpisz wartości z `pnpm db:start`.',
   },
   theme: {

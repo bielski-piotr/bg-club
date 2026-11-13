@@ -28,4 +28,21 @@ describe('App', () => {
       screen.getByText('Brakujące zmienne: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY.'),
     ).toBeInTheDocument();
   });
+
+  it('ostrzega po polsku, gdy zamiast klucza anon podano klucz serwera', () => {
+    render(
+      <App
+        config={parseConfig({
+          VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+          VITE_SUPABASE_ANON_KEY: 'sb_secret_przyklad',
+        })}
+      />,
+    );
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Zmienna VITE_SUPABASE_ANON_KEY zawiera sekretny klucz serwera (service_role). Wpisz klucz publiczny (anon / publishable).',
+      ),
+    ).toBeInTheDocument();
+  });
 });
