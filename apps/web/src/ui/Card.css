@@ -1,0 +1,194 @@
+/* Karta widżetu, taca listy i wiersze (DS §6, §7). */
+.card {
+  min-width: 0;
+  padding: 16px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 768px) {
+  .card {
+    padding: 28px;
+    border-radius: var(--r-card-lg);
+  }
+}
+
+.card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card__title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.card__title {
+  margin: 0;
+  font: 700 22px/28px var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 768px) {
+  .card__title {
+    font-size: 24px;
+    line-height: 30px;
+  }
+}
+
+.card__count {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.card__action {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tray {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+  background: var(--c-tint);
+  border-radius: var(--r-tray);
+}
+
+.tray__item {
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding-inline: 14px;
+  background: var(--c-surface);
+  border: 0;
+  border-radius: var(--r-row);
+  color: var(--c-ink);
+  text-align: left;
+}
+
+.row--54 {
+  min-height: 54px;
+}
+
+.row--64 {
+  min-height: 64px;
+}
+
+.row--interactive {
+  transition: background-color 120ms var(--ease);
+}
+
+.row--interactive:hover {
+  background: var(--c-accent-tint);
+}
+
+.row__leading,
+.row__trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.row__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding-block: 6px;
+}
+
+.row__title,
+.row__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__title {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.row__meta {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.row__chevron {
+  flex-shrink: 0;
+  color: var(--c-disabled);
+}
+
+.row--highlighted {
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+.row--highlighted .row__meta,
+.row--highlighted .row__chevron {
+  color: var(--c-on-accent-muted);
+}
+
+.row--interactive.row--highlighted:hover {
+  background: var(--c-accent-hover);
+}
+
+.row--muted .row__title,
+.row--muted .row__trailing {
+  color: var(--c-muted);
+}
+
+/* Wynik w wierszu: liczba Bricolage 16/20/700 + jednostka 12/16 (DS §6). */
+.score {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 3px;
+  min-width: 56px;
+  font: 700 16px/20px var(--font-display);
+  font-feature-settings: 'tnum';
+}
+
+.score__unit {
+  font: 500 12px/16px var(--font-ui);
+  color: var(--c-muted);
+}
+
+.row--highlighted .score__unit {
+  color: var(--c-on-accent-muted);
+}
+
+.rank {
+  width: 28px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--c-muted);
+  font-feature-settings: 'tnum';
+}
+
+.row--highlighted .rank {
+  color: var(--c-on-accent);
+}

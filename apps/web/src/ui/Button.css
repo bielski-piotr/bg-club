@@ -1,0 +1,135 @@
+/* Przyciski (DS §9, §18). Stany hover/disabled/loading nie mają artboardów; wyprowadzone z ról. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 120ms var(--ease),
+    border-color 120ms var(--ease),
+    color 120ms var(--ease);
+}
+
+.btn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn--md {
+  height: 44px;
+  padding-inline: 20px;
+}
+
+.btn--sm {
+  height: 36px;
+  padding-inline: 16px;
+}
+
+.btn--full {
+  display: flex;
+  width: 100%;
+}
+
+.btn--primary {
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+.btn--primary:hover:not(:disabled, .btn--loading) {
+  background: var(--c-accent-hover);
+}
+
+.btn--destructive {
+  background: var(--c-danger);
+  color: var(--c-on-accent);
+}
+
+.btn--destructive:hover:not(:disabled, .btn--loading) {
+  background: var(--c-danger-hover);
+}
+
+.btn--secondary {
+  background: var(--c-surface);
+  border-color: var(--c-border);
+  color: var(--c-ink);
+}
+
+.btn--secondary:hover:not(:disabled, .btn--loading) {
+  background: var(--c-tint);
+}
+
+/* DS §18: wyłączony przycisk główny = tło #F1F3F9, tekst #C9CDDA. */
+.btn:disabled {
+  background: var(--c-disabled-bg);
+  border-color: transparent;
+  color: var(--c-disabled);
+}
+
+.btn--secondary:disabled {
+  background: var(--c-surface);
+  border-color: var(--c-border);
+}
+
+.btn--loading {
+  cursor: progress;
+}
+
+/* Okrągłe przyciski z ikoną */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--c-tint);
+  color: var(--c-ink);
+  transition: background-color 120ms var(--ease);
+}
+
+.icon-btn--36 {
+  width: 36px;
+  height: 36px;
+}
+
+.icon-btn--32 {
+  width: 32px;
+  height: 32px;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--c-tint-hover);
+}
+
+.icon-btn:disabled {
+  color: var(--c-disabled);
+}
+
+/* Link tekstowy */
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-accent-text);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 6px;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

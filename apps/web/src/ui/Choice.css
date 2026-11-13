@@ -1,0 +1,252 @@
+/* Checkbox, radio, pigułki wyboru, chipy wielokrotnego wyboru, próbki kolorów (DS §10, §15, §18). */
+.group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.group--column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.group__legend {
+  padding: 0 0 8px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.group--column > .group__legend {
+  padding-bottom: 0;
+}
+
+/* Natywny input jest niewidoczny, ale zostaje w drzewie dostępności i kolejności fokusu. */
+.choice__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.choice--disabled {
+  cursor: default;
+  color: var(--c-muted);
+}
+
+.choice__label {
+  min-width: 0;
+}
+
+.checkbox,
+.radio {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  background: var(--c-surface);
+  border: 1.5px solid var(--c-disabled);
+  transition:
+    background-color 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+
+.checkbox {
+  border-radius: 7px;
+  color: transparent;
+}
+
+.radio {
+  border-radius: var(--r-pill);
+}
+
+.radio::after {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
+  transform: scale(0);
+  transition: transform 120ms var(--ease);
+}
+
+.choice:hover .choice__input:not(:disabled) + .checkbox,
+.choice:hover .choice__input:not(:disabled) + .radio {
+  border-color: var(--c-muted);
+}
+
+.choice__input:checked + .checkbox {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+.choice__input:checked + .radio {
+  border-color: var(--c-accent);
+}
+
+.choice__input:checked + .radio::after {
+  transform: scale(1);
+}
+
+.choice__input:disabled + .checkbox,
+.choice__input:disabled + .radio {
+  background: var(--c-disabled-bg);
+  border-color: var(--c-disabled);
+}
+
+.choice__input:disabled:checked + .checkbox {
+  background: var(--c-disabled);
+  border-color: var(--c-disabled);
+}
+
+.choice__input:disabled:checked + .radio::after {
+  background: var(--c-disabled);
+}
+
+.choice__input:focus-visible + .checkbox,
+.choice__input:focus-visible + .radio,
+.choice__input:focus-visible + .pill,
+.choice__input:focus-visible + .chip-toggle,
+.choice__input:focus-visible + .swatch__dot {
+  outline: 2px solid var(--c-accent-text);
+  outline-offset: 2px;
+}
+
+/* Pigułki (wspólne z zakładkami w Tabs.css) */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill-choice {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--c-muted);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 120ms var(--ease),
+    border-color 120ms var(--ease),
+    color 120ms var(--ease);
+}
+
+.pill:hover {
+  border-color: var(--c-disabled);
+  color: var(--c-ink);
+}
+
+/* Aktywna pigułka jest ciemna (#161A2B), nie w kolorze akcentu (DS §10). */
+.choice__input:checked + .pill,
+.pill[aria-selected='true'] {
+  background: var(--c-inverse);
+  border-color: var(--c-inverse);
+  color: var(--c-on-inverse);
+}
+
+.choice__input:disabled + .pill {
+  color: var(--c-disabled);
+  border-color: var(--c-border);
+  cursor: default;
+}
+
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding-inline: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  color: var(--c-muted);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip-toggle:hover {
+  border-color: var(--c-disabled);
+}
+
+.chip-toggle--on {
+  padding: 0 12px 0 10px;
+  background: var(--c-accent-tint);
+  border-color: var(--c-accent-tint);
+  color: var(--c-accent-text);
+}
+
+.chip-toggle--on:hover {
+  border-color: var(--c-accent-text);
+}
+
+.choice__input:disabled + .chip-toggle {
+  color: var(--c-disabled);
+  cursor: default;
+}
+
+/* Próbki kolorów */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+}
+
+.swatch__dot {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  transition:
+    width 120ms var(--ease),
+    height 120ms var(--ease);
+}
+
+.choice__input:checked + .swatch__dot {
+  width: 22px;
+  height: 22px;
+  box-shadow:
+    0 0 0 3px var(--c-surface),
+    0 0 0 5px var(--c-accent-text);
+}

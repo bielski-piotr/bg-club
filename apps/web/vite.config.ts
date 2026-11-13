@@ -11,5 +11,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,
+    // Test kontrastu czyta tokeny jako tekst (`tokens.css?raw`).
+    css: { include: [/tokens\.css/] },
   },
 });

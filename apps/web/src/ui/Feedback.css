@@ -1,0 +1,127 @@
+/* Spinner, banery, puste stany i szkielety ładowania (DS §6, §10, §17). */
+.spinner {
+  flex-shrink: 0;
+  animation: spin 800ms linear infinite;
+}
+
+.spinner-status {
+  display: inline-flex;
+  color: var(--c-muted);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.banner {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-row);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.banner__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.banner__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.banner__action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.banner--info {
+  background: var(--c-accent-tint);
+  color: var(--c-ink);
+}
+
+.banner--info .banner__icon {
+  color: var(--c-accent-text);
+}
+
+.banner--warning {
+  background: var(--c-warning-bg);
+  color: var(--c-warning-text);
+}
+
+.banner--warning .banner__icon {
+  color: var(--c-warning-icon);
+}
+
+.banner--error {
+  background: var(--c-danger-tint);
+  color: var(--c-ink);
+}
+
+.banner--error .banner__icon {
+  color: var(--c-danger-strong);
+}
+
+.empty-state__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 20px;
+}
+
+.empty-state__lead {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent-tint);
+  color: var(--c-accent-text);
+}
+
+.empty-state__text {
+  min-width: 0;
+}
+
+.empty-state__title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.empty-state__helper {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--c-muted);
+}
+
+.empty-state__action {
+  padding-top: 20px;
+}
+
+.skeleton {
+  display: block;
+  background: linear-gradient(90deg, var(--c-tint) 0%, var(--c-tint-hover) 50%, var(--c-tint) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}

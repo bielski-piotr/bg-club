@@ -1,0 +1,247 @@
+/* Układ galerii komponentów (/design-system). */
+.ds-page {
+  max-width: 1112px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.ds-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.ds-header__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.ds-eyebrow {
+  margin: 0;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-accent-text);
+}
+
+.ds-title {
+  margin: 0;
+  font: 700 28px/32px var(--font-display);
+}
+
+.ds-intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--c-muted);
+}
+
+.ds-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 1100px) {
+  .ds-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+  }
+}
+
+.ds-section {
+  min-width: 0;
+  padding: 16px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 768px) {
+  .ds-section {
+    padding: 28px;
+    border-radius: var(--r-card-lg);
+  }
+}
+
+.ds-section__title {
+  margin: 0;
+  font: 700 22px/28px var(--font-display);
+}
+
+.ds-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 20px;
+}
+
+/* Karty w sekcji „Karty i listy” są pokazane na tle strony, jak w widoku Klubu. */
+.ds-section__body > .card {
+  box-shadow: none;
+}
+
+.ds-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.ds-row--fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.ds-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ds-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ds-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ds-swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.ds-swatch code,
+.ds-icons code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-muted);
+  overflow-wrap: anywhere;
+}
+
+.ds-swatch__chip {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+}
+
+.ds-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ds-palette span {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  color: var(--c-on-avatar);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.ds-type {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ds-type--title {
+  font: 700 24px/30px var(--font-display);
+}
+
+.ds-type--featured {
+  font: 700 28px/32px var(--font-display);
+}
+
+.ds-type--number {
+  font: 700 26px/30px var(--font-display);
+}
+
+.ds-type--row {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.ds-type--meta {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.ds-type--body {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.ds-type--mono {
+  font: 500 15px/20px var(--font-mono);
+}
+
+.ds-card-body {
+  padding-top: 20px;
+}
+
+.ds-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ds-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ds-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ds-icons li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-radius: var(--r-row);
+  background: var(--c-tint);
+  text-align: center;
+}

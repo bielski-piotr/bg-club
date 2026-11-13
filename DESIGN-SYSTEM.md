@@ -91,6 +91,40 @@ Meetings y rows: **-439** (widgets), **528** (głosowanie), **1640** (gramy w), 
 Status vocabulary: accent (#2F54EB on #EAF0FF/#EEF2FF), neutral (#6B7188 on #F1F3F9), warning (#6B4500 on #FFF4D6), danger (#D63A3A on #FDECEC), success (#1F7A4D on #E3F5EA).
 Meeting status chips (§11): **Głosowanie otwarte** (voting open) = accent #2F54EB on #EAF0FF; **Gry wybrane** (games chosen) = ink #161A2B on #F1F3F9; **W trakcie** (in progress) = success #1F7A4D on #E3F5EA. Summary badges: win = accent on #EAF0FF, streak up = success, streak broken = danger #D63A3A on #FDECEC, streak unchanged = neutral.
 
+### 3.1 Implementation: AA adjustments and the dark theme
+The app tokens live in `apps/web/src/styles/tokens.css` (CSS custom properties `--c-*`), and `tokens.test.ts` checks the contrast of every text/background pair used by the components in both themes (text ≥ 4.5:1, UI parts such as filled checkboxes, switches and focus rings ≥ 3:1, NFR-6). The light theme keeps the hex values above, except where a pair failed WCAG AA; those values are darkened just enough, keeping the hue:
+
+| Use | DS value | App value | Why |
+|---|---|---|---|
+| Muted text (labels, meta, placeholders) | #6B7188 | **#686D84** | #6B7188 on #F1F3F9 is 4.36:1 |
+| Danger text on the danger tint (badge "seria przerwana") | #D63A3A on #FDECEC | **#CC2A2A** | 4.06:1 |
+| Avatar / cover fills under the white monogram | §3 palette | #986C15 amber · #D1441B vermilion · #C35037 brick · #607E34 olive · #2B7D9F teal-blue · #8D59D5 purple · #30835C green · #D42E8C pink · #4B6BDB blue · #228175 teal | white on the original fills is 2.30–4.55:1 (amber 2.30). Darkened in HSL lightness to ≥ 4.6:1; blue already passed |
+| Removed-member avatar monogram | white on #C9CDDA | **#4A5068** on #C9CDDA | 1.59:1 → 5.01:1 |
+
+Decorative shapes without text (illustration, cover motifs) may keep the original palette.
+
+**Dark theme** (no artboards; derived role by role, `data-theme="dark"` or system preference):
+
+| Role | Light | Dark |
+|---|---|---|
+| Page / surface / border / tint | #F3F4F8 / #FFFFFF / #E4E7F0 / #F1F3F9 | #0F1220 / #181C2E / #2A2F45 / #22273B |
+| Ink / muted / disabled | #161A2B / #686D84 / #C9CDDA | #EDEFF7 / #A3A9C0 / #5A6080 |
+| Accent fill (buttons, checkbox, switch) / hover | #2F54EB / #2545D6 | #4064F0 / #3558EE (3:1 on the dark card) |
+| Accent text (links, selected item, focus ring) | #2F54EB | #8DA2FF |
+| Accent tint | #EEF2FF, #EAF0FF | #232C55 |
+| Danger fill / text / tint | #D63A3A / #D63A3A / #FDECEC | #D63A3A / #FF8A8A / #3A1F26 |
+| Warning bg / icon / text | #FFF4D6 / #8A5A00 / #6B4500 | #3A2F12 / #E0B44F / #F5D48A |
+| Success text / bg | #1F7A4D / #E3F5EA | #6FD39C / #15301F |
+| Active pill (inverse) | #161A2B, white text | #EDEFF7, #161A2B text |
+| Toast bg | #161A2B | #2A2F45 |
+| Scrim / shadows | ink 50%, navy shadows | black 65%, black shadows |
+
+**States not drawn in Paper** (§9 says there are no hover/disabled variants): hover darkens a fill (primary #2545D6, destructive #C02E2E) or tints an outline/icon button (#F1F3F9 / #E4E7F0); keyboard focus is a 2px accent-text outline with 2px offset (inputs keep the §10 1.5px border); disabled uses §18 (#F1F3F9 bg, #C9CDDA text); loading shows a 16px spinner in place of the leading icon with `aria-busy`; load errors use an error banner (danger tint, alert icon, optional retry button); loading lists use shimmer skeleton rows.
+
+**Fonts** are self-hosted from npm (`@fontsource-variable/bricolage-grotesque`, `@fontsource-variable/instrument-sans`, `@fontsource/dm-mono` 500), latin + latin-ext subsets load on demand.
+
+**Components** are in `apps/web/src/ui` and are shown at `/design-system` (both themes, 360 px and desktop).
+
 ## 4. Typography
 Fonts: **Bricolage Grotesque** (display, titles, numbers), **Instrument Sans** (all UI text), **DM Mono** (only the login "hook"). Fallback stacks are `"<font>", system-ui, sans-serif`. The root sets `fontSize 12px / lineHeight 16px`, antialiased. Numbers use `fontFeatureSettings: "tnum"`.
 

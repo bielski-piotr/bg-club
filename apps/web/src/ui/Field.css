@@ -1,0 +1,225 @@
+/* Pola formularzy (DS §10, §18). */
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.field__label {
+  padding-bottom: 8px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.field__optional {
+  font-weight: 500;
+}
+
+.field__hint {
+  margin: 0;
+  padding-top: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.field__hint--error {
+  color: var(--c-danger-text);
+}
+
+.input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding-inline: 14px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-row);
+  transition: border-color 120ms var(--ease);
+}
+
+.input:hover:not(.input--readonly, .input--disabled, .input--error, :focus-within) {
+  border-color: var(--c-disabled);
+}
+
+/* DS §10: fokus = ramka 1,5 px #2F54EB; rozmiar zachowany przez cień w środku. */
+.input:focus-within {
+  border-color: var(--c-accent-text);
+  box-shadow: inset 0 0 0 0.5px var(--c-accent-text);
+}
+
+.input--error,
+.input--error:focus-within {
+  border-color: var(--c-danger-text);
+  box-shadow: inset 0 0 0 0.5px var(--c-danger-text);
+}
+
+.input--readonly {
+  background: var(--c-tint);
+  border-color: transparent;
+}
+
+.input--readonly:focus-within {
+  border-color: var(--c-accent-text);
+}
+
+.input--disabled {
+  background: var(--c-disabled-bg);
+  border-color: transparent;
+  color: var(--c-muted);
+}
+
+.input__icon {
+  flex-shrink: 0;
+  color: var(--c-muted);
+}
+
+.input__control {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+.input__control:focus-visible {
+  outline: none;
+}
+
+.input__control::placeholder {
+  color: var(--c-muted);
+  opacity: 1;
+}
+
+.input__control:disabled {
+  color: var(--c-muted);
+}
+
+.input__control--numeric {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  font-feature-settings: 'tnum';
+}
+
+.input__control--mono {
+  font-family: var(--font-mono);
+}
+
+.input__trailing {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.input__toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--c-muted);
+}
+
+.input__toggle:hover:not(:disabled) {
+  background: var(--c-tint);
+  color: var(--c-ink);
+}
+
+/* Wyszukiwarka */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding-inline: 16px;
+  background: var(--c-tint);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+}
+
+.search:focus-within {
+  border-color: var(--c-accent-text);
+  box-shadow: inset 0 0 0 0.5px var(--c-accent-text);
+}
+
+.search__icon {
+  flex-shrink: 0;
+  color: var(--c-muted);
+}
+
+.search__control {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search__control:focus-visible {
+  outline: none;
+}
+
+.search__control::placeholder {
+  color: var(--c-muted);
+  opacity: 1;
+}
+
+.search__control::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search__clear {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--c-muted);
+}
+
+.search__clear:hover {
+  background: var(--c-tint-hover);
+  color: var(--c-ink);
+}
+
+/* Stepper */
+.stepper {
+  justify-content: space-between;
+  padding-inline: 6px;
+}
+
+.stepper__value {
+  min-width: 48px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  text-align: center;
+  font: 700 18px/22px var(--font-display);
+}
