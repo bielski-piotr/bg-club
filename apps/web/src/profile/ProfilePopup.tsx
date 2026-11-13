@@ -13,8 +13,10 @@ import './profile.css';
  * i gablota osiągnięć. Statystyki (§5.9) i gablota (§5.10) mają stan oczekiwania do etapów
  * E5 i E6. Właściciel ma przycisk **Ustawienia** (USR-5); cudzy profil nie ma akcji edycji
  * także dla administratora (USR-7). Usunięty członek ma profil tylko do odczytu (MEM-5).
+ * Administrator ma w profilu aktywnego gracza przycisk **Usuń członka** (MEM-4); profilu
+ * administratora nie da się usunąć.
  */
-export function ProfilePopup({ id }: { readonly id: string }) {
+export function ProfilePopup({ id, isAdmin }: { readonly id: string; readonly isAdmin: boolean }) {
   const { client, state } = useAuth();
   const { open } = usePopups();
   const profile = useProfile(client, id);
@@ -39,6 +41,7 @@ export function ProfilePopup({ id }: { readonly id: string }) {
 
   const removed = data.deleted_at !== null;
   const own = data.id === ownId && !removed;
+  const deletable = isAdmin && !own && !removed && data.role !== 'admin';
   return (
     <PopupModal
       title={t.profile.title}
@@ -51,6 +54,16 @@ export function ProfilePopup({ id }: { readonly id: string }) {
             onClick={() => open({ kind: 'settings' })}
           >
             {t.profile.settings}
+          </Button>
+        ) : deletable ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="trash"
+            className="profile__delete"
+            onClick={() => open({ kind: 'delete-member', id: data.id })}
+          >
+            {t.profile.deleteMember}
           </Button>
         ) : undefined
       }

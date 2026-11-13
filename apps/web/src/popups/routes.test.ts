@@ -51,6 +51,28 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute('members/nowy')).toEqual({ kind: 'invalid', raw: 'members/nowy' });
   });
 
+  it('zna potwierdzenia usunięcia członka i własnego konta (MEM-4, USR-6)', () => {
+    expect(parseStack(`?p=members&p=profile/${ID}&p=profile/${ID}/delete`)).toEqual([
+      { kind: 'members' },
+      { kind: 'profile', id: ID },
+      { kind: 'delete-member', id: ID },
+    ]);
+    expect(stackSearch('', [{ kind: 'delete-member', id: ID }])).toBe(`?p=profile/${ID}/delete`);
+    expect(parseRoute(`profile/${ID.toUpperCase()}/delete`)).toEqual({
+      kind: 'delete-member',
+      id: ID,
+    });
+    expect(parseStack('?p=settings&p=settings/delete')).toEqual([
+      { kind: 'settings' },
+      { kind: 'delete-account' },
+    ]);
+    expect(stackSearch('', [{ kind: 'delete-account' }])).toBe('?p=settings/delete');
+    expect(parseRoute('profile/123/delete')).toEqual({
+      kind: 'invalid',
+      raw: 'profile/123/delete',
+    });
+  });
+
   it('akceptuje zakodowany ukośnik i wielkie litery w uuid', () => {
     expect(parseStack(`?p=profile%2F${ID.toUpperCase()}`)).toEqual([{ kind: 'profile', id: ID }]);
   });

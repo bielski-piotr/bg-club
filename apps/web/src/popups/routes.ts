@@ -11,10 +11,14 @@ export type PopupRoute =
   /** Formularz „Dodaj członka” (MEM-3, admin), adres `members/new`. */
   | { readonly kind: 'add-member' }
   | { readonly kind: 'profile'; readonly id: string }
+  /** Potwierdzenie „Usuń członka” (MEM-4, admin), adres `profile/<uuid>/delete`. */
+  | { readonly kind: 'delete-member'; readonly id: string }
   /** Ustawienia własnego profilu (USR-5), adres `settings`. Zawsze dotyczą zalogowanego. */
   | { readonly kind: 'settings' }
   /** Zmiana hasła (USR-5), adres `settings/password`. */
   | { readonly kind: 'change-password' }
+  /** Usunięcie własnego konta z potwierdzeniem hasłem (USR-6), adres `settings/delete`. */
+  | { readonly kind: 'delete-account' }
   /** Propozycja własnego hasła przy pierwszym logowaniu (AUTH-6), adres `first-login`. */
   | { readonly kind: 'first-login' }
   /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (CLUB-2, admin). */
@@ -44,9 +48,15 @@ export function parseRoute(raw: string): PopupRoute {
   if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
     return { kind: 'change-password' };
   }
+  if (kind === 'settings' && args.length === 1 && args[0] === 'delete') {
+    return { kind: 'delete-account' };
+  }
   if (kind === 'first-login' && args.length === 0) return { kind: 'first-login' };
   if (kind === 'profile' && args.length === 1 && isUuid(args[0] ?? '')) {
     return { kind: 'profile', id: (args[0] ?? '').toLowerCase() };
+  }
+  if (kind === 'profile' && args.length === 2 && isUuid(args[0] ?? '') && args[1] === 'delete') {
+    return { kind: 'delete-member', id: (args[0] ?? '').toLowerCase() };
   }
   return { kind: 'invalid', raw };
 }
@@ -61,10 +71,14 @@ export function serializeRoute(route: PopupRoute): string {
       return 'club';
     case 'profile':
       return `profile/${route.id}`;
+    case 'delete-member':
+      return `profile/${route.id}/delete`;
     case 'settings':
       return 'settings';
     case 'change-password':
       return 'settings/password';
+    case 'delete-account':
+      return 'settings/delete';
     case 'first-login':
       return 'first-login';
     case 'invalid':

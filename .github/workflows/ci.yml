@@ -61,7 +61,7 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno lint
-      - run: deno check create-member/index.ts
+      - run: deno check create-member/index.ts delete-member/index.ts delete-own-account/index.ts
       - run: deno test
 
   sql:

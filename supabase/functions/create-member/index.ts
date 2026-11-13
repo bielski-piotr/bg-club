@@ -5,22 +5,10 @@
  *
  * Klucz service role jest tylko tutaj (PRD §6.1). Logika żądania: `handler.ts`.
  */
-import { createClient } from 'npm:@supabase/supabase-js@2.119.0';
+import { serviceClient } from '../_shared/supabase.ts';
 import { handleCreateMember } from './handler.ts';
 
-function requiredEnv(name: string): string {
-  const value = Deno.env.get(name);
-  if (!value) throw new Error(`Brak zmiennej środowiskowej ${name}`);
-  return value;
-}
-
-const service = createClient(
-  requiredEnv('SUPABASE_URL'),
-  requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
-  {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  },
-);
+const service = serviceClient();
 
 Deno.serve((request) =>
   handleCreateMember(request, {

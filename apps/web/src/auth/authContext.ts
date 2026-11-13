@@ -3,7 +3,7 @@ import { createContext, useContext } from 'react';
 import type { LoginErrorKind } from './errors';
 
 /** Powód, dla którego użytkownik wraca do ekranu logowania bez własnej decyzji. */
-export type AuthNotice = 'sessionExpired' | 'accountInactive';
+export type AuthNotice = 'sessionExpired' | 'accountInactive' | 'accountDeleted';
 
 export type AuthState =
   | { readonly status: 'loading' }
