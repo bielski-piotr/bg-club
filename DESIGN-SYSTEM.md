@@ -110,6 +110,7 @@ Decorative shapes without text (illustration, cover motifs) may keep the origina
 | Page / surface / border / tint | #F3F4F8 / #FFFFFF / #E4E7F0 / #F1F3F9 | #0F1220 / #181C2E / #2A2F45 / #22273B |
 | Ink / muted / disabled | #161A2B / #686D84 / #C9CDDA | #EDEFF7 / #A3A9C0 / #5A6080 |
 | Accent fill (buttons, checkbox, switch) / hover | #2F54EB / #2545D6 | #4064F0 / #3558EE (3:1 on the dark card) |
+| Secondary text on the accent row ("pkt") | #FFFFFFE6 | #FFFFFF (90% white on #4064F0 is below 4.5:1) |
 | Accent text (links, selected item, focus ring) | #2F54EB | #8DA2FF |
 | Accent tint | #EEF2FF, #EAF0FF | #232C55 |
 | Danger fill / text / tint | #D63A3A / #D63A3A / #FDECEC | #D63A3A / #FF8A8A / #3A1F26 |
