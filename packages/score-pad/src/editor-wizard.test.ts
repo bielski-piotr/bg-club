@@ -94,4 +94,39 @@ describe('edytor w trybie kreatora', () => {
     // Nic do anulowania: Esc idzie dalej, do popupu.
     expect(event.defaultPrevented).toBe(false);
   });
+
+  it('ustawienia kroku 2 w stanie i ich zmiana z panelu aplikacji (EDT-10)', async () => {
+    const onChange = vi.fn();
+    const { editor } = mount(onChange);
+    expect(editor.status().settings).toEqual({
+      name: 'Mój notes',
+      tape: '#161a2b',
+      mode: 'auto',
+      points: 4,
+      smoothing: false,
+      strength: 4,
+      size: { w: 10.5, h: 14.8 },
+      binding: 'top',
+      canUndo: false,
+      detected: null,
+    });
+    editor.setArea({ name: 'Turniejowy', tape: '#3A9D6E', binding: 'left', size: { w: 100 } });
+    editor.setArea({ tape: 'red', size: { h: 1 } });
+    const status = editor.status();
+    expect(status.settings).toMatchObject({
+      name: 'Turniejowy',
+      tape: '#3a9d6e',
+      binding: 'left',
+      size: { w: 60, h: 3 },
+    });
+    expect(status.dirty).toBe(true);
+    // Bez zdjęcia nie ma obszaru do zmiany ani cofania.
+    editor.setArea({ mode: 'full' });
+    editor.undoArea();
+    editor.rotatePhoto(1);
+    expect(editor.status()).toMatchObject({ photo: false, area: false });
+    expect(editor.status().settings.mode).toBe('auto');
+    await frame();
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ settings: { name: 'Turniejowy' } });
+  });
 });

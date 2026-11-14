@@ -126,6 +126,40 @@ export interface ScorePadEventMap {
 /** Rodzaj kategorii notesu. */
 export type ScorePadLineKind = ScorePadLine['kind'];
 
+/** Sposób wyznaczenia obszaru kartki (EDT-10). */
+export type ScorePadAreaMode = 'full' | 'auto' | 'manual';
+
+/** Ustawienia kroku 2 „Obszar kartki” (EDT-10) w stanie edytora. */
+export interface ScorePadEditorArea {
+  readonly name: string;
+  /** Kolor grzbietu `#rrggbb`. */
+  readonly tape: string;
+  readonly mode: ScorePadAreaMode;
+  /** Liczba punktów obszaru. */
+  readonly points: number;
+  readonly smoothing: boolean;
+  /** Siła wygładzania 0…10. */
+  readonly strength: number;
+  /** Rozmiar kartki w centymetrach. */
+  readonly size: { readonly w: number; readonly h: number };
+  readonly binding: 'top' | 'left';
+  /** Jest zmiana obszaru do cofnięcia. */
+  readonly canUndo: boolean;
+  /** Wynik ostatniego wykrywania: nieregularny kształt, kartka, nic albo brak wykrywania. */
+  readonly detected: 'shape' | 'sheet' | 'missing' | null;
+}
+
+/** Zmiana ustawień kroku 2 (`setArea`). */
+export interface ScorePadEditorAreaPatch {
+  readonly name?: string;
+  readonly tape?: string;
+  readonly mode?: ScorePadAreaMode;
+  readonly smoothing?: boolean;
+  readonly strength?: number;
+  readonly size?: { readonly w?: number; readonly h?: number };
+  readonly binding?: 'top' | 'left';
+}
+
 /** Stan `<score-pad-editor>` w trybie kreatora (EDT-9). */
 export interface ScorePadEditorStatus {
   /** Bieżący krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola. */
@@ -143,6 +177,8 @@ export interface ScorePadEditorStatus {
   readonly sheetUrl: string;
   readonly seats: number;
   readonly lines: readonly { readonly label: string; readonly kind: ScorePadLineKind }[];
+  /** Ustawienia kroku 2: obszar, rozmiar, grzbiet, nazwa i kolor grzbietu. */
+  readonly settings: ScorePadEditorArea;
   /** Zmiany od otwarcia edytora. */
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
@@ -214,6 +250,12 @@ export interface ScorePadEditorElement extends HTMLElement {
   loadTemplate(template: ScorePadTemplate): Promise<void>;
   /** Przechodzi do kroku edytora, jeśli jest dostępny. */
   goStep(step: 1 | 2 | 3): void;
+  /** Zmienia ustawienia kroku 2 (EDT-10). */
+  setArea(patch: ScorePadEditorAreaPatch): void;
+  /** Obraca zdjęcie o 90° (1 w prawo, -1 w lewo). */
+  rotatePhoto(dir: 1 | -1): void;
+  /** Cofa ostatnią zmianę obszaru. */
+  undoArea(): void;
   addEventListener<K extends keyof ScorePadEditorElementEventMap>(
     type: K,
     listener: Listener<ScorePadEditorElement, ScorePadEditorElementEventMap[K]>,

@@ -1,11 +1,20 @@
-// Narzędzia kształtu kartki: wykrywanie obrysu ze zdjęcia, różdżka, wycinanie i dodawanie obszarów.
-// Wszystkie operacje działają na masce rastrowej, a wynik jest z powrotem obrysowywany wielokątem.
+// Wykrywanie kształtu kartki ze zdjęcia (EDT-10): maska rastrowa papieru obrysowana wielokątem.
+// Różdżkę i lasso z POC usunięto; wynik wykrycia poprawia się punktami obszaru (`area.ts`).
 
 import type { ShapePt, SheetShape } from '../core/shape';
 import { shapePath } from '../core/shape';
 import { clamp, plural } from '../core/util';
-import type { Quad } from './photo';
-import { warp } from './photo';
+import type { Pt, Quad } from './photo';
+import { detectPaper, looksCropped, pixelsOf, quadAspect, releasePixels, warp } from './photo';
+import {
+  MAX_DETECTED_POINTS,
+  areaCorners,
+  enclosingQuad,
+  fullArea,
+  limitPoints,
+  toPhotoRing,
+  toSheetRing,
+} from './area';
 
 /** Maska kartki: 1 = papier. */
 export interface Mask {
@@ -13,8 +22,6 @@ export interface Mask {
   h: number;
   d: Uint8Array;
 }
-
-export type Box = { x: number; y: number; w: number; h: number };
 
 const N4 = [
   [1, 0],
@@ -46,89 +53,6 @@ export function rasterize(shape: SheetShape | undefined, w: number, h: number): 
   return { w, h, d };
 }
 
-/** Wypełnia prostokąt albo elipsę (współrzędne kartki 0…1) wartością `v`. */
-export function paintBox(m: Mask, b: Box, round: boolean, v: 0 | 1): void {
-  const x0 = clamp(Math.floor(b.x * m.w), 0, m.w);
-  const x1 = clamp(Math.ceil((b.x + b.w) * m.w), 0, m.w);
-  const y0 = clamp(Math.floor(b.y * m.h), 0, m.h);
-  const y1 = clamp(Math.ceil((b.y + b.h) * m.h), 0, m.h);
-  const cx = (b.x + b.w / 2) * m.w;
-  const cy = (b.y + b.h / 2) * m.h;
-  const rx = Math.max(0.5, (b.w / 2) * m.w);
-  const ry = Math.max(0.5, (b.h / 2) * m.h);
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      if (round) {
-        const dx = (x + 0.5 - cx) / rx;
-        const dy = (y + 0.5 - cy) / ry;
-        if (dx * dx + dy * dy > 1) continue;
-      }
-      m.d[y * m.w + x] = v;
-    }
-  }
-}
-
-/** Wypełnia wielokąt (współrzędne kartki, mogą wychodzić poza 0…1) wartością `v` — narzędzie lasso. */
-export function paintPoly(m: Mask, pts: { u: number; v: number }[], v: 0 | 1): number {
-  if (pts.length < 3) return 0;
-  const c = document.createElement('canvas');
-  c.width = m.w;
-  c.height = m.h;
-  const g = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
-  g.fillStyle = '#fff';
-  g.beginPath();
-  pts.forEach((p, i) => (i ? g.lineTo(p.u * m.w, p.v * m.h) : g.moveTo(p.u * m.w, p.v * m.h)));
-  g.closePath();
-  g.fill('nonzero');
-  const px = g.getImageData(0, 0, m.w, m.h).data;
-  let n = 0;
-  for (let i = 0; i < m.d.length; i++) {
-    if (px[i * 4 + 3] < 128) continue;
-    if (m.d[i] !== v) n++;
-    m.d[i] = v;
-  }
-  return n;
-}
-
-/** Rozmycie pudełkowe w miejscu; brzeg powielony (kartka „ciągnie się” za krawędź zdjęcia). */
-function boxBlur(f: Float32Array, w: number, h: number, r: number): void {
-  const tmp = new Float32Array(Math.max(w, h) + 2 * r + 1);
-  const pass = (len: number, count: number, at: (line: number, k: number) => number): void => {
-    for (let line = 0; line < count; line++) {
-      for (let k = -r; k < len + r; k++) tmp[k + r] = f[at(line, clamp(k, 0, len - 1))];
-      let s = 0;
-      for (let k = 0; k <= 2 * r; k++) s += tmp[k];
-      for (let k = 0; k < len; k++) {
-        f[at(line, k)] = s / (2 * r + 1);
-        s += tmp[k + 2 * r + 1] - tmp[k];
-      }
-    }
-  };
-  pass(w, h, (y, x) => y * w + x);
-  pass(h, w, (x, y) => y * w + x);
-}
-
-/**
- * Wygładza obrys: rasteryzacja, rozmycie i próg 50% (zaokrągla poszarpane krawędzie i ostre rogi wycięć).
- * `level` 0…10; zewnętrzny prostokąt kartki zostaje prosty.
- */
-export function smoothShape(
-  s: SheetShape | undefined,
-  level: number,
-  aspect: number,
-): SheetShape | undefined {
-  if (!s || level <= 0) return s;
-  const { w, h } = maskSize(aspect, 640);
-  const m = rasterize(s, w, h);
-  const r = Math.max(1, Math.round((level * Math.max(w, h)) / 520));
-  const f = new Float32Array(w * h);
-  for (let i = 0; i < f.length; i++) f[i] = m.d[i];
-  for (let k = 0; k < 3; k++) boxBlur(f, w, h, r);
-  for (let i = 0; i < f.length; i++) m.d[i] = f[i] >= 0.5 ? 1 : 0;
-  const out = traceShape(m);
-  return out === null ? s : out;
-}
-
 /** Kolory obrazu w rozdzielczości maski. */
 export function pixelsAt(img: HTMLCanvasElement, w: number, h: number): Uint8ClampedArray {
   const c = document.createElement('canvas');
@@ -142,80 +66,6 @@ export function pixelsAt(img: HTMLCanvasElement, w: number, h: number): Uint8Cla
 
 const dist3 = (px: Uint8ClampedArray, i: number, c: number[]): number =>
   Math.hypot(px[i * 4] - c[0], px[i * 4 + 1] - c[1], px[i * 4 + 2] - c[2]);
-
-/** Różdżka: spójny obszar o kolorze podobnym do klikniętego punktu (1 = obszar). */
-export function wandRegion(
-  px: Uint8ClampedArray,
-  w: number,
-  h: number,
-  u: number,
-  v: number,
-  tol: number,
-): Uint8Array {
-  const sx = clamp(Math.floor(u * w), 0, w - 1);
-  const sy = clamp(Math.floor(v * h), 0, h - 1);
-  // kolor ziarna: średnia z okolicy 5×5 (odporna na szum)
-  const c = [0, 0, 0];
-  let n = 0;
-  for (let y = Math.max(0, sy - 2); y <= Math.min(h - 1, sy + 2); y++) {
-    for (let x = Math.max(0, sx - 2); x <= Math.min(w - 1, sx + 2); x++) {
-      const i = (y * w + x) * 4;
-      c[0] += px[i];
-      c[1] += px[i + 1];
-      c[2] += px[i + 2];
-      n++;
-    }
-  }
-  c[0] /= n;
-  c[1] /= n;
-  c[2] /= n;
-  const out = new Uint8Array(w * h);
-  const stack = [sy * w + sx];
-  out[sy * w + sx] = 1;
-  while (stack.length) {
-    const i = stack.pop() as number;
-    const x = i % w;
-    const y = (i / w) | 0;
-    for (const [dx, dy] of N4) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
-      const j = yy * w + xx;
-      if (out[j] || dist3(px, j, c) > tol) continue;
-      out[j] = 1;
-      stack.push(j);
-    }
-  }
-  // brzeg obszaru (antyaliasing) też należy do tła
-  return grow(out, w, h, 1);
-}
-
-/** Poszerza obszar o r pikseli (sąsiedztwo 8). */
-function grow(m: Uint8Array, w: number, h: number, r: number): Uint8Array {
-  let cur = m;
-  for (let k = 0; k < r; k++) {
-    const nx = cur.slice();
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (cur[y * w + x]) continue;
-        let on = 0;
-        for (let dy = -1; dy <= 1 && !on; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const xx = x + dx;
-            const yy = y + dy;
-            if (xx >= 0 && yy >= 0 && xx < w && yy < h && cur[yy * w + xx]) {
-              on = 1;
-              break;
-            }
-          }
-        }
-        if (on) nx[y * w + x] = 1;
-      }
-    }
-    cur = nx;
-  }
-  return cur;
-}
 
 /** Odległość (fazowana 3-4) od najbliższego piksela zbioru `zero`; poza obrazem nie ma zbioru. */
 function chamfer(zero: Uint8Array, w: number, h: number): Float32Array {
@@ -518,7 +368,7 @@ export interface ShapeScan {
 export function detectShape(src: HTMLCanvasElement, quad: Quad, aspect: number): ShapeScan {
   const sw = src.width;
   const sh = src.height;
-  const sd = (src.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, sw, sh).data;
+  const sd = pixelsOf(src).data;
   const samples: number[][] = [];
   const take = (x: number, y: number): void => {
     const xi = Math.round(x);
@@ -573,7 +423,7 @@ export function detectShape(src: HTMLCanvasElement, quad: Quad, aspect: number):
     return {
       shape: undefined,
       found: false,
-      note: 'Wokół kartki nie widać jednolitego tła — kliknij tło różdżką albo wytnij kształt ręcznie.',
+      note: 'Wokół kartki nie widać jednolitego tła — popraw obszar punktami.',
     };
   }
   const tol = clamp(spread * 2.5 + 22, 26, 72);
@@ -587,8 +437,8 @@ export function detectShape(src: HTMLCanvasElement, quad: Quad, aspect: number):
       shape: undefined,
       found: false,
       note: scan
-        ? 'Nie znalazłem wycięć — jeśli kartka ma inny kształt, kliknij tło różdżką.'
-        : 'Kartka ma kolor podobny do tła — wytnij kształt różdżką albo ręcznie.',
+        ? 'Nie znalazłem wycięć — jeśli kartka ma inny kształt, popraw obszar punktami.'
+        : 'Kartka ma kolor podobny do tła — popraw obszar punktami.',
     };
   }
   // tło połączone z brzegiem wyprostowanej kartki
@@ -712,8 +562,6 @@ function hull(pts: P2[]): P2[] {
   return lo.slice(0, -1).concat(up.slice(0, -1));
 }
 
-const triArea = (a: P2, b: P2, c: P2): number =>
-  Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
 const polyArea = (r: P2[]): number => {
   let s = 0;
   for (let i = 0, j = r.length - 1; i < r.length; j = i++)
@@ -796,23 +644,12 @@ export function findOnPlainBackground(src: HTMLCanvasElement): Quad | null {
     }
   }
   if (bgLike / area > 0.35) return null;
-  // czworokąt wpisany w otoczkę wypukłą: usuwa wierzchołki, których brak najmniej zmniejsza pole
+  // czworokąt opisany na otoczce wypukłej: narożnik to przecięcie przedłużonych boków, więc
+  // zaokrąglone rogi go nie przesuwają (czworokąt wpisany odcinałby łuki)
   const H = hull(edge);
   if (H.length < 4) return null;
-  const q = H.slice();
-  while (q.length > 4) {
-    let bi = 0;
-    let best = Infinity;
-    for (let i = 0; i < q.length; i++) {
-      const a = triArea(q[(i + q.length - 1) % q.length], q[i], q[(i + 1) % q.length]);
-      if (a < best) {
-        best = a;
-        bi = i;
-      }
-    }
-    q.splice(bi, 1);
-  }
-  if (polyArea(q) < polyArea(H) * 0.82) return null;
+  const q = enclosingQuad(H.map(([x, y]) => ({ x, y }))).map((p) => [p.x, p.y] as P2);
+  if (q.length !== 4 || polyArea(q) > polyArea(H) * 1.22) return null;
   // kolejność: lewy górny, prawy górny, prawy dolny, lewy dolny
   const cx = q.reduce((s, p) => s + p[0], 0) / 4;
   const cy = q.reduce((s, p) => s + p[1], 0) / 4;
@@ -823,5 +660,85 @@ export function findOnPlainBackground(src: HTMLCanvasElement): Quad | null {
   return ord.map(([x, y]) => ({
     x: clamp(x / k, 0, src.width),
     y: clamp(y / k, 0, src.height),
+  })) as Quad;
+}
+
+// ─────────────────────────────────────────────── obszar kartki (EDT-10)
+
+export interface AreaScan {
+  /** Obszar kartki w pikselach zdjęcia (wielokąt). */
+  area: Pt[];
+  /** Otwory w kartce (np. dziurki) w pikselach zdjęcia. */
+  holes: Pt[][];
+  /** `shape`: kartka o nieregularnym kształcie, `sheet`: prostokątna kartka, `missing`: nic. */
+  found: 'shape' | 'sheet' | 'missing';
+  /** Zdjęcie to już przycięta kartka (skan): bez wyrównywania oświetlenia. */
+  cropped: boolean;
+}
+
+/**
+ * Wykrywa obszar kartki (EDT-10): najpierw narożniki (kartka na jednolitym albo ciemniejszym
+ * tle), potem kształt w ich obrębie: zaokrąglone rogi, wycięcia i kartki nieprostokątne.
+ * Wynik to wielokąt na zdjęciu, który można dalej poprawiać punktami.
+ */
+export function detectArea(src: HTMLCanvasElement): AreaScan {
+  try {
+    return detectAreaIn(src);
+  } finally {
+    releasePixels();
+  }
+}
+
+function detectAreaIn(src: HTMLCanvasElement): AreaScan {
+  const { width: w, height: h } = src;
+  const cropped = looksCropped(src);
+  // przycięty skan: kartka to całe zdjęcie (kształt szukamy w jego obrębie), chyba że na jasnym
+  // tle leży wyraźny przedmiot
+  const plain = findOnPlainBackground(src);
+  const quad = plain || (cropped ? (fullArea(w, h) as Quad) : detectPaper(src));
+  if (!quad) return { area: fullArea(w, h), holes: [], found: 'missing', cropped };
+  const full = !plain && cropped;
+  // Narożniki z wykrycia kartki leżą na łukach zaokrąglonych rogów (czworokąt wpisany), więc
+  // kształt szukamy w czworokącie poszerzonym o margines tła; narożniki wyznaczy potem obrys.
+  const frame = full ? quad : growQuad(quad, 0.08, w, h);
+  const scan = detectShape(src, frame, Math.max(0.05, quadAspect(frame)));
+  const sheet = (): AreaScan => ({
+    area: quad.map((p) => ({ x: clamp(p.x, 0, w), y: clamp(p.y, 0, h) })),
+    holes: [],
+    found: 'sheet',
+    cropped,
+  });
+  if (!scan.found || !scan.shape) return sheet();
+  const diag = Math.hypot(w, h);
+  const clampPt = (p: Pt): Pt => ({ x: clamp(p.x, 0, w), y: clamp(p.y, 0, h) });
+  const outline = toPhotoRing(scan.shape.outline, frame).map(clampPt);
+  const holes = (scan.shape.holes ?? []).map((r) =>
+    limitPoints(toPhotoRing(r, frame).map(clampPt), 24, diag),
+  );
+  const corners = areaCorners(outline, w, h);
+  // Wszystkie punkty obrysu przy brzegu wyprostowanej kartki: to zwykła prostokątna kartka.
+  const rect = toSheetRing(outline, corners).every(
+    ([u, v]) => Math.min(u, 1 - u, v, 1 - v) < 0.012,
+  );
+  if (rect && !holes.length)
+    return {
+      area: corners.map(clampPt),
+      holes: [],
+      found: 'sheet',
+      cropped,
+    };
+  return { area: limitPoints(outline, MAX_DETECTED_POINTS, diag), holes, found: 'shape', cropped };
+}
+
+/**
+ * Czworokąt powiększony względem środka o ułamek `k` (margines tła wokół kartki), w granicach
+ * zdjęcia: poza nim prostowanie powielałoby brzeg zdjęcia, który nie jest tłem.
+ */
+function growQuad(q: Quad, k: number, w: number, h: number): Quad {
+  const cx = q.reduce((s, p) => s + p.x, 0) / 4;
+  const cy = q.reduce((s, p) => s + p.y, 0) / 4;
+  return q.map((p) => ({
+    x: clamp(cx + (p.x - cx) * (1 + k), 0, w),
+    y: clamp(cy + (p.y - cy) * (1 + k), 0, h),
   })) as Quad;
 }

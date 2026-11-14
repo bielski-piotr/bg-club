@@ -25,7 +25,8 @@ export function isStepValid(step: WizardStep, status: ScorePadEditorStatus | nul
     case 1:
       return status.photo;
     case 2:
-      return status.photo && status.area;
+      // EDT-10: obszar kartki i nazwa notesu (ustawiana w tym kroku).
+      return status.photo && status.area && status.settings.name.trim() !== '';
     case 3:
       return status.photo && status.area && status.seats > 0 && status.lines.length > 0;
     case 4:

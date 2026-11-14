@@ -24,6 +24,18 @@ const EMPTY: ScorePadEditorStatus = {
   sheetUrl: '',
   seats: 0,
   lines: [],
+  settings: {
+    name: 'Mój notes',
+    tape: '#161a2b',
+    mode: 'auto',
+    points: 4,
+    smoothing: false,
+    strength: 4,
+    size: { w: 10.5, h: 14.8 },
+    binding: 'top',
+    canUndo: false,
+    detected: 'sheet',
+  },
   dirty: false,
   openFailed: false,
 };
@@ -45,6 +57,14 @@ describe('poprawność kroków', () => {
     expect(isStepValid(1, PHOTO)).toBe(true);
     expect(isStepValid(2, { ...PHOTO, area: false })).toBe(false);
     expect(isStepValid(2, PHOTO)).toBe(true);
+  });
+
+  it('krok 2 wymaga też nazwy notesu (EDT-10)', () => {
+    expect(isStepValid(2, { ...PHOTO, settings: { ...PHOTO.settings, name: ' ' } })).toBe(false);
+    expect(isStepValid(3, { ...READY, settings: { ...READY.settings, name: '' } })).toBe(true);
+    expect(canOpenStep(3, 2, 2, { ...READY, settings: { ...READY.settings, name: '' } })).toBe(
+      false,
+    );
   });
 
   it('kroki 3 i 4 wymagają pól i poprawnych kategorii (EDT-13)', () => {

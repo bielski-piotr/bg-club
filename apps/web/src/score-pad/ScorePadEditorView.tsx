@@ -1,4 +1,5 @@
 import type {
+  ScorePadEditorAreaPatch,
   ScorePadEditorEventMap,
   ScorePadEditorStatus,
   ScorePadFile,
@@ -42,6 +43,12 @@ export interface ScorePadEditorHandle {
   loadTemplate(template: ScorePadTemplate): Promise<void>;
   /** Krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola. */
   goStep(step: 1 | 2 | 3): void;
+  /** Ustawienia kroku 2 (EDT-10): nazwa, kolor grzbietu, obszar, wygładzanie, rozmiar, grzbiet. */
+  setArea(patch: ScorePadEditorAreaPatch): void;
+  /** Obrót zdjęcia o 90° (1 w prawo, -1 w lewo). */
+  rotatePhoto(dir: 1 | -1): void;
+  /** Cofa ostatnią zmianę obszaru. */
+  undoArea(): void;
 }
 
 /** Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). */
@@ -106,6 +113,9 @@ export function ScorePadEditorView({
       loadPhoto: async (file) => ready().loadPhoto(file),
       loadTemplate: async (value) => ready().loadTemplate(value),
       goStep: (step) => elementRef.current?.goStep(step),
+      setArea: (patch) => elementRef.current?.setArea(patch),
+      rotatePhoto: (dir) => elementRef.current?.rotatePhoto(dir),
+      undoArea: () => elementRef.current?.undoArea(),
     };
   }, [elementRef]);
 

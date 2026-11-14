@@ -3,7 +3,7 @@
 
 import type { PadConfig } from '../core/settings';
 import type { PadTemplate } from '../core/templates';
-import { Editor, type EditorStatus, type Step } from './editor';
+import { Editor, type EditorAreaPatch, type EditorStatus, type Step } from './editor';
 import { EDITOR_CSS } from './styles';
 
 export interface MountOptions {
@@ -99,5 +99,20 @@ export class ScorePadEditorElement extends HTMLElement {
   /** Przechodzi do kroku edytora (1 zdjęcie, 2 obszar kartki, 3 pola), jeśli jest dostępny. */
   goStep(step: Step): void {
     this.editor?.goStep(step);
+  }
+
+  /** Ustawienia kroku 2 (EDT-10): nazwa, kolor grzbietu, tryb obszaru, wygładzanie, rozmiar, grzbiet. */
+  setArea(patch: EditorAreaPatch): void {
+    this.editor?.setArea(patch);
+  }
+
+  /** Obraca zdjęcie o 90° (1 w prawo, -1 w lewo) razem z obszarem. */
+  rotatePhoto(dir: 1 | -1): void {
+    this.editor?.rotatePhoto(dir);
+  }
+
+  /** Cofa ostatnią zmianę obszaru (jak Ctrl+Z na scenie). */
+  undoArea(): void {
+    this.editor?.undoArea();
   }
 }

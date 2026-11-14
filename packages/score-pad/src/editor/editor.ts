@@ -1,4 +1,4 @@
-// Edytor notesu w trzech krokach: zdjęcie → kształt kartki → pola punktacji.
+// Edytor notesu w trzech krokach: zdjęcie → obszar kartki → pola punktacji.
 // Działa samodzielnie (<score-pad-editor>) albo — na życzenie — jako nakładka w notesie.
 // W trybie kreatora (`wizard`, EDT-9) kroki, nawigację i wczytywanie zdjęcia prowadzi aplikacja:
 // edytor pokazuje tylko scenę z narzędziami bieżącego kroku i zgłasza zmiany stanu (`onChange`).
@@ -8,37 +8,42 @@ import {
   Persp,
   canvasFromBlob,
   canvasFromUrl,
-  detectPaper,
+  encodeSheet,
   flattenPaper,
   fullQuad,
-  looksCropped,
   quadAspect,
+  releasePixels,
   rotate,
-  rotateQuad,
-  toJpeg,
+  sheetSize,
   warp,
 } from './photo';
+import type { AreaMode } from './area';
+import {
+  MAX_DETECTED_POINTS,
+  MAX_SMOOTHING,
+  MIN_AREA_POINTS,
+  areaCorners,
+  areaShape,
+  areaValid,
+  fullArea,
+  limitPoints,
+  removePoint,
+  rotatePoint,
+  segmentDistance,
+  toPhotoRing,
+} from './area';
 import type { LineKind, PadTemplate } from '../core/templates';
 import { validateTemplate } from '../core/templates';
 import type { PadConfig } from '../core/settings';
 import type { ShapePt, SheetShape } from '../core/shape';
 import { clamp, el, esc, uid } from '../core/util';
-import {
-  detectShape,
-  findOnPlainBackground,
-  maskSize,
-  paintPoly,
-  rasterize,
-  smoothShape,
-  traceShape,
-  wandRegion,
-} from './shape-tools';
+import { detectArea } from './shape-tools';
 import { FieldsStep } from './fields';
 import { icon } from './icons';
 import { scorePadFileName } from '../file-name';
 
 export type Step = 1 | 2 | 3;
-type Tool = 'none' | 'wand' | 'lasso';
+export type { AreaMode } from './area';
 
 export interface EditorOptions {
   /** Notes do poprawienia (zamiast nowego). */
@@ -64,6 +69,54 @@ export interface EditorLine {
   readonly kind: LineKind;
 }
 
+/** Ustawienia kroku 2 „Obszar kartki” (EDT-10) dla panelu kreatora. */
+export interface EditorArea {
+  /** Nazwa notesu. */
+  readonly name: string;
+  /** Kolor grzbietu (`#rrggbb`). */
+  readonly tape: string;
+  /** Całe zdjęcie, wykrycie automatyczne albo punkty ustawione ręcznie. */
+  readonly mode: AreaMode;
+  /** Liczba punktów obszaru. */
+  readonly points: number;
+  /** Wygładzanie krawędzi i jego siła 0…10. */
+  readonly smoothing: boolean;
+  readonly strength: number;
+  /** Rozmiar kartki w centymetrach. */
+  readonly size: { readonly w: number; readonly h: number };
+  /** Grzbiet notesu: u góry albo z lewej. */
+  readonly binding: 'top' | 'left';
+  /** Jest zmiana obszaru do cofnięcia (Ctrl+Z). */
+  readonly canUndo: boolean;
+  /** Wynik ostatniego wykrywania: nieregularny kształt, kartka, nic albo brak wykrywania. */
+  readonly detected: 'shape' | 'sheet' | 'missing' | null;
+}
+
+/** Zmiana ustawień kroku 2 z panelu kreatora. */
+export interface EditorAreaPatch {
+  readonly name?: string;
+  readonly tape?: string;
+  readonly mode?: AreaMode;
+  readonly smoothing?: boolean;
+  readonly strength?: number;
+  readonly size?: { readonly w?: number; readonly h?: number };
+  readonly binding?: 'top' | 'left';
+}
+
+/** Stan obszaru do cofnięcia. */
+interface AreaSnapshot {
+  area: Pt[];
+  holes: Pt[][];
+  mode: AreaMode;
+  smoothing: boolean;
+  strength: number;
+  detected: EditorArea['detected'];
+  fixed: boolean;
+  size: { w: number; h: number };
+  sizeManual: boolean;
+  pristine: boolean;
+}
+
 /** Stan edytora dla kreatora w aplikacji. */
 export interface EditorStatus {
   /** Bieżący krok edytora. */
@@ -84,6 +137,8 @@ export interface EditorStatus {
   readonly seats: number;
   /** Kategorie notesu w kolejności. */
   readonly lines: readonly EditorLine[];
+  /** Ustawienia kroku 2: obszar, rozmiar, grzbiet, nazwa i kolor (EDT-10). */
+  readonly settings: EditorArea;
   /** Notes został zmieniony od otwarcia edytora (zdjęcie, kształt, pola, kategorie). */
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
@@ -92,26 +147,9 @@ export interface EditorStatus {
 
 const STEPS: { n: Step; title: string; sub: string }[] = [
   { n: 1, title: 'Zdjęcie', sub: 'Wczytanie zdjęcia notesu' },
-  { n: 2, title: 'Kształt', sub: 'Obszar i kształt kartki' },
+  { n: 2, title: 'Obszar', sub: 'Obszar i kształt kartki' },
   { n: 3, title: 'Pola', sub: 'Pola do wpisywania' },
 ];
-
-const RECT: ShapePt[] = [
-  [0, 0],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-];
-
-const cloneShape = (s: SheetShape | undefined): SheetShape | undefined =>
-  s ? (JSON.parse(JSON.stringify(s)) as SheetShape) : undefined;
-
-/** Obrót kształtu razem ze zdjęciem (dir 1 = w prawo). */
-function rotateShape(s: SheetShape | undefined, dir: 1 | -1): SheetShape | undefined {
-  if (!s) return s;
-  const f = ([u, v]: ShapePt): ShapePt => (dir === 1 ? [1 - v, u] : [v, 1 - u]);
-  return { outline: s.outline.map(f), holes: s.holes?.map((h) => h.map(f)) };
-}
 
 export class Editor {
   readonly root: HTMLDivElement;
@@ -150,21 +188,38 @@ export class Editor {
   private binding: 'top' | 'left' = 'top';
   private flatten = true;
 
-  // kształt (przed wygładzeniem) i narzędzia
-  private raw: SheetShape | undefined;
-  private smooth = 2;
+  // obszar kartki (EDT-10): wielokąt na zdjęciu; z niego narożniki (`quad`) i kształt
+  private area: Pt[] = fullArea(1, 1);
+  /** Otwory w kartce (np. dziurki) z wykrycia albo z wczytanego notesu, w pikselach zdjęcia. */
+  private holes: Pt[][] = [];
+  private mode: AreaMode = 'auto';
+  private smoothing = false;
+  private strength = 4;
+  private detected: EditorArea['detected'] = null;
+  /** Kartka wczytana z notesu jest już wyprostowana: narożniki to całe zdjęcie. */
+  private fixedCorners = false;
+  /** Kształt wczytanego notesu i to, czy obszar od tamtej pory się nie zmienił. */
+  private loadedShape: SheetShape | undefined;
+  private pristine = false;
   private smoothed: { key: string; shape: SheetShape | undefined } = { key: '', shape: undefined };
-  /** Kształt poprawiany ręcznie — po zmianie kadru nie wykrywa się go ponownie. */
-  private manual = false;
   private exported = false;
-  private sundo: (SheetShape | undefined)[] = [];
-  private tool: Tool = 'none';
-  private paint: 'cut' | 'restore' = 'cut';
-  private wandTol = 42;
-  private qdrag: { i: number } | null = null;
-  private lasso: { pts: Pt[]; restore: boolean } | null = null;
-  private wandPx: { key: string; w: number; h: number; data: Uint8ClampedArray } | null = null;
-  private redetect = 0;
+  private sundo: AreaSnapshot[] = [];
+  private undoKind = '';
+  private undoAt = 0;
+  /** Przeciągany punkt obszaru (`moved`: ruszył się, więc to nie dotknięcie ani przytrzymanie). */
+  private pdrag: {
+    i: number;
+    moved: boolean;
+    x: number;
+    y: number;
+    snap: AreaSnapshot;
+    pointer: number;
+  } | null = null;
+  private press = 0;
+  /** Ostatnie wciśnięcie punktu (wykrywanie dwukliku). */
+  private lastPress: { i: number; at: number } | null = null;
+  private focusPt = -1;
+  private refocus = -1;
 
   // wyprostowana kartka (krok 3)
   sheet: HTMLCanvasElement | null = null;
@@ -347,6 +402,7 @@ export class Editor {
   /** Odpina nasłuch dokumentu i obserwatora (element usunięty ze strony). */
   destroy(): void {
     cancelAnimationFrame(this.notifyRaf);
+    clearTimeout(this.press);
     if (this.onDocPaste) document.removeEventListener('paste', this.onDocPaste);
     this.onDocPaste = null;
     this.resizeObs?.disconnect();
@@ -357,19 +413,13 @@ export class Editor {
     const typing = !!(e.target as HTMLElement).closest('input, select, textarea');
     if (e.key === 'Escape') {
       // Esc obsłużony w edytorze nie zamyka popupu, w którym edytor jest osadzony.
-      if (this.lasso) {
+      if (this.pdrag && this.step === 2) {
         e.preventDefault();
-        this.lasso = null;
-        this.render();
+        this.cancelDrag();
         return;
       }
       if (this.step === 3 && this.fields.key(e)) {
         e.preventDefault();
-        return;
-      }
-      if (this.tool !== 'none' && this.step === 2) {
-        e.preventDefault();
-        this.setTool('none');
         return;
       }
       if (this.opts.onClose) this.close();
@@ -379,7 +429,12 @@ export class Editor {
     if (this.step === 2 && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       this.touch();
-      this.undo();
+      this.undoArea();
+      return;
+    }
+    if (this.step === 2 && !e.ctrlKey && !e.metaKey && !e.altKey && this.pointKey(e)) {
+      e.preventDefault();
+      this.touch();
       return;
     }
     if (this.step === 3 && this.fields.key(e)) {
@@ -443,6 +498,7 @@ export class Editor {
       sheetUrl: this.sheetUrl,
       seats: this.fields.players(),
       lines: this.fields.draft.lines.map((l) => ({ label: l.label, kind: l.kind })),
+      settings: this.areaState(),
       dirty: this.dirty,
       openFailed: this.openFailed,
     };
@@ -458,7 +514,8 @@ export class Editor {
   }
 
   private shapeOk(): boolean {
-    return this.shape() !== null;
+    const src = this.src;
+    return !!src && areaValid(this.area, src.width, src.height);
   }
 
   private canGo(s: Step): boolean {
@@ -485,8 +542,8 @@ export class Editor {
     const prev = this.step;
     this.step = s;
     if (s > this.reached) this.reached = s;
-    this.lasso = null;
-    this.qdrag = null;
+    this.pdrag = null;
+    clearTimeout(this.press);
     this.exported = false;
     this.root.dataset.step = String(s);
     if (prev !== s) {
@@ -628,9 +685,23 @@ export class Editor {
       this.sizeManual = true;
       this.binding = t.binding === 'left' ? 'left' : 'top';
       this.flatten = false;
-      this.raw = cloneShape(t.shape);
-      this.smooth = 0;
-      this.manual = true;
+      // Kartka jest już wyprostowana: obszar to jej kształt na całym zdjęciu, bez wygładzania
+      // (zapisany kształt jest już wygładzony).
+      this.fixedCorners = true;
+      // Wygładzony obrys ma nawet setki punktów: do edycji uproszczony, a zapis bez zmian obszaru
+      // zachowuje dokładny kształt (`pristine`).
+      const diag = Math.hypot(c.width, c.height);
+      this.area = t.shape
+        ? limitPoints(toPhotoRing(t.shape.outline, this.quad), MAX_DETECTED_POINTS, diag)
+        : fullArea(c.width, c.height);
+      this.holes = (t.shape?.holes ?? []).map((r) => toPhotoRing(r, this.quad));
+      this.loadedShape = t.shape ? (JSON.parse(JSON.stringify(t.shape)) as SheetShape) : undefined;
+      this.pristine = true;
+      if (this.area.length < MIN_AREA_POINTS) this.area = fullArea(c.width, c.height);
+      this.mode = t.shape ? 'manual' : 'full';
+      this.smoothing = false;
+      this.detected = null;
+      this.pdrag = null;
       this.sundo = [];
       this.fields.load(t);
       this.editId = t.id;
@@ -656,22 +727,26 @@ export class Editor {
   /** Zdjęcie wczytanego notesu i stan kadru, przy którym jest aktualne. */
   private loadedImage: { url: string; key: string } | null = null;
 
+  /** Nowe zdjęcie: obszar wykryty automatycznie (EDT-10), do poprawy punktami. */
   private setSource(c: HTMLCanvasElement): void {
     this.src = c;
     this.srcId++;
-    let scan = looksCropped(c);
-    // jasne tło dookoła to też „przycięty skan” — chyba że na nim leży wyraźny przedmiot (np. plansza)
-    const onPlain = scan ? findOnPlainBackground(c) : null;
-    if (onPlain) scan = false;
-    this.flatten = !scan && !onPlain;
-    this.quad = onPlain || (!scan && detectPaper(c)) || fullQuad(c.width, c.height);
-    this.sizeManual = false;
-    this.applyPhotoSize();
-    this.raw = undefined;
-    this.manual = false;
+    const r = detectArea(c);
+    // skan (przycięta kartka) ma już równe światło
+    this.flatten = !r.cropped;
+    this.area = r.area;
+    this.holes = r.holes;
+    this.mode = 'auto';
+    this.detected = r.found;
+    this.smoothing = false;
+    this.fixedCorners = false;
+    this.pristine = false;
+    this.loadedShape = undefined;
+    this.pdrag = null;
     this.sundo = [];
-    this.tool = 'none';
-    this.autoShape();
+    this.sizeManual = false;
+    this.updateCorners();
+    this.applyPhotoSize();
     this.refreshSrcUrl();
   }
 
@@ -700,70 +775,223 @@ export class Editor {
     this.size = a <= 1 ? { w: round1(long * a), h: long } : { w: long, h: round1(long / a) };
   }
 
-  // ─────────────────────────────────────────────── krok 2: kadr i kształt
+  // ─────────────────────────────────────────────── krok 2: obszar kartki (EDT-10)
 
   private geomKey(): string {
     return `${this.srcId}|${this.quad.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(';')}|${this.size.w}x${this.size.h}`;
   }
 
-  /** Kształt po wygładzeniu (undefined = prostokąt, null = błąd). */
+  /** Kształt kartki z obszaru (po wygładzeniu); undefined = prostokąt. */
   shape(): SheetShape | undefined {
-    const key = `${JSON.stringify(this.raw ?? null)}|${this.smooth}|${this.size.w}x${this.size.h}`;
+    // Wczytany notes bez zmian obszaru: dokładnie zapisany kształt (punkty do edycji są uproszczone).
+    if (this.pristine) return this.loadedShape;
+    const key = `${this.srcId}|${JSON.stringify(this.area)}|${JSON.stringify(this.holes)}|${this.geomKey()}|${this.smoothing ? this.strength : 0}`;
     if (this.smoothed.key !== key)
-      this.smoothed = { key, shape: smoothShape(this.raw, this.smooth, this.size.w / this.size.h) };
+      this.smoothed = {
+        key,
+        shape: this.src
+          ? areaShape(this.area, this.holes, this.quad, this.smoothing ? this.strength : 0)
+          : undefined,
+      };
     return this.smoothed.shape;
   }
 
-  private pushUndo(): void {
-    this.sundo.push(cloneShape(this.raw));
-    if (this.sundo.length > 50) this.sundo.shift();
+  private snapshot(): AreaSnapshot {
+    return {
+      area: this.area.map((p) => ({ ...p })),
+      holes: this.holes.map((r) => r.map((p) => ({ ...p }))),
+      mode: this.mode,
+      smoothing: this.smoothing,
+      strength: this.strength,
+      detected: this.detected,
+      fixed: this.fixedCorners,
+      size: { ...this.size },
+      sizeManual: this.sizeManual,
+      pristine: this.pristine,
+    };
   }
 
-  private setRaw(sh: SheetShape | undefined): void {
+  /** Zapamiętuje stan do cofnięcia; `kind` łączy serię zmian (np. przesuwanie suwaka) w jeden krok. */
+  private pushUndo(snap = this.snapshot(), kind = ''): void {
+    const now = Date.now();
+    if (kind && kind === this.undoKind && now - this.undoAt < 900) {
+      this.undoAt = now;
+      return;
+    }
+    this.undoKind = kind;
+    this.undoAt = now;
+    // Każda zmiana obszaru odcina zapisany kształt wczytanego notesu (od teraz liczy się obszar).
+    this.pristine = false;
+    this.sundo.push(snap);
+    if (this.sundo.length > 60) this.sundo.shift();
+  }
+
+  /** Cofa ostatnią zmianę obszaru (Ctrl+Z). */
+  undoArea(): void {
+    const s = this.sundo.pop();
+    if (!s || !this.src) return;
+    this.touch();
+    this.undoKind = '';
+    this.area = s.area;
+    this.holes = s.holes;
+    this.mode = s.mode;
+    this.smoothing = s.smoothing;
+    this.strength = s.strength;
+    this.detected = s.detected;
+    this.fixedCorners = s.fixed;
+    this.size = { ...s.size };
+    this.sizeManual = s.sizeManual;
+    this.pristine = s.pristine;
+    this.pdrag = null;
+    this.areaChanged();
+  }
+
+  /** Ustawienia kroku 2 dla panelu aplikacji (kreator). */
+  areaState(): EditorArea {
+    return {
+      name: this.fields.draft.name,
+      tape: this.fields.draft.tape,
+      mode: this.mode,
+      points: this.area.length,
+      smoothing: this.smoothing,
+      strength: this.strength,
+      size: { ...this.size },
+      binding: this.binding,
+      canUndo: this.sundo.length > 0,
+      detected: this.detected,
+    };
+  }
+
+  /** Zmiana ustawień kroku 2 z panelu (kreator) albo z paska narzędzi edytora. */
+  setArea(patch: EditorAreaPatch): void {
+    this.touch();
+    let geometry = false;
+    if (patch.name !== undefined) this.fields.draft.name = String(patch.name).slice(0, 80);
+    if (patch.tape !== undefined && /^#[0-9a-f]{6}$/i.test(patch.tape))
+      this.fields.draft.tape = patch.tape.toLowerCase();
+    if (patch.binding === 'top' || patch.binding === 'left') this.binding = patch.binding;
+    if (patch.size) {
+      const next = { ...this.size };
+      for (const k of ['w', 'h'] as const) {
+        const v = patch.size[k];
+        if (v !== undefined && Number.isFinite(v)) next[k] = round1(clamp(v, 3, 60));
+      }
+      if (next.w !== this.size.w || next.h !== this.size.h) {
+        this.size = next;
+        this.sizeManual = true;
+      }
+    }
+    if (patch.smoothing !== undefined && patch.smoothing !== this.smoothing) {
+      this.pushUndo();
+      this.smoothing = patch.smoothing;
+      geometry = true;
+    }
+    if (patch.strength !== undefined) {
+      const v = Math.round(clamp(Number(patch.strength) || 0, 0, MAX_SMOOTHING));
+      if (v !== this.strength) {
+        this.pushUndo(this.snapshot(), 'strength');
+        this.strength = v;
+        geometry = true;
+      }
+    }
+    if (patch.mode && this.src) {
+      this.setMode(patch.mode);
+      geometry = true;
+    }
+    if (geometry) this.areaChanged();
+    else {
+      this.renderToolbar();
+      this.render();
+      this.renderChrome();
+    }
+  }
+
+  /** Tryb obszaru: całe zdjęcie, ponowne wykrycie albo ręczna edycja bieżących punktów. */
+  private setMode(mode: AreaMode): void {
+    const src = this.src;
+    if (!src) return;
     this.pushUndo();
-    this.raw = sh;
-    this.manual = true;
-    this.renderToolbar();
-    this.render();
+    this.pdrag = null;
+    if (mode === 'full') {
+      this.area = fullArea(src.width, src.height);
+      this.holes = [];
+      this.detected = null;
+    } else if (mode === 'auto') {
+      const r = detectArea(src);
+      this.area = r.area;
+      this.holes = r.holes;
+      this.detected = r.found;
+      this.fixedCorners = false;
+      this.sizeManual = false;
+      if (r.found === 'missing')
+        this.toast('Nie widzę wyraźnej kartki — ustaw punkty obszaru ręcznie.');
+    }
+    this.mode = mode;
   }
 
-  private undo(): void {
-    if (!this.sundo.length) return;
-    this.raw = this.sundo.pop();
-    this.manual = true;
-    this.renderToolbar();
-    this.render();
+  /** Obrót zdjęcia o 90° razem z obszarem i historią cofania. */
+  rotatePhoto(dir: 1 | -1): void {
+    const src = this.src;
+    if (!src || this.busy) return;
+    this.touch();
+    const { width: w, height: h } = src;
+    const rot = (r: Pt[]): Pt[] => r.map((p) => rotatePoint(p, w, h, dir));
+    this.area = rot(this.area);
+    this.holes = this.holes.map(rot);
+    this.sundo = this.sundo.map((s) => ({
+      ...s,
+      area: rot(s.area),
+      holes: s.holes.map(rot),
+      size: { w: s.size.h, h: s.size.w },
+      // zapisany kształt nie obraca się razem ze zdjęciem
+      pristine: false,
+    }));
+    this.pristine = false;
+    this.src = rotate(src, dir);
+    this.srcId++;
+    this.size = { w: this.size.h, h: this.size.w };
+    this.pdrag = null;
+    this.refreshSrcUrl();
+    this.areaChanged();
   }
 
-  /** Wykrywa kształt z tła zdjęcia; `force` zastępuje także kształt poprawiany ręcznie. */
-  private autoShape(force = false): void {
-    if (!this.src || (!force && this.manual)) return;
-    const r = detectShape(this.src, this.quad, this.size.w / this.size.h);
-    if (force && (this.raw || r.found)) this.pushUndo();
-    this.raw = r.found ? r.shape : undefined;
-    this.manual = false;
+  /** Narożniki do prostowania z obszaru (kartka wczytana z notesu jest już wyprostowana). */
+  private updateCorners(): void {
+    const src = this.src;
+    if (!src) return;
+    this.quad = this.fixedCorners
+      ? fullQuad(src.width, src.height)
+      : areaCorners(this.area, src.width, src.height);
   }
 
-  private setTool(t: Tool): void {
-    this.tool = t;
+  /** Po zmianie obszaru: narożniki, rozmiar z proporcji, podgląd i stan kroku. */
+  private areaChanged(): void {
+    this.updateCorners();
+    this.applyPhotoSize();
     this.renderToolbar();
     this.render();
+    this.renderChrome();
   }
 
   private renderToolbar(): void {
     const tb = this.toolbar;
-    if (this.step === 1 || !this.src) {
+    // W kreatorze panel i pasek kroku 2 są w aplikacji (DS §18).
+    if (this.step === 1 || !this.src || (this.opts.wizard && this.step === 2)) {
       tb.innerHTML = '';
       return;
     }
-    const tool = (t: Tool, ic: string, label: string, title: string): string =>
-      `<button type="button" class="spe-tb-btn" data-tool="${t}" aria-pressed="${this.tool === t}" title="${title}">${icon(ic)}<span>${label}</span></button>`;
+    const mode = (m: AreaMode, ic: string, label: string): string =>
+      `<button type="button" role="radio" class="spe-tb-btn" data-mode="${m}" aria-checked="${this.mode === m}" title="${label}">${icon(ic)}<span>${label}</span></button>`;
     tb.innerHTML = `
       <div class="spe-tb-group">
         <button type="button" class="spe-tb-btn" data-a="rotl" title="Obróć w lewo">${icon('rotL')}</button>
         <button type="button" class="spe-tb-btn" data-a="rotr" title="Obróć w prawo">${icon('rotR')}</button>
-        <button type="button" class="spe-tb-btn" data-a="full" title="Całe zdjęcie">${icon('full')}</button>
-        <button type="button" class="spe-tb-btn" data-a="detect" title="Wykryj kartkę automatycznie">${icon('detect')}<span>Wykryj</span></button>
+      </div>
+      <span class="spe-tb-sep"></span>
+      <div class="spe-tb-group spe-seg" role="radiogroup" aria-label="Obszar kartki">
+        ${mode('full', 'full', 'Całe zdjęcie')}
+        ${mode('auto', 'detect', 'Wykryj')}
+        ${mode('manual', 'rect', 'Ręcznie')}
       </div>
       <span class="spe-tb-sep"></span>
       <div class="spe-tb-group">
@@ -773,186 +1001,67 @@ export class Editor {
           <input type="number" min="3" max="60" step="0.1" data-dim="h" value="${this.size.h}" aria-label="Wysokość w cm">
           <span>cm</span>
         </div>
-        <div class="spe-seg" role="radiogroup" aria-label="Orientacja notesu">
-          <button type="button" role="radio" data-bind="top" aria-checked="${this.binding === 'top'}" title="Pionowa — kartki klejone u góry">${icon('bindTop')}</button>
-          <button type="button" role="radio" data-bind="left" aria-checked="${this.binding === 'left'}" title="Pozioma — kartki klejone z lewej strony">${icon('bindLeft')}</button>
+        <div class="spe-seg" role="radiogroup" aria-label="Grzbiet notesu">
+          <button type="button" role="radio" data-bind="top" aria-checked="${this.binding === 'top'}" title="Grzbiet u góry">${icon('bindTop')}</button>
+          <button type="button" role="radio" data-bind="left" aria-checked="${this.binding === 'left'}" title="Grzbiet z lewej">${icon('bindLeft')}</button>
         </div>
       </div>
       <span class="spe-tb-sep"></span>
       <div class="spe-tb-group">
-        ${tool('wand', 'wand', 'Różdżka', 'Różdżka — kliknij tło, by wyciąć obszar w jego kolorze')}
-        ${tool('lasso', 'lasso', 'Lasso', 'Lasso — obrysuj obszar do wycięcia')}
-        <div class="spe-seg mini" role="radiogroup" aria-label="Działanie narzędzia">
-          <button type="button" role="radio" data-paint="cut" aria-checked="${this.paint === 'cut'}" title="Wycinaj">${icon('cut')}</button>
-          <button type="button" role="radio" data-paint="restore" aria-checked="${this.paint === 'restore'}" title="Przywracaj (albo przytrzymaj Shift)">${icon('restore')}</button>
-        </div>
-        ${this.tool === 'wand' ? `<label class="spe-range" title="Tolerancja koloru różdżki"><span>Tolerancja</span><input type="range" min="6" max="120" step="1" data-tol value="${this.wandTol}"><output>${this.wandTol}</output></label>` : ''}
-      </div>
-      <span class="spe-tb-sep"></span>
-      <div class="spe-tb-group">
-        <label class="spe-range" title="Wygładzenie krawędzi">${icon('smooth')}<input type="range" min="0" max="10" step="1" data-smooth value="${this.smooth}"><output>${this.smooth}</output></label>
+        <button type="button" class="spe-tb-btn" data-a="smooth" aria-pressed="${this.smoothing}" title="Wygładź krawędzie">${icon('smooth')}</button>
+        <label class="spe-range" title="Siła wygładzania"><span>Siła</span><input type="range" min="0" max="${MAX_SMOOTHING}" step="1" data-smooth value="${this.strength}" ${this.smoothing ? '' : 'disabled'}><output>${this.strength}</output></label>
         <button type="button" class="spe-tb-btn" data-a="undo" title="Cofnij (Ctrl+Z)" ${this.sundo.length ? '' : 'disabled'}>${icon('undo')}</button>
-        <button type="button" class="spe-tb-btn" data-a="rect" title="Przywróć prostokąt" ${this.raw ? '' : 'disabled'}>${icon('rect')}</button>
       </div>`;
     tb.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
       b.addEventListener('click', () => this.action(b.dataset.a as string)),
     );
-    tb.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const t = b.dataset.tool as Tool;
-        this.setTool(this.tool === t ? 'none' : t);
-      }),
-    );
-    tb.querySelectorAll<HTMLButtonElement>('[data-paint]').forEach((b) =>
-      b.addEventListener('click', () => {
-        this.paint = b.dataset.paint as 'cut' | 'restore';
-        if (this.tool === 'none') this.tool = 'wand';
-        this.renderToolbar();
-        this.render();
-      }),
+    tb.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) =>
+      b.addEventListener('click', () => this.setArea({ mode: b.dataset.mode as AreaMode })),
     );
     tb.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach((b) =>
-      b.addEventListener('click', () => {
-        this.binding = b.dataset.bind as 'top' | 'left';
-        tb.querySelectorAll('[data-bind]').forEach((x) =>
-          x.setAttribute('aria-checked', String(x === b)),
-        );
-        this.render();
-      }),
+      b.addEventListener('click', () =>
+        this.setArea({ binding: b.dataset.bind as 'top' | 'left' }),
+      ),
     );
     tb.querySelectorAll<HTMLInputElement>('[data-dim]').forEach((i) =>
-      i.addEventListener('change', () => {
-        const v = clamp(Number(i.value) || 10, 3, 60);
-        this.size = { ...this.size, [i.dataset.dim as 'w' | 'h']: round1(v) };
-        i.value = String(round1(v));
-        this.sizeManual = true;
-        this.render();
-        this.renderChrome();
-      }),
+      i.addEventListener('change', () =>
+        this.setArea({ size: { [i.dataset.dim as 'w' | 'h']: Number(i.value) || 10 } }),
+      ),
     );
-    const tol = tb.querySelector<HTMLInputElement>('[data-tol]');
-    tol?.addEventListener('input', () => {
-      this.wandTol = Number(tol.value);
-      (tol.nextElementSibling as HTMLElement).textContent = tol.value;
-    });
     const sm = tb.querySelector<HTMLInputElement>('[data-smooth]');
+    // Bez przebudowy paska w trakcie przeciągania suwaka; seria zmian to jeden krok cofania.
     sm?.addEventListener('input', () => {
-      this.smooth = Number(sm.value);
       (sm.nextElementSibling as HTMLElement).textContent = sm.value;
+      this.pushUndo(this.snapshot(), 'strength');
+      this.strength = Math.round(Number(sm.value));
       this.render();
     });
+    sm?.addEventListener('change', () => this.renderToolbar());
   }
 
   private action(a: string): void {
-    const src = this.src;
-    if (!src) return;
-    if (a === 'rotl' || a === 'rotr') {
-      const dir = a === 'rotl' ? -1 : 1;
-      this.quad = rotateQuad(this.quad, src.width, src.height, dir);
-      this.src = rotate(src, dir);
-      this.srcId++;
-      this.size = { w: this.size.h, h: this.size.w };
-      this.raw = rotateShape(this.raw, dir);
-      this.sundo = this.sundo.map((s) => rotateShape(s, dir));
-      this.refreshSrcUrl();
-    } else if (a === 'full') {
-      this.quad = fullQuad(src.width, src.height);
-      this.applyPhotoSize();
-      this.autoShape();
-    } else if (a === 'detect') {
-      const q = findOnPlainBackground(src) || detectPaper(src);
-      if (!q) {
-        this.toast('Nie widzę wyraźnej kartki — przeciągnij narożniki ręcznie.');
-        return;
-      }
-      this.quad = q;
-      this.sizeManual = false;
-      this.applyPhotoSize();
-      this.autoShape(true);
-    } else if (a === 'undo') this.undo();
-    else if (a === 'rect') this.setRaw(undefined);
-    this.wandPx = null;
-    this.renderToolbar();
-    this.render();
-    this.renderChrome();
+    if (!this.src) return;
+    if (a === 'rotl' || a === 'rotr') this.rotatePhoto(a === 'rotl' ? -1 : 1);
+    else if (a === 'smooth') this.setArea({ smoothing: !this.smoothing });
+    else if (a === 'undo') this.undoArea();
   }
 
   private persp(): Persp {
     return new Persp(this.quad);
   }
 
-  /** Kolory wyprostowanej kartki w rozdzielczości maski (dla różdżki). */
-  private wandPixels(): { w: number; h: number; data: Uint8ClampedArray } {
-    const key = this.geomKey();
-    if (this.wandPx?.key === key) return this.wandPx;
-    const { w, h } = maskSize(this.size.w / this.size.h);
-    const c = warp(this.src as HTMLCanvasElement, this.quad, w, h);
-    const data = (c.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, w, h).data;
-    this.wandPx = { key, w, h, data };
-    return this.wandPx;
-  }
-
-  private wandAt(u: number, v: number, restore: boolean): void {
-    const px = this.wandPixels();
-    const reg = wandRegion(px.data, px.w, px.h, u, v, this.wandTol);
-    let n = 0;
-    for (let i = 0; i < reg.length; i++) n += reg[i];
-    if (!restore && n > reg.length * 0.6) {
-      this.toast('To prawie cała kartka — kliknij tło albo zmniejsz tolerancję.');
+  /** Usuwa punkt obszaru (dwuklik, przytrzymanie, Delete); zostają co najmniej trzy. */
+  private deletePoint(i: number): void {
+    const next = removePoint(this.area, i);
+    if (!next) {
+      this.toast(`Obszar musi mieć co najmniej ${MIN_AREA_POINTS} punkty.`);
       return;
     }
-    const m = rasterize(this.raw, px.w, px.h);
-    for (let i = 0; i < m.d.length; i++) if (reg[i]) m.d[i] = restore ? 1 : 0;
-    this.applyMask(m);
-  }
-
-  private applyMask(m: { w: number; h: number; d: Uint8Array }): void {
-    const sh = traceShape(m);
-    if (sh === null) {
-      this.toast('Z kartki prawie nic by nie zostało — pominąłem tę zmianę.');
-      this.render();
-      return;
-    }
-    if (JSON.stringify(sh ?? null) === JSON.stringify(this.raw ?? null)) {
-      this.render();
-      return;
-    }
-    this.setRaw(sh);
-    this.renderChrome();
-  }
-
-  private finishLasso(): void {
-    const l = this.lasso;
-    this.lasso = null;
-    if (!l || l.pts.length < 3) {
-      this.render();
-      return;
-    }
-    const P = this.persp();
-    const uv = l.pts.map((p) => P.toSheet(p.x, p.y));
-    const { w, h } = maskSize(this.size.w / this.size.h);
-    const m = rasterize(this.raw, w, h);
-    const changed = paintPoly(m, uv, l.restore ? 1 : 0);
-    if (changed < 4) {
-      this.render();
-      return;
-    }
-    this.applyMask(m);
-  }
-
-  /** Po zmianie kadru: rozmiar z proporcji i ponowne wykrycie kształtu (gdy był wykryty automatycznie). */
-  private quadChanged(): void {
-    this.applyPhotoSize();
-    this.wandPx = null;
-    if (!this.manual) {
-      clearTimeout(this.redetect);
-      this.redetect = window.setTimeout(() => {
-        this.autoShape();
-        this.render();
-      }, 60);
-    }
-    this.renderToolbar();
-    this.renderChrome();
+    this.pushUndo();
+    this.area = next;
+    this.mode = 'manual';
+    this.refocus = this.focusPt >= 0 ? Math.min(i, next.length - 1) : -1;
+    this.areaChanged();
   }
 
   // ─────────────────────────────────────────────── krok 3: wyprostowana kartka
@@ -965,11 +1074,10 @@ export class Editor {
     if (!this.src) return;
     const key = this.sheetWant();
     if (this.sheet && this.sheetKey === key) return;
-    const a = this.size.w / this.size.h;
-    const long = 1600;
-    const ow = a <= 1 ? Math.round(long * a) : long;
-    const oh = a <= 1 ? long : Math.round(long / a);
+    // EDT-12: rozdzielczość zdjęcia źródłowego (bez powiększania), dłuższy bok do 4096 px
+    const { w: ow, h: oh } = sheetSize(this.quad, this.size.w / this.size.h);
     const out = warp(this.src, this.quad, ow, oh);
+    releasePixels();
     if (this.flatten) flattenPaper(out, 0.92);
     this.sheet = out;
     this.sheetKey = key;
@@ -1009,10 +1117,8 @@ export class Editor {
 
   private draw(): void {
     const svg = this.svg;
-    svg.classList.toggle('spe-c-wand', this.step === 2 && this.tool === 'wand');
-    svg.classList.toggle('spe-c-lasso', this.step === 2 && this.tool === 'lasso');
     svg.classList.toggle('spe-c-draw', this.step === 3 && this.fields.mode === 'free');
-    if (this.step !== 2 || !this.qdrag) this.loupe.style.display = 'none';
+    if (this.step !== 2 || !this.pdrag?.moved) this.loupe.style.display = 'none';
     if (this.step === 1 || !this.src) {
       this.baseImg.style.display = 'none';
       this.ov.innerHTML = '';
@@ -1048,53 +1154,71 @@ export class Editor {
     const P = this.persp();
     const q = this.quad;
     const sh = this.shape();
-    const rings = sh ? [sh.outline, ...(sh.holes ?? [])] : [RECT];
-    const path = rings
-      .map(
-        (r) =>
-          r
-            .map(([u, v], i) => {
-              const p = P.toPhoto(u, v);
-              return `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
-            })
-            .join('') + 'Z',
-      )
-      .join('');
+    const pts = (r: { x: number; y: number }[]): string =>
+      r.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('') + 'Z';
+    const path = sh
+      ? [sh.outline, ...(sh.holes ?? [])]
+          .map((r) => pts(r.map(([u, v]) => P.toPhoto(u, v))))
+          .join('')
+      : pts(this.area);
     this.setImage(this.baseImg, this.srcUrl, w, h);
+    // fokus klawiatury na punkcie przetrwa przebudowę nakładki
+    const root = this.svg.getRootNode() as Document | ShadowRoot;
+    const active = root.activeElement as Element | null;
+    const focusIdx =
+      this.refocus >= 0
+        ? this.refocus
+        : active && this.ov.contains(active) && active.hasAttribute('data-p')
+          ? Number(active.getAttribute('data-p'))
+          : -1;
+    this.refocus = -1;
     let s = `<path d="M0 0H${w}V${h}H0Z${path}" class="spe-dim" fill-rule="evenodd"/>`;
-    // ramka narożników (gdy kształt odbiega od prostokąta) i obrys kartki
-    if (sh) s += `<polygon points="${q.map((p) => `${p.x},${p.y}`).join(' ')}" class="spe-frame"/>`;
+    // narożniki prostowania, gdy obszar nie jest czworokątem
+    if (this.area.length !== 4 || sh)
+      s += `<polygon points="${q.map((p) => `${p.x},${p.y}`).join(' ')}" class="spe-frame"/>`;
     s += `<path d="${path}" class="spe-outline" fill-rule="evenodd"/>`;
+    // wielokąt punktów (przy wygładzaniu obrys idzie obok punktów)
+    if (this.smoothing && this.strength > 0) s += `<path d="${pts(this.area)}" class="spe-raw"/>`;
     // grzbiet: klejona krawędź w kolorze taśmy
     const [a, b] = this.binding === 'left' ? [q[0], q[3]] : [q[0], q[1]];
     s += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="spe-spine halo"/><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="spe-spine" stroke="${esc(this.fields.draft.tape)}"/>`;
     s += `<rect x="0" y="0" width="${w}" height="${h}" fill="transparent" data-bg="1"/>`;
-    // lasso w trakcie rysowania
-    const l = this.lasso;
-    if (l && l.pts.length > 1) {
-      s += `<path d="${l.pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('')}Z" class="spe-lasso${l.restore ? ' add' : ''}"/>`;
-    }
-    q.forEach((p, i) => {
-      s += `<g data-q="${i}" class="spe-qh${this.qdrag?.i === i ? ' on' : ''}"><circle cx="${p.x}" cy="${p.y}" r="${22 * k}" fill="transparent"/><circle cx="${p.x}" cy="${p.y}" r="${8 * k}" class="dot"/></g>`;
+    // krawędzie: kliknięcie albo dotknięcie wstawia punkt
+    const n = this.area.length;
+    this.area.forEach((p, i) => {
+      const c = this.area[(i + 1) % n];
+      s += `<line data-e="${i}" class="spe-edge" x1="${p.x}" y1="${p.y}" x2="${c.x}" y2="${c.y}"/>`;
+    });
+    // strefa chwytu: większa pod palcem, mniejsza dla myszy (krótkie krawędzie da się kliknąć)
+    const grab = (coarsePointer() ? 22 : 14) * k;
+    this.area.forEach((p, i) => {
+      s += `<g data-p="${i}" class="spe-qh${this.pdrag?.i === i ? ' on' : ''}" tabindex="0" role="button" aria-label="Punkt obszaru ${i + 1} z ${n}. Strzałki przesuwają, Delete usuwa."><circle cx="${p.x}" cy="${p.y}" r="${grab}" fill="transparent"/><circle cx="${p.x}" cy="${p.y}" r="${8 * k}" class="dot"/></g>`;
     });
     this.ov.innerHTML = s;
+    if (focusIdx >= 0)
+      (
+        this.ov.querySelector(`[data-p="${Math.min(focusIdx, n - 1)}"]`) as SVGElement | null
+      )?.focus({
+        preventScroll: true,
+      });
     this.drawLoupe(k);
   }
 
-  /** Lupa przy przeciąganiu narożnika: trwała grupa, przesuwana i przybliżana atrybutami. */
+  /** Lupa przy przeciąganiu punktu (DS §18): koło 88 (telefon 72) z celownikiem. */
   private drawLoupe(k: number): void {
     const L = this.loupe;
     const src = this.src;
-    if (!this.qdrag || !src || !this.srcUrl) {
+    const drag = this.pdrag;
+    if (!drag?.moved || !src || !this.srcUrl) {
       L.style.display = 'none';
       return;
     }
     const { width: w, height: h } = src;
-    const q = this.quad;
-    const p = q[this.qdrag.i];
-    const R = 58 * k;
+    const p = this.area[drag.i];
+    if (!p) return;
+    const R = (this.svg.clientWidth && this.svg.clientWidth < 520 ? 36 : 44) * k;
     const Z = 3;
-    const off = 92 * k;
+    const off = R + 40 * k;
     const lx = clamp(p.x + this.loupeSide.x * off, R, w - R);
     const ly = clamp(p.y + this.loupeSide.y * off, R, h - R);
     const set = (sel: string, attrs: Record<string, string | number>): void => {
@@ -1106,9 +1230,10 @@ export class Editor {
     set('.bg', { x: lx - R, y: ly - R, width: 2 * R, height: 2 * R });
     set('.lt', { transform: `translate(${lx} ${ly}) scale(${Z}) translate(${-p.x} ${-p.y})` });
     this.setImage(L.querySelector('.li') as SVGImageElement, this.srcUrl, w, h);
-    set('.lp', { points: q.map((c) => `${c.x},${c.y}`).join(' ') });
+    set('.lp', { points: this.area.map((c) => `${c.x},${c.y}`).join(' ') });
+    const r = 7 * k;
     set('.cross', {
-      d: `M${lx - 12 * k} ${ly}H${lx + 12 * k}M${lx} ${ly - 12 * k}V${ly + 12 * k}`,
+      d: `M${lx - r} ${ly}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0`,
     });
     L.style.display = '';
   }
@@ -1129,40 +1254,68 @@ export class Editor {
     e.preventDefault();
   }
 
+  /** Początek przeciągania punktu `i`; lupa po przeciwnej stronie niż bliższy brzeg zdjęcia. */
+  private startDrag(e: PointerEvent, i: number, moved: boolean, snap: AreaSnapshot): void {
+    const src = this.src as HTMLCanvasElement;
+    const c = this.area[i];
+    this.loupeSide = { x: c.x > src.width / 2 ? -1 : 1, y: c.y > src.height / 2 ? -1 : 1 };
+    const p = this.toSvg(e);
+    this.pdrag = { i, moved, x: p.x, y: p.y, snap, pointer: e.pointerId };
+    clearTimeout(this.press);
+    // przytrzymanie punktu bez ruchu usuwa go na ekranie dotykowym (mysz: dwuklik, klawiatura: Delete)
+    if (!moved && e.pointerType === 'touch')
+      this.press = window.setTimeout(() => {
+        const d = this.pdrag;
+        if (!d || d.moved || d.i !== i) return;
+        this.pdrag = null;
+        this.deletePoint(i);
+      }, 550);
+    this.capture(e);
+    this.render();
+  }
+
   private onDown(e: PointerEvent): void {
     if (e.button > 0) return;
     // fokus zostaje w edytorze — skróty (Delete, strzałki, Ctrl+Z) działają po kliknięciu podglądu
-    this.svg.focus({ preventScroll: true });
+    const t = e.target as Element;
+    const ph = t.closest('[data-p]') as SVGElement | null;
+    if (this.step !== 2 || !ph) this.svg.focus({ preventScroll: true });
     if (this.step === 3) {
       if (this.sheet) this.fields.down(e);
       return;
     }
-    if (this.step !== 2 || !this.src) return;
-    const t = e.target as Element;
-    const qh = t.closest('[data-q]') as HTMLElement | null;
-    if (qh) {
-      this.qdrag = { i: Number(qh.dataset.q) };
-      const c = this.quad[this.qdrag.i];
-      this.loupeSide = {
-        x: c.x > this.src.width / 2 ? -1 : 1,
-        y: c.y > this.src.height / 2 ? -1 : 1,
-      };
-      this.capture(e);
-      this.render();
+    // drugi palec nie przejmuje przeciąganego punktu
+    if (this.step !== 2 || !this.src || this.pdrag) return;
+    if (ph) {
+      const i = Number(ph.dataset.p);
+      // Dwuklik (mysz, pióro) usuwa punkt. Wykrywamy go sami: nakładka jest przebudowywana po
+      // każdym wciśnięciu, a wtedy przeglądarka bywa, że nie wysyła zdarzenia `dblclick`.
+      const last = this.lastPress;
+      const now = e.timeStamp;
+      this.lastPress = { i, at: now };
+      if (e.pointerType !== 'touch' && last?.i === i && now - last.at < 400) {
+        this.lastPress = null;
+        e.preventDefault();
+        this.deletePoint(i);
+        return;
+      }
+      ph.focus({ preventScroll: true });
+      this.startDrag(e, i, false, this.snapshot());
       return;
     }
-    const p = this.toSvg(e);
-    const restore = (this.paint === 'restore') !== e.shiftKey;
-    if (this.tool === 'wand') {
-      const uv = this.persp().toSheet(p.x, p.y);
-      if (uv.u < 0 || uv.u > 1 || uv.v < 0 || uv.v > 1) return;
-      this.wandAt(clamp(uv.u, 0, 1), clamp(uv.v, 0, 1), restore);
-      return;
-    }
-    if (this.tool === 'lasso') {
-      this.lasso = { pts: [p], restore };
-      this.capture(e);
-      this.render();
+    const edge = t.closest('[data-e]') as SVGElement | null;
+    if (edge) {
+      const i = Number(edge.dataset.e);
+      const a = this.area[i];
+      const b = this.area[(i + 1) % this.area.length];
+      if (!a || !b) return;
+      const snap = this.snapshot();
+      this.pushUndo(snap);
+      const { at } = segmentDistance(this.toSvg(e), a, b);
+      this.area.splice(i + 1, 0, at);
+      this.mode = 'manual';
+      this.startDrag(e, i + 1, true, snap);
+      this.updateCorners();
     }
   }
 
@@ -1171,23 +1324,22 @@ export class Editor {
       this.fields.move(e);
       return;
     }
-    if (this.qdrag && this.src) {
-      const p = this.toSvg(e);
-      this.quad[this.qdrag.i] = {
-        x: clamp(p.x, 0, this.src.width),
-        y: clamp(p.y, 0, this.src.height),
-      };
-      this.render();
-      return;
+    const d = this.pdrag;
+    const src = this.src;
+    if (!d || !src || e.pointerId !== d.pointer) return;
+    const p = this.toSvg(e);
+    if (!d.moved) {
+      // drobne drgnięcie palca to jeszcze nie przeciąganie
+      if (Math.hypot(p.x - d.x, p.y - d.y) < 5 * this.scale(src.width)) return;
+      d.moved = true;
+      this.lastPress = null;
+      clearTimeout(this.press);
+      this.pushUndo(d.snap);
+      this.mode = 'manual';
     }
-    if (this.lasso) {
-      const p = this.toSvg(e);
-      const last = this.lasso.pts[this.lasso.pts.length - 1];
-      if (Math.hypot(p.x - last.x, p.y - last.y) > 3 * this.scale(this.src?.width ?? 1)) {
-        this.lasso.pts.push(p);
-        this.render();
-      }
-    }
+    this.area[d.i] = { x: clamp(p.x, 0, src.width), y: clamp(p.y, 0, src.height) };
+    this.updateCorners();
+    this.render();
   }
 
   private onUp(e: PointerEvent): void {
@@ -1195,13 +1347,65 @@ export class Editor {
       this.fields.up(e);
       return;
     }
-    if (this.qdrag) {
-      this.qdrag = null;
-      this.quadChanged();
-      this.render();
+    const d = this.pdrag;
+    if (!d || e.pointerId !== d.pointer) return;
+    clearTimeout(this.press);
+    if (e.type === 'pointercancel') {
+      this.cancelDrag();
       return;
     }
-    if (this.lasso) this.finishLasso();
+    this.pdrag = null;
+    if (d.moved) this.areaChanged();
+    else this.render();
+  }
+
+  /** Przerwane przeciąganie (Esc, pointercancel): obszar wraca do stanu sprzed przeciągania. */
+  private cancelDrag(): void {
+    const d = this.pdrag;
+    if (!d) return;
+    this.pdrag = null;
+    clearTimeout(this.press);
+    if (d.moved) {
+      this.sundo.pop();
+      this.area = d.snap.area;
+      this.mode = d.snap.mode;
+      this.pristine = d.snap.pristine;
+      this.areaChanged();
+    } else this.render();
+  }
+
+  /** Klawiatura na punkcie obszaru: strzałki przesuwają (Shift: dalej), Delete usuwa. */
+  private pointKey(e: KeyboardEvent): boolean {
+    const ph = (e.composedPath()[0] as Element | undefined)?.closest?.('[data-p]') as
+      SVGElement | null | undefined;
+    const src = this.src;
+    if (!ph || !src) return false;
+    const i = Number(ph.dataset.p);
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      this.focusPt = i;
+      this.deletePoint(i);
+      this.focusPt = -1;
+      return true;
+    }
+    const dirs: Record<string, [number, number]> = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+    };
+    const dir = dirs[e.key];
+    if (!dir) return false;
+    const step = (e.shiftKey ? 10 : 1) * this.scale(src.width);
+    this.pushUndo(this.snapshot(), `key${i}`);
+    const p = this.area[i];
+    this.area[i] = {
+      x: clamp(p.x + dir[0] * step, 0, src.width),
+      y: clamp(p.y + dir[1] * step, 0, src.height),
+    };
+    this.mode = 'manual';
+    this.refocus = i;
+    this.areaChanged();
+    return true;
   }
 
   // ─────────────────────────────────────────────── wynik
@@ -1216,10 +1420,7 @@ export class Editor {
       id: this.editId || `n-${uid()}`,
       ...out,
       size: { ...this.size },
-      image:
-        this.loadedImage?.key === this.sheetWant()
-          ? this.loadedImage.url
-          : toJpeg(this.sheet, 0.86),
+      image: this.sheetImage() as string,
       shape: sh
         ? {
             outline: sh.outline.map(([x, y]) => [r4(x), r4(y)] as ShapePt),
@@ -1230,6 +1431,17 @@ export class Editor {
         : undefined,
       binding: this.binding === 'left' ? 'left' : undefined,
     };
+  }
+
+  /**
+   * Obraz kartki do zapisu (EDT-12): zdjęcie wczytanego notesu bez zmian kadru zostaje tym samym
+   * plikiem, a nowa kartka jest kodowana w pełnej rozdzielczości (WebP albo JPEG, jakość 0,92).
+   */
+  sheetImage(): string | null {
+    if (!this.sheet) return null;
+    return this.loadedImage?.key === this.sheetWant()
+      ? this.loadedImage.url
+      : encodeSheet(this.sheet);
   }
 
   /** Plik notesu (taki sam jak „Zapisz notes do pliku” w notesie). */
@@ -1296,6 +1508,10 @@ export class Editor {
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
+/** Dotyk jako główny wskaźnik (telefon, tablet). */
+const coarsePointer = (): boolean =>
+  typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
 /** Czy stan edytora się zmienił (podglądy porównujemy po adresie, nie po treści). */
 function sameStatus(a: EditorStatus, b: EditorStatus): boolean {
   return (
@@ -1309,8 +1525,25 @@ function sameStatus(a: EditorStatus, b: EditorStatus): boolean {
     a.seats === b.seats &&
     a.dirty === b.dirty &&
     a.openFailed === b.openFailed &&
+    sameArea(a.settings, b.settings) &&
     a.lines.length === b.lines.length &&
     a.lines.every((l, i) => l.label === b.lines[i]?.label && l.kind === b.lines[i]?.kind)
+  );
+}
+
+function sameArea(a: EditorArea, b: EditorArea): boolean {
+  return (
+    a.name === b.name &&
+    a.tape === b.tape &&
+    a.mode === b.mode &&
+    a.points === b.points &&
+    a.smoothing === b.smoothing &&
+    a.strength === b.strength &&
+    a.size.w === b.size.w &&
+    a.size.h === b.size.h &&
+    a.binding === b.binding &&
+    a.canUndo === b.canUndo &&
+    a.detected === b.detected
   );
 }
 

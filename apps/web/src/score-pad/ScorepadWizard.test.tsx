@@ -1,4 +1,9 @@
-import type { ScorePadEditorStatus, ScorePadTemplate } from '@bg-club/score-pad';
+import type {
+  ScorePadEditorArea,
+  ScorePadEditorAreaPatch,
+  ScorePadEditorStatus,
+  ScorePadTemplate,
+} from '@bg-club/score-pad';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -53,6 +58,18 @@ const EMPTY: ScorePadEditorStatus = {
   sheetUrl: '',
   seats: 0,
   lines: [],
+  settings: {
+    name: 'Mój notes',
+    tape: '#161a2b',
+    mode: 'auto',
+    points: 4,
+    smoothing: false,
+    strength: 4,
+    size: { w: 10.5, h: 14.8 },
+    binding: 'top',
+    canUndo: false,
+    detected: 'sheet',
+  },
   dirty: false,
   openFailed: false,
 };
@@ -72,6 +89,9 @@ const fake = vi.hoisted(() => ({
   status: null as ScorePadEditorStatus | null,
   emit: (() => undefined) as (status: ScorePadEditorStatus) => void,
   goStep: vi.fn(),
+  setArea: vi.fn(),
+  rotatePhoto: vi.fn(),
+  undoArea: vi.fn(),
   loadPhoto: vi.fn(),
   loadTemplate: vi.fn(),
   failPhoto: false,
@@ -113,6 +133,20 @@ vi.mock('./ScorePadEditorView', () => ({
         fake.goStep(step);
         update({ step });
       },
+      setArea: (patch: ScorePadEditorAreaPatch) => {
+        fake.setArea(patch);
+        const settings = (fake.status as ScorePadEditorStatus).settings;
+        update({
+          settings: {
+            ...settings,
+            ...patch,
+            size: { ...settings.size, ...patch.size },
+            canUndo: true,
+          } as ScorePadEditorArea,
+        });
+      },
+      rotatePhoto: (dir: 1 | -1) => fake.rotatePhoto(dir),
+      undoArea: () => fake.undoArea(),
     }));
     return <div data-testid="editor" />;
   },
@@ -127,6 +161,9 @@ vi.mock('./scorepads', async (original) => ({
 beforeEach(() => {
   fake.status = null;
   fake.failPhoto = false;
+  fake.setArea.mockClear();
+  fake.rotatePhoto.mockClear();
+  fake.undoArea.mockClear();
   save.mockReset();
   save.mockResolvedValue({ name: 'Z pliku', version: 1, playerSlots: 3 });
 });
@@ -414,5 +451,82 @@ describe('kreator edytora notesu', () => {
       }),
     );
     expect(screen.queryByRole('dialog', { name: 'Odrzucić zmiany?' })).not.toBeInTheDocument();
+  });
+
+  it('krok 2: panel obszaru kartki zmienia ustawienia edytora (EDT-10)', async () => {
+    const dialog = renderWizard();
+    await choosePhoto(dialog);
+    fireEvent.click(next());
+    const name = within(dialog).getByRole('textbox', { name: 'Nazwa notesu' });
+    expect(name).toHaveValue('Mój notes');
+    expect(within(dialog).getByText(/Wykryto kartkę/)).toBeInTheDocument();
+
+    // Nazwa jest wymagana: bez niej „Dalej” jest wyłączone.
+    fireEvent.change(name, { target: { value: '  ' } });
+    expect(fake.setArea).toHaveBeenLastCalledWith({ name: '  ' });
+    expect(within(dialog).getByText('Wpisz nazwę notesu.')).toBeInTheDocument();
+    expect(next()).toBeDisabled();
+    fireEvent.change(name, { target: { value: 'Turniejowy' } });
+    expect(next()).toBeEnabled();
+
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Zielony' }));
+    expect(fake.setArea).toHaveBeenLastCalledWith({ tape: '#3a9d6e' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Ręcznie' }));
+    expect(fake.setArea).toHaveBeenLastCalledWith({ mode: 'manual' });
+    expect(within(dialog).getByText(/Kliknij lub dotknij krawędzi/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Z lewej' }));
+    expect(fake.setArea).toHaveBeenLastCalledWith({ binding: 'left' });
+
+    // Wygładzanie: przełącznik odsłania suwak siły 0–10.
+    expect(within(dialog).queryByRole('slider', { name: 'Siła' })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('switch', { name: 'Wygładź krawędzie' }));
+    expect(fake.setArea).toHaveBeenLastCalledWith({ smoothing: true });
+    const strength = within(dialog).getByRole('slider', { name: 'Siła' });
+    expect(strength).toHaveAttribute('max', '10');
+    fireEvent.change(strength, { target: { value: '7' } });
+    expect(fake.setArea).toHaveBeenLastCalledWith({ strength: 7 });
+
+    // Rozmiar w cm: przecinek dziesiętny, zapis po wyjściu z pola; zła wartość wraca.
+    const width = within(dialog).getByRole('textbox', { name: 'Szerokość kartki' });
+    fireEvent.change(width, { target: { value: '12,5' } });
+    fireEvent.blur(width);
+    expect(fake.setArea).toHaveBeenLastCalledWith({ size: { w: 12.5 } });
+    // Poza zakresem: pole od razu pokazuje wartość zapisaną przez edytor.
+    fireEvent.change(width, { target: { value: '100' } });
+    fireEvent.blur(width);
+    expect(fake.setArea).toHaveBeenLastCalledWith({ size: { w: 60 } });
+    expect(width).toHaveValue('60');
+    const height = within(dialog).getByRole('textbox', { name: 'Wysokość kartki' });
+    fireEvent.change(height, { target: { value: 'abc' } });
+    fireEvent.blur(height);
+    expect(height).toHaveValue('14,8');
+
+    // Pasek sceny: obrót i cofnij (po zmianie jest co cofać); Ctrl+Z poza polem tekstowym.
+    const toolbar = within(within(dialog).getByRole('toolbar', { name: 'Narzędzia obszaru' }));
+    fireEvent.click(toolbar.getByRole('button', { name: 'Obróć w lewo' }));
+    expect(fake.rotatePhoto).toHaveBeenLastCalledWith(-1);
+    fireEvent.click(toolbar.getByRole('button', { name: 'Obróć w prawo' }));
+    expect(fake.rotatePhoto).toHaveBeenLastCalledWith(1);
+    fireEvent.click(toolbar.getByRole('button', { name: 'Cofnij (Ctrl+Z)' }));
+    expect(fake.undoArea).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(within(dialog).getByRole('radio', { name: 'U góry' }), {
+      key: 'z',
+      ctrlKey: true,
+    });
+    expect(fake.undoArea).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(name, { key: 'z', ctrlKey: true });
+    expect(fake.undoArea).toHaveBeenCalledTimes(2);
+  });
+
+  it('krok 2: kolor grzbietu spoza palety jest pierwszą próbką', async () => {
+    const dialog = renderWizard();
+    await choosePhoto(dialog);
+    update({ settings: { ...(fake.status as ScorePadEditorStatus).settings, tape: '#22304a' } });
+    fireEvent.click(next());
+    const custom = within(dialog).getByRole('radio', { name: 'Obecny kolor #22304a' });
+    expect(custom).toBeChecked();
+    expect(
+      within(dialog).getAllByRole('radio', { name: /kolor|owy|ony|Różowy|Granatowy/ })[0],
+    ).toBe(custom);
   });
 });
