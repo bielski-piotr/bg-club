@@ -88,7 +88,7 @@ const GAP = 0.008;
 export function freshDraft(): Draft {
   return {
     name: 'Mój notes',
-    tape: '#22304a',
+    tape: '#161a2b',
     grid: { x: [0.06, 0.94], y: [0.05, 0.11], players: 'cols', labels: 1 },
     lines: [],
     fields: [],

@@ -6,7 +6,15 @@ import { clamp, makeCanvas } from '../core/util';
 export type Pt = { x: number; y: number };
 export type Quad = [Pt, Pt, Pt, Pt]; // lewy górny, prawy górny, prawy dolny, lewy dolny
 
-const MAX_SRC = 2400;
+/**
+ * Dłuższy bok zdjęcia źródłowego i wyprostowanej kartki (EDT-12). Mniejsze zdjęcie nie jest
+ * powiększane; to też granica tekstury notesu (PAD-16).
+ */
+export const MAX_SHEET_SIDE = 4096;
+/** Jakość zapisu kartki (EDT-12: co najmniej 0,92). */
+export const SHEET_QUALITY = 0.92;
+/** Największy plik kartki: limit bucketu `scorepads` to 5 MiB, zostawiamy zapas. */
+export const MAX_SHEET_BYTES = 4.5 * 1024 * 1024;
 
 export async function canvasFromBlob(file: Blob): Promise<HTMLCanvasElement> {
   let src: CanvasImageSource & { width: number; height: number };
@@ -25,7 +33,7 @@ export async function canvasFromBlob(file: Blob): Promise<HTMLCanvasElement> {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
   }
-  const k = Math.min(1, MAX_SRC / Math.max(src.width, src.height));
+  const k = Math.min(1, MAX_SHEET_SIDE / Math.max(src.width, src.height));
   const [c, g] = makeCanvas(src.width * k, src.height * k);
   g.imageSmoothingQuality = 'high';
   g.drawImage(src, 0, 0, c.width, c.height);
@@ -42,6 +50,17 @@ export async function canvasFromUrl(url: string): Promise<HTMLCanvasElement> {
   const [c, g] = makeCanvas(im.naturalWidth, im.naturalHeight);
   g.drawImage(im, 0, 0);
   return c;
+}
+
+/** Piksele zdjęcia (pamiętane dla danego płótna: wykrywanie i prostowanie czytają je wiele razy). */
+const pixelCache = new WeakMap<HTMLCanvasElement, ImageData>();
+export function pixelsOf(c: HTMLCanvasElement): ImageData {
+  let d = pixelCache.get(c);
+  if (!d) {
+    d = (c.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, c.width, c.height);
+    pixelCache.set(c, d);
+  }
+  return d;
 }
 
 export function rotate(src: HTMLCanvasElement, dir: 1 | -1): HTMLCanvasElement {
@@ -146,7 +165,7 @@ export function rotateQuad(q: Quad, w: number, h: number, dir: 1 | -1): Quad {
 export function warp(src: HTMLCanvasElement, q: Quad, ow: number, oh: number): HTMLCanvasElement {
   const sw = src.width;
   const sh = src.height;
-  const sd = (src.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, sw, sh).data;
+  const sd = pixelsOf(src).data;
   const [c, g] = makeCanvas(ow, oh);
   const out = g.createImageData(c.width, c.height);
   const od = out.data;
@@ -606,4 +625,46 @@ export function looksCropped(src: HTMLCanvasElement): boolean {
 
 export function toJpeg(c: HTMLCanvasElement, q = 0.86): string {
   return c.toDataURL('image/jpeg', q);
+}
+
+/**
+ * Wymiary wyprostowanej kartki (EDT-12): dłuższy bok jak najdłuższy bok obszaru na zdjęciu
+ * źródłowym (bez powiększania), najwyżej `MAX_SHEET_SIDE`; proporcje z rozmiaru w centymetrach.
+ */
+export function sheetSize(q: Quad, aspect: number): { w: number; h: number } {
+  const d = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y);
+  const side = Math.max(d(q[0], q[1]), d(q[1], q[2]), d(q[2], q[3]), d(q[3], q[0]));
+  const long = Math.max(16, Math.min(MAX_SHEET_SIDE, Math.round(side)));
+  const a = aspect > 0 && Number.isFinite(aspect) ? aspect : 1;
+  return a <= 1
+    ? { w: Math.max(8, Math.round(long * a)), h: long }
+    : { w: long, h: Math.max(8, Math.round(long / a)) };
+}
+
+/** Bajty pliku zapisanego w data URL (base64). */
+export function dataUrlBytes(url: string): number {
+  const i = url.indexOf(',');
+  const b64 = url.length - i - 1;
+  const pad = url.endsWith('==') ? 2 : url.endsWith('=') ? 1 : 0;
+  return Math.floor((b64 * 3) / 4) - pad;
+}
+
+/**
+ * Zapis kartki do notesu (EDT-12): WebP (gdy przeglądarka go koduje) albo JPEG o jakości 0,92.
+ * Plik większy niż limit Storage zmniejszamy (o 15% na krok), a nie obniżamy jakości.
+ */
+export function encodeSheet(c: HTMLCanvasElement, maxBytes = MAX_SHEET_BYTES): string {
+  let cur = c;
+  for (let attempt = 0; ; attempt++) {
+    const webp = cur.toDataURL('image/webp', SHEET_QUALITY);
+    const url = webp.startsWith('data:image/webp')
+      ? webp
+      : cur.toDataURL('image/jpeg', SHEET_QUALITY);
+    if (dataUrlBytes(url) <= maxBytes || attempt >= 6 || Math.max(cur.width, cur.height) < 800)
+      return url;
+    const [n, g] = makeCanvas(cur.width * 0.85, cur.height * 0.85);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(cur, 0, 0, n.width, n.height);
+    cur = n;
+  }
 }

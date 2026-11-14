@@ -222,7 +222,7 @@ export const EDITOR_CSS = String.raw`
 
 /* krok 2: kadr i kształt */
 .spe-svg .spe-dim { fill: var(--dim); pointer-events: none; }
-.spe-svg .spe-outline { fill: none; stroke: var(--accent-vivid); stroke-width: 2.2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.spe-svg .spe-outline { fill: none; stroke: var(--accent-vivid); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
 .spe-svg .spe-frame { fill: none; stroke: #fff; stroke-opacity: .75; stroke-width: 1.2; stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; pointer-events: none; }
 .spe-svg .spe-spine { stroke-width: 7; stroke-linecap: round; vector-effect: non-scaling-stroke; pointer-events: none; }
 .spe-svg .spe-spine.halo { stroke: #fff; stroke-opacity: .75; stroke-width: 11; }
@@ -230,12 +230,14 @@ export const EDITOR_CSS = String.raw`
 .spe-svg .spe-qh.on { cursor: grabbing; }
 .spe-svg .spe-qh .dot { fill: #fff; stroke: var(--accent-vivid); stroke-width: 2.5; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; transition: transform .18s cubic-bezier(.2,.8,.2,1.4); filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
 .spe-svg .spe-qh:hover .dot, .spe-svg .spe-qh.on .dot { transform: scale(1.35); }
-.spe-svg .spe-lasso { fill: rgba(229, 72, 77, .2); stroke: #ff5c66; stroke-width: 1.8; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; animation: spe-ants .5s linear infinite; }
-.spe-svg .spe-lasso.add { fill: rgba(31, 157, 107, .22); stroke: #2bc184; }
+.spe-svg .spe-qh:focus { outline: none; }
+.spe-svg .spe-qh:focus-visible .dot { stroke-width: 4; transform: scale(1.35); }
+.spe-svg .spe-qh.on .dot { fill: var(--accent-vivid); stroke: #fff; }
+.spe-svg .spe-edge { stroke: transparent; stroke-width: 20; vector-effect: non-scaling-stroke; stroke-linecap: round; cursor: copy; }
+.spe-svg .spe-raw { fill: none; stroke: #fff; stroke-opacity: .85; stroke-width: 1.2; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; pointer-events: none; }
 .spe-svg .spe-loupe { pointer-events: none; animation: spe-fade .15s ease-out; }
-.spe-svg .spe-loupe .ring { fill: #fff; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .35)); }
+.spe-svg .spe-loupe .ring { fill: #fff; filter: drop-shadow(0 12px 32px rgba(22, 26, 43, .22)); }
 .spe-svg .spe-loupe .lp, .spe-svg .spe-loupe .cross { fill: none; stroke: var(--accent-vivid); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
-.spe-svg.spe-c-wand, .spe-svg.spe-c-lasso { cursor: crosshair; }
 
 /* krok 3: tabela i pola */
 .spe-svg .spe-labels { fill: rgba(70, 76, 90, .1); pointer-events: none; }
@@ -398,6 +400,15 @@ export const EDITOR_CSS = String.raw`
 .spe.wizard .spe-rail, .spe.wizard .spe-drop { display: none; }
 .spe.wizard .spe-in { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .spe.wizard .spe-main { grid-row: auto; }
+/* krok 2 w kreatorze (DS §18): scena bez paska i panelu edytora (są w aplikacji) */
+.spe.wizard { --accent-vivid: #2f54eb; background: transparent; }
+.spe.wizard.dark { --accent-vivid: #4064f0; }
+@media (prefers-color-scheme: dark) { .spe.wizard:not(.light) { --accent-vivid: #4064f0; } }
+.spe.wizard[data-step="2"] .spe-toolbar, .spe.wizard[data-step="2"] .spe-panel { display: none; }
+.spe.wizard[data-step="2"] .spe-main { grid-template-rows: minmax(0, 1fr); }
+.spe.wizard[data-step="2"] .spe-stage { padding: 16px 16px 76px; background: var(--wizard-stage, #f1f3f9); }
+.spe.wizard.dark[data-step="2"] .spe-stage { --wizard-stage: #22273b; }
+@media (prefers-color-scheme: dark) { .spe.wizard:not(.light)[data-step="2"] .spe-stage { --wizard-stage: #22273b; } }
 @media (prefers-reduced-motion: reduce) {
   .spe *, .spe *::before, .spe *::after { animation: none !important; transition: none !important; }
 }

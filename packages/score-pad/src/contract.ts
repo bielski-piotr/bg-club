@@ -6,13 +6,14 @@ import type { ScorePadElement as PadElementImpl } from './core/index';
 import type { PadConfig } from './core/settings';
 import type { LineDef, PadTemplate } from './core/templates';
 import type { PadSaveDetail, ScorePadOptions } from './core/viewer';
-import type { EditorStatus } from './editor/editor';
+import type { EditorAreaPatch, EditorStatus } from './editor/editor';
 import type { ScorePadEditorElement as EditorElementImpl } from './editor/element';
 import type * as TemplateDecl from './template';
 import type * as TemplateImpl from './template-tools';
 import type {
   ScorePadApi,
   ScorePadClubOptions,
+  ScorePadEditorAreaPatch,
   ScorePadEditorElement,
   ScorePadEditorStatus,
   ScorePadElement,
@@ -40,6 +41,7 @@ export type Contract = [
   Assert<Extends<PadElementImpl, Omit<ScorePadElement, 'options' | 'pad' | Listeners>>>,
   Assert<Extends<EditorElementImpl, Omit<ScorePadEditorElement, 'template' | Listeners>>>,
   Assert<Extends<EditorStatus, ScorePadEditorStatus>>,
+  Assert<Extends<ScorePadEditorAreaPatch, EditorAreaPatch>>,
   Assert<Extends<typeof TemplateImpl.readTemplate, typeof TemplateDecl.readTemplate>>,
   Assert<Extends<typeof TemplateImpl.readScorePadFile, typeof TemplateDecl.readScorePadFile>>,
 ];

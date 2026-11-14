@@ -10,6 +10,7 @@ import { PopupModal } from '../popups/PopupModal';
 import { useLeaveGuard } from '../popups/useLeaveGuard';
 import { Banner, Button, Dialog, Icon, Tray, useToast } from '../ui';
 import { cx } from '../ui/cx';
+import { AreaPanel, AreaToolbar } from './AreaStep';
 import { fewerSeatsMessage, scorepadErrorMessage } from './messages';
 import { PhotoStep } from './PhotoStep';
 import { ScorePadEditorView, type ScorePadEditorHandle } from './ScorePadEditorView';
@@ -38,6 +39,7 @@ import './wizard.css';
 
 const text = t.scorepads.editor;
 const wizard = t.scorepads.wizard;
+const area = wizard.area;
 
 interface ScorepadWizardProps {
   readonly game: Game;
@@ -61,7 +63,8 @@ const editorBusy = (error: unknown) => (error as { reason?: unknown }).reason ==
  * modal 1120 px z pigułkami kroków, na telefonie arkusz z paskiem postępu.
  *
  * - Krok 1 (Zdjęcie) prowadzi aplikacja: plik, przeciągnięcie, schowek, aparat lub kamera
- *   i import `.json`. Kroki 2–3 to narzędzia edytora; 4 (Kategorie) i 5 (Test i zapis) to
+ *   i import `.json`. Krok 2 (Obszar kartki, EDT-10) to scena edytora z punktami obszaru
+ *   i panel aplikacji. Krok 3 to narzędzia edytora; 4 (Kategorie) i 5 (Test i zapis) to
  *   na razie podsumowania (pełne wersje: zadania [019] i [022]).
  * - „Dalej” jest wyłączone, dopóki bieżący krok nie jest poprawny. Pigułki odwiedzonych kroków
  *   są klikalne; edycja notesu i import pliku otwierają kreator z wszystkimi krokami wykonanymi.
@@ -229,6 +232,18 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
     (status?.busy ?? false) ||
     (!!initial.template && !status?.photo && !status?.openFailed && editorLoad.state !== 'error');
   const valid = isStepValid(step, status);
+  // Ctrl+Z w panelu obszaru (poza polami tekstowymi) cofa zmianę obszaru jak na scenie.
+  const onAreaKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (event.key.toLowerCase() !== 'z' || event.shiftKey) return;
+    const target = event.target;
+    // Pola tekstowe mają własne cofanie wpisanego tekstu.
+    const typing =
+      'input:not([type=radio]):not([type=checkbox]):not([type=range]), textarea, [contenteditable]';
+    if (target instanceof HTMLElement && target.closest(typing)) return;
+    event.preventDefault();
+    editor.current?.undoArea();
+  };
   const closeConfirm = () => {
     setConfirm(undefined);
     const target = restoreFocus.current;
@@ -306,17 +321,40 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
               onImport={importFile}
             />
           ) : null}
+          {/* Jeden edytor dla kroków 2 i 3 (ukryty w pozostałych, ale zamontowany): w kroku 2
+              obok sceny jest panel obszaru, w kroku 3 edytor ma własny panel pól. */}
           <div
-            className={cx('wizard-editor', (step === 1 || step >= 4) && 'wizard-editor--hidden')}
+            className={cx(
+              'wizard-work',
+              step === 2 && 'wizard-body wizard-work--area',
+              (step === 1 || step >= 4) && 'wizard-editor--hidden',
+            )}
+            onKeyDown={step === 2 ? onAreaKeyDown : undefined}
           >
-            <ScorePadEditorView
-              ref={editor}
-              wizard
-              template={initial.template}
-              onStatus={onStatus}
-              onLoadState={onLoadState}
-              className="wizard-editor__view"
-            />
+            <div className="wizard-editor" aria-label={step === 2 ? area.stage : undefined}>
+              <ScorePadEditorView
+                ref={editor}
+                wizard
+                template={initial.template}
+                onStatus={onStatus}
+                onLoadState={onLoadState}
+                className="wizard-editor__view"
+              />
+              {step === 2 && status?.photo ? (
+                <AreaToolbar
+                  canUndo={status.settings.canUndo}
+                  disabled={busy}
+                  onRotate={(dir) => editor.current?.rotatePhoto(dir)}
+                  onUndo={() => editor.current?.undoArea()}
+                />
+              ) : null}
+            </div>
+            {step === 2 && status?.photo ? (
+              <AreaPanel
+                settings={status.settings}
+                onChange={(patch) => editor.current?.setArea(patch)}
+              />
+            ) : null}
           </div>
           {step === 4 && status ? <CategoriesSummary status={status} /> : null}
           {step === 5 && status ? (

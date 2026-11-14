@@ -241,6 +241,15 @@
   min-width: 0;
 }
 
+/* Przyciski ikon w pasku: białe tło (DS §18), tło #F1F3F9 dopiero po najechaniu. */
+.wizard-toolbar .wizard-toolbar__btn {
+  background: var(--c-surface);
+}
+
+.wizard-toolbar .wizard-toolbar__btn:hover:not(:disabled) {
+  background: var(--c-tint);
+}
+
 .wizard-camera {
   position: absolute;
   inset: 0;
@@ -313,7 +322,39 @@
 
 /* Edytor (kroki 2 i 3); ukryty w pozostałych krokach, ale zamontowany, żeby nie gubić danych. */
 .wizard-editor {
+  position: relative;
   height: clamp(460px, calc(var(--vv-height, 100dvh) - 240px), 640px);
+}
+
+/* Krok 2: scena 343×380 nad panelem (telefon), 620×560 obok panelu (desktop). */
+.wizard-work--area .wizard-editor {
+  height: 380px;
+  min-width: 0;
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+.wizard-field {
+  display: grid;
+  gap: 8px;
+}
+
+.wizard-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.wizard-hint--tight {
+  margin-top: -12px;
+}
+
+.wizard-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .wizard-editor--hidden {
@@ -437,7 +478,8 @@
     bottom: 16px;
   }
 
-  .wizard-editor {
+  .wizard-editor,
+  .wizard-work--area .wizard-editor {
     height: clamp(360px, calc(var(--vv-height, 100dvh) - 340px), 560px);
   }
 }
