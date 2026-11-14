@@ -230,9 +230,9 @@ export function drawCell(
 }
 
 /** Rozmiar cyfr dopasowany do pola (w pikselach tekstury). */
-export function digitSize(w: number, h: number, chars = 2): number {
+export function digitSize(w: number, h: number, chars = 2, res = 1): number {
   return Math.max(
-    10,
-    Math.min(h * 0.86, (w * 0.8) / Math.max(1.1, chars * 0.5), 150) * inkStyle.size,
+    10 * res,
+    Math.min(h * 0.86, (w * 0.8) / Math.max(1.1, chars * 0.5), 150 * res) * inkStyle.size,
   );
 }
