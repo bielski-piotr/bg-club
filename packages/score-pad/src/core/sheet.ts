@@ -6,7 +6,7 @@ import { Cloth } from './cloth';
 import { digitSize, drawCell, hand, inkStyle, penStroke, setInkStyle, wobblyEllipse } from './ink';
 import type { Settings } from './settings';
 import type { PrintSet } from './print';
-import { skipNoise } from './print';
+import { MIN_TEX_SIDE, skipNoise } from './print';
 import type { LineKind, PadTemplate, Rect, SheetData, Spot } from './templates';
 import {
   cellOf,
@@ -54,6 +54,9 @@ class Painter {
     this.skip = this.ig.createPattern(skipNoise(), 'repeat') as CanvasPattern;
     this.tex = new THREE.CanvasTexture(this.main);
     this.tex.encoding = THREE.sRGBEncoding;
+    // kartka i pismo w rozdzielczości tekstury, z mipmapami i anizotropią (PAD-16)
+    this.tex.generateMipmaps = true;
+    this.tex.minFilter = THREE.LinearMipmapLinearFilter;
     this.tex.anisotropy = aniso;
   }
 
@@ -62,7 +65,9 @@ class Painter {
     const d = s.data;
     const { CW, CH } = this.ps;
     const k = CH / 1434;
-    const pen = clamp(3.4 * Math.max(k, CW / 1024) * 0.92, 2.2, 5.5);
+    // pismo w rozdzielczości tekstury (PAD-16): powyżej dawnych 1600 px limity grubości i wielkości rosną
+    const res = Math.max(1, Math.max(CW, CH) / MIN_TEX_SIDE);
+    const pen = clamp(3.4 * Math.max(k, CW / 1024) * 0.92, 2.2, 5.5 * res);
     const g = this.ig;
     let anim = false;
     setInkStyle(s.cfg.ink.color, s.cfg.ink.speed, s.cfg.ink.size);
@@ -125,7 +130,7 @@ class Painter {
               nm.text,
               cx + r.w * 0.02,
               cy + r.h * 0.04,
-              Math.min(r.h * 0.78, r.w * 0.36, 60) * inkStyle.size,
+              Math.min(r.h * 0.78, r.w * 0.36, 60 * res) * inkStyle.size,
               nm.ink,
               now,
               { weight: 700, maxW: r.w * 0.86 },
@@ -134,7 +139,8 @@ class Painter {
         const cell = cellOf(d, t, sp);
         if (cell)
           anim =
-            drawCell(g, cell, cx, cy, digitSize(r.w, r.h, digitsOf(ln)), r.w, now, pen) || anim;
+            drawCell(g, cell, cx, cy, digitSize(r.w, r.h, digitsOf(ln), res), r.w, now, pen) ||
+            anim;
       } else {
         const v = comps[p][ln.id] ?? null;
         const key = sp.key;
@@ -147,7 +153,8 @@ class Painter {
         if (v == null) continue;
         const ink = (s.comp.get(key) as { ink: Ink }).ink;
         const size =
-          digitSize(r.w, r.h, Math.max(2, String(v).length)) * (sp.li === totalLine ? 1.04 : 0.97);
+          digitSize(r.w, r.h, Math.max(2, String(v).length), res) *
+          (sp.li === totalLine ? 1.04 : 0.97);
         anim =
           hand(g, String(v), cx, cy, size, ink, now, { weight: sp.li === totalLine ? 700 : 600 }) ||
           anim;

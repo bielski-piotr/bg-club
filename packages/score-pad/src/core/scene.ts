@@ -68,7 +68,16 @@ export class Pad {
     this.edgeTex.wrapS = this.edgeTex.wrapT = THREE.RepeatWrapping;
     const edgeMat = new THREE.MeshStandardMaterial({ map: this.edgeTex, roughness: 0.95 });
     const plainMat = new THREE.MeshStandardMaterial({ color: ps.tone, roughness: 0.95 });
-    const boardMat = new THREE.MeshStandardMaterial({ color: 0x8a7a66, roughness: 0.96 });
+    // tektura pod blokiem: widać ją po obróceniu notesu (PAD-10)
+    const boardTex = cardboardTexture(aniso);
+    // UV bryły z obrysu są w jednostkach sceny, UV prostopadłościanu od 0 do 1
+    if (spec.mask) boardTex.repeat.set(1 / 1.6, 1 / 1.6);
+    else boardTex.repeat.set(Math.max(1, W / 1.6), Math.max(1, H / 1.6));
+    const boardMat = new THREE.MeshStandardMaterial({
+      map: boardTex,
+      color: 0xb9a68c,
+      roughness: 0.96,
+    });
     const shape = spec.mask ? t.shape : undefined;
     const blockGeo = shape
       ? extrudeShape(shape, W, H, 1, spec.rot)
@@ -89,6 +98,9 @@ export class Pad {
 
     this.topTex = new THREE.CanvasTexture(ps.print);
     this.topTex.encoding = THREE.sRGBEncoding;
+    // pełna rozdzielczość z mipmapami i maksymalną anizotropią (PAD-16)
+    this.topTex.generateMipmaps = true;
+    this.topTex.minFilter = THREE.LinearMipmapLinearFilter;
     this.topTex.anisotropy = aniso;
     // wierzchnia kartka bloczka: przezroczysta poza kształtem
     const maskTex = spec.mask?.texture();
@@ -141,6 +153,7 @@ export class Pad {
       this.edgeTex,
       edgeMat,
       plainMat,
+      boardTex,
       boardMat,
       blockGeo,
       boardGeo,
@@ -179,6 +192,46 @@ export class Pad {
   dispose(): void {
     for (const d of this.disposables) d.dispose();
   }
+}
+
+// ─────────────────────────────────────────────────────────── tektura
+
+/** Szara tektura spodu notesu: włókna i plamki, powtarzana na całej płycie. */
+export function cardboardTexture(aniso: number): THREE.CanvasTexture {
+  const S = 256;
+  const [c, g] = makeCanvas(S, S);
+  g.fillStyle = '#8f8170';
+  g.fillRect(0, 0, S, S);
+  const r = mulberry32(13);
+  const img = g.getImageData(0, 0, S, S);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (r() - 0.5) * 26;
+    img.data[i] += n;
+    img.data[i + 1] += n;
+    img.data[i + 2] += n * 0.9;
+  }
+  g.putImageData(img, 0, 0);
+  g.lineCap = 'round';
+  for (let k = 0; k < 260; k++) {
+    const light = r() < 0.45;
+    g.strokeStyle = light
+      ? `rgba(225,210,185,${0.08 + r() * 0.16})`
+      : `rgba(45,35,25,${0.06 + r() * 0.14})`;
+    g.lineWidth = 0.4 + r() * 0.9;
+    const x = r() * S;
+    const y = r() * S;
+    const a = r() * Math.PI * 2;
+    const l = 3 + r() * 9;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = aniso;
+  return t;
 }
 
 // ─────────────────────────────────────────────────────────── blat
