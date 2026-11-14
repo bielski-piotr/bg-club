@@ -198,6 +198,7 @@ vi.mock('./ScorePadView', () => ({
       },
       tear: () => {
         padFake.tear();
+        padFake.props?.onTear?.();
         padFake.props?.onSave?.({
           id: 'x',
           tpl: 't',
@@ -638,6 +639,7 @@ describe('kreator edytora notesu', () => {
     await within(dialog).findByRole('group', { name: 'Test notesu' });
 
     // Notes jak w partii, w trybie testowym, z graczami „Gracz 1…n” zamiast członków klubu.
+    await within(dialog).findByTestId('pad');
     expect(padFake.props).toMatchObject({ test: true, controls: false });
     expect(padFake.props?.config?.template).toBe(fake.exported);
     expect(padFake.props?.config?.sheet?.names).toEqual(['Gracz 1', 'Gracz 2', 'Gracz 3']);
@@ -670,6 +672,11 @@ describe('kreator edytora notesu', () => {
     expect(
       within(result).getAllByText(/^(Wspólne miejsce|Remis rozstrzygnęła kategoria Jaja)$/).length,
     ).toBeGreaterThanOrEqual(2);
+
+    // Oderwanie pustej kartki (bez wyniku) kończy poprzedni wynik testu.
+    act(() => padFake.props?.onTear?.());
+    expect(within(result).queryAllByRole('listitem')).toHaveLength(0);
+    expect(within(dialog).getByText(/Oderwij wypełnioną kartkę/)).toBeInTheDocument();
 
     // Widok z góry z paska sceny; test niczego nie zapisuje, zapis jest osobnym przyciskiem.
     fireEvent.click(within(dialog).getByRole('button', { name: 'Widok z góry' }));

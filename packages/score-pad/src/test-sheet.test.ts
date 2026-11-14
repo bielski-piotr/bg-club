@@ -167,6 +167,50 @@ describe('sheetResults (EDT-14, PRD §5.6.1)', () => {
     ]);
   });
 
+  it('remis w remisie: każdy gracz dostaje regułę, która dokończyła jego rozstrzygnięcie', () => {
+    const t: PadTemplate = {
+      ...table(),
+      lines: [
+        { id: 'names', label: 'Gracze', kind: 'names' },
+        { id: 'a', label: 'A', kind: 'input', free: true },
+        { id: 'b', label: 'B', kind: 'input', free: true },
+        { id: 'c', label: 'C', kind: 'input', free: true },
+      ],
+      ranking: {
+        line: 'a',
+        dir: 'desc',
+        tiebreak: [
+          { type: 'line', line: 'b', dir: 'desc' },
+          { type: 'line', line: 'c', dir: 'desc' },
+        ],
+      },
+    };
+    // A, B i C remisują na „a”; reguła „b” odcina C, a reguła „c” rozdziela A i B. D jest sam.
+    const results = sheetResults(t, sheet({ a: [5, 5, 5, 1], b: [5, 5, 3, 0], c: [2, 1, 9, 0] }));
+    expect(results.map((r) => [r.name, r.place, r.decidedBy])).toEqual([
+      ['A', 1, 'c'],
+      ['B', 2, 'c'],
+      ['C', 3, 'b'],
+      ['D', 4, null],
+    ]);
+  });
+
+  it('reguły po „wspólnym miejscu” nie rozstrzygają remisu', () => {
+    const t: PadTemplate = {
+      ...table(),
+      ranking: {
+        line: 'sum',
+        dir: 'desc',
+        tiebreak: [{ type: 'shared' }, { type: 'line', line: 'a', dir: 'desc' }],
+      },
+    };
+    const results = sheetResults(t, sheet({ a: [10, 0, 0, 0], b: [0, 6, 0, 0], c: [0, 4, 0, 0] }));
+    expect(results.slice(0, 2).map((r) => [r.name, r.place, r.tied, r.decidedBy])).toEqual([
+      ['A', 1, true, null],
+      ['B', 1, true, null],
+    ]);
+  });
+
   it('pomija puste miejsca i działa z „mniej = lepiej” w polach dowolnych', () => {
     const t = rects();
     const results = sheetResults(t, {

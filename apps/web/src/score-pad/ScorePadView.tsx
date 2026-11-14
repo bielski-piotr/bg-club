@@ -29,6 +29,8 @@ export interface ScorePadViewProps {
   readonly test?: boolean | undefined;
   readonly onReady?: (() => void) | undefined;
   readonly onSave?: ((detail: ScorePadSaveDetail) => void) | undefined;
+  /** Kartka oderwana, także pusta (wtedy bez `onSave`); wywoływane przed `onSave`. */
+  readonly onTear?: (() => void) | undefined;
   /** Stan ładowania modułu notesu (np. żeby wyłączyć przyciski do czasu wczytania). */
   readonly onLoadState?: ((state: ScorePadLoadState) => void) | undefined;
   readonly className?: string | undefined;
@@ -60,15 +62,16 @@ export function ScorePadView({
   test,
   onReady,
   onSave,
+  onTear,
   onLoadState,
   className,
   ref,
 }: ScorePadViewProps) {
   const { resolved } = useTheme();
-  const handlers = useRef({ onReady, onSave });
+  const handlers = useRef({ onReady, onSave, onTear });
 
   useEffect(() => {
-    handlers.current = { onReady, onSave };
+    handlers.current = { onReady, onSave, onTear };
   });
 
   const { hostRef, elementRef, state, retry } = useScorePadElement(
@@ -78,6 +81,7 @@ export function ScorePadView({
       const element = document.createElement('score-pad');
       element.options = { club: true, config, templates, template, controls, help, test };
       element.addEventListener('scorepad:ready', () => handlers.current.onReady?.());
+      element.addEventListener('scorepad:tear', () => handlers.current.onTear?.());
       element.addEventListener('scorepad:save', (event: ScorePadEventMap['scorepad:save']) =>
         handlers.current.onSave?.(event.detail),
       );

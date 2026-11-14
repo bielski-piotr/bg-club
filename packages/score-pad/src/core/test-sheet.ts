@@ -8,6 +8,7 @@ import type { LineDef, PadTemplate } from './templates';
 import {
   bounds,
   computePlayer,
+  hasRange,
   isAllowed,
   padRanking,
   playerActive,
@@ -37,8 +38,7 @@ const pick = <T>(list: readonly T[], random: Random): T =>
 /** Losowa wartość dozwolona w kategorii (lista wartości, zakres min–max–krok albo dowolna). */
 export function randomValue(line: LineDef, random: Random = Math.random): number {
   const b = bounds(line);
-  if (!line.free && !(line.min != null && line.max != null) && line.values?.length)
-    return pick(line.values, random);
+  if (!line.free && !hasRange(line) && line.values?.length) return pick(line.values, random);
   const min = line.free ? Math.max(b.min, FREE_PICK.min) : b.min;
   const max = line.free ? Math.min(b.max, FREE_PICK.max) : b.max;
   const steps = Math.floor((max - min) / b.step);
@@ -194,20 +194,30 @@ export function sheetResults(t: PadTemplate, sheet: ScorePadSheet): SheetResult[
     if (playerActive(t, data, p)) players.push({ seat: p, values: valuesOf(t, data, p) });
   const ranked = rankSheet(t, players);
   const ranking = padRanking(t);
-  const rules = ranking.tiebreak.flatMap((r) => (r.type === 'line' ? [r.line] : []));
+  // Reguły po pierwszym „wspólnym miejscu” (albo „rozstrzyga prowadzący”) nie działają.
+  const stop = ranking.tiebreak.findIndex((r) => r.type !== 'line');
+  const rules = (stop < 0 ? ranking.tiebreak : ranking.tiebreak.slice(0, stop)).flatMap((r) =>
+    r.type === 'line' ? [r.line] : [],
+  );
   const valueOf = (r: (typeof ranked)[number], line: string): number | null => {
     const kind = t.lines.find((l) => l.id === line)?.kind;
     const v = kind === 'input' ? r.values[line] : r.totals[line];
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
   };
   return ranked.map((r) => {
-    // Gracze z tą samą wartością decydującą, których reguły remisów rozdzieliły.
-    const group = ranked.filter((o) => o.rankingValue === r.rankingValue);
+    // Remis na kategorii decydującej rozdzielony regułami: dla każdego innego gracza z tą samą
+    // wartością, ale innym miejscem, pierwsza reguła, na której się różnią, to ta, która ich
+    // rozdzieliła. Najgłębsza z nich dokończyła rozstrzyganie remisu tego gracza.
+    let deepest = -1;
+    if (!r.tied) {
+      for (const o of ranked) {
+        if (o === r || o.rankingValue !== r.rankingValue || o.place === r.place) continue;
+        const k = rules.findIndex((line) => valueOf(o, line) !== valueOf(r, line));
+        if (k > deepest) deepest = k;
+      }
+    }
     // Gracz na wspólnym miejscu ma remis nierozstrzygnięty, więc nie podajemy reguły.
-    const split = !r.tied && group.length > 1;
-    const decidedBy = split
-      ? (rules.find((line) => new Set(group.map((o) => valueOf(o, line))).size > 1) ?? null)
-      : null;
+    const decidedBy = deepest >= 0 ? (rules[deepest] ?? null) : null;
     return {
       seat: r.seat,
       name: data.names[r.seat]?.text || testPlayerName(r.seat),

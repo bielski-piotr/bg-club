@@ -133,6 +133,8 @@ export interface ScorePadEventMap {
   'scorepad:ready': CustomEvent<null>;
   'scorepad:template': CustomEvent<{ readonly id: string; readonly name: string }>;
   'scorepad:save': CustomEvent<ScorePadSaveDetail>;
+  /** Kartka oderwana (także pusta, bez `scorepad:save`); wysyłane przed `scorepad:save`. */
+  'scorepad:tear': CustomEvent<null>;
 }
 
 /** Rodzaj kategorii notesu. */

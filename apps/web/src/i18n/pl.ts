@@ -729,7 +729,6 @@ export const pl = {
         fill: 'Wypełnij losowo',
         tear: 'Oderwij kartkę',
         tie: 'Wymuś remis przy losowaniu',
-        player: 'Gracz {n}',
         result: 'Wynik testu',
         resultBy: 'Miejsca według: {line}',
         resultEmpty: 'Oderwij wypełnioną kartkę, żeby zobaczyć miejsca graczy.',

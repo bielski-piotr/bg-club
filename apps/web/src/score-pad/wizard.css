@@ -582,6 +582,11 @@ button.wizard-rule__body:focus-visible {
   border-radius: 0;
 }
 
+.wizard-test__loading {
+  display: grid;
+  place-items: center;
+}
+
 .wizard-result {
   display: grid;
   gap: 8px;

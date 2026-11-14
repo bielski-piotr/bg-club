@@ -119,7 +119,8 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
   const [confirm, setConfirm] = useState<Confirm | undefined>(undefined);
   // Szablon do testu w kroku 5 (EDT-14), pobrany z edytora przy wejściu w krok.
-  const [testTemplate, setTestTemplate] = useState<ScorePadTemplate | null>(null);
+  // `undefined`: jeszcze nie pobrany, `null`: edytor nie oddał szablonu (zapis pokaże błąd).
+  const [testTemplate, setTestTemplate] = useState<ScorePadTemplate | null | undefined>(undefined);
   const restoreFocus = useRef<Element | null>(null);
 
   const dirty = status?.dirty ?? false;
@@ -144,13 +145,13 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
   // Krok 5: szablon do testu bierzemy z edytora, gdy ten pokazuje już gotową kartkę (krok 4).
   const testReady = step === LAST_STEP && status?.step === 4 && !status.busy;
   useEffect(() => {
-    if (!testReady || testTemplate) return;
+    if (!testReady || testTemplate !== undefined) return;
     setTestTemplate(editor.current?.exportConfig()?.template ?? null);
   }, [testReady, testTemplate]);
 
   const goTo = (target: WizardStep) => {
     if (target === step || !canOpenStep(target, step, reached, status)) return;
-    if (target !== LAST_STEP) setTestTemplate(null);
+    if (target !== LAST_STEP) setTestTemplate(undefined);
     setStep(target);
     if (target > reached) setReached(target);
     setSaveError(undefined);
@@ -445,10 +446,17 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
           </div>
           {step === 5 && !testTemplate ? (
             <div className="wizard-body">
-              <div className="wizard-stage wizard-test">
-                <Spinner label={t.scorePad.loadingPad} />
+              <div className="wizard-stage wizard-test wizard-test__loading">
+                {testTemplate === undefined ? <Spinner label={t.scorePad.loadingPad} /> : null}
               </div>
-              {saveError ? <Banner variant="error">{saveError}</Banner> : null}
+              <div className="wizard-panel">
+                {saveError ? <Banner variant="error">{saveError}</Banner> : null}
+                {testTemplate === null ? (
+                  <Banner variant="error">
+                    {scorepadErrorMessage(new ScorepadError('incomplete'))}
+                  </Banner>
+                ) : null}
+              </div>
             </div>
           ) : null}
           {step === 5 && status && testTemplate ? (

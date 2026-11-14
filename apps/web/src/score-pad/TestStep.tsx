@@ -3,14 +3,13 @@ import {
   type ScorePadEditorStatus,
   type ScorePadFile,
   type ScorePadSaveDetail,
-  type ScorePadSheet,
   type ScorePadTemplate,
 } from '@bg-club/score-pad';
 import type * as TemplateTools from '@bg-club/score-pad/template';
 import type { SheetResult } from '@bg-club/score-pad/template';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, t } from '../i18n';
-import { Banner, Button, Checkbox, IconButton } from '../ui';
+import { Banner, Button, Checkbox, IconButton, Spinner } from '../ui';
 import { cx } from '../ui/cx';
 import { fewerSeatsMessage } from './messages';
 import { ScorePadView, type ScorePadHandle } from './ScorePadView';
@@ -18,16 +17,6 @@ import { ScorePadView, type ScorePadHandle } from './ScorePadView';
 const text = t.scorepads.wizard.test;
 
 type Tools = typeof TemplateTools;
-
-/** Kartka testowa bez wpisów: fikcyjni gracze „Gracz 1…n” zamiast członków klubu (EDT-14). */
-function namesSheet(seats: number): ScorePadSheet {
-  return {
-    game: 1,
-    started: null,
-    names: Array.from({ length: seats }, (_, p) => format(text.player, { n: p + 1 })),
-    cells: {},
-  };
-}
 
 /** Nazwa kategorii szablonu do opisu wyniku testu. */
 function lineLabel(template: ScorePadTemplate, id: string): string {
@@ -59,17 +48,14 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
   const [tie, setTie] = useState(false);
   const [results, setResults] = useState<readonly SheetResult[] | null>(null);
   // Stabilny plik notesu: nowa referencja utworzyłaby notes od nowa (i wyczyściła kartkę).
-  const config = useMemo<ScorePadFile>(
-    () => ({
-      format: 'score-pad',
-      version: 2,
-      template,
-      active: template.id,
-      sheet: namesSheet(status.seats),
-    }),
-    // Liczba miejsc nie zmienia się w tym kroku; notes zależy tylko od szablonu.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template],
+  // Kartka startowa ma tylko fikcyjnych graczy „Gracz 1…n”, po jednym na miejsce notesu.
+  const config = useMemo<ScorePadFile | null>(() => {
+    const sheet = tools?.testSheet(template);
+    return sheet ? { format: 'score-pad', version: 2, template, active: template.id, sheet } : null;
+  }, [tools, template]);
+  const deciding = useMemo(
+    () => (tools ? lineLabel(template, tools.rankingLine(template)) : null),
+    [tools, template],
   );
 
   useEffect(() => {
@@ -99,25 +85,32 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
   };
 
   const warning = fewerSeatsMessage(status.seats, maxPlayers);
-  const deciding = tools ? lineLabel(template, tools.rankingLine(template)) : null;
   const canTest = ready && tools !== null;
 
   return (
     <div className="wizard-body">
       <div className="wizard-stage wizard-test" role="group" aria-label={text.stage}>
-        <ScorePadView
-          ref={pad}
-          config={config}
-          controls={false}
-          help={false}
-          test
-          onReady={() => setReady(true)}
-          onLoadState={(state) => {
-            if (state !== 'ready') setReady(false);
-          }}
-          onSave={onSave}
-          className="wizard-test__pad"
-        />
+        {config ? (
+          <ScorePadView
+            ref={pad}
+            config={config}
+            controls={false}
+            help={false}
+            test
+            onReady={() => setReady(true)}
+            onLoadState={(state) => {
+              if (state !== 'ready') setReady(false);
+            }}
+            // Każde oderwanie (także pustej kartki) kończy poprzedni wynik testu.
+            onTear={() => setResults(null)}
+            onSave={onSave}
+            className="wizard-test__pad"
+          />
+        ) : toolsFailed ? null : (
+          <div className="wizard-test__loading">
+            <Spinner label={t.scorePad.loadingPad} />
+          </div>
+        )}
         {ready ? (
           <div className="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
             <IconButton

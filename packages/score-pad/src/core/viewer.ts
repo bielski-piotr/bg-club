@@ -1898,6 +1898,8 @@ export class ScorePad {
     this.renderer.domElement.style.cursor = '';
     this.flyers.push(sheet);
 
+    // każde oderwanie, także pustej kartki (wtedy bez `scorepad:save`)
+    this.host.dispatchEvent(new CustomEvent('scorepad:tear', { bubbles: true, composed: true }));
     const entry = this.recordSheet(sheet.data, t);
     // tryb klubowy: partie zapisuje aplikacja, notes nie prowadzi własnej historii
     if (entry && !this.opts.club) {
@@ -2797,7 +2799,10 @@ export class ScorePad {
     const st = this.saved.sheets[this.t.id];
     // `unpackSheet` tylko czyta wpisy.
     const raw = sheet ? ({ ...sheet, game: st.data.game } as PadConfig['sheet']) : null;
+    const names = st.data.names;
     st.data = raw ? unpackSheet(raw, this.t) : blankSheet(this.t, st.data.game);
+    // notes testowy kreatora: czysta kartka zostawia fikcyjnych graczy (EDT-14)
+    if (!raw && this.opts.test) st.data.names = names.map((n) => (n ? { ...n } : null));
     if (this.active) {
       this.scene.remove(this.active.mesh);
       this.active.dispose();
