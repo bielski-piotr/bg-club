@@ -163,23 +163,39 @@ button { font-family: inherit; }
 .pk-name { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .pk-name input { min-width: 0; padding: 6px 10px; font: 700 28px/1.1 var(--f-hand); color: var(--ink); background: transparent; border: 0; border-bottom: 1.5px solid var(--paper-line); border-radius: 0; }
 .pk-name input:focus { outline: none; border-bottom-color: var(--ink); }
-.pk-name button[type="submit"], .pk-ok { font: 600 14px/1 var(--f-ui); padding: 0 14px; border-radius: 8px; cursor: pointer; color: var(--paper); background: var(--ink); border: 0; }
-.pk-ok:disabled { opacity: 0.35; cursor: default; }
-.pk-type { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: stretch; margin-bottom: 4px; }
-.pk-type[hidden] { display: none; }
-.pk-type.nosign { grid-template-columns: minmax(0, 1fr) auto; }
-.pk-sign { width: 42px; border-radius: 8px; border: 1px solid var(--paper-line); background: rgba(255, 255, 255, 0.7); color: var(--ink); font: 700 22px/1 var(--f-ui); cursor: pointer; }
-.pk-sign:hover { border-color: var(--graphite-dim); }
-.pk-in {
-  min-width: 0; height: 46px; padding: 2px 10px 0; text-align: center;
-  font: 700 34px/1 var(--f-hand); color: var(--ink); font-variant-numeric: tabular-nums;
-  background: rgba(255, 255, 255, 0.55); border: 1.5px solid var(--paper-line); border-radius: 9px;
+.pk-name button[type="submit"] { font: 600 14px/1 var(--f-ui); padding: 0 14px; border-radius: 8px; cursor: pointer; color: var(--paper); background: var(--ink); border: 0; }
+
+/* wpisywanie punktów bezpośrednio w pole kartki (PAD-13…PAD-15): cyfry rysuje kartka, a pole
+   tekstowe leży niewidoczne nad polem kartki, żeby przyjmować klawiaturę systemową i sprzętową */
+.entry { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+.en-in {
+  position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; padding: 0;
+  /* 16 px: Safari na iOS nie powiększa strony przy fokusie */
+  font: 16px/1 var(--f-ui); color: transparent; caret-color: transparent; background: transparent;
+  border: 0; outline: none; opacity: 0; pointer-events: none; -webkit-user-select: none; user-select: none;
 }
-.pk-in::placeholder { color: rgba(28, 46, 130, 0.25); }
-.pk-in:focus { outline: none; border-color: var(--ink); background: #fff; }
-.pk-in[aria-invalid="true"] { border-color: #b3261e; color: #b3261e; }
-.pk-err { margin: 0 0 6px; min-height: 0; font-size: 13px; color: #b3261e; }
-.pk-err:empty { display: none; }
+.en-bar {
+  position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 16px);
+  /* dotyk poza przyciskami trafia w kartkę pod paskiem (sąsiednie pola) */
+  padding: 6px; border-radius: 12px; pointer-events: none;
+  background: var(--glass); border: 1px solid var(--glass-line); color: var(--chalk);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+.en-btn {
+  min-width: 44px; height: 40px; padding: 0 12px; border-radius: 9px; cursor: pointer; flex: none;
+  font: 600 15px/1 var(--f-ui); color: var(--chalk); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--glass-line);
+  touch-action: manipulation; pointer-events: auto;
+}
+.en-btn:hover { background: rgba(255, 255, 255, 0.16); }
+.en-sign { font: 700 22px/1 var(--f-ui); }
+.en-scratch[aria-pressed="true"] { background: var(--chalk); color: #1d1611; }
+.en-next { background: var(--chalk); color: #1d1611; border-color: transparent; }
+.en-next:hover { background: #fff; }
+.en-hint { margin: 0 4px; min-width: 0; font-size: 14px; line-height: 1.25; color: var(--chalk-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.en-hint:empty, .entry.bad .en-hint { display: none; }
+.en-err { margin: 0 4px; min-width: 0; font-size: 14px; line-height: 1.25; color: #ffb4a6; }
+.en-err:empty { display: none; }
 
 /* napięcie przy odrywaniu */
 .tension { position: absolute; left: 0; top: 0; z-index: 40; pointer-events: none; display: flex; align-items: center; gap: 8px; }

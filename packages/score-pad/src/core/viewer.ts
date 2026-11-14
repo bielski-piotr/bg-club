@@ -52,17 +52,18 @@ import {
   cellOf,
   exampleGeneral,
   hitSpot,
-  isAllowed,
   normalizeSheet,
   playerActive,
   playerCount,
   rankSheet,
   spots,
-  stepValue,
   validateTemplate,
   valuesOf,
 } from './templates';
-import { clamp, el, esc, fmtDate, fmtTime, inkNow, lerp, plural, uid } from './util';
+import type { Ink } from './util';
+import { clamp, el, esc, fmtDate, fmtTime, inkDone, inkNow, lerp, plural, uid } from './util';
+import type { Box, Typed } from './entry';
+import { checkTyped, cleanNumber, flipSign, nextInput, revealShift, stepTyped } from './entry';
 
 export interface ScorePadOptions {
   /** Szablony: obiekty, adres pliku JSON (tablica szablonów) albo identyfikatory wbudowanych ("general", "kolonie"). */
@@ -224,7 +225,15 @@ export class ScorePad {
   private gestureIds = new Set<number>();
   private under!: THREE.DirectionalLight;
   private maxSide = 4096;
-  private pk: { spot: Spot; neg: boolean } | null = null;
+  /**
+   * Pole punktów, w które się wpisuje (PAD-13…PAD-15): kategoria, czy przyjmuje wartości
+   * ujemne i tekst pola przed zmianą (Esc do niego wraca).
+   */
+  private entry: { spot: Spot; neg: boolean; orig: string } | null = null;
+  /** Ostatnio ustawione położenie pola i paska wpisywania (bez zbędnych zapisów stylu). */
+  private entryPos = '';
+  /** Rozmiar paska przy polu wpisywania (mierzony po zmianie zawartości). */
+  private barDims: { w: number; h: number } | null = null;
   private raycaster!: THREE.Raycaster;
   private ndc!: THREE.Vector2;
   private drag: Drag | null = null;
@@ -247,6 +256,8 @@ export class ScorePad {
   private destroyed = false;
   private switching = false;
   private observers: { disconnect(): void }[] = [];
+  /** Nasłuch poza elementem (np. visualViewport), odpinany w destroy(). */
+  private cleanups: (() => void)[] = [];
   private ui: Record<string, HTMLElement> = {};
   private syncSound: () => void = () => undefined;
   private uiSound: boolean | null = null;
@@ -436,6 +447,7 @@ export class ScorePad {
     this.destroyed = true;
     cancelAnimationFrame(this.rafId);
     for (const o of this.observers) o.disconnect();
+    for (const f of this.cleanups) f();
     document.fonts?.removeEventListener?.('loadingdone', this.onFontsLoaded);
     if (this.hostApi) hostGone(this.hostApi);
     this.sfx.close();
@@ -462,7 +474,7 @@ export class ScorePad {
         </header>
         <section class="help" aria-label="Jak używać notesu" hidden>
           <ol>
-            <li><span><b>Kliknij pole</b> i wpisz punkty z klawiatury. Sumy liczą się same.</span></li>
+            <li><span><b>Kliknij pole</b> i wpisz punkty z klawiatury. Enter albo Tab przechodzi do następnej kategorii, Shift+Tab cofa. Sumy liczą się same.</span></li>
             <li><span><b>Chwyć <span data-edge>dolną</span> krawędź</b> i przeciągnij w stronę grzbietu — kartka uniesie się i przewróci pod światło lampy.</span></li>
             <li><span><b>Szarpnij mocno</b> <span data-pull>w dół albo w bok</span>, a kartka oderwie się i wynik zostanie zapisany.</span></li>
             <li><span><b>Obróć notes</b> dwoma palcami albo prawym przyciskiem myszy, <b>przybliż</b> szczypaniem albo kółkiem. Klawisz 0 wraca do widoku z góry.</span></li>
@@ -475,17 +487,21 @@ export class ScorePad {
           <div class="pk-head"><span class="pk-title"></span><span class="pk-who"></span></div>
           <button type="button" class="pk-close" aria-label="Zamknij">×</button>
           <p class="pk-hint"></p>
-          <form class="pk-type" novalidate>
-            <button type="button" class="pk-sign" aria-label="Zmień znak na przeciwny" title="Zmień znak">±</button>
-            <input class="pk-in" type="text" inputmode="numeric" pattern="-?[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="6" placeholder="0" aria-label="Punkty" aria-describedby="pk-err">
-            <button type="submit" class="pk-ok" disabled>Wpisz</button>
-          </form>
-          <p class="pk-err" id="pk-err" aria-live="polite"></p>
-          <form class="pk-name" hidden>
+          <form class="pk-name">
             <input maxlength="14" autocomplete="off" spellcheck="false" placeholder="Imię" aria-label="Imię gracza">
             <button type="submit">Wpisz</button>
           </form>
           <div class="pk-actions"></div>
+        </div>
+        <div class="entry" hidden>
+          <input class="en-in" type="text" inputmode="numeric" pattern="-?[0-9]*" enterkeyhint="next" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="6" aria-label="Punkty" aria-describedby="en-hint en-err">
+          <div class="en-bar">
+            <button type="button" class="en-btn en-sign" aria-label="Zmień znak na przeciwny" title="Zmień znak">±</button>
+            <button type="button" class="en-btn en-scratch">Skreśl</button>
+            <button type="button" class="en-btn en-next" aria-label="Następne pole">Dalej</button>
+            <span class="en-hint" id="en-hint"></span>
+            <p class="en-err" id="en-err" aria-live="assertive"></p>
+          </div>
         </div>
         <div class="tension" hidden aria-hidden="true">
           <svg viewBox="0 0 40 40"><circle class="t-trk" cx="20" cy="20" r="16"/><circle class="t-val" cx="20" cy="20" r="16" pathLength="100"/></svg>
@@ -526,12 +542,15 @@ export class ScorePad {
       pkHint: q('.pk-hint'),
       pkName: q('.pk-name'),
       pkInput: q('.pk-name input'),
-      pkType: q('.pk-type'),
-      pkIn: q('.pk-in'),
-      pkSign: q('.pk-sign'),
-      pkOk: q('.pk-ok'),
-      pkErr: q('.pk-err'),
       pkActions: q('.pk-actions'),
+      entry: q('.entry'),
+      enIn: q('.en-in'),
+      enBar: q('.en-bar'),
+      enSign: q('.en-sign'),
+      enScratch: q('.en-scratch'),
+      enNext: q('.en-next'),
+      enErr: q('.en-err'),
+      enHint: q('.en-hint'),
       tension: q('.tension'),
       tensionLabel: q('.tension span'),
       annot: q('.annot'),
@@ -689,7 +708,7 @@ export class ScorePad {
     r.domElement.tabIndex = 0;
     r.domElement.setAttribute(
       'aria-label',
-      'Notes 3D. Kliknij pole, aby wybrać punkty; przeciągnij dolną krawędź, aby przewrócić kartkę; szarpnij, aby ją oderwać. Prawy przycisk albo dwa palce obracają notes, kółko albo szczypanie przybliża, klawisz 0 wraca do widoku z góry.',
+      'Notes 3D. Kliknij pole i wpisz punkty z klawiatury, Enter albo Tab przechodzi do następnej kategorii; przeciągnij dolną krawędź, aby przewrócić kartkę; szarpnij, aby ją oderwać. Prawy przycisk albo dwa palce obracają notes, kółko albo szczypanie przybliża, klawisz 0 wraca do widoku z góry.',
     );
     this.ui.stage.appendChild(r.domElement);
     this.renderer = r;
@@ -775,7 +794,13 @@ export class ScorePad {
     this.wrap.classList.toggle('narrow', w < 560);
     this.camera.aspect = w / h;
     this.poseCamera();
-    if (this.pickerOpen) this.closePicker();
+    if (this.pickerOpen) this.closeNamePicker();
+    // klawiatura ekranowa może zmienić rozmiar notesu: wpisywanie zostaje, pole wraca do kadru
+    if (this.entry) {
+      this.entryPos = '';
+      this.placeEntry();
+      this.revealEntry();
+    }
   }
 
   /**
@@ -844,7 +869,8 @@ export class ScorePad {
     this.wrap.classList.toggle('from-below', !front);
     if (this.under) this.under.intensity = front ? 0 : 0.9;
     if (!front) {
-      if (this.pickerOpen) this.closePicker();
+      // od spodu notesu nie da się wpisywać (także w zaznaczone wcześniej pole)
+      this.closePicker();
       if (this.drag) this.endDrag(true);
       if (this.active && this.active.cloth.hoverWant) this.active.cloth.hoverWant = 0;
     }
@@ -859,8 +885,9 @@ export class ScorePad {
       // autoZoom działa tylko w widoku domyślnym (PAD-12)
       this.autoZoom = 1;
     }
-    // okno wpisywania i chmurka stoją przy polu, które po ruchu kamery jest gdzie indziej
-    if (this.pickerOpen) this.closePicker();
+    // okno imienia i chmurka stoją przy polu, które po ruchu kamery jest gdzie indziej;
+    // pole wpisywania punktów idzie za kartką (placeEntry w każdej klatce)
+    if (this.pickerOpen) this.closeNamePicker();
     if (this.tipKey) this.hideTip();
     return this.free;
   }
@@ -884,13 +911,18 @@ export class ScorePad {
     const home = this.homePose(1).dist;
     // kamera odsunięta przez autoZoom dalej niż zwykły limit nie przeskakuje przy pierwszym ruchu
     zoomPose(p, point, k, home / MAX_ZOOM, Math.max(home / MIN_ZOOM, p.dist));
-    // punkt obrotu zostaje przy notesie, żeby obrót po oddaleniu nie wyrzucał go z kadru
+    this.clampTarget(p);
+    this.poseCamera();
+  }
+
+  /** Punkt obrotu zostaje przy notesie, żeby obrót po oddaleniu nie wyrzucał go z kadru. */
+  private clampTarget(p: OrbitPose): void {
+    if (!this.spec || !this.pad) return;
     const { W, H } = this.spec;
     const lim = Math.max(W, H) * 0.75;
     p.target.x = clamp(p.target.x, -lim, lim);
     p.target.z = clamp(p.target.z, -lim, lim);
     p.target.y = clamp(p.target.y, -lim, this.pad.top + lim);
-    this.poseCamera();
   }
 
   /** Punkt sceny pod kursorem: notes albo kartka, a poza nimi płaszczyzna punktu obrotu. */
@@ -1297,60 +1329,7 @@ export class ScorePad {
     (this.root.querySelector('.pk-close') as HTMLElement).addEventListener('click', () =>
       this.closePicker(),
     );
-    const num = this.ui.pkIn as HTMLInputElement;
-    // litery nie pojawiają się w polu wcale: blokujemy je, zanim trafią do pola
-    num.addEventListener('beforeinput', (e) => {
-      const ie = e as InputEvent;
-      if (ie.inputType !== 'insertText' || !ie.data) return;
-      if (/^[-\u2212+]$/.test(ie.data)) {
-        e.preventDefault();
-        this.flipSign(ie.data === '+' ? false : num.value.startsWith('-') ? undefined : true);
-        return;
-      }
-      if (/\D/.test(ie.data)) e.preventDefault();
-    });
-    num.addEventListener('input', () => {
-      const clean = this.cleanNumber(num.value);
-      if (clean !== num.value) {
-        num.value = clean;
-        num.setSelectionRange(clean.length, clean.length);
-      }
-      this.validateTyped();
-    });
-    num.addEventListener('keydown', (e) => {
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        this.commitTyped(e.shiftKey ? -1 : 1);
-      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        // strzałki przechodzą po dozwolonych wartościach
-        const line = this.pk && this.t ? this.t.lines[this.pk.spot.li] : null;
-        if (!line) return;
-        e.preventDefault();
-        const cur = parseInt(num.value, 10);
-        num.value = String(
-          stepValue(line, Number.isFinite(cur) ? cur : null, e.key === 'ArrowUp' ? 1 : -1),
-        );
-        this.validateTyped();
-      }
-    });
-    (this.ui.pkType as HTMLFormElement).addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.commitTyped(0);
-    });
-    this.ui.pkSign.addEventListener('click', () => {
-      this.flipSign();
-      num.focus({ preventScroll: true });
-    });
-    // cyfra wciśnięta, gdy fokus jest na przycisku listy, trafia do pola
-    this.ui.picker.addEventListener('keydown', (e) => {
-      if (e.target === num || this.ui.pkType.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (/^[0-9]$/.test(e.key)) {
-        e.preventDefault();
-        num.focus({ preventScroll: true });
-        num.value = this.cleanNumber(num.value + e.key);
-        this.validateTyped();
-      }
-    });
+    this.wireEntry();
     this.ui.chip.addEventListener('click', () => this.showHistory());
   }
 
@@ -1459,6 +1438,8 @@ export class ScorePad {
   private onDown(e: PointerEvent): void {
     this.sfx.unlock();
     this.closeMenu();
+    // pole wpisywania zachowuje fokus (klawiatura telefonu zostaje otwarta między polami)
+    if (this.entry) e.preventDefault();
     if (e.pointerType === 'touch') {
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size >= 2) {
@@ -1479,6 +1460,8 @@ export class ScorePad {
     }
     this.hideTip();
     const hit = this.hitTest(e.clientX, e.clientY);
+    // poza polami punktów wpisywanie się kończy (poprawny wpis zostaje zapisany)
+    if (this.entry && hit?.kind !== 'cell') this.leaveEntry();
     if (!hit) {
       // lewy przycisk poza notesem (albo od tyłu notesu) też obraca
       if (e.pointerType !== 'touch') this.beginOrbit(e);
@@ -1575,7 +1558,7 @@ export class ScorePad {
       e.type === 'pointerup' &&
       this.active.resting
     ) {
-      if (pr.hit.kind === 'cell' && pr.hit.spot) this.openCellPicker(pr.hit.spot);
+      if (pr.hit.kind === 'cell' && pr.hit.spot) this.tapCell(pr.hit.spot);
       else if (pr.hit.kind === 'name' && pr.hit.spot) this.openNamePicker(pr.hit.spot);
     }
   }
@@ -1610,7 +1593,8 @@ export class ScorePad {
     this.press = null;
     if (this.drag) this.endDrag(true);
     this.orbitDrag = null;
-    this.closePicker();
+    // wpisywanie punktów zostaje: palce obracają i przybliżają, klawiatura telefonu się nie chowa
+    this.closeNamePicker();
     this.hideTip();
   }
 
@@ -1884,6 +1868,8 @@ export class ScorePad {
     const sheet = this.active;
     const t = this.t;
     if (!sheet || !t || !this.pad) return;
+    // poprawny wpis z klawiatury trafia na odrywaną kartkę
+    this.closePicker();
     const cl = sheet.cloth;
     for (let i = 0; i < cl.s.NX; i++) cl.release(i);
     cl.endGrab();
@@ -1967,14 +1953,20 @@ export class ScorePad {
 
   // ═════════════════════════════════════════════════════ wybór liczby
 
-  /** Punkt kartki na ekranie; (u, v) we współrzędnych tekstury treści (v = 1 u góry). */
-  private screenOf(u: number, v: number): { x: number; y: number } {
+  /** Punkt kartki w scenie; (u, v) we współrzędnych tekstury treści (v = 1 u góry). */
+  private sheetPoint(u: number, v: number): THREE.Vector3 {
     // notes klejony z lewej: punkt treści (u, y = 1 − v) leży w punkcie fizycznym (1 − y, u), czyli w uv (v, 1 − u)
     const [pu, pv] = this.spec?.rot ? [v, 1 - u] : [u, v];
-    const p = (this.active as PaperSheet).cloth
-      .pointAt(pu, pv, new THREE.Vector3())
-      .project(this.camera);
-    const r = this.wrap.getBoundingClientRect();
+    return (this.active as PaperSheet).cloth.pointAt(pu, pv, new THREE.Vector3());
+  }
+
+  /** Punkt kartki na ekranie; (u, v) we współrzędnych tekstury treści (v = 1 u góry). */
+  private screenOf(
+    u: number,
+    v: number,
+    r: { width: number; height: number } = this.wrap.getBoundingClientRect(),
+  ): { x: number; y: number } {
+    const p = this.sheetPoint(u, v).project(this.camera);
     return { x: ((p.x + 1) / 2) * r.width, y: ((1 - p.y) / 2) * r.height };
   }
 
@@ -2009,10 +2001,15 @@ export class ScorePad {
     this.pickerShownAt = performance.now();
   }
 
+  /** Kończy wpisywanie punktów i zamyka okno imienia. */
   private closePicker(): void {
+    this.leaveEntry();
+    this.closeNamePicker();
+  }
+
+  private closeNamePicker(): void {
     if (!this.pickerOpen) return;
     this.pickerOpen = false;
-    this.pk = null;
     this.ui.picker.hidden = true;
     this.ui.picker.classList.remove('open');
     if (this.active) {
@@ -2038,168 +2035,443 @@ export class ScorePad {
     return b;
   }
 
-  private openCellPicker(sp: Spot): void {
-    const a = this.active as PaperSheet;
-    const t = this.t as PadTemplate;
-    const line = t.lines[sp.li];
-    const p = sp.p;
+  // ═════════════════════════════════════════════════════ wpisywanie w pole (PAD-13…PAD-15)
+
+  private get enIn(): HTMLInputElement {
+    return this.ui.enIn as HTMLInputElement;
+  }
+
+  /** Telefon i tablet: przycisk ± i „Dalej” przy polu (komputer wpisuje z klawiatury sprzętowej). */
+  private coarse(): boolean {
+    return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  }
+
+  private wireEntry(): void {
+    const inp = this.enIn;
+    // litery nie pojawiają się w polu wcale: blokujemy je, zanim trafią do pola; minus zmienia znak
+    inp.addEventListener('beforeinput', (e) => {
+      const ie = e as InputEvent;
+      if (ie.inputType !== 'insertText' || !ie.data) return;
+      if (/^[-−+]$/.test(ie.data)) {
+        e.preventDefault();
+        this.flipTyped(ie.data === '+' ? false : undefined);
+        return;
+      }
+      if (/\D/.test(ie.data)) e.preventDefault();
+    });
+    inp.addEventListener('input', () => {
+      const clean = cleanNumber(inp.value, !!this.entry?.neg);
+      if (clean !== inp.value) {
+        inp.value = clean;
+        inp.setSelectionRange(clean.length, clean.length);
+      }
+      this.typed();
+    });
+    inp.addEventListener('keydown', (e) => {
+      const en = this.entry;
+      if (!en || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key;
+      if (k === 'Enter' || k === 'Tab') {
+        // Enter, „Dalej” klawiatury systemowej i Tab: zapis i następna kategoria; z Shift: poprzednia
+        e.preventDefault();
+        e.stopPropagation();
+        this.commitEntry(e.shiftKey ? -1 : 1);
+      } else if (k === 'Escape') {
+        // Esc cofa zmianę; drugi Esc (bez zmian) kończy wpisywanie. Popup aplikacji się nie zamyka.
+        e.preventDefault();
+        e.stopPropagation();
+        if (inp.value !== en.orig) {
+          inp.value = en.orig;
+          this.typed();
+          inp.select();
+        } else this.closeEntry(true);
+      } else if (k === 'ArrowUp' || k === 'ArrowDown') {
+        const line = this.t?.lines[en.spot.li];
+        if (!line) return;
+        e.preventDefault();
+        inp.value = stepTyped(line, inp.value, k === 'ArrowUp' ? 1 : -1);
+        inp.setSelectionRange(inp.value.length, inp.value.length);
+        this.typed();
+      } else if ((k === 'Backspace' || k === 'Delete') && !inp.value && this.scratched()) {
+        // skreślone pole: Backspace w pustym polu usuwa skreślenie
+        e.preventDefault();
+        this.setValue(en.spot, null, false);
+        this.syncScratch();
+      }
+    });
+    // fokus poza notesem (np. pasek aplikacji): wpis zostaje zapisany, gdy jest poprawny
+    inp.addEventListener('blur', () => {
+      window.setTimeout(() => {
+        if (this.entry && this.root.activeElement !== inp) this.leaveEntry();
+      }, 0);
+    });
+    // przyciski przy polu nie zabierają fokusu, więc klawiatura telefonu zostaje otwarta
+    for (const b of [this.ui.enSign, this.ui.enScratch, this.ui.enNext])
+      b.addEventListener('pointerdown', (e) => e.preventDefault());
+    this.ui.enSign.addEventListener('click', () => {
+      this.flipTyped();
+      inp.focus({ preventScroll: true });
+    });
+    this.ui.enNext.addEventListener('click', () => this.commitEntry(1));
+    this.ui.enScratch.addEventListener('click', () => {
+      const en = this.entry;
+      if (!en) return;
+      // drugie naciśnięcie w skreślonym polu usuwa skreślenie
+      if (this.scratched()) {
+        this.setValue(en.spot, null, false);
+        en.orig = '';
+        inp.value = '';
+        this.typed();
+        this.syncScratch();
+        return;
+      }
+      this.setValue(en.spot, 0, true);
+      this.moveEntry(1);
+    });
+    // klawiatura ekranowa zmniejsza widoczny obszar: zaznaczone pole ma zostać w kadrze
+    const vv = window.visualViewport;
+    if (vv) {
+      const onViewport = (): void => {
+        if (!this.entry) return;
+        this.entryPos = '';
+        this.placeEntry();
+        this.revealEntry();
+      };
+      vv.addEventListener('resize', onViewport);
+      vv.addEventListener('scroll', onViewport);
+      this.cleanups.push(() => {
+        vv.removeEventListener('resize', onViewport);
+        vv.removeEventListener('scroll', onViewport);
+      });
+    }
+  }
+
+  /** Czy zaznaczone pole jest skreślone. */
+  private scratched(): boolean {
+    const en = this.entry;
+    const a = this.active;
+    if (!en || !a || !this.t) return false;
+    return !!cellOf(a.data, this.t, en.spot)?.cur?.scratch;
+  }
+
+  private syncScratch(): void {
+    this.ui.enScratch.setAttribute('aria-pressed', String(this.scratched()));
+  }
+
+  /** Dotknięcie albo kliknięcie pola punktów: zaznacza je i od razu przyjmuje cyfry. */
+  private tapCell(sp: Spot): void {
+    const en = this.entry;
+    if (en) {
+      if (en.spot.key === sp.key) {
+        this.enIn.focus({ preventScroll: true });
+        return;
+      }
+      // wpis spoza zakresu nie przechodzi dalej (PAD-15)
+      if (!this.applyEntry()) return;
+    }
+    this.selectCell(sp);
+  }
+
+  private selectCell(sp: Spot): void {
+    const a = this.active;
+    const t = this.t;
+    if (!a || !t) return;
     const cell = cellOf(a.data, t, sp);
     if (!cell) return;
+    if (this.pickerOpen) this.closeNamePicker();
+    this.hideTip();
+    const line = t.lines[sp.li];
     const neg = canBeNegative(line);
-    this.pk = { spot: sp, neg };
-    this.ui.pkTitle.textContent = line.label;
-    this.ui.pkWho.textContent = a.data.names[p]?.text || `Gracz ${p + 1}`;
+    const orig = cell.cur && !cell.cur.scratch ? String(cell.cur.value) : '';
+    this.entry = { spot: sp, neg, orig };
+    const who = a.data.names[sp.p]?.text || `Gracz ${sp.p + 1}`;
     // kilka pól tej samej kategorii u gracza: które to pole
-    const same = spots(t).filter((x) => x.field && x.li === sp.li && x.p === p);
+    const same = spots(t).filter((x) => x.field && x.li === sp.li && x.p === sp.p);
     const which =
       sp.field && same.length > 1
         ? `pole ${same.findIndex((x) => x.key === sp.key) + 1} z ${same.length}, sumowane`
         : '';
-    this.ui.pkHint.textContent = [which, line.hint, `dozwolone: ${describeValues(line)}`]
+    const inp = this.enIn;
+    inp.value = orig;
+    inp.setAttribute('aria-label', `${line.label}, ${who}`);
+    // zakres widać przy polu, zanim wpis zostanie odrzucony; dowolna liczba nie potrzebuje opisu
+    this.ui.enHint.textContent = [which, line.hint, line.free ? '' : describeValues(line)]
       .filter(Boolean)
       .join(' · ');
-    this.ui.pkName.hidden = true;
-    this.ui.pkType.hidden = false;
-    this.ui.pkSign.hidden = !neg;
-    this.ui.pkType.classList.toggle('nosign', !neg);
-    const inp = this.ui.pkIn as HTMLInputElement;
-    inp.value = cell.cur && !cell.cur.scratch ? String(cell.cur.value) : '';
-    inp.placeholder = 'punkty';
-    this.ui.pkErr.textContent = '';
-    const acts = this.ui.pkActions;
-    acts.replaceChildren();
-    if (line.scratch) {
-      const b = this.button('Skreśl (0 pkt)', 'pk-act', () => {
-        this.setValue(sp, 0, true);
-        this.closePicker();
-      });
-      if (cell.cur?.scratch) b.setAttribute('aria-pressed', 'true');
-      acts.appendChild(b);
-    }
-    if (cell.cur) {
-      acts.appendChild(
-        this.button('Wykreśl wpis', 'pk-act subtle', () => {
-          this.setValue(sp, null, false);
-          this.closePicker();
-        }),
-      );
-    }
+    const coarse = this.coarse();
+    this.ui.enSign.hidden = !neg || !coarse;
+    this.ui.enNext.hidden = !coarse;
+    this.ui.enScratch.hidden = !line.scratch;
+    this.syncScratch();
+    this.barDims = null;
+    this.showEntryError('');
     a.focus = sp;
+    a.draft = null;
     a.dirty = true;
-    const [l, r] = this.anchors(sp);
-    this.placePicker(l, r);
-    this.validateTyped();
-    // od razu można pisać; na telefonie wyskakuje klawiatura numeryczna
+    this.ui.entry.hidden = false;
+    this.entryPos = '';
+    this.placeEntry();
+    // od razu można pisać; na telefonie wyskakuje klawiatura numeryczna i zostaje między polami
     inp.focus({ preventScroll: true });
     inp.select();
+    this.revealEntry();
   }
 
-  /** Zostawia w polu tylko cyfry i ewentualny minus na początku. */
-  private cleanNumber(raw: string): string {
-    const t = raw.replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, '-');
-    // nieparzysta liczba minusów = liczba ujemna (minus wpisany w dowolnym miejscu zmienia znak)
-    const neg = !!this.pk?.neg && (t.match(/-/g)?.length ?? 0) % 2 === 1;
-    const digits = t
-      .replace(/\D+/g, '')
-      .replace(/^0+(?=\d)/, '')
-      .slice(0, 5);
-    return (neg ? '-' : '') + digits;
+  /** Aktualizuje cyfry na kartce po zmianie tekstu pola. */
+  private typed(showError = false): Typed | null {
+    const en = this.entry;
+    const a = this.active;
+    if (!en || !a || !this.t) return null;
+    const text = this.enIn.value;
+    const res = checkTyped(this.t.lines[en.spot.li], text);
+    // błąd pokazujemy przy zatwierdzeniu, a po poprawce (albo kolejnym znaku) znika od razu
+    if (showError || this.ui.enErr.textContent) this.showEntryError(res.error);
+    a.draft =
+      text === en.orig
+        ? null
+        : {
+            key: en.spot.key,
+            text: text.replace('-', '−'),
+            bad: !!res.error && !!this.ui.enErr.textContent,
+            ink: a.draft?.key === en.spot.key ? a.draft.ink : inkDone(),
+          };
+    a.dirty = true;
+    return res;
   }
 
-  private flipSign(force?: boolean): void {
-    const inp = this.ui.pkIn as HTMLInputElement;
-    if (!this.pk?.neg) {
+  /** Komunikat przy polu; `bad` (domyślnie przy komunikacie) oznacza wpis, który nie przejdzie. */
+  private showEntryError(msg: string, bad = !!msg): void {
+    const inp = this.enIn;
+    if (this.ui.enErr.textContent !== msg) {
+      this.ui.enErr.textContent = msg;
+      this.barDims = null;
+    }
+    if (bad) inp.setAttribute('aria-invalid', 'true');
+    else inp.removeAttribute('aria-invalid');
+    this.ui.entry.classList.toggle('bad', bad);
+    const bar = this.ui.enBar;
+    const show =
+      !!msg ||
+      !!this.ui.enHint.textContent ||
+      !this.ui.enSign.hidden ||
+      !this.ui.enNext.hidden ||
+      !this.ui.enScratch.hidden;
+    if (bar.hidden === show) {
+      bar.hidden = !show;
+      this.entryPos = '';
+    }
+    const a = this.active;
+    if (a?.draft && a.draft.bad !== bad) {
+      a.draft.bad = bad;
+      a.dirty = true;
+    }
+    if (this.entry) this.placeEntry();
+  }
+
+  private flipTyped(force?: boolean): void {
+    const en = this.entry;
+    if (!en) return;
+    if (!en.neg) {
+      // tylko ostrzeżenie: wpis w polu dalej jest poprawny
       if (force !== false)
-        this.ui.pkErr.textContent = 'Ta kategoria nie przyjmuje ujemnych punktów.';
+        this.showEntryError('Ta kategoria nie przyjmuje ujemnych punktów.', false);
       return;
     }
-    const isNeg = inp.value.startsWith('-');
-    const want = force ?? !isNeg;
-    const body = inp.value.replace(/^-/, '');
-    inp.value = (want ? '-' : '') + body;
+    const inp = this.enIn;
+    inp.value = flipSign(inp.value, force);
     inp.setSelectionRange(inp.value.length, inp.value.length);
-    this.validateTyped();
+    this.typed();
   }
 
-  /** Sprawdza wpisaną liczbę; zwraca ją, gdy pasuje do kategorii. */
-  private validateTyped(): number | null {
-    const inp = this.ui.pkIn as HTMLInputElement;
-    const ok = this.ui.pkOk as HTMLButtonElement;
-    const err = this.ui.pkErr;
-    const pk = this.pk;
-    const line = pk && this.t ? this.t.lines[pk.spot.li] : null;
-    const v = inp.value;
-    if (!line || !v || v === '-') {
-      ok.disabled = true;
-      inp.removeAttribute('aria-invalid');
-      if (err.textContent && !err.textContent.startsWith('Ta kategoria nie')) err.textContent = '';
-      return null;
+  /**
+   * Zapisuje zmieniony wpis na kartce; `false`, gdy wpis jest spoza zakresu. Bez `silent` błąd
+   * staje przy polu, a fokus zostaje w polu.
+   */
+  private applyEntry(silent = false): boolean {
+    const en = this.entry;
+    const a = this.active;
+    if (!en || !a || !this.t) return true;
+    const text = this.enIn.value;
+    if (text === en.orig) return true;
+    const res = silent ? checkTyped(this.t.lines[en.spot.li], text) : this.typed(true);
+    if (!res || res.error) {
+      if (!silent) this.enIn.focus({ preventScroll: true });
+      return false;
     }
-    const n = parseInt(v, 10);
-    if (isAllowed(line, n)) {
-      ok.disabled = false;
-      inp.removeAttribute('aria-invalid');
-      err.textContent = '';
-      return n;
-    }
-    ok.disabled = true;
-    inp.setAttribute('aria-invalid', 'true');
-    err.textContent = `Ta kategoria przyjmuje: ${describeValues(line)}.`;
-    return null;
+    // cyfry były już widoczne na kartce: zostają w tym samym miejscu, bez ponownego pisania
+    const ink = a.draft?.ink;
+    if (res.value === null) this.setValue(en.spot, null, false);
+    else this.setValue(en.spot, res.value, false, ink);
+    en.orig = text;
+    return true;
   }
 
-  /** Następne (dir = 1) albo poprzednie pole punktów u tego samego gracza; po ostatnim — następny gracz. */
-  private nextField(sp: Spot, dir: 1 | -1): Spot | null {
-    const t = this.t as PadTemplate;
-    const n = playerCount(t);
-    const ins = spots(t).filter((x) => t.lines[x.li].kind === 'input');
-    if (!ins.length || !n) return null;
-    const by = (p: number): Spot[] => ins.filter((x) => x.p === p);
-    let p = sp.p;
-    let list = by(p);
-    let k = list.findIndex((x) => x.key === sp.key) + dir;
-    for (let guard = 0; guard <= n && (k < 0 || k >= list.length); guard++) {
-      p = (p + dir + n) % n;
-      list = by(p);
-      k = dir > 0 ? 0 : list.length - 1;
-    }
-    return list[k] ?? null;
+  private commitEntry(move: 1 | -1): void {
+    if (!this.applyEntry()) return;
+    this.moveEntry(move);
   }
 
-  private commitTyped(move: 0 | 1 | -1): void {
-    const pk = this.pk;
-    if (!pk || !this.t) return;
-    const inp = this.ui.pkIn as HTMLInputElement;
-    if (inp.value && inp.value !== '-') {
-      const n = this.validateTyped();
-      if (n === null) {
-        inp.focus();
-        return;
-      }
-      this.setValue(pk.spot, n, false);
+  /**
+   * Następna albo poprzednia kategoria punktowa (PAD-15); bez niej wpisywanie się kończy. Gdy
+   * kartka ma imiona graczy, fokus chodzi tylko po miejscach z imieniem (puste miejsca notesu
+   * są pomijane).
+   */
+  private moveEntry(move: 1 | -1): void {
+    const en = this.entry;
+    const a = this.active;
+    if (!en || !a || !this.t) return;
+    const names = a.data.names;
+    const seat = names.some(Boolean) ? (p: number): boolean => !!names[p] : undefined;
+    const next = nextInput(this.t, en.spot, move, seat);
+    if (next) this.selectCell(next);
+    else this.closeEntry(true);
+  }
+
+  /** Kończy wpisywanie: zapisuje poprawny wpis, a błędny porzuca (bez komunikatu). */
+  private leaveEntry(): void {
+    if (!this.entry) return;
+    this.applyEntry(true);
+    this.closeEntry(false);
+  }
+
+  private closeEntry(keepFocus: boolean): void {
+    if (!this.entry) return;
+    this.entry = null;
+    this.entryPos = '';
+    this.ui.entry.hidden = true;
+    this.ui.entry.classList.remove('bad');
+    this.ui.enErr.textContent = '';
+    this.enIn.removeAttribute('aria-invalid');
+    const a = this.active;
+    if (a) {
+      a.focus = null;
+      a.draft = null;
+      a.dirty = true;
     }
-    if (move === 0) {
-      this.closePicker();
-      return;
+    const inp = this.enIn;
+    if (this.root.activeElement === inp) {
+      // klawiatura dalej steruje notesem (skróty widoku), ale nie otwiera klawiatury ekranowej
+      if (keepFocus && this.renderer) this.renderer.domElement.focus({ preventScroll: true });
+      else inp.blur();
     }
-    const next = this.nextField(pk.spot, move);
-    this.closePicker();
-    if (next) {
-      this.pickerShownAt = 0;
-      this.openCellPicker(next);
+  }
+
+  /** Pole na ekranie (względem notesu `wr`): prostokąt opisany na rogach pola na kartce. */
+  private cellBox(sp: Spot, wr: DOMRect = this.wrap.getBoundingClientRect()): Box {
+    const r = sp.rect;
+    const pts = [
+      this.screenOf(r.x, 1 - r.y, wr),
+      this.screenOf(r.x + r.w, 1 - r.y, wr),
+      this.screenOf(r.x, 1 - r.y - r.h, wr),
+      this.screenOf(r.x + r.w, 1 - r.y - r.h, wr),
+    ];
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  }
+
+  /** Widoczna część notesu: bez paska u góry i bez klawiatury ekranowej (visualViewport). */
+  private visibleBox(r: DOMRect = this.wrap.getBoundingClientRect()): Box {
+    let top = 0;
+    let left = 0;
+    let bottom = r.height;
+    let right = r.width;
+    const vv = window.visualViewport;
+    if (vv) {
+      top = Math.max(top, vv.offsetTop - r.top);
+      left = Math.max(left, vv.offsetLeft - r.left);
+      bottom = Math.min(bottom, vv.offsetTop + vv.height - r.top);
+      right = Math.min(right, vv.offsetLeft + vv.width - r.left);
     }
+    const bar = this.root.querySelector('.bar') as HTMLElement | null;
+    if (bar && !bar.hidden) {
+      const b = bar.getBoundingClientRect();
+      if (b.height) top = Math.max(top, b.bottom - r.top);
+    }
+    return { x: left, y: top, w: Math.max(0, right - left), h: Math.max(0, bottom - top) };
+  }
+
+  /** Rozmiar paska przy polu (mierzony raz po zmianie zawartości). */
+  private barSize(): { w: number; h: number } {
+    const bar = this.ui.enBar;
+    if (bar.hidden) return { w: 0, h: 0 };
+    this.barDims ??= { w: bar.offsetWidth, h: bar.offsetHeight };
+    return this.barDims;
+  }
+
+  /**
+   * Ustawia niewidoczne pole wpisywania nad polem kartki i pasek (zakres, ±, Dalej, błąd) obok
+   * niego. Wywoływane w każdej klatce: najpierw odczyty, potem zapisy stylu, tylko po zmianie.
+   */
+  private placeEntry(): void {
+    const en = this.entry;
+    if (!en || !this.active) return;
+    const wr = this.wrap.getBoundingClientRect();
+    const b = this.cellBox(en.spot, wr);
+    const bar = this.ui.enBar;
+    const key = `${b.x | 0},${b.y | 0},${b.w | 0},${b.h | 0},${bar.hidden}`;
+    if (key === this.entryPos) return;
+    this.entryPos = key;
+    let pos: { x: number; y: number } | null = null;
+    if (!bar.hidden) {
+      const view = this.visibleBox(wr);
+      const { w: bw, h: bh } = this.barSize();
+      const x = clamp(
+        b.x + b.w / 2 - bw / 2,
+        view.x + 8,
+        Math.max(view.x + 8, view.x + view.w - bw - 8),
+      );
+      let y = b.y + b.h + 8;
+      if (y + bh > view.y + view.h - 8 && b.y - 8 - bh >= view.y) y = b.y - 8 - bh;
+      pos = { x, y };
+    }
+    const inp = this.enIn;
+    inp.style.left = `${b.x}px`;
+    inp.style.top = `${b.y}px`;
+    inp.style.width = `${Math.max(1, b.w)}px`;
+    inp.style.height = `${Math.max(1, b.h)}px`;
+    if (pos) {
+      bar.style.left = `${pos.x}px`;
+      bar.style.top = `${pos.y}px`;
+    }
+  }
+
+  /** Przesuwa widok, gdy zaznaczone pole (z paskiem) wychodzi poza kadr (PAD-15). */
+  private revealEntry(): void {
+    const en = this.entry;
+    if (!en || !this.active || !this.spec) return;
+    const wr = this.wrap.getBoundingClientRect();
+    const b = this.cellBox(en.spot, wr);
+    const extra = this.ui.enBar.hidden ? 0 : this.barSize().h + 8;
+    const { dx, dy } = revealShift({ ...b, h: b.h + extra }, this.visibleBox(wr), 12);
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    const p = this.freePose();
+    if (!p) return;
+    this.poseCamera();
+    const r = en.spot.rect;
+    const pt = this.sheetPoint(r.x + r.w / 2, 1 - r.y - r.h / 2);
+    const cam = this.camera;
+    const depth = Math.max(0.01, -pt.clone().applyMatrix4(cam.matrixWorldInverse).z);
+    const h = this.renderer.domElement.clientHeight || wr.height || 1;
+    const wpp = (2 * depth * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / h;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    p.target.addScaledVector(right, dx * wpp).addScaledVector(up, -dy * wpp);
+    this.clampTarget(p);
+    this.poseCamera();
+    this.entryPos = '';
+    this.placeEntry();
   }
 
   private openNamePicker(sp: Spot): void {
     const a = this.active as PaperSheet;
     const p = sp.p;
-    this.pk = null;
+    this.leaveEntry();
     this.ui.pkTitle.textContent = 'Imię gracza';
     this.ui.pkWho.textContent = `gracz ${p + 1}`;
     this.ui.pkHint.textContent = '';
-    this.ui.pkErr.textContent = '';
-    this.ui.pkType.hidden = true;
-    this.ui.pkName.hidden = false;
     const inp = this.ui.pkInput as HTMLInputElement;
     inp.value = a.data.names[p]?.text ?? '';
     inp.dataset.p = String(p);
@@ -2228,7 +2500,8 @@ export class ScorePad {
     }
   }
 
-  private setValue(sp: Spot, value: number | null, scratch: boolean): void {
+  /** Wpis w polu; `ink` podane: cyfry już widać na kartce (wpisywanie z klawiatury), bez animacji. */
+  private setValue(sp: Spot, value: number | null, scratch: boolean, ink?: Ink): void {
     const a = this.active as PaperSheet;
     const cell = cellOf(a.data, this.t as PadTemplate, sp);
     if (!cell) return;
@@ -2244,7 +2517,7 @@ export class ScorePad {
         cell.old = cur;
         cell.strike = inkNow();
       }
-      cell.cur = { value, scratch, ink: inkNow(cur ? 300 : 0) };
+      cell.cur = { value, scratch, ink: ink ?? inkNow(cur ? 300 : 0) };
       this.writeStart(a.data);
     }
     this.sfx.scratch(scratch ? 380 : 140 + 100 * String(value ?? '').length);
@@ -2503,6 +2776,9 @@ export class ScorePad {
 
   private blankSheetNow(): void {
     if (!this.t) return;
+    // nowa kartka: niezatwierdzony wpis z poprzedniej przepada
+    this.closeEntry(false);
+    this.closeNamePicker();
     const st = this.saved.sheets[this.t.id];
     st.data = blankSheet(this.t, st.data.game);
     if (this.active) {
@@ -2769,6 +3045,8 @@ export class ScorePad {
         this.flyers.splice(i, 1);
       }
     }
+    // pole wpisywania idzie za polem kartki przy obrocie, zoomie i ruchu kartki
+    if (this.entry) this.placeEntry();
     if (this.viz) this.viz.update();
     this.frames++;
     if (now - this.statT > 300) {
@@ -2803,6 +3081,24 @@ export class ScorePad {
       fps: Math.round(this.fps),
       texture: this.ps ? [this.ps.CW, this.ps.CH] : null,
       pixelRatio: this.renderer?.getPixelRatio(),
+      entry: this.entryDebug(),
+    };
+  }
+
+  /** Do testów: zaznaczone pole wpisywania, tekst, błąd i położenie pola na ekranie. */
+  private entryDebug(): Record<string, unknown> | null {
+    const en = this.entry;
+    if (!en || !this.t || !this.active) return null;
+    const r = this.wrap.getBoundingClientRect();
+    const b = this.cellBox(en.spot);
+    return {
+      line: this.t.lines[en.spot.li].id,
+      seat: en.spot.p,
+      text: this.enIn.value,
+      error: this.ui.enErr.textContent,
+      focused: this.root.activeElement === this.enIn,
+      box: { x: b.x + r.left, y: b.y + r.top, w: b.w, h: b.h },
+      visible: this.visibleBox(),
     };
   }
 
