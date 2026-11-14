@@ -161,6 +161,8 @@ test.describe('na komputerze', () => {
   test('po przybliżeniu fokus przechodzi do dalekiego pola, a widok przesuwa się do niego', async ({
     page,
   }) => {
+    // zoom kółkiem i kilka przejść Tab na notesie WebGL: na CI (WebGL programowy) ponad 30 s
+    test.slow();
     const pad = await openPad(page);
     const start = await cellPoint(page, 'bonus', 7);
     await page.mouse.move(start.x, start.y);
