@@ -1,6 +1,8 @@
 import type {
   ScorePadEditorArea,
   ScorePadEditorAreaPatch,
+  ScorePadEditorCategoriesAction,
+  ScorePadEditorCategory,
   ScorePadEditorMappingAction,
   ScorePadEditorStatus,
   ScorePadTemplate,
@@ -89,9 +91,42 @@ const EMPTY: ScorePadEditorStatus = {
     problem: 'Narysuj na kartce pole pierwszej kategorii.',
     zoomed: false,
   },
+  categories: {
+    view: 'lines',
+    active: 0,
+    lines: [],
+    ranking: { line: '__total', dir: 'desc', tiebreak: [] },
+    explicit: false,
+    issues: [],
+    zoomed: false,
+  },
   dirty: false,
   openFailed: false,
 };
+
+/** Kategoria kroku 4 (EDT-13) w stanie edytora. */
+function category(
+  id: string,
+  label: string,
+  kind: ScorePadEditorCategory['kind'],
+  extra: Partial<ScorePadEditorCategory> = {},
+): ScorePadEditorCategory {
+  return {
+    id,
+    label,
+    kind,
+    hint: '',
+    range: 'range',
+    min: 0,
+    max: 50,
+    step: 1,
+    values: [],
+    of: [],
+    sumOptions: [],
+    placed: true,
+    ...extra,
+  };
+}
 const MAPPED: Partial<ScorePadEditorStatus> = {
   fields: null,
   mapping: {
@@ -108,6 +143,15 @@ const MAPPED: Partial<ScorePadEditorStatus> = {
     { label: 'Ptaki', kind: 'input' },
     { label: 'Suma', kind: 'total' },
   ],
+  categories: {
+    ...EMPTY.categories,
+    lines: [
+      category('n', 'Gracze', 'names'),
+      category('a', 'Ptaki', 'input'),
+      category('s', 'Suma', 'total', { of: ['a'], sumOptions: ['a'] }),
+    ],
+    ranking: { line: 's', dir: 'desc', tiebreak: [] },
+  },
   sheetUrl: 'data:image/jpeg;base64,sheet',
 };
 
@@ -120,6 +164,7 @@ const fake = vi.hoisted(() => ({
   rotatePhoto: vi.fn(),
   undoArea: vi.fn(),
   editMapping: vi.fn(),
+  editCategories: vi.fn(),
   loadPhoto: vi.fn(),
   loadTemplate: vi.fn(),
   failPhoto: false,
@@ -157,7 +202,7 @@ vi.mock('./ScorePadEditorView', () => ({
         fake.loadTemplate(value);
         update({ ...MAPPED, photo: true, area: true, photoUrl: 'data:,', dirty: true });
       },
-      goStep: (step: 1 | 2 | 3) => {
+      goStep: (step: 1 | 2 | 3 | 4) => {
         fake.goStep(step);
         update({ step });
       },
@@ -183,6 +228,26 @@ vi.mock('./ScorePadEditorView', () => ({
             mapping: { ...current, mode: action.mode, hasContent: false, categories: 0 },
           });
       },
+      editCategories: (action: ScorePadEditorCategoriesAction) => {
+        fake.editCategories(action);
+        const current = (fake.status as ScorePadEditorStatus).categories;
+        if (action.type === 'view') update({ categories: { ...current, view: action.view } });
+        if (action.type === 'select') update({ categories: { ...current, active: action.index } });
+        if (action.type === 'ranking')
+          update({ categories: { ...current, ranking: action.ranking, explicit: true } });
+        if (action.type === 'update')
+          update({
+            categories: {
+              ...current,
+              active: action.index,
+              lines: current.lines.map((line, index) =>
+                index === action.index
+                  ? ({ ...line, ...action.patch } as ScorePadEditorCategory)
+                  : line,
+              ),
+            },
+          });
+      },
     }));
     return <div data-testid="editor" />;
   },
@@ -201,6 +266,7 @@ beforeEach(() => {
   fake.rotatePhoto.mockClear();
   fake.undoArea.mockClear();
   fake.editMapping.mockClear();
+  fake.editCategories.mockClear();
   save.mockReset();
   save.mockResolvedValue({ name: 'Z pliku', version: 1, playerSlots: 3 });
 });
@@ -295,13 +361,10 @@ describe('kreator edytora notesu', () => {
     expect(fake.goStep).toHaveBeenLastCalledWith(3);
     update(MAPPED);
     fireEvent.click(next());
-    // Krok 4: kategorie z kroku 3 (pełna konfiguracja: zadanie [019]).
-    const list = within(dialog).getByRole('list', { name: 'Kategorie notesu' });
-    expect(
-      within(list)
-        .getAllByRole('listitem')
-        .map((row) => row.textContent),
-    ).toEqual(['1GraczeNazwa gracza', '2PtakiPunktacja', '3SumaSuma']);
+    // Krok 4: kategorie z kroku 3 na kartce edytora i w panelu.
+    expect(fake.goStep).toHaveBeenLastCalledWith(4);
+    expect(await within(dialog).findByText('Kategoria 1 z 3')).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: 'Nazwa' })).toHaveValue('Gracze');
 
     // Wstecz do zdjęcia: dane zostają, wykonane kroki są dostępne z pigułek.
     fireEvent.click(pill('Zdjęcie (ukończony)'));
@@ -718,5 +781,245 @@ describe('kreator edytora notesu', () => {
     expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'labels', delta: 1 });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Wykryj tabelę ponownie' }));
     expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'detect' });
+  });
+
+  /** Kreator w kroku 4 z kategoriami z kroku 3. */
+  async function openCategories() {
+    const dialog = renderWizard();
+    await choosePhoto(dialog);
+    fireEvent.click(next());
+    fireEvent.click(next());
+    update(MAPPED);
+    fireEvent.click(next());
+    expect(within(dialog).getByText('Krok 4 z 5')).toBeInTheDocument();
+    await within(dialog).findByRole('tab', { name: 'Kategorie' });
+    return dialog;
+  }
+
+  it('krok 4: nazwa, typ, zakres, sumy i opis kategorii (EDT-13)', async () => {
+    const dialog = await openCategories();
+    expect(within(dialog).getByRole('tab', { name: 'Kategorie' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    // Nawigator ‹ „Kategoria 1 z 3” ›; kategorię wybiera się też na kartce.
+    expect(within(dialog).getByRole('button', { name: 'Poprzednia kategoria' })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Następna kategoria' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({ type: 'select', index: 1 });
+    expect(within(dialog).getByText('Kategoria 2 z 3')).toBeInTheDocument();
+
+    const name = within(dialog).getByRole('textbox', { name: 'Nazwa' });
+    expect(name).toHaveValue('Ptaki');
+    fireEvent.change(name, { target: { value: 'Ptaki na planszy' } });
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'update',
+      index: 1,
+      patch: { label: 'Ptaki na planszy' },
+    });
+    expect(within(dialog).getByRole('radio', { name: 'Punktacja' })).toBeChecked();
+
+    // Zakres min–max–krok: tylko liczby całkowite trafiają do edytora.
+    expect(within(dialog).getByRole('radio', { name: 'Min–max' })).toBeChecked();
+    const max = within(dialog).getByRole('textbox', { name: 'Max' });
+    fireEvent.change(max, { target: { value: '12,5' } });
+    expect(within(dialog).getByText('Wpisz liczbę całkowitą.')).toBeVisible();
+    expect(fake.editCategories).not.toHaveBeenCalledWith(
+      expect.objectContaining({ patch: { max: 12.5 } }),
+    );
+    fireEvent.change(max, { target: { value: '120' } });
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'update',
+      index: 1,
+      patch: { max: 120 },
+    });
+    // Lista wartości.
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Lista wartości' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'update',
+      index: 1,
+      patch: { range: 'list' },
+    });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Dozwolone wartości' }), {
+      target: { value: '0, 3, 7' },
+    });
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'update',
+      index: 1,
+      patch: { values: [0, 3, 7] },
+    });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Opis/ }), {
+      target: { value: '1 pkt za ptaka' },
+    });
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'update',
+      index: 1,
+      patch: { hint: '1 pkt za ptaka' },
+    });
+
+    // Suma: „Sumuje kategorie” zamiast zakresu.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Następna kategoria' }));
+    expect(within(dialog).getByRole('radio', { name: 'Suma' })).toBeChecked();
+    expect(within(dialog).queryByRole('radio', { name: 'Min–max' })).toBeNull();
+    const chip = within(dialog).getByRole('checkbox', { name: 'Ptaki na planszy' });
+    expect(chip).toBeChecked();
+    fireEvent.click(chip);
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'update',
+      index: 2,
+      patch: { of: [] },
+    });
+    // Typ kategorii.
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Puste pole' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'update',
+      index: 2,
+      patch: { kind: 'skip' },
+    });
+  });
+
+  it('krok 4: problemy walidatora blokują „Dalej” (dokładnie jedna nazwa gracza)', async () => {
+    const dialog = await openCategories();
+    expect(next()).toBeEnabled();
+    update({
+      categories: {
+        ...(fake.status as ScorePadEditorStatus).categories,
+        issues: [
+          { code: 'names-count', path: 'lines' },
+          { code: 'invalid-range', path: 'lines[1]' },
+        ],
+      },
+    });
+    expect(next()).toBeDisabled();
+    expect(
+      within(dialog).getByText('Notes musi mieć dokładnie jedną kategorię typu „Nazwa gracza”.'),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByText(
+        'Kategoria „Ptaki”: min nie może być większe od max, a krok musi wynosić co najmniej 1.',
+      ),
+    ).toBeVisible();
+    expect(pill(/Test i zapis/)).toBeDisabled();
+    update({ categories: { ...(fake.status as ScorePadEditorStatus).categories, issues: [] } });
+    expect(next()).toBeEnabled();
+  });
+
+  it('krok 4: kategoria decydująca, kierunek i uporządkowane reguły remisów (EDT-2…EDT-4)', async () => {
+    const dialog = await openCategories();
+    update({
+      categories: {
+        ...(fake.status as ScorePadEditorStatus).categories,
+        lines: [
+          category('n', 'Gracze', 'names'),
+          category('a', 'Ptaki', 'input'),
+          category('b', 'Jajka', 'input'),
+          category('c', 'Żywność', 'input'),
+          category('s', 'Suma', 'total', { of: ['a', 'b', 'c'] }),
+        ],
+      },
+    });
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'Wygrana i remisy' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({ type: 'view', view: 'ranking' });
+    expect(
+      within(dialog).getByRole('button', { name: /^Kategoria decydująca o miejscu/ }),
+    ).toHaveTextContent('Suma');
+    expect(within(dialog).getByRole('radio', { name: 'Więcej = lepiej' })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Mniej = lepiej' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'ranking',
+      ranking: { line: 's', dir: 'asc', tiebreak: [] },
+    });
+    // Końcowe „Wspólne miejsce” jest zawsze na liście.
+    const rules = within(dialog).getByRole('list', { name: 'Remisy' });
+    expect(
+      within(rules)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toEqual(['1Wspólne miejsceGracze nadal zremisowani zajmują to samo miejsce.']);
+
+    // Dwie reguły: pierwsza wolna kategoria, potem wybrana z listy.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dodaj regułę' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dodaj' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'ranking',
+      ranking: { line: 's', dir: 'asc', tiebreak: [{ type: 'line', line: 'a', dir: 'desc' }] },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dodaj regułę' }));
+    const editing = dialog.querySelector('.wizard-rule--editing') as HTMLElement;
+    fireEvent.click(within(editing).getByRole('button', { name: /^Kategoria reguły/ }));
+    fireEvent.click(screen.getByRole('option', { name: /Jajka/ }));
+    fireEvent.click(within(editing).getByRole('radio', { name: 'Mniej = lepiej' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dodaj' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'ranking',
+      ranking: {
+        line: 's',
+        dir: 'asc',
+        tiebreak: [
+          { type: 'line', line: 'a', dir: 'desc' },
+          { type: 'line', line: 'b', dir: 'asc' },
+        ],
+      },
+    });
+    expect(
+      within(within(dialog).getByRole('list', { name: 'Remisy' }))
+        .getAllByRole('listitem')
+        .map((row) => row.querySelector('.wizard-rule__title')?.textContent),
+    ).toEqual(['Ptaki', 'Jajka', 'Wspólne miejsce']);
+    // W trakcie zmiany reguły pozostałe przyciski reguł czekają (indeks się nie przesuwa),
+    // a kategoria użyta w innej regule nie jest do wyboru.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zmień regułę 1' }));
+    expect(within(dialog).getByRole('button', { name: 'Usuń regułę 2' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Dodaj regułę' })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Kategoria reguły/ }));
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'PtakiPunktacja',
+      'ŻywnośćPunktacja',
+    ]);
+    fireEvent.click(screen.getByRole('option', { name: /Ptaki/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Anuluj' }));
+
+    // Kolejność i usuwanie.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Przesuń regułę 2 wyżej' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'ranking',
+      ranking: {
+        line: 's',
+        dir: 'asc',
+        tiebreak: [
+          { type: 'line', line: 'b', dir: 'asc' },
+          { type: 'line', line: 'a', dir: 'desc' },
+        ],
+      },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Usuń regułę 1' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'ranking',
+      ranking: { line: 's', dir: 'asc', tiebreak: [{ type: 'line', line: 'a', dir: 'desc' }] },
+    });
+    // Zmiana reguły: kliknięcie wiersza otwiera wybór kategorii i kierunku.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zmień regułę 1' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz regułę' }));
+    expect(fake.editCategories).toHaveBeenLastCalledWith({
+      type: 'ranking',
+      ranking: { line: 's', dir: 'asc', tiebreak: [{ type: 'line', line: 'a', dir: 'desc' }] },
+    });
+  });
+
+  it('krok 4: notes bez sumy decyduje sumą wszystkich punktacji; reguły po wyborze kategorii', async () => {
+    const dialog = await openCategories();
+    update({
+      categories: {
+        ...(fake.status as ScorePadEditorStatus).categories,
+        view: 'ranking',
+        lines: [category('n', 'Gracze', 'names'), category('a', 'Ptaki', 'input')],
+        ranking: { line: '__total', dir: 'desc', tiebreak: [] },
+      },
+    });
+    expect(
+      within(dialog).getByRole('button', { name: /^Kategoria decydująca o miejscu/ }),
+    ).toHaveTextContent('Suma wszystkich punktacji');
+    expect(within(dialog).getByText(/Notes nie ma sumy/)).toBeVisible();
+    expect(within(dialog).getByRole('radio', { name: 'Mniej = lepiej' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Dodaj regułę' })).toBeDisabled();
   });
 });

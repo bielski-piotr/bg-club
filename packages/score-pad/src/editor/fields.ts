@@ -4,8 +4,8 @@
 // wierszach), albo same prostokąty ręczne (pola kategorii dla kolejnych miejsc graczy). Zmiana
 // trybu kasuje pola i kategorie; w kreatorze aplikacji pyta o to wcześniej popup (DS §18).
 
-import type { Ranking } from '@bg-club/scoring';
-import { parseRanking } from '@bg-club/scoring';
+import type { Ranking, ScoringIssue, TiebreakRule } from '@bg-club/scoring';
+import { FINAL_TOTAL, isNumeric, parseRanking, validateScoring } from '@bg-club/scoring';
 import type { FreeField, GridDef, LineDef, LineKind, PadTemplate } from '../core/templates';
 import {
   bounds,
@@ -36,7 +36,7 @@ export interface Draft {
   /** Kategorie: w tabeli kolejne wiersze (albo kolumny), w prostokątach kategorie pól. */
   lines: LineDef[];
   fields: FreeField[];
-  /** Reguła miejsc wczytanego notesu (EDT-7); edycję reguły przyniesie krok „Kategorie”. */
+  /** Jawna reguła miejsc (EDT-7): z wczytanego notesu albo ustawiona w kroku „Kategorie”. */
   ranking?: Ranking;
 }
 
@@ -94,6 +94,71 @@ export type MappingAction =
   /** Prostokąty: usuwa bieżącą kategorię razem z jej polami. */
   | { readonly type: 'removeCategory' }
   | { readonly type: 'undo' };
+
+/** Zakładka kroku 4 kreatora: szczegóły kategorii albo wygrana i remisy (DS §18). */
+export type CategoriesView = 'lines' | 'ranking';
+
+/** Zakres wartości punktacji (EDT-13): dowolny, od–do co krok albo lista wartości. */
+export type RangeMode = 'free' | 'range' | 'list';
+
+/** Kategoria w kroku 4 „Kategorie” (EDT-13). */
+export interface CategoryState {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: LineKind;
+  /** Opis kategorii (chmurka w notesie); pusty napis, gdy brak. */
+  readonly hint: string;
+  /** Punktacja: rodzaj zakresu i jego wartości. */
+  readonly range: RangeMode;
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+  readonly values: readonly number[];
+  /** Suma: sumowane kategorie (jawna lista albo domyślna), w kolejności notesu. */
+  readonly of: readonly string[];
+  /** Suma: kategorie, które może sumować bez cyklu (punktacje i inne sumy). */
+  readonly sumOptions: readonly string[];
+  /** Kategoria ma pola na kartce (wiersz tabeli albo prostokąty). */
+  readonly placed: boolean;
+}
+
+/** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4). */
+export interface CategoriesState {
+  readonly view: CategoriesView;
+  /** Wybrana kategoria (indeks). */
+  readonly active: number;
+  readonly lines: readonly CategoryState[];
+  /**
+   * Obowiązująca reguła miejsc: jawna (`explicit`) albo domyślna (suma, której nie sumuje żadna
+   * inna; bez sum `line` to `__total`, czyli suma wszystkich punktacji).
+   */
+  readonly ranking: Ranking;
+  readonly explicit: boolean;
+  /** Problemy walidatora (`validateScoring`) dla kategorii i reguły miejsc; pusta = poprawne. */
+  readonly issues: readonly ScoringIssue[];
+}
+
+/** Zmiana jednej kategorii w kroku 4. */
+export interface CategoryPatch {
+  readonly label?: string;
+  readonly kind?: LineKind;
+  readonly hint?: string;
+  readonly range?: RangeMode;
+  readonly min?: number;
+  readonly max?: number;
+  readonly step?: number;
+  readonly values?: readonly number[];
+  /** Suma: sumowane kategorie (zastępuje domyślną listę). */
+  readonly of?: readonly string[];
+}
+
+/** Zmiana kroku 4 z panelu kreatora. */
+export type CategoriesAction =
+  | { readonly type: 'view'; readonly view: CategoriesView }
+  | { readonly type: 'select'; readonly index: number }
+  | { readonly type: 'update'; readonly index: number; readonly patch: CategoryPatch }
+  /** Reguła miejsc w formacie `template.ranking` (EDT-7). */
+  | { readonly type: 'ranking'; readonly ranking: Ranking };
 
 /** To, czego krok potrzebuje od edytora. */
 export interface FieldsHost {
@@ -208,6 +273,15 @@ export class FieldsStep {
   private detected: boolean | null = null;
   /** Tabela domyślna po nieudanym wykryciu, jeszcze bez zmian: nie ma czego tracić. */
   private untouchedFallback = false;
+  /**
+   * Krok 4 kreatora (EDT-13): kartka pokazuje kategorie (numery, wybór, reguła miejsc) zamiast
+   * narzędzi mapowania, a kliknięcie pola wybiera jego kategorię.
+   */
+  review = false;
+  /** Zakładka kroku 4: szczegóły kategorii albo wygrana i remisy. */
+  private catView: CategoriesView = 'lines';
+  /** Ostatni stan kroku 4 (`categoriesState(true)`); kasowany przy wczytaniu i nowym zdjęciu. */
+  private catCache: CategoriesState | null = null;
 
   constructor(private h: FieldsHost) {
     this.resetGrid(1, 4, 1, { x0: 0.06, y0: 0.05, x1: 0.94, y1: 0.11 });
@@ -228,6 +302,8 @@ export class FieldsStep {
     this.lastDup = [];
     this.undoStack = [];
     this.detected = null;
+    this.catView = 'lines';
+    this.catCache = null;
   }
 
   // ─────────────────────────────────────────────── model
@@ -299,10 +375,11 @@ export class FieldsStep {
     this.sel = clamp(this.sel, 0, Math.max(0, this.draft.lines.length - 1));
   }
 
-  /** Usuwa ślady kategorii (sumy, pola). */
+  /** Usuwa ślady kategorii (sumy, pola, reguła miejsc). */
   private forget(id: string): void {
     for (const l of this.draft.lines) if (l.of) l.of = l.of.filter((x) => x !== id);
     this.draft.fields = this.draft.fields.filter((f) => f.line !== id);
+    this.sanitizeRanking();
   }
 
   private frame(): { x0: number; y0: number; x1: number; y1: number } {
@@ -464,6 +541,8 @@ export class FieldsStep {
     this.lastDup = [];
     this.undoStack = [];
     this.detected = null;
+    this.catView = 'lines';
+    this.catCache = null;
   }
 
   // ─────────────────────────────────────────────── cofanie
@@ -1341,6 +1420,284 @@ export class FieldsStep {
     this.h.changed();
   }
 
+  // ─────────────────────────────────────────────── krok 4: kategorie i reguła miejsc (EDT-13)
+
+  /** Wejście w krok 4 albo wyjście z niego (kartka z kategoriami zamiast narzędzi mapowania). */
+  setReview(on: boolean): void {
+    this.review = on;
+    this.fdrag = null;
+    this.gdrag = null;
+    this.pendingTrack = null;
+    this.dragSnap = null;
+    this.fsel.clear();
+    if (on) this.sel = clamp(this.sel, 0, Math.max(0, this.draft.lines.length - 1));
+  }
+
+  /** Kategoria ma pola na kartce: wiersz (kolumnę) tabeli albo prostokąty miejsc graczy. */
+  private placed(i: number): boolean {
+    const l = this.draft.lines[i];
+    if (!l) return false;
+    if (this.mode === 'table') return i < this.rows();
+    const n = this.players();
+    return this.draft.fields.some((f) => f.line === l.id && f.p < n);
+  }
+
+  /**
+   * Stan kroku 4 dla panelu kreatora. `cached`: kroki 1 i 2 nie zmieniają kategorii, więc
+   * edytor bierze wtedy ostatni wynik (bez walidacji przy każdej klatce przeciągania punktu).
+   */
+  categoriesState(cached = false): CategoriesState {
+    if (cached && this.catCache) return this.catCache;
+    this.catCache = this.computeCategories();
+    return this.catCache;
+  }
+
+  private computeCategories(): CategoriesState {
+    const t = this.tpl();
+    const lines = this.draft.lines.map((l, i): CategoryState => {
+      const range = rangeMode(l);
+      const b = bounds({ ...l, free: false });
+      return {
+        id: l.id,
+        label: l.label,
+        kind: l.kind,
+        hint: l.hint ?? '',
+        range,
+        min: range === 'range' && l.min != null ? l.min : b.min,
+        max: range === 'range' && l.max != null ? l.max : b.max,
+        step: range === 'range' && l.step != null ? l.step : b.step,
+        values: l.values ?? [],
+        of: isComputed(l.kind) ? effectiveOf(t, i) : [],
+        sumOptions: isComputed(l.kind) ? this.sumOptions(i).map((x) => x.id) : [],
+        placed: this.placed(i),
+      };
+    });
+    return {
+      view: this.catView,
+      active: clamp(this.sel, 0, Math.max(0, lines.length - 1)),
+      lines,
+      ranking: padRanking(t),
+      explicit: !!this.draft.ranking,
+      issues: this.scoringIssues(),
+    };
+  }
+
+  /**
+   * Problemy kategorii i reguły miejsc według walidatora zapisu (`validateScoring`, jak
+   * `readTemplate` przed zapisem w bazie) oraz pusta lista dozwolonych wartości.
+   */
+  private scoringIssues(): ScoringIssue[] {
+    const out = this.output();
+    const issues = validateScoring({ lines: out.lines, ranking: this.draft.ranking }).filter(
+      (i) => i.code !== 'unreachable-rule',
+    );
+    this.draft.lines.forEach((l, i) => {
+      if (l.kind === 'input' && rangeMode(l) === 'list' && !l.values?.length)
+        issues.push({ code: 'invalid-values', path: `lines[${i}]` });
+    });
+    return issues;
+  }
+
+  /** Zmiana kroku 4 z panelu kreatora. */
+  applyCategories(a: CategoriesAction): void {
+    switch (a.type) {
+      case 'view':
+        this.catView = a.view;
+        break;
+      case 'select':
+        this.sel = clamp(Math.round(a.index), 0, Math.max(0, this.draft.lines.length - 1));
+        break;
+      case 'update': {
+        const l = this.draft.lines[a.index];
+        if (!l) return;
+        this.sel = a.index;
+        this.patchLine(a.index, l, a.patch);
+        this.sanitizeRanking();
+        // Cofanie mapowania przywraca cały stan kategorii z chwili zmiany; po edycji kategorii
+        // przywróciłoby też stare nazwy, typy i regułę, więc historia mapowania się kończy.
+        this.undoStack = [];
+        break;
+      }
+      case 'ranking':
+        this.undoStack = [];
+        this.draft.ranking = {
+          line: a.ranking.line,
+          dir: a.ranking.dir,
+          // Za ostatnią regułą zawsze jest wspólne miejsce (EDT-4): jawne „shared” na końcu
+          // nic nie zmienia, więc go nie zapisujemy.
+          tiebreak: a.ranking.tiebreak
+            .map((r): TiebreakRule => (r.type === 'line' ? { ...r } : { type: r.type }))
+            .filter((r, k, all) => !(r.type === 'shared' && k === all.length - 1)),
+        };
+        break;
+    }
+    this.h.render();
+    this.h.changed();
+  }
+
+  private patchLine(i: number, l: LineDef, p: CategoryPatch): void {
+    if (p.label !== undefined) l.label = p.label;
+    if (p.hint !== undefined) {
+      if (p.hint.trim()) l.hint = p.hint;
+      else delete l.hint;
+    }
+    if (p.kind !== undefined && p.kind !== l.kind) {
+      const auto: Partial<Record<LineKind, string>> = { names: 'Gracze', total: 'Suma' };
+      const before = auto[l.kind];
+      l.kind = p.kind;
+      // Automatyczna nazwa idzie za typem: „Kategoria 3” → „Gracze” → „Kategoria 3”.
+      const isAuto = AUTO_LABEL.test(l.label) || (before !== undefined && l.label === before);
+      if (isAuto) l.label = auto[l.kind] ?? `Kategoria ${i + 1}`;
+      if (l.kind === 'input' && !l.free && !l.values && l.min == null)
+        Object.assign(l, { min: 0, max: 50, step: 1 });
+      if (!isComputed(l.kind)) delete l.of;
+      // Kategoria bez wartości liczbowej nie może być składnikiem sumy.
+      if (!isNumeric(l.kind))
+        for (const x of this.draft.lines) if (x.of) x.of = x.of.filter((id) => id !== l.id);
+    }
+    if (p.range !== undefined) {
+      const b = bounds({ ...l, free: false });
+      if (p.range === 'free') l.free = true;
+      else {
+        delete l.free;
+        if (p.range === 'range' && (l.min == null || l.max == null)) {
+          Object.assign(l, b);
+          delete l.values;
+        } else if (p.range === 'list' && (l.min != null || l.max != null || !l.values)) {
+          // Krótki zakres staje się listą jego wartości; długi zaczyna od pustej listy.
+          const count = Math.floor((b.max - b.min) / b.step) + 1;
+          l.values = count <= 12 ? Array.from({ length: count }, (_, k) => b.min + k * b.step) : [];
+          delete l.min;
+          delete l.max;
+          delete l.step;
+        }
+      }
+    }
+    if (rangeMode(l) === 'range') {
+      // Punktacja bez zapisanego zakresu (starszy plik) ma domyślny 0–50: od niego zaczynamy.
+      if (l.min == null || l.max == null) {
+        Object.assign(l, bounds({ ...l, free: false }));
+        delete l.values;
+      }
+      for (const k of ['min', 'max', 'step'] as const) {
+        const v = p[k];
+        if (v !== undefined) l[k] = v;
+      }
+    }
+    if (p.values !== undefined && rangeMode(l) === 'list')
+      l.values = [...new Set(p.values)].sort((x, y) => x - y);
+    if (p.of !== undefined && isComputed(l.kind)) {
+      const want = new Set(p.of);
+      l.of = this.draft.lines.map((x) => x.id).filter((id) => want.has(id) && id !== l.id);
+    }
+  }
+
+  /**
+   * Reguła miejsc po zmianie typów kategorii: kategoria decydująca, która przestała być liczbowa,
+   * wraca do domyślnej sumy, a reguły remisu na takich kategoriach znikają.
+   */
+  private sanitizeRanking(): void {
+    const r = this.draft.ranking;
+    if (!r) return;
+    const numeric = (id: string): boolean => {
+      const l = this.draft.lines.find((x) => x.id === id);
+      return !!l && isNumeric(l.kind);
+    };
+    const tiebreak = r.tiebreak.filter((x) => x.type !== 'line' || numeric(x.line));
+    if (numeric(r.line)) {
+      this.draft.ranking = { line: r.line, dir: r.dir, tiebreak };
+      return;
+    }
+    // Domyślna reguła: suma, której nie sumuje żadna inna, więcej = lepiej (EDT-2, EDT-3).
+    const line = padRanking({ ...this.tpl(), ranking: undefined }).line;
+    if (line === FINAL_TOTAL) delete this.draft.ranking;
+    else this.draft.ranking = { line, dir: 'desc', tiebreak };
+  }
+
+  /** Kliknięcie kartki w kroku 4 wybiera kategorię pola (zakładka szczegółów kategorii). */
+  pick(e: PointerEvent): void {
+    const hit = (e.target as Element).closest('[data-cat]') as SVGElement | null;
+    if (!hit) return;
+    this.sel = Number(hit.dataset.cat);
+    this.catView = 'lines';
+    this.h.render();
+    this.h.changed();
+  }
+
+  /** Pola kategorii na kartce (w pikselach kartki): wiersz tabeli albo prostokąty. */
+  private lineBoxes(i: number, w: number, h: number): Box[] {
+    const l = this.draft.lines[i];
+    if (!l) return [];
+    if (this.mode === 'table') {
+      if (i >= this.rows()) return [];
+      const g = this.draft.grid;
+      const X = g.x.map((v) => v * w);
+      const Y = g.y.map((v) => v * h);
+      const [x0, x1] = [X[0], X[X.length - 1]];
+      const [y0, y1] = [Y[0], Y[Y.length - 1]];
+      return [
+        g.players === 'cols'
+          ? { x: x0, y: Y[i], w: x1 - x0, h: Y[i + 1] - Y[i] }
+          : { x: X[i], y: y0, w: X[i + 1] - X[i], h: y1 - y0 },
+      ];
+    }
+    const n = this.players();
+    return this.draft.fields
+      .filter((f) => f.line === l.id && f.p < n)
+      .sort((a, b) => a.p - b.p || a.y - b.y || a.x - b.x)
+      .map((f) => ({ x: f.x * w, y: f.y * h, w: f.w * w, h: f.h * h }));
+  }
+
+  /**
+   * Kartka w kroku 4 (DS §18 „Category badges”, „Ranking marks”): numer przy każdej kategorii,
+   * wybrana kategoria podświetlona i obrysowana; w zakładce „Wygrana i remisy” kategoria
+   * decydująca z pucharem i kategorie reguł remisów z numerem reguły.
+   */
+  private reviewSvg(w: number, h: number, k: number): string {
+    const ACCENT = '#2F54EB';
+    const r = 10 * k;
+    const ranking = padRanking(this.tpl());
+    const ruleOf = new Map<string, number>();
+    ranking.tiebreak.forEach((x, n) => {
+      if (x.type === 'line' && !ruleOf.has(x.line)) ruleOf.set(x.line, n + 1);
+    });
+    const ranked = this.catView === 'ranking';
+    const cols = this.draft.grid.players === 'cols';
+    let hits = '';
+    let marks = '';
+    this.draft.lines.forEach((l, i) => {
+      const boxes = this.lineBoxes(i, w, h);
+      const first = boxes[0];
+      if (!first) return;
+      const deciding = ranked && ranking.line === l.id;
+      const rule = ranked ? ruleOf.get(l.id) : undefined;
+      const on = ranked ? deciding : i === this.sel;
+      const tint = on || rule !== undefined;
+      for (const b of boxes) {
+        hits += `<rect data-cat="${i}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${4 * k}" class="spe-cat-box${tint ? ' tint' : ''}${on ? ' on' : ''}"><title>${esc(l.label)}</title></rect>`;
+      }
+      if (ranked && !deciding && rule === undefined) return;
+      // numer po lewej stronie wiersza (nad kolumną, gdy kategorie są w kolumnach), na kartce
+      const table = this.mode === 'table';
+      let cx: number;
+      let cy: number;
+      if (table && !cols) {
+        cx = first.x + first.w / 2;
+        cy = first.y - r - 4 * k >= r ? first.y - r - 4 * k : first.y + r + 3 * k;
+      } else {
+        cx = first.x - r - 4 * k >= r ? first.x - r - 4 * k : first.x + r + 3 * k;
+        cy = first.y + first.h / 2;
+      }
+      const filled = on;
+      const cls = `spe-cat-badge${filled ? ' on' : ''}${rule !== undefined && !deciding ? ' rule' : ''}`;
+      const inner = deciding
+        ? `<path d="M${cx - 3.5 * k} ${cy - 4 * k}h${7 * k}v${2.5 * k}a${3.5 * k} ${3.5 * k} 0 0 1 ${-7 * k} 0z M${cx} ${cy + 2 * k}v${2 * k} M${cx - 2.5 * k} ${cy + 4.5 * k}h${5 * k}" fill="none" stroke="#fff" stroke-width="${1.4 * k}" stroke-linecap="round" stroke-linejoin="round"/>`
+        : `<text x="${cx}" y="${cy + 3.6 * k}" font-size="${10 * k}">${rule ?? i + 1}</text>`;
+      marks += `<g class="${cls}" pointer-events="none" data-badge="${i}"><circle cx="${cx}" cy="${cy}" r="${r}"/>${inner}</g>`;
+    });
+    return `<g class="spe-review" style="--accent:${ACCENT}">${hits}${marks}</g>`;
+  }
+
   // ─────────────────────────────────────────────── podgląd
 
   draw(): string {
@@ -1353,7 +1710,8 @@ export class FieldsStep {
     const sh = this.h.shape();
     if (sh)
       s += `<path d="M0 0H${w}V${h}H0Z${shapeSvgPath(sh, w, h)}" class="spe-dim" fill-rule="evenodd"/>`;
-    s += this.mode === 'table' ? this.gridSvg(w, h, k) : this.freeSvg(w, h, k);
+    if (this.review) s += this.reviewSvg(w, h, k);
+    else s += this.mode === 'table' ? this.gridSvg(w, h, k) : this.freeSvg(w, h, k);
     return s;
   }
 
@@ -1808,4 +2166,10 @@ function clampBox(b: Box): Box {
   const w = clamp(b.w, 0.004, 1);
   const h = clamp(b.h, 0.004, 1);
   return { x: clamp(b.x, 0, 1 - w), y: clamp(b.y, 0, 1 - h), w, h };
+}
+
+/** Zakres punktacji: dowolny, od–do (także domyślny 0–50 bez zapisanego zakresu) albo lista. */
+function rangeMode(l: LineDef): RangeMode {
+  if (l.free) return 'free';
+  return l.min == null && l.max == null && l.values ? 'list' : 'range';
 }

@@ -1,9 +1,10 @@
 import type { ScorePadEditorArea, ScorePadEditorAreaPatch } from '@bg-club/score-pad';
-import { useState, type KeyboardEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 import { format, plural, t } from '../i18n';
 import { ColorSwatches, IconButton, SegmentedControl, Slider, Switch, TextField } from '../ui';
 import { SCOREPAD_NAME_MAX } from './scorepads';
 import { SPINE_COLORS, areaHint, clampCm, formatCm, parseCm } from './area';
+import { useDraft } from './useDraft';
 
 const text = t.scorepads.wizard.area;
 
@@ -46,26 +47,6 @@ export function AreaToolbar({
       />
     </div>
   );
-}
-
-/**
- * Wartość pola z edytora, którą użytkownik może swobodnie wpisywać: lokalny stan, a wartość
- * z edytora (np. po imporcie, obrocie albo poprawce zakresu) wraca, gdy pole nie ma fokusu.
- */
-function useDraft<T>(value: T) {
-  const [draft, setDraft] = useState(value);
-  const [editing, setEditing] = useState(false);
-  const [seen, setSeen] = useState(value);
-  if (!editing && seen !== value) {
-    setSeen(value);
-    setDraft(value);
-  }
-  return {
-    draft,
-    setDraft,
-    onFocus: () => setEditing(true),
-    onBlur: () => setEditing(false),
-  };
 }
 
 /**

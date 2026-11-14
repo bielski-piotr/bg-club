@@ -13,9 +13,12 @@ export type WizardStep = 1 | 2 | 3 | 4 | 5;
 export const WIZARD_STEPS: readonly WizardStep[] = [1, 2, 3, 4, 5];
 export const LAST_STEP: WizardStep = 5;
 
-/** Krok `<score-pad-editor>` pokazywany w kroku kreatora (kroki 4 i 5 potrzebują kartki z kroku 3). */
-export function editorStepFor(step: WizardStep): 1 | 2 | 3 {
-  return step === 1 ? 1 : step === 2 ? 2 : 3;
+/**
+ * Krok `<score-pad-editor>` pokazywany w kroku kreatora: krok 4 to kartka z kategoriami (EDT-13),
+ * a krok 5 jej nie zmienia (podgląd kartki).
+ */
+export function editorStepFor(step: WizardStep): 1 | 2 | 3 | 4 {
+  return step === 1 ? 1 : step === 2 ? 2 : step === 3 ? 3 : 4;
 }
 
 /** Czy krok jest poprawny, czyli czy można z niego przejść dalej. */
@@ -38,7 +41,10 @@ export function isStepValid(step: WizardStep, status: ScorePadEditorStatus | nul
       );
     case 4:
     case 5:
-      return status.photo && status.area && status.fields === null;
+      // EDT-13: kategorie i reguła miejsc przechodzą walidator zapisu (`validateScoring`).
+      return (
+        isStepValid(3, status) && status.fields === null && status.categories.issues.length === 0
+      );
   }
 }
 

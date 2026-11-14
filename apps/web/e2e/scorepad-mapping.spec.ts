@@ -208,7 +208,9 @@ test('prostokąty ręczne: kolejne kategorie, powielanie dla ponad 8 miejsc, EDT
   expect(exported).toEqual({ grid: null, players: 10, fields: 30 });
 
   await next.click();
-  await expect(dialog.getByText(/Notes ma 10 miejsc dla graczy i 3 kategorie/)).toBeVisible();
+  await expect(editorEl(page).locator('.spe.wizard')).toHaveAttribute('data-step', '4');
+  // Krok 4 zaczyna od ostatnio wybranej kategorii.
+  await expect(dialog.getByText('Kategoria 3 z 3')).toBeVisible();
 });
 
 test('powiększenie kartki i dopasowanie widoku', async ({ page }) => {

@@ -38,13 +38,30 @@ import type { PadConfig } from '../core/settings';
 import type { ShapePt, SheetShape } from '../core/shape';
 import { clamp, el, esc, uid } from '../core/util';
 import { detectArea } from './shape-tools';
-import { FieldsStep, type MappingAction, type MappingState } from './fields';
+import {
+  FieldsStep,
+  type CategoriesAction,
+  type CategoriesState,
+  type MappingAction,
+  type MappingState,
+} from './fields';
 import { icon } from './icons';
 import { scorePadFileName } from '../file-name';
 
-export type Step = 1 | 2 | 3;
+/** Kroki edytora; krok 4 (kategorie na kartce, EDT-13) jest tylko w trybie kreatora. */
+export type Step = 1 | 2 | 3 | 4;
 export type { AreaMode } from './area';
-export type { MappingAction, MappingMode, MappingState } from './fields';
+export type {
+  CategoriesAction,
+  CategoriesState,
+  CategoriesView,
+  CategoryPatch,
+  CategoryState,
+  MappingAction,
+  MappingMode,
+  MappingState,
+  RangeMode,
+} from './fields';
 
 /** Stan kroku 3 „Mapowanie pól” (EDT-11) dla panelu kreatora. */
 export interface EditorMapping extends MappingState {
@@ -54,6 +71,15 @@ export interface EditorMapping extends MappingState {
 
 /** Zmiana mapowania z panelu kreatora; `fit` dopasowuje widok do całej kartki. */
 export type EditorMappingAction = MappingAction | { readonly type: 'fit' };
+
+/** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4) dla panelu kreatora. */
+export interface EditorCategories extends CategoriesState {
+  /** Widok kartki jest powiększony (przycisk „Dopasuj widok”). */
+  readonly zoomed: boolean;
+}
+
+/** Zmiana kroku 4 z panelu kreatora; `fit` dopasowuje widok do całej kartki. */
+export type EditorCategoriesAction = CategoriesAction | { readonly type: 'fit' };
 
 export interface EditorOptions {
   /** Notes do poprawienia (zamiast nowego). */
@@ -151,6 +177,8 @@ export interface EditorStatus {
   readonly settings: EditorArea;
   /** Krok 3: sposób mapowania, miejsca, kategorie i problem do poprawy (EDT-11, EDT-6). */
   readonly mapping: EditorMapping;
+  /** Krok 4: kategorie, reguła miejsc i problemy walidatora (EDT-13). */
+  readonly categories: EditorCategories;
   /** Notes został zmieniony od otwarcia edytora (zdjęcie, kształt, pola, kategorie). */
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
@@ -440,6 +468,11 @@ export class Editor {
         this.cancelDrag();
         return;
       }
+      if (this.step === 4 && this.pinch) {
+        e.preventDefault();
+        this.endPinch();
+        return;
+      }
       if (this.step === 3 && (this.pinch || this.fields.key(e))) {
         e.preventDefault();
         this.endPinch();
@@ -465,7 +498,7 @@ export class Editor {
       if (!e.shiftKey) this.editMapping({ type: 'undo' });
       return;
     }
-    if (this.step === 3 && !e.ctrlKey && !e.metaKey && !e.altKey && this.zoomKey(e)) {
+    if (this.step >= 3 && !e.ctrlKey && !e.metaKey && !e.altKey && this.zoomKey(e)) {
       e.preventDefault();
       return;
     }
@@ -532,6 +565,7 @@ export class Editor {
       lines: this.fields.draft.lines.map((l) => ({ label: l.label, kind: l.kind })),
       settings: this.areaState(),
       mapping: { ...this.fields.state(), zoomed: !!this.view },
+      categories: { ...this.fields.categoriesState(this.step < 3), zoomed: !!this.view },
       dirty: this.dirty,
       openFailed: this.openFailed,
     };
@@ -543,6 +577,10 @@ export class Editor {
   private complete(s: Step): boolean {
     if (s === 1) return !!this.src;
     if (s === 2) return !!this.src && this.shapeOk();
+    // Kreator: kategorie (typy, zakresy) poprawia się w kroku 4, więc krok 3 to samo mapowanie.
+    // Kartkę do kroku 4 edytor prostuje sam (np. po imporcie `.json` od razu do kroku 4).
+    if (s === 3 && this.opts.wizard)
+      return !!this.src && this.shapeOk() && !this.fields.mappingProblem();
     return !!this.sheet && !this.fields.problem();
   }
 
@@ -557,14 +595,15 @@ export class Editor {
   }
 
   goStep(s: Step): void {
+    if (s === 4 && !this.opts.wizard) return;
     if (s !== 1 && !this.canGo(s)) return;
-    if (s === 3 && this.src && (!this.sheet || this.sheetKey !== this.sheetWant())) {
+    if (s >= 3 && this.src && (!this.sheet || this.sheetKey !== this.sheetWant())) {
       // prostowanie trwa chwilę — najpierw wskaźnik
       this.setBusy('sheet');
       setTimeout(() => {
         this.ensureSheet();
         this.setBusy('');
-        this.show(3);
+        this.show(s);
       }, 40);
       return;
     }
@@ -587,7 +626,8 @@ export class Editor {
       void main.offsetWidth;
       main.classList.add('enter');
     }
-    if (s === 3) {
+    this.fields.setReview(s === 4);
+    if (s >= 3) {
       this.ensureSheet();
       this.fields.enter();
     } else {
@@ -596,7 +636,7 @@ export class Editor {
     }
     this.renderChrome();
     this.render();
-    if (s === 2 || s === 3) this.svg.focus({ preventScroll: true });
+    if (s >= 2) this.svg.focus({ preventScroll: true });
   }
 
   /** Bieżący krok. */
@@ -1011,6 +1051,8 @@ export class Editor {
   private renderToolbar(): void {
     const tb = this.toolbar;
     // W kreatorze panel i pasek kroku 2 są w aplikacji (DS §18).
+    // Kroki pól (3 i 4) mają własny pasek (`FieldsStep`, w kreatorze w aplikacji).
+    if (this.step >= 3) return;
     if (this.step === 1 || !this.src || (this.opts.wizard && this.step === 2)) {
       tb.innerHTML = '';
       return;
@@ -1154,7 +1196,7 @@ export class Editor {
   private draw(): void {
     const svg = this.svg;
     svg.classList.toggle('spe-c-draw', this.step === 3 && this.fields.mode === 'rects');
-    svg.classList.toggle('spe-zoomed', this.step === 3 && !!this.view);
+    svg.classList.toggle('spe-zoomed', this.step >= 3 && !!this.view);
     if (this.step !== 2 || !this.pdrag?.moved) this.loupe.style.display = 'none';
     if (this.step === 1 || !this.src) {
       this.baseImg.style.display = 'none';
@@ -1162,7 +1204,7 @@ export class Editor {
       return;
     }
     this.baseImg.style.display = '';
-    if (this.step === 3) {
+    if (this.step >= 3) {
       const sheet = this.sheet;
       if (!sheet) return;
       const v = this.view;
@@ -1321,7 +1363,7 @@ export class Editor {
     const t = e.target as Element;
     const ph = t.closest('[data-p]') as SVGElement | null;
     if (this.step !== 2 || !ph) this.svg.focus({ preventScroll: true });
-    if (this.step === 3) {
+    if (this.step >= 3) {
       if (this.sheet) this.sheetDown(e);
       return;
     }
@@ -1361,7 +1403,7 @@ export class Editor {
   }
 
   private onMove(e: PointerEvent): void {
-    if (this.step === 3) {
+    if (this.step >= 3) {
       this.sheetMove(e);
       return;
     }
@@ -1384,7 +1426,7 @@ export class Editor {
   }
 
   private onUp(e: PointerEvent): void {
-    if (this.step === 3) {
+    if (this.step >= 3) {
       this.sheetUp(e);
       return;
     }
@@ -1464,6 +1506,21 @@ export class Editor {
     this.notify();
   }
 
+  // ─────────────────────────────────────────────── krok 4: kategorie (EDT-13, kreator)
+
+  /** Zmiana kategorii i reguły miejsc z panelu kreatora (nazwa, typ, zakres, sumy, wygrana). */
+  editCategories(action: EditorCategoriesAction): void {
+    if (this.step !== 4 || !this.sheet || this.busy) return;
+    if (action.type === 'fit') {
+      this.view = null;
+      this.render();
+      return;
+    }
+    if (action.type !== 'view' && action.type !== 'select') this.touch();
+    this.fields.applyCategories(action);
+    this.notify();
+  }
+
   /** Widok kartki: cała kartka albo powiększony fragment (współrzędne kartki). */
   private viewBox(): { x: number; y: number; w: number; h: number } {
     const sheet = this.sheet as HTMLCanvasElement;
@@ -1513,7 +1570,7 @@ export class Editor {
   }
 
   private onWheel(e: WheelEvent): void {
-    if (this.step !== 3 || !this.sheet) return;
+    if (this.step < 3 || !this.sheet) return;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       this.zoomAt(e.clientX, e.clientY, Math.exp(-clamp(e.deltaY, -60, 60) * 0.01));
@@ -1555,7 +1612,8 @@ export class Editor {
       }
     }
     if (this.pinch) return;
-    this.fields.down(e);
+    if (this.step === 4) this.fields.pick(e);
+    else this.fields.down(e);
   }
 
   private sheetMove(e: PointerEvent): void {
@@ -1573,7 +1631,7 @@ export class Editor {
       this.pinch = { d, x, y };
       return;
     }
-    this.fields.move(e);
+    if (this.step === 3) this.fields.move(e);
   }
 
   private sheetUp(e: PointerEvent): void {
@@ -1583,6 +1641,7 @@ export class Editor {
       if (!this.touches.size) this.pinch = null;
       return;
     }
+    if (this.step === 4) return;
     if (e.type === 'pointercancel') {
       if (this.fields.dragging) this.fields.cancel();
       return;
@@ -1717,6 +1776,8 @@ function sameStatus(a: EditorStatus, b: EditorStatus): boolean {
     a.openFailed === b.openFailed &&
     sameArea(a.settings, b.settings) &&
     sameMapping(a.mapping, b.mapping) &&
+    (a.categories === b.categories ||
+      JSON.stringify(a.categories) === JSON.stringify(b.categories)) &&
     a.lines.length === b.lines.length &&
     a.lines.every((l, i) => l.label === b.lines[i]?.label && l.kind === b.lines[i]?.kind)
   );

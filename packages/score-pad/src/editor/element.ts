@@ -6,6 +6,7 @@ import type { PadTemplate } from '../core/templates';
 import {
   Editor,
   type EditorAreaPatch,
+  type EditorCategoriesAction,
   type EditorMappingAction,
   type EditorStatus,
   type Step,
@@ -102,7 +103,10 @@ export class ScorePadEditorElement extends HTMLElement {
     await this.editor.loadTemplate(template, true);
   }
 
-  /** Przechodzi do kroku edytora (1 zdjęcie, 2 obszar kartki, 3 pola), jeśli jest dostępny. */
+  /**
+   * Przechodzi do kroku edytora (1 zdjęcie, 2 obszar kartki, 3 pola, 4 kategorie na kartce
+   * w trybie kreatora), jeśli jest dostępny.
+   */
   goStep(step: Step): void {
     this.editor?.goStep(step);
   }
@@ -129,5 +133,13 @@ export class ScorePadEditorElement extends HTMLElement {
    */
   editMapping(action: EditorMappingAction): void {
     this.editor?.editMapping(action);
+  }
+
+  /**
+   * Zmiana kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4): zakładka, wybór kategorii, nazwa, typ,
+   * opis, zakres, sumowane kategorie, reguła miejsc i dopasowanie widoku.
+   */
+  editCategories(action: EditorCategoriesAction): void {
+    this.editor?.editCategories(action);
   }
 }
