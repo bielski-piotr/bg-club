@@ -172,8 +172,12 @@ export interface ScorePadEditorMapping {
   readonly seats: number;
   /** Liczba kategorii. */
   readonly categories: number;
+  /** Tabela: liczba wierszy (albo kolumn) kategorii w tabeli. */
+  readonly rows: number;
   /** Tabela: kolumny (albo wiersze) opisu przed miejscami graczy. */
   readonly labels: number;
+  /** Tabela: najwięcej kolumn (albo wierszy) opisu. */
+  readonly maxLabels: number;
   /** Prostokąty: miejsce, dla którego rysuje się pola (od 0). */
   readonly activeSeat: number;
   /** Prostokąty: kategoria następnego pola (od 0; równa `categories` oznacza nową kategorię). */

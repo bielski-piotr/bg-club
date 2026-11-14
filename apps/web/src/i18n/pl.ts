@@ -597,6 +597,7 @@ export const pl = {
         playersAxis: { cols: 'Kolumnach', rows: 'Wierszach' },
         seats: 'Miejsca dla graczy',
         categories: 'Kategorie',
+        rows: { cols: 'Wiersze kategorii', rows: 'Kolumny kategorii' },
         labels: { cols: 'Kolumny opisu', rows: 'Wiersze opisu' },
         labelsHint: 'Kolumny z nazwami kategorii przed miejscami graczy.',
         labelsHintRows: 'Wiersze z nazwami kategorii przed miejscami graczy.',

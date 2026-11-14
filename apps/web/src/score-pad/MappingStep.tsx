@@ -110,7 +110,11 @@ function TableTools({
   readonly mapping: ScorePadEditorMapping;
   readonly onAction: (action: ScorePadEditorMappingAction) => void;
 }) {
-  const delta = (next: number, current: number): 1 | -1 => (next > current ? 1 : -1);
+  // Stepper może zmienić wartość o więcej niż 1 (PageUp, Home): edytor dostaje kolejne kroki.
+  const steps = (type: 'seats' | 'categories' | 'labels', next: number, current: number) => {
+    const delta = next > current ? 1 : -1;
+    for (let i = 0; i < Math.abs(next - current); i++) onAction({ type, delta });
+  };
   return (
     <>
       {mapping.detected === false ? <Banner variant="warning">{text.notDetected}</Banner> : null}
@@ -129,23 +133,22 @@ function TableTools({
           label={text.seats}
           value={mapping.seats}
           min={1}
-          onChange={(next) => onAction({ type: 'seats', delta: delta(next, mapping.seats) })}
+          onChange={(next) => steps('seats', next, mapping.seats)}
         />
         <Stepper
-          label={text.categories}
-          value={mapping.categories}
+          label={text.rows[mapping.players]}
+          value={mapping.rows}
           min={1}
-          onChange={(next) =>
-            onAction({ type: 'categories', delta: delta(next, mapping.categories) })
-          }
+          onChange={(next) => steps('categories', next, mapping.rows)}
         />
       </div>
       <Stepper
         label={text.labels[mapping.players]}
         value={mapping.labels}
         min={0}
+        max={mapping.maxLabels}
         hint={mapping.players === 'cols' ? text.labelsHint : text.labelsHintRows}
-        onChange={(next) => onAction({ type: 'labels', delta: delta(next, mapping.labels) })}
+        onChange={(next) => steps('labels', next, mapping.labels)}
       />
       <Button
         variant="secondary"

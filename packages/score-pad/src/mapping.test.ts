@@ -17,7 +17,8 @@ const scan = vi.hoisted(() => ({ result: null as LineScan | null }));
 
 vi.mock('./editor/photo', async (original) => ({
   ...(await original<typeof Photo>()),
-  detectLines: () => scan.result ?? { xs: [], ys: [], openRows: [], openCols: [] },
+  detectLines: () =>
+    scan.result ? structuredClone(scan.result) : { xs: [], ys: [], openRows: [], openCols: [] },
 }));
 
 /** Tabela 1 kolumna opisu + 4 kolumny graczy, 6 wierszy. */
@@ -308,6 +309,11 @@ describe('wykryta tabela', () => {
     // pominięte miejsce (kliknięcie znacznika) nie liczy się do miejsc
     const track = t.svg.querySelector('[data-track]') as Element;
     t.step.down(ev(0.5, 0.05, track));
+    // przełącza się po puszczeniu; drugi palec (szczypanie) przerywa bez zmiany
+    t.step.cancel();
+    expect(t.step.state().seats).toBe(3);
+    t.step.down(ev(0.5, 0.05, track));
+    t.step.up(ev(0.5, 0.05, track));
     expect(t.step.state().seats).toBe(2);
     const out = t.step.output();
     expect(out.players).toBeUndefined();
@@ -431,5 +437,55 @@ describe('wczytany notes', () => {
     });
     expect(t.step.output().fields).toHaveLength(1);
     expect(t.step.output().grid).toBeDefined();
+  });
+});
+
+describe('poprawki z code review', () => {
+  it('wybór miejsca w panelu zdejmuje zaznaczenie kopii zamiast je przenosić', () => {
+    const t = setup();
+    t.step.enter();
+    draw(t, 0.05, 0.1);
+    t.step.apply({ type: 'duplicate' });
+    expect(t.step.state().selected).toBe(1);
+    t.step.apply({ type: 'seat', seat: 0 });
+    expect(t.step.state()).toMatchObject({ activeSeat: 0, selected: 0, seats: 2, problem: null });
+    expect(t.step.draft.fields.map((f) => f.p).sort()).toEqual([0, 1]);
+  });
+
+  it('tabela domyślna bez zmian (nieudane wykrycie) nie wymaga potwierdzenia przy powrocie', () => {
+    const t = setup();
+    t.step.enter();
+    t.step.setMode('table');
+    expect(t.step.state()).toMatchObject({ detected: false, hasContent: false });
+    t.step.apply({ type: 'seats', delta: 1 });
+    expect(t.step.state().hasContent).toBe(true);
+  });
+
+  it('suma, imiona i puste pole bez pól nie blokują prostokątów', () => {
+    const t = setup();
+    t.step.load({
+      v: 2,
+      id: 'n',
+      name: 'N',
+      size: { w: 10, h: 14 },
+      tape: '#161a2b',
+      players: 1,
+      lines: [
+        { id: 'a', label: 'Punkty', kind: 'input' },
+        { id: 's', label: 'Suma', kind: 'total' },
+        { id: 'k', label: 'Pominięte', kind: 'skip' },
+      ],
+      fields: [{ id: 'f', line: 'a', p: 0, x: 0.1, y: 0.1, w: 0.1, h: 0.05 }],
+    });
+    expect(t.step.state().problem).toBeNull();
+  });
+
+  it('stan tabeli: wiersze kategorii i najwięcej kolumn opisu', () => {
+    scan.result = TABLE;
+    const t = setup();
+    t.step.enter();
+    expect(t.step.state()).toMatchObject({ rows: 6, labels: 1, maxLabels: 4 });
+    for (let i = 0; i < 6; i++) t.step.apply({ type: 'labels', delta: 1 });
+    expect(t.step.state()).toMatchObject({ labels: 4, seats: 1 });
   });
 });

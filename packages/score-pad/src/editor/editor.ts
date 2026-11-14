@@ -326,6 +326,7 @@ export class Editor {
       toast: (m, k) => this.toast(m, k),
       // W kreatorze zmianę trybu potwierdza popup aplikacji (DS §18), tu systemowe pytanie.
       confirm: (m) => typeof window.confirm !== 'function' || window.confirm(m),
+      wizard: !!opts.wizard,
     });
     mount.appendChild(this.root);
     this.bind();

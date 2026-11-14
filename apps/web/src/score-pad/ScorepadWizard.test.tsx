@@ -76,7 +76,9 @@ const EMPTY: ScorePadEditorStatus = {
     players: 'cols',
     seats: 1,
     categories: 0,
+    rows: 0,
     labels: 1,
+    maxLabels: 3,
     activeSeat: 0,
     activeCategory: 0,
     selected: 0,
@@ -689,6 +691,7 @@ describe('kreator edytora notesu', () => {
         mode: 'table',
         seats: 6,
         categories: 7,
+        rows: 7,
         hasContent: true,
         detected: false,
         problem: null,
@@ -702,9 +705,13 @@ describe('kreator edytora notesu', () => {
     const seats = within(dialog).getByRole('spinbutton', { name: 'Miejsca dla graczy' });
     fireEvent.keyDown(seats, { key: 'ArrowUp' });
     expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'seats', delta: 1 });
-    const categories = within(dialog).getByRole('spinbutton', { name: 'Kategorie' });
-    fireEvent.keyDown(categories, { key: 'ArrowDown' });
+    const rows = within(dialog).getByRole('spinbutton', { name: 'Wiersze kategorii' });
+    fireEvent.keyDown(rows, { key: 'ArrowDown' });
     expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'categories', delta: -1 });
+    // PageUp: dziesięć kroków naraz.
+    fake.editMapping.mockClear();
+    fireEvent.keyDown(seats, { key: 'PageUp' });
+    expect(fake.editMapping).toHaveBeenCalledTimes(10);
     fireEvent.keyDown(within(dialog).getByRole('spinbutton', { name: 'Kolumny opisu' }), {
       key: 'ArrowUp',
     });

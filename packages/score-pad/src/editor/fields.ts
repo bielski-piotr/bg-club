@@ -49,8 +49,12 @@ export interface MappingState {
   readonly seats: number;
   /** Liczba kategorii. */
   readonly categories: number;
+  /** Tabela: liczba wierszy (albo kolumn) kategorii w tabeli. */
+  readonly rows: number;
   /** Tabela: liczba kolumn (albo wierszy) opisu przed miejscami graczy. */
   readonly labels: number;
+  /** Tabela: najwięcej kolumn (albo wierszy) opisu (zostaje co najmniej jedno miejsce). */
+  readonly maxLabels: number;
   /** Prostokąty: miejsce, dla którego rysuje się pola (od 0). */
   readonly activeSeat: number;
   /** Prostokąty: kategoria następnego pola (od 0; `categories` oznacza nową kategorię). */
@@ -108,6 +112,8 @@ export interface FieldsHost {
   toast(msg: string, kind?: 'err' | 'ok'): void;
   /** Potwierdzenie zmiany trybu w samodzielnym edytorze (w kreatorze pyta aplikacja). */
   confirm?(msg: string): boolean;
+  /** Tryb kreatora: pasek i panel kroku prowadzi aplikacja. */
+  readonly wizard?: boolean;
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -185,6 +191,8 @@ export class FieldsStep {
   private fsel = new Set<string>();
   private fdrag: FreeDrag | null = null;
   private gdrag: { axis: 'x' | 'y'; i: number } | null = null;
+  /** Wciśnięty znacznik miejsca nad tabelą (przełączenie „bez wpisu” po puszczeniu). */
+  private pendingTrack: number | null = null;
   /** Stan sprzed przeciągania (cofanie i przerwanie drugim palcem). */
   private dragSnap: Snapshot | null = null;
   private lastSize = { w: 0.06, h: 0.04 };
@@ -198,6 +206,8 @@ export class FieldsStep {
   private undoAt = 0;
   /** Wynik ostatniego wykrywania tabeli na prośbę (zmiana trybu, „Wykryj tabelę ponownie”). */
   private detected: boolean | null = null;
+  /** Tabela domyślna po nieudanym wykryciu, jeszcze bez zmian: nie ma czego tracić. */
+  private untouchedFallback = false;
 
   constructor(private h: FieldsHost) {
     this.resetGrid(1, 4, 1, { x0: 0.06, y0: 0.05, x1: 0.94, y1: 0.11 });
@@ -481,6 +491,7 @@ export class FieldsStep {
     }
     this.undoKind = kind;
     this.undoAt = now;
+    this.untouchedFallback = false;
     this.undoStack.push(snap);
     if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
   }
@@ -492,6 +503,7 @@ export class FieldsStep {
     this.sel = s.sel;
     this.activeP = s.activeP;
     this.detected = s.detected;
+    this.untouchedFallback = false;
     this.fsel.clear();
     this.fdrag = null;
     this.gdrag = null;
@@ -517,7 +529,7 @@ export class FieldsStep {
   /** Są pola lub kategorie, które przepadną przy zmianie trybu. */
   hasContent(): boolean {
     return this.mode === 'table'
-      ? this.rows() > 0
+      ? this.rows() > 0 && !this.untouchedFallback
       : this.draft.lines.length > 0 || this.draft.fields.length > 0;
   }
 
@@ -541,13 +553,15 @@ export class FieldsStep {
       this.activeP = 0;
       this.draft.grid.blank = [];
       this.detected = this.autoLines('sheet');
-      if (!this.detected)
+      if (!this.detected) {
         this.resetGrid(
           FALLBACK_TABLE.lines,
           FALLBACK_TABLE.players,
           FALLBACK_TABLE.labels,
           FALLBACK_FRAME,
         );
+        this.untouchedFallback = true;
+      }
     }
     this.renderAll();
   }
@@ -582,9 +596,11 @@ export class FieldsStep {
         return;
       case 'detect':
         if (!table) return;
-        this.pushUndo();
-        this.detected = this.autoLines('sheet');
-        if (!this.detected) this.undoStack.pop();
+        {
+          const snap = this.snapshot();
+          this.detected = this.autoLines('sheet');
+          if (this.detected) this.pushUndo(snap);
+        }
         this.renderAll();
         return;
       case 'seat':
@@ -620,7 +636,9 @@ export class FieldsStep {
       players: d.grid.players,
       seats: this.players(),
       categories: d.lines.length,
+      rows: this.mode === 'table' ? this.rows() : 0,
       labels: d.grid.labels,
+      maxLabels: Math.max(0, this.plAxis().length - 2),
       activeSeat: table ? 0 : this.activeP,
       activeCategory: this.sel,
       selected: table ? 0 : this.fsel.size,
@@ -769,9 +787,14 @@ export class FieldsStep {
 
   // ─────────────────────────────────────────────── prostokąty ręczne
 
-  private chooseSeat(p: number): void {
+  /**
+   * Miejsce, dla którego rysuje się pola. Z paska samodzielnego edytora (`move`) zaznaczone pola
+   * przechodzą do tego miejsca; z panelu kreatora zaznaczenie jest tylko zdejmowane.
+   */
+  private chooseSeat(p: number, move = false): void {
     const seat = clamp(Math.round(p), 0, Math.max(0, this.players() - 1));
-    if (this.fsel.size) {
+    if (!move && seat !== this.activeP) this.fsel.clear();
+    if (move && this.fsel.size) {
       // zaznaczone pola przechodzą do wybranego miejsca
       this.pushUndo();
       for (const f of this.draft.fields) if (this.fsel.has(f.id)) f.p = seat;
@@ -963,8 +986,11 @@ export class FieldsStep {
   // ─────────────────────────────────────────────── pasek narzędzi (samodzielny edytor)
 
   renderAll(): void {
-    this.renderToolbar();
-    this.renderPanel();
+    // w kreatorze pasek i panel kroku są w aplikacji (ukryte tutaj), więc ich nie budujemy
+    if (!this.h.wizard) {
+      this.renderToolbar();
+      this.renderPanel();
+    }
     this.h.render();
     this.h.changed();
   }
@@ -1047,15 +1073,15 @@ export class FieldsStep {
       }),
     );
     tb.querySelectorAll<HTMLButtonElement>('[data-p]').forEach((b) =>
-      b.addEventListener('click', () => this.chooseSeat(Number(b.dataset.p))),
+      b.addEventListener('click', () => this.chooseSeat(Number(b.dataset.p), true)),
     );
     tb.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
       b.addEventListener('click', () => {
         const a = b.dataset.a;
         if (a === 'detect') {
-          this.pushUndo();
-          if (!this.autoLines('frame')) {
-            this.undoStack.pop();
+          const snap = this.snapshot();
+          if (this.autoLines('frame')) this.pushUndo(snap);
+          else {
             this.h.toast('Nie znalazłem linii tabeli — ustaw je ręcznie.', 'err');
           }
           this.renderAll();
@@ -1359,7 +1385,28 @@ export class FieldsStep {
       const fs = 11 * k;
       s += `<g pointer-events="none"><rect x="${bx}" y="${by}" width="${fs * 2}" height="${fs * 1.5}" rx="${4 * k}" fill="${c}"/><text x="${bx + fs}" y="${by + fs * 1.1}" font-size="${fs}" class="spe-num">${i + 1}</text></g>`;
     }
-    // ścieżki graczy: przełącznik „bez wpisu” po kliknięciu nagłówka
+    // linie tabeli; uchwyty 10 px na końcach przy górnej i lewej krawędzi (DS §18), z większą
+    // strefą chwytu pod palcem
+    const grab = (coarsePointer() ? 16 : 9) * k;
+    const lineEl = (axis: 'x' | 'y', i: number, v: number): string => {
+      const outer = i === 0 || i === (axis === 'x' ? X.length - 1 : Y.length - 1);
+      const [x1, y1, x2, y2] =
+        axis === 'x' ? [v, Y[0], v, Y[Y.length - 1]] : [X[0], v, X[X.length - 1], v];
+      const on = this.gdrag?.axis === axis && this.gdrag.i === i;
+      return `<g data-g="${axis}" data-i="${i}" class="spe-gl ${axis}${outer ? ' outer' : ''}${on ? ' on' : ''}">
+        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="hit"/>
+        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="vis"/>
+        ${
+          // narożnik należy do lewej krawędzi (x[0]); linia y[0] chwyta się za samą linię
+          axis === 'y' && i === 0
+            ? ''
+            : `<circle cx="${x1}" cy="${y1}" r="${grab}" fill="transparent"/>
+        <circle cx="${x1}" cy="${y1}" r="${5 * k}" class="knob"/>`
+        }</g>`;
+    };
+    X.forEach((v, i) => (s += lineEl('x', i, v)));
+    Y.forEach((v, i) => (s += lineEl('y', i, v)));
+    // ścieżki graczy (nad uchwytami linii, żeby ich nie zasłaniały): przełącznik „bez wpisu” po kliknięciu nagłówka
     const blank = new Set(g.blank ?? []);
     const tracks = trackCount(this.tpl());
     let pn = 0;
@@ -1380,22 +1427,6 @@ export class FieldsStep {
         <rect x="${cx - pw / 2}" y="${cy - ph / 2}" width="${pw}" height="${ph}" rx="${ph / 2}" fill="${color}"/>
         <text x="${cx}" y="${cy + fs * 0.36}" font-size="${fs}" class="spe-num">${off ? '—' : `G${pn}`}</text></g>`;
     }
-    // linie tabeli; uchwyty 10 px na końcach przy górnej i lewej krawędzi (DS §18), z większą
-    // strefą chwytu pod palcem
-    const grab = (coarsePointer() ? 16 : 9) * k;
-    const lineEl = (axis: 'x' | 'y', i: number, v: number): string => {
-      const outer = i === 0 || i === (axis === 'x' ? X.length - 1 : Y.length - 1);
-      const [x1, y1, x2, y2] =
-        axis === 'x' ? [v, Y[0], v, Y[Y.length - 1]] : [X[0], v, X[X.length - 1], v];
-      const on = this.gdrag?.axis === axis && this.gdrag.i === i;
-      return `<g data-g="${axis}" data-i="${i}" class="spe-gl ${axis}${outer ? ' outer' : ''}${on ? ' on' : ''}">
-        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="hit"/>
-        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="vis"/>
-        <circle cx="${x1}" cy="${y1}" r="${grab}" fill="transparent"/>
-        <circle cx="${x1}" cy="${y1}" r="${5 * k}" class="knob"/></g>`;
-    };
-    X.forEach((v, i) => (s += lineEl('x', i, v)));
-    Y.forEach((v, i) => (s += lineEl('y', i, v)));
     s += this.fieldsSvg(w, h, k, false);
     return s;
   }
@@ -1460,11 +1491,12 @@ export class FieldsStep {
 
   /** Trwa przeciąganie linii tabeli albo prostokąta. */
   get dragging(): boolean {
-    return !!(this.fdrag || this.gdrag);
+    return !!(this.fdrag || this.gdrag || this.pendingTrack !== null);
   }
 
   /** Przerywa przeciąganie (Esc, drugi palec): mapowanie wraca do stanu sprzed niego. */
   cancel(): void {
+    this.pendingTrack = null;
     const snap = this.dragSnap;
     const hadNew = this.fdrag?.kind === 'new';
     this.fdrag = null;
@@ -1491,7 +1523,8 @@ export class FieldsStep {
       }
       const tr = t.closest('[data-track]') as HTMLElement | null;
       if (tr) {
-        this.toggleBlank(Number(tr.dataset.track));
+        // przełącza się dopiero po puszczeniu: drugi palec (szczypanie) to anuluje
+        this.pendingTrack = Number(tr.dataset.track);
         return;
       }
       const band = t.closest('[data-line]') as HTMLElement | null;
@@ -1593,6 +1626,12 @@ export class FieldsStep {
   }
 
   up(e: PointerEvent): void {
+    if (this.pendingTrack !== null) {
+      const t = this.pendingTrack;
+      this.pendingTrack = null;
+      this.toggleBlank(t);
+      return;
+    }
     const snap = this.dragSnap;
     this.dragSnap = null;
     if (this.gdrag) {
@@ -1607,7 +1646,6 @@ export class FieldsStep {
     const p = this.norm(e);
     if (fd.kind === 'new') {
       const b = fd.box;
-      if (snap) this.pushUndo(snap);
       const at = this.sel;
       const f =
         !b || (b.w < 0.006 && b.h < 0.006)
@@ -1619,10 +1657,11 @@ export class FieldsStep {
             })
           : this.addField({ ...b, w: Math.max(b.w, 0.006), h: Math.max(b.h, 0.006) });
       if (f) {
+        if (snap) this.pushUndo(snap);
         this.lastSize = { w: f.w, h: f.h };
         // od razu następna kategoria tego samego miejsca — można rysować bez przerwy (EDT-11)
         this.sel = this.nextFor(this.activeP, Math.max(at, this.sel));
-      } else if (snap) this.undoStack.pop();
+      }
       this.renderAll();
       requestAnimationFrame(() =>
         this.h.panel
@@ -1664,7 +1703,10 @@ export class FieldsStep {
     const n = this.players();
     for (let p = 0; p < n; p++)
       if (!d.fields.some((f) => f.p === p)) return `Miejsce ${p + 1} nie ma jeszcze pól.`;
-    const empty = d.lines.findIndex((l) => !d.fields.some((f) => f.line === l.id && f.p < n));
+    // kategorie punktowe muszą mieć pola; suma, imiona i puste pole mogą nie mieć
+    const empty = d.lines.findIndex(
+      (l) => l.kind === 'input' && !d.fields.some((f) => f.line === l.id && f.p < n),
+    );
     if (empty >= 0) return `Kategoria ${empty + 1} nie ma jeszcze pól.`;
     return null;
   }
