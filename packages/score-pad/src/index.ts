@@ -123,12 +123,39 @@ export interface ScorePadEventMap {
   'scorepad:save': CustomEvent<ScorePadSaveDetail>;
 }
 
+/** Rodzaj kategorii notesu. */
+export type ScorePadLineKind = ScorePadLine['kind'];
+
+/** Stan `<score-pad-editor>` w trybie kreatora (EDT-9). */
+export interface ScorePadEditorStatus {
+  /** Bieżący krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola. */
+  readonly step: 1 | 2 | 3;
+  /** Trwa wczytywanie zdjęcia albo prostowanie kartki. */
+  readonly busy: boolean;
+  readonly photo: boolean;
+  /** Zmniejszony podgląd zdjęcia (data URL) albo pusty napis. */
+  readonly photoUrl: string;
+  /** Obszar kartki jest poprawny. */
+  readonly area: boolean;
+  /** Powód, dla którego pól i kategorii nie da się jeszcze zapisać, albo null. */
+  readonly fields: string | null;
+  /** Wyprostowana kartka (data URL) po wejściu w krok pól, albo pusty napis. */
+  readonly sheetUrl: string;
+  readonly seats: number;
+  readonly lines: readonly { readonly label: string; readonly kind: ScorePadLineKind }[];
+  /** Zmiany od otwarcia edytora. */
+  readonly dirty: boolean;
+  /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
+  readonly openFailed: boolean;
+}
+
 /** Zdarzenia `<score-pad-editor>`. */
 export interface ScorePadEditorEventMap {
   'scorepad-editor:export': CustomEvent<{
     readonly config: ScorePadFile;
     readonly via: 'file' | 'clipboard';
   }>;
+  'scorepad-editor:change': CustomEvent<ScorePadEditorStatus>;
 }
 
 /** Metody notesu używane przez aplikację (`ScorePad` w `core/viewer.ts`). */
@@ -173,7 +200,17 @@ export interface ScorePadElement extends HTMLElement {
 export interface ScorePadEditorElement extends HTMLElement {
   /** Notes do poprawienia; ustawiany przed dołączeniem elementu do strony. */
   template: ScorePadTemplate | undefined;
+  /** Tryb kreatora aplikacji (EDT-9); ustawiany przed dołączeniem elementu do strony. */
+  wizard: boolean;
   exportConfig(): ScorePadFile | null;
+  /** Stan edytora; null przed dołączeniem do strony. */
+  status(): ScorePadEditorStatus | null;
+  /** Wczytuje zdjęcie kartki. Odrzuca, gdy plik nie jest obrazem albo jest uszkodzony. */
+  loadPhoto(file: Blob): Promise<void>;
+  /** Wczytuje notes z pliku `.json` (szablon ze zdjęciem). */
+  loadTemplate(template: ScorePadTemplate): Promise<void>;
+  /** Przechodzi do kroku edytora, jeśli jest dostępny. */
+  goStep(step: 1 | 2 | 3): void;
   addEventListener<K extends keyof ScorePadEditorElementEventMap>(
     type: K,
     listener: Listener<ScorePadEditorElement, ScorePadEditorElementEventMap[K]>,

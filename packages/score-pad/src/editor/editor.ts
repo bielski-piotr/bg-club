@@ -1,5 +1,7 @@
 // Edytor notesu w trzech krokach: zdjęcie → kształt kartki → pola punktacji.
 // Działa samodzielnie (<score-pad-editor>) albo — na życzenie — jako nakładka w notesie.
+// W trybie kreatora (`wizard`, EDT-9) kroki, nawigację i wczytywanie zdjęcia prowadzi aplikacja:
+// edytor pokazuje tylko scenę z narzędziami bieżącego kroku i zgłasza zmiany stanu (`onChange`).
 
 import type { Pt, Quad } from './photo';
 import {
@@ -16,7 +18,7 @@ import {
   toJpeg,
   warp,
 } from './photo';
-import type { PadTemplate } from '../core/templates';
+import type { LineKind, PadTemplate } from '../core/templates';
 import { validateTemplate } from '../core/templates';
 import type { PadConfig } from '../core/settings';
 import type { ShapePt, SheetShape } from '../core/shape';
@@ -35,7 +37,7 @@ import { FieldsStep } from './fields';
 import { icon } from './icons';
 import { scorePadFileName } from '../file-name';
 
-type Step = 1 | 2 | 3;
+export type Step = 1 | 2 | 3;
 type Tool = 'none' | 'wand' | 'lasso';
 
 export interface EditorOptions {
@@ -47,6 +49,45 @@ export interface EditorOptions {
   onClose?(): void;
   /** Gotowy plik notesu (po zapisie albo skopiowaniu). */
   onExport?(config: PadConfig, via: 'file' | 'clipboard'): void;
+  /**
+   * Tryb kreatora: bez paska kroków, przycisków nawigacji i pola wczytywania zdjęcia (prowadzi
+   * je aplikacja). Wczytane zdjęcie nie przenosi do kroku 2.
+   */
+  wizard?: boolean;
+  /** Zmiana stanu edytora (`status()`): wczytanie, edycja, poprawność kroków. */
+  onChange?(status: EditorStatus): void;
+}
+
+/** Kategoria w stanie edytora (krok „Kategorie” kreatora). */
+export interface EditorLine {
+  readonly label: string;
+  readonly kind: LineKind;
+}
+
+/** Stan edytora dla kreatora w aplikacji. */
+export interface EditorStatus {
+  /** Bieżący krok edytora. */
+  readonly step: Step;
+  /** Trwa wczytywanie zdjęcia albo prostowanie kartki. */
+  readonly busy: boolean;
+  /** Jest zdjęcie (krok 1 poprawny). */
+  readonly photo: boolean;
+  /** Podgląd zdjęcia (zmniejszony, data URL) albo pusty napis. */
+  readonly photoUrl: string;
+  /** Obszar kartki jest poprawny (krok 2). */
+  readonly area: boolean;
+  /** Powód, dla którego pól i kategorii nie da się jeszcze zapisać, albo null. */
+  readonly fields: string | null;
+  /** Wyprostowana kartka (data URL) po wejściu w krok pól, albo pusty napis. */
+  readonly sheetUrl: string;
+  /** Liczba miejsc dla graczy. */
+  readonly seats: number;
+  /** Kategorie notesu w kolejności. */
+  readonly lines: readonly EditorLine[];
+  /** Notes został zmieniony od otwarcia edytora (zdjęcie, kształt, pola, kategorie). */
+  readonly dirty: boolean;
+  /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
+  readonly openFailed: boolean;
 }
 
 const STEPS: { n: Step; title: string; sub: string }[] = [
@@ -91,6 +132,11 @@ export class Editor {
   private step: Step = 1;
   private reached: Step = 1;
   private busy = '';
+  /** Zmiany od otwarcia edytora (EDT-1: ochrona przed utratą zmian). */
+  private dirty = false;
+  private notifyRaf = 0;
+  /** Nie udało się wczytać notesu otwartego do edycji (kreator: zdjęcie trzeba wczytać od nowa). */
+  private openFailed = false;
 
   // zdjęcie i kadr
   private src: HTMLCanvasElement | null = null;
@@ -131,6 +177,7 @@ export class Editor {
   ) {
     this.root = el('div', 'spe') as HTMLDivElement;
     this.root.dataset.step = '1';
+    if (opts.wizard) this.root.classList.add('wizard');
     if (opts.onClose) {
       this.root.classList.add('overlay');
       this.root.setAttribute('role', 'dialog');
@@ -207,7 +254,11 @@ export class Editor {
     mount.appendChild(this.root);
     this.bind();
     this.goStep(1);
-    if (opts.existing) void this.loadTemplate(opts.existing);
+    if (opts.existing)
+      this.loadTemplate(opts.existing).catch(() => {
+        this.openFailed = true;
+        this.notify();
+      });
   }
 
   // ─────────────────────────────────────────────── zdarzenia
@@ -262,11 +313,26 @@ export class Editor {
         void this.loadFile(f);
       }
     };
-    r.addEventListener('paste', (e) => paste(e, true));
-    // krok 1: obraz wklejony gdziekolwiek na stronie (fokus nie musi być w edytorze)
-    this.onDocPaste = (e) => paste(e, false);
-    document.addEventListener('paste', this.onDocPaste);
+    // W kreatorze zdjęcie (także ze schowka) wczytuje aplikacja.
+    if (!this.opts.wizard) {
+      r.addEventListener('paste', (e) => paste(e, true));
+      // krok 1: obraz wklejony gdziekolwiek na stronie (fokus nie musi być w edytorze)
+      this.onDocPaste = (e) => paste(e, false);
+      document.addEventListener('paste', this.onDocPaste);
+    }
     r.addEventListener('keydown', (e) => this.onKey(e));
+    // Zmiany użytkownika: pola i przyciski narzędzi oraz przeciąganie na scenie (EDT-1). Klik
+    // bez skutku też liczy się jako zmiana; zbędne pytanie o odrzucenie zmian jest mniejszym złem
+    // niż utracona praca.
+    const touched = (): void => this.touch();
+    for (const part of [this.toolbar, this.panel]) {
+      part.addEventListener('input', touched);
+      part.addEventListener('change', touched);
+      part.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('button:not(:disabled)')) touched();
+      });
+    }
+    this.svg.addEventListener('pointerdown', touched);
     this.svg.addEventListener('pointerdown', (e) => this.onDown(e));
     this.svg.addEventListener('pointermove', (e) => this.onMove(e));
     const up = (e: PointerEvent): void => this.onUp(e);
@@ -278,6 +344,7 @@ export class Editor {
 
   /** Odpina nasłuch dokumentu i obserwatora (element usunięty ze strony). */
   destroy(): void {
+    cancelAnimationFrame(this.notifyRaf);
     if (this.onDocPaste) document.removeEventListener('paste', this.onDocPaste);
     this.onDocPaste = null;
     this.resizeObs?.disconnect();
@@ -287,13 +354,19 @@ export class Editor {
   private onKey(e: KeyboardEvent): void {
     const typing = !!(e.target as HTMLElement).closest('input, select, textarea');
     if (e.key === 'Escape') {
+      // Esc obsłużony w edytorze nie zamyka popupu, w którym edytor jest osadzony.
       if (this.lasso) {
+        e.preventDefault();
         this.lasso = null;
         this.render();
         return;
       }
-      if (this.step === 3 && this.fields.key(e)) return;
+      if (this.step === 3 && this.fields.key(e)) {
+        e.preventDefault();
+        return;
+      }
       if (this.tool !== 'none' && this.step === 2) {
+        e.preventDefault();
         this.setTool('none');
         return;
       }
@@ -303,10 +376,14 @@ export class Editor {
     if (typing) return;
     if (this.step === 2 && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault();
+      this.touch();
       this.undo();
       return;
     }
-    if (this.step === 3 && this.fields.key(e)) e.preventDefault();
+    if (this.step === 3 && this.fields.key(e)) {
+      e.preventDefault();
+      this.touch();
+    }
   }
 
   private close(): void {
@@ -329,6 +406,40 @@ export class Editor {
     this.busy = on;
     this.root.classList.toggle('busy', !!on);
     this.root.dataset.busy = on;
+    this.notify();
+  }
+
+  /** Zmiana wprowadzona przez użytkownika. */
+  private touch(): void {
+    if (this.dirty) return;
+    this.dirty = true;
+    this.notify();
+  }
+
+  /** Zgłasza stan aplikacji, najwyżej raz na klatkę. */
+  private notify(): void {
+    if (!this.opts.onChange || this.notifyRaf) return;
+    this.notifyRaf = requestAnimationFrame(() => {
+      this.notifyRaf = 0;
+      if (this.root.isConnected) this.opts.onChange?.(this.status());
+    });
+  }
+
+  /** Stan edytora dla kreatora w aplikacji (EDT-9). */
+  status(): EditorStatus {
+    return {
+      step: this.step,
+      busy: !!this.busy,
+      photo: !!this.src,
+      photoUrl: this.srcUrl,
+      area: !!this.src && this.shapeOk(),
+      fields: this.fields.problem(),
+      sheetUrl: this.sheetUrl,
+      seats: this.fields.players(),
+      lines: this.fields.draft.lines.map((l) => ({ label: l.label, kind: l.kind })),
+      dirty: this.dirty,
+      openFailed: this.openFailed,
+    };
   }
 
   // ─────────────────────────────────────────────── kroki
@@ -390,8 +501,14 @@ export class Editor {
     if (s === 2 || s === 3) this.svg.focus({ preventScroll: true });
   }
 
+  /** Bieżący krok. */
+  get current(): Step {
+    return this.step;
+  }
+
   /** Pasek kroków i przyciski nawigacji. */
   private renderChrome(): void {
+    this.notify();
     this.root.querySelectorAll<HTMLElement>('.spe-step').forEach((li) => {
       const n = Number(li.dataset.s) as Step;
       const done = n === 3 ? this.exported : n < this.reached && this.complete(n);
@@ -431,21 +548,27 @@ export class Editor {
 
   // ─────────────────────────────────────────────── krok 1: zdjęcie
 
-  private async loadFile(f: File | Blob): Promise<void> {
+  /**
+   * Wczytuje zdjęcie kartki albo (poza kreatorem) plik notesu `.json`. W kreatorze zwraca
+   * błąd zamiast komunikatu w edytorze, bo komunikaty pokazuje aplikacja.
+   */
+  async loadFile(f: File | Blob): Promise<void> {
     if (this.busy) return;
     const isJson = f.type === 'application/json' || ('name' in f && /\.json$/i.test(f.name));
-    if (isJson) {
+    if (isJson && !this.opts.wizard) {
       try {
         const raw = JSON.parse(await f.text()) as PadConfig & Record<string, unknown>;
         const t = validateTemplate(raw.template ?? raw.templates?.[0] ?? raw);
         if (!t || !t.image) throw new Error('To nie jest plik notesu ze zdjęciem kartki.');
         await this.loadTemplate(t);
+        this.touch();
       } catch (err) {
         this.toast((err as Error).message || 'Nie udało się wczytać pliku.');
       }
       return;
     }
-    if (f.type && !f.type.startsWith('image/')) {
+    if (isJson || (f.type && !f.type.startsWith('image/'))) {
+      if (this.opts.wizard) throw new EditorLoadError('type');
       this.toast('Wybierz zdjęcie (JPG, PNG) albo plik notesu .json.');
       return;
     }
@@ -460,17 +583,27 @@ export class Editor {
       this.sheet = null;
       this.sheetKey = '';
       this.reached = 1;
+      this.dirty = true;
       this.setBusy('');
-      this.goStep(2);
+      if (this.opts.wizard) this.show(1);
+      else this.goStep(2);
     } catch (err) {
       this.setBusy('');
+      if (this.opts.wizard) throw new EditorLoadError('image');
       this.toast((err as Error).message || 'Nie udało się wczytać zdjęcia.');
     }
   }
 
-  /** Notes do poprawienia: zdjęcie już wyprostowane, więc kadr to całe zdjęcie. */
-  private async loadTemplate(t: PadTemplate): Promise<void> {
-    if (!t.image) return;
+  /**
+   * Notes do poprawienia: zdjęcie już wyprostowane, więc kadr to całe zdjęcie. `imported`
+   * (plik `.json` w kreatorze) liczy się jako zmiana; notes otwarty do edycji nie.
+   */
+  async loadTemplate(t: PadTemplate, imported = false): Promise<void> {
+    if (!t.image) {
+      if (this.opts.wizard) throw new EditorLoadError('image');
+      return;
+    }
+    if (this.busy && this.busy !== 'load') return;
     this.setBusy('load');
     try {
       const c = await canvasFromUrl(t.image);
@@ -490,11 +623,14 @@ export class Editor {
       // Zdjęcie bez zmian zapisujemy tym samym plikiem (bez ponownej kompresji JPEG, [015]).
       this.loadedImage = { url: t.image, key: this.sheetWant() };
       this.refreshSrcUrl();
-      this.setBusy('');
       this.reached = 3;
-      this.goStep(3);
+      if (imported) this.dirty = true;
+      this.setBusy('');
+      if (this.opts.wizard) this.show(1);
+      else this.goStep(3);
     } catch (err) {
       this.setBusy('');
+      if (this.opts.wizard) throw new EditorLoadError('image');
       this.toast((err as Error).message || 'Nie udało się wczytać notesu.');
     }
   }
@@ -841,6 +977,7 @@ export class Editor {
   render(): void {
     cancelAnimationFrame(this.raf);
     this.raf = requestAnimationFrame(() => this.draw());
+    this.notify();
   }
 
   /** Ustawia obraz (href tylko przy zmianie — bez ponownego dekodowania co klatkę). */
@@ -1141,6 +1278,14 @@ export class Editor {
 }
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
+
+/** Nieudane wczytanie w kreatorze: plik nie jest obrazem (`type`) albo obrazu nie da się odczytać. */
+export class EditorLoadError extends Error {
+  constructor(readonly reason: 'type' | 'image') {
+    super(`score-pad-editor: ${reason}`);
+    this.name = 'EditorLoadError';
+  }
+}
 
 /** Zapis pliku: w podglądzie Claude przez zgodę na pobranie, na zwykłej stronie od razu. */
 async function saveText(

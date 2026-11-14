@@ -73,3 +73,22 @@ export function usePopupLevel(): PopupLevel {
   if (!value) throw new Error('usePopupLevel wymaga popupu w <PopupHost>');
   return value;
 }
+
+/**
+ * Ochrona popupu przed zamknięciem, np. przy niezapisanych zmianach (EDT-1). Dostaje `leave`,
+ * które zamyka popup mimo ochrony; popup może je wywołać od razu albo po potwierdzeniu.
+ */
+export type LeaveGuard = (leave: () => void) => void;
+
+export interface PopupGuards {
+  /** Ustawia (albo zdejmuje, `null`) ochronę popupu na poziomie `level`. */
+  readonly set: (level: number, guard: LeaveGuard | null) => void;
+}
+
+export const PopupGuardsContext = createContext<PopupGuards | null>(null);
+
+export function usePopupGuards(): PopupGuards {
+  const value = useContext(PopupGuardsContext);
+  if (!value) throw new Error('usePopupGuards wymaga <PopupRouter>');
+  return value;
+}

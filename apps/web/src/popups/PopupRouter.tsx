@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   PopupContext,
+  PopupGuardsContext,
   PopupOpenersContext,
+  type LeaveGuard,
   type PopupApi,
+  type PopupGuards,
   type PopupOpeners,
 } from './popupContext';
-import { parseStack, stackSearch, type PopupRoute } from './routes';
+import { parseStack, routeKey, stackSearch, type PopupRoute } from './routes';
 
 /** Ile wpisów historii nad wpisem startowym dołożyła aplikacja, otwierając popupy. */
 interface PopupHistoryState {
@@ -26,6 +29,21 @@ function urlWith(stack: readonly PopupRoute[]): string {
   return `${pathname}${stackSearch(search, stack)}${hash}`;
 }
 
+/** Najwyższy poziom z ochroną, którego popup znika (albo zmienia się) przy przejściu `before` → `after`. */
+function lostGuardLevel(
+  guards: ReadonlyMap<number, LeaveGuard>,
+  before: readonly PopupRoute[],
+  after: readonly PopupRoute[],
+): number | undefined {
+  for (let level = before.length - 1; level >= 0; level--) {
+    if (!guards.has(level)) continue;
+    const kept = after[level];
+    if (!kept || routeKey(kept, level) !== routeKey(before[level] as PopupRoute, level))
+      return level;
+  }
+  return undefined;
+}
+
 /**
  * Stos popupów zapisany w adresie (PRD §4, `routes.ts`).
  *
@@ -35,6 +53,9 @@ function urlWith(stack: readonly PopupRoute[]): string {
  *   z linku albo po odświeżeniu nie ma czego cofać, więc wpis jest podmieniany (Wstecz nie
  *   wyprowadza wtedy z aplikacji ani nie otwiera popupu ponownie).
  * - × zamyka cały stos: cofa wszystkie wpisy dodane przez aplikację i czyści resztę z adresu.
+ * - Popup z ochroną (`useLeaveGuard`, np. niezapisane zmiany) sam decyduje o zamknięciu przez
+ *   Esc, ←, × i tło. Wstecz w przeglądarce cofa się od razu, więc router przywraca adres popupu
+ *   (nowy wpis historii) i pyta ochronę; potwierdzenie cofa ten wpis.
  */
 export function PopupRouter({ children }: { readonly children: ReactNode }) {
   const [search, setSearch] = useState(() => window.location.search);
@@ -48,6 +69,22 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
    */
   const navigating = useRef(false);
   const openerList = useRef<(Element | null)[]>([]);
+  const guardMap = useRef(new Map<number, LeaveGuard>());
+  /** Adres (część `search`) ostatnio pokazanego stosu: do przywrócenia po Wstecz z ochroną. */
+  const shownSearch = useRef(search);
+  const guards = useMemo<PopupGuards>(
+    () => ({
+      set: (level, guard) => {
+        if (guard) guardMap.current.set(level, guard);
+        else guardMap.current.delete(level);
+      },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    shownSearch.current = search;
+  }, [search]);
   const openers = useMemo<PopupOpeners>(
     () => ({
       remember: (level, opener) => {
@@ -64,7 +101,28 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
 
   useEffect(() => {
     const onPopState = () => {
+      const fromApp = navigating.current;
       navigating.current = false;
+      if (!fromApp) {
+        const before = shownSearch.current;
+        const level = lostGuardLevel(
+          guardMap.current,
+          parseStack(before),
+          parseStack(window.location.search),
+        );
+        const guard = level === undefined ? undefined : guardMap.current.get(level);
+        if (guard) {
+          const { pathname, hash } = window.location;
+          const state: PopupHistoryState = { bgPopupDepth: currentDepth() + 1 };
+          window.history.pushState(state, '', `${pathname}${before}${hash}`);
+          guard(() => {
+            if (navigating.current) return;
+            navigating.current = true;
+            window.history.back();
+          });
+          return;
+        }
+      }
       if (clearAfterPop.current) {
         clearAfterPop.current = false;
         if (parseStack(window.location.search).length > 0) {
@@ -89,10 +147,18 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
     [openers],
   );
 
-  const back = useCallback(() => {
+  const back = useCallback(function back() {
     if (navigating.current) return;
     const current = parseStack(window.location.search);
     if (current.length === 0) return;
+    const guard = guardMap.current.get(current.length - 1);
+    if (guard) {
+      guard(() => {
+        guardMap.current.delete(current.length - 1);
+        back();
+      });
+      return;
+    }
     if (currentDepth() > 0) {
       navigating.current = true;
       window.history.back();
@@ -102,8 +168,18 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
     setSearch(window.location.search);
   }, []);
 
-  const closeAll = useCallback(() => {
-    if (navigating.current || parseStack(window.location.search).length === 0) return;
+  const closeAll = useCallback(function closeAll() {
+    const current = parseStack(window.location.search);
+    if (navigating.current || current.length === 0) return;
+    const level = lostGuardLevel(guardMap.current, current, []);
+    const guard = level === undefined ? undefined : guardMap.current.get(level);
+    if (level !== undefined && guard) {
+      guard(() => {
+        guardMap.current.delete(level);
+        closeAll();
+      });
+      return;
+    }
     const depth = currentDepth();
     if (depth > 0) {
       navigating.current = true;
@@ -127,7 +203,9 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
 
   return (
     <PopupOpenersContext.Provider value={openers}>
-      <PopupContext.Provider value={api}>{children}</PopupContext.Provider>
+      <PopupGuardsContext.Provider value={guards}>
+        <PopupContext.Provider value={api}>{children}</PopupContext.Provider>
+      </PopupGuardsContext.Provider>
     </PopupOpenersContext.Provider>
   );
 }
