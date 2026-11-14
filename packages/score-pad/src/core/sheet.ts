@@ -138,18 +138,20 @@ class Painter {
       } else if (ln.kind === 'input') {
         const draft = s.draft && s.draft.key === sp.key ? s.draft : null;
         const cell = cellOf(d, t, sp);
-        if (draft) {
-          if (draft.text)
-            anim =
-              hand(
-                g,
-                draft.text,
-                cx,
-                cy,
-                digitSize(r.w, r.h, Math.max(digitsOf(ln), draft.text.length), res),
-                draft.ink,
-                now,
-              ) || anim;
+        if (draft && cell) {
+          // układ jak po zatwierdzeniu (drawCell): poprzedni wpis mały z lewej, nowy w tym samym
+          // miejscu i rozmiarze, więc cyfry nie przeskakują; przekreślenie dochodzi przy zapisie
+          const n = parseInt(draft.text.replace('−', '-'), 10);
+          const size = digitSize(r.w, r.h, digitsOf(ln), res);
+          const old = cell.cur ?? cell.old;
+          const view = {
+            old,
+            strike: cell.cur ? null : cell.strike,
+            cur: Number.isFinite(n) ? { value: n, scratch: false, ink: draft.ink } : null,
+          };
+          anim = drawCell(g, view, cx, cy, size, r.w, now, pen) || anim;
+          if (draft.text === '−')
+            hand(g, '−', old ? cx + r.w * 0.13 : cx, cy, size, draft.ink, now);
         } else if (cell)
           anim =
             drawCell(g, cell, cx, cy, digitSize(r.w, r.h, digitsOf(ln), res), r.w, now, pen) ||

@@ -52,13 +52,20 @@ export function stepTyped(line: LineDef, text: string, dir: 1 | -1): string {
 /**
  * Następne (`dir` = 1) albo poprzednie pole kategorii punktowej tego samego gracza; po ostatnim
  * fokus przechodzi do pierwszego pola następnego gracza (Shift+Tab: do ostatniego poprzedniego).
- * Pomija pola imion, sumy, premie i pola bez wpisu (PAD-15).
+ * Pomija pola imion, sumy, premie i pola bez wpisu (PAD-15), a z `seat` także miejsca, dla
+ * których zwraca `false` (np. puste miejsca notesu bez gracza).
  */
-export function nextInput(t: PadTemplate, sp: Spot, dir: 1 | -1): Spot | null {
+export function nextInput(
+  t: PadTemplate,
+  sp: Spot,
+  dir: 1 | -1,
+  seat?: (p: number) => boolean,
+): Spot | null {
   const n = playerCount(t);
   const ins = spots(t).filter((x) => t.lines[x.li].kind === 'input');
   if (!ins.length || !n) return null;
-  const by = (p: number): Spot[] => ins.filter((x) => x.p === p);
+  const by = (p: number): Spot[] =>
+    p === sp.p || !seat || seat(p) ? ins.filter((x) => x.p === p) : [];
   let p = sp.p;
   let list = by(p);
   let k = list.findIndex((x) => x.key === sp.key) + dir;

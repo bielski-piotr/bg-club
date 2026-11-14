@@ -232,6 +232,8 @@ export class ScorePad {
   private entry: { spot: Spot; neg: boolean; orig: string } | null = null;
   /** Ostatnio ustawione położenie pola i paska wpisywania (bez zbędnych zapisów stylu). */
   private entryPos = '';
+  /** Rozmiar paska przy polu wpisywania (mierzony po zmianie zawartości). */
+  private barDims: { w: number; h: number } | null = null;
   private raycaster!: THREE.Raycaster;
   private ndc!: THREE.Vector2;
   private drag: Drag | null = null;
@@ -497,9 +499,9 @@ export class ScorePad {
             <button type="button" class="en-btn en-sign" aria-label="Zmień znak na przeciwny" title="Zmień znak">±</button>
             <button type="button" class="en-btn en-scratch">Skreśl</button>
             <button type="button" class="en-btn en-next" aria-label="Następne pole">Dalej</button>
+            <span class="en-hint" id="en-hint"></span>
             <p class="en-err" id="en-err" aria-live="assertive"></p>
           </div>
-          <span class="en-hint" id="en-hint" hidden></span>
         </div>
         <div class="tension" hidden aria-hidden="true">
           <svg viewBox="0 0 40 40"><circle class="t-trk" cx="20" cy="20" r="16"/><circle class="t-val" cx="20" cy="20" r="16" pathLength="100"/></svg>
@@ -792,7 +794,13 @@ export class ScorePad {
     this.wrap.classList.toggle('narrow', w < 560);
     this.camera.aspect = w / h;
     this.poseCamera();
-    if (this.pickerOpen) this.closePicker();
+    if (this.pickerOpen) this.closeNamePicker();
+    // klawiatura ekranowa może zmienić rozmiar notesu: wpisywanie zostaje, pole wraca do kadru
+    if (this.entry) {
+      this.entryPos = '';
+      this.placeEntry();
+      this.revealEntry();
+    }
   }
 
   /**
@@ -861,7 +869,8 @@ export class ScorePad {
     this.wrap.classList.toggle('from-below', !front);
     if (this.under) this.under.intensity = front ? 0 : 0.9;
     if (!front) {
-      if (this.pickerOpen) this.closePicker();
+      // od spodu notesu nie da się wpisywać (także w zaznaczone wcześniej pole)
+      this.closePicker();
       if (this.drag) this.endDrag(true);
       if (this.active && this.active.cloth.hoverWant) this.active.cloth.hoverWant = 0;
     }
@@ -902,13 +911,18 @@ export class ScorePad {
     const home = this.homePose(1).dist;
     // kamera odsunięta przez autoZoom dalej niż zwykły limit nie przeskakuje przy pierwszym ruchu
     zoomPose(p, point, k, home / MAX_ZOOM, Math.max(home / MIN_ZOOM, p.dist));
-    // punkt obrotu zostaje przy notesie, żeby obrót po oddaleniu nie wyrzucał go z kadru
+    this.clampTarget(p);
+    this.poseCamera();
+  }
+
+  /** Punkt obrotu zostaje przy notesie, żeby obrót po oddaleniu nie wyrzucał go z kadru. */
+  private clampTarget(p: OrbitPose): void {
+    if (!this.spec || !this.pad) return;
     const { W, H } = this.spec;
     const lim = Math.max(W, H) * 0.75;
     p.target.x = clamp(p.target.x, -lim, lim);
     p.target.z = clamp(p.target.z, -lim, lim);
     p.target.y = clamp(p.target.y, -lim, this.pad.top + lim);
-    this.poseCamera();
   }
 
   /** Punkt sceny pod kursorem: notes albo kartka, a poza nimi płaszczyzna punktu obrotu. */
@@ -1854,6 +1868,8 @@ export class ScorePad {
     const sheet = this.active;
     const t = this.t;
     if (!sheet || !t || !this.pad) return;
+    // poprawny wpis z klawiatury trafia na odrywaną kartkę
+    this.closePicker();
     const cl = sheet.cloth;
     for (let i = 0; i < cl.s.NX; i++) cl.release(i);
     cl.endGrab();
@@ -1945,9 +1961,12 @@ export class ScorePad {
   }
 
   /** Punkt kartki na ekranie; (u, v) we współrzędnych tekstury treści (v = 1 u góry). */
-  private screenOf(u: number, v: number): { x: number; y: number } {
+  private screenOf(
+    u: number,
+    v: number,
+    r: { width: number; height: number } = this.wrap.getBoundingClientRect(),
+  ): { x: number; y: number } {
     const p = this.sheetPoint(u, v).project(this.camera);
-    const r = this.wrap.getBoundingClientRect();
     return { x: ((p.x + 1) / 2) * r.width, y: ((1 - p.y) / 2) * r.height };
   }
 
@@ -2073,6 +2092,11 @@ export class ScorePad {
         inp.value = stepTyped(line, inp.value, k === 'ArrowUp' ? 1 : -1);
         inp.setSelectionRange(inp.value.length, inp.value.length);
         this.typed();
+      } else if ((k === 'Backspace' || k === 'Delete') && !inp.value && this.scratched()) {
+        // skreślone pole: Backspace w pustym polu usuwa skreślenie
+        e.preventDefault();
+        this.setValue(en.spot, null, false);
+        this.syncScratch();
       }
     });
     // fokus poza notesem (np. pasek aplikacji): wpis zostaje zapisany, gdy jest poprawny
@@ -2092,6 +2116,15 @@ export class ScorePad {
     this.ui.enScratch.addEventListener('click', () => {
       const en = this.entry;
       if (!en) return;
+      // drugie naciśnięcie w skreślonym polu usuwa skreślenie
+      if (this.scratched()) {
+        this.setValue(en.spot, null, false);
+        en.orig = '';
+        inp.value = '';
+        this.typed();
+        this.syncScratch();
+        return;
+      }
       this.setValue(en.spot, 0, true);
       this.moveEntry(1);
     });
@@ -2111,6 +2144,18 @@ export class ScorePad {
         vv.removeEventListener('scroll', onViewport);
       });
     }
+  }
+
+  /** Czy zaznaczone pole jest skreślone. */
+  private scratched(): boolean {
+    const en = this.entry;
+    const a = this.active;
+    if (!en || !a || !this.t) return false;
+    return !!cellOf(a.data, this.t, en.spot)?.cur?.scratch;
+  }
+
+  private syncScratch(): void {
+    this.ui.enScratch.setAttribute('aria-pressed', String(this.scratched()));
   }
 
   /** Dotknięcie albo kliknięcie pola punktów: zaznacza je i od razu przyjmuje cyfry. */
@@ -2149,14 +2194,16 @@ export class ScorePad {
     const inp = this.enIn;
     inp.value = orig;
     inp.setAttribute('aria-label', `${line.label}, ${who}`);
-    this.ui.enHint.textContent = [which, line.hint, `dozwolone: ${describeValues(line)}`]
+    // zakres widać przy polu, zanim wpis zostanie odrzucony; dowolna liczba nie potrzebuje opisu
+    this.ui.enHint.textContent = [which, line.hint, line.free ? '' : describeValues(line)]
       .filter(Boolean)
       .join(' · ');
     const coarse = this.coarse();
     this.ui.enSign.hidden = !neg || !coarse;
     this.ui.enNext.hidden = !coarse;
     this.ui.enScratch.hidden = !line.scratch;
-    this.ui.enScratch.setAttribute('aria-pressed', String(!!cell.cur?.scratch));
+    this.syncScratch();
+    this.barDims = null;
     this.showEntryError('');
     a.focus = sp;
     a.draft = null;
@@ -2177,7 +2224,7 @@ export class ScorePad {
     if (!en || !a || !this.t) return null;
     const text = this.enIn.value;
     const res = checkTyped(this.t.lines[en.spot.li], text);
-    // błąd pokazujemy przy zatwierdzeniu, a po poprawce znika od razu
+    // błąd pokazujemy przy zatwierdzeniu, a po poprawce (albo kolejnym znaku) znika od razu
     if (showError || this.ui.enErr.textContent) this.showEntryError(res.error);
     a.draft =
       text === en.orig
@@ -2185,29 +2232,37 @@ export class ScorePad {
         : {
             key: en.spot.key,
             text: text.replace('-', '−'),
-            bad: !!this.ui.enErr.textContent,
+            bad: !!res.error && !!this.ui.enErr.textContent,
             ink: a.draft?.key === en.spot.key ? a.draft.ink : inkDone(),
           };
     a.dirty = true;
     return res;
   }
 
-  private showEntryError(msg: string): void {
+  /** Komunikat przy polu; `bad` (domyślnie przy komunikacie) oznacza wpis, który nie przejdzie. */
+  private showEntryError(msg: string, bad = !!msg): void {
     const inp = this.enIn;
-    this.ui.enErr.textContent = msg;
-    if (msg) inp.setAttribute('aria-invalid', 'true');
+    if (this.ui.enErr.textContent !== msg) {
+      this.ui.enErr.textContent = msg;
+      this.barDims = null;
+    }
+    if (bad) inp.setAttribute('aria-invalid', 'true');
     else inp.removeAttribute('aria-invalid');
-    this.ui.entry.classList.toggle('bad', !!msg);
+    this.ui.entry.classList.toggle('bad', bad);
     const bar = this.ui.enBar;
     const show =
-      !!msg || !this.ui.enSign.hidden || !this.ui.enNext.hidden || !this.ui.enScratch.hidden;
+      !!msg ||
+      !!this.ui.enHint.textContent ||
+      !this.ui.enSign.hidden ||
+      !this.ui.enNext.hidden ||
+      !this.ui.enScratch.hidden;
     if (bar.hidden === show) {
       bar.hidden = !show;
       this.entryPos = '';
     }
     const a = this.active;
-    if (a?.draft) {
-      a.draft.bad = !!msg;
+    if (a?.draft && a.draft.bad !== bad) {
+      a.draft.bad = bad;
       a.dirty = true;
     }
     if (this.entry) this.placeEntry();
@@ -2217,7 +2272,9 @@ export class ScorePad {
     const en = this.entry;
     if (!en) return;
     if (!en.neg) {
-      if (force !== false) this.showEntryError('Ta kategoria nie przyjmuje ujemnych punktów.');
+      // tylko ostrzeżenie: wpis w polu dalej jest poprawny
+      if (force !== false)
+        this.showEntryError('Ta kategoria nie przyjmuje ujemnych punktów.', false);
       return;
     }
     const inp = this.enIn;
@@ -2226,16 +2283,19 @@ export class ScorePad {
     this.typed();
   }
 
-  /** Zapisuje zmieniony wpis na kartce; `false`, gdy wpis jest spoza zakresu (błąd przy polu). */
-  private applyEntry(): boolean {
+  /**
+   * Zapisuje zmieniony wpis na kartce; `false`, gdy wpis jest spoza zakresu. Bez `silent` błąd
+   * staje przy polu, a fokus zostaje w polu.
+   */
+  private applyEntry(silent = false): boolean {
     const en = this.entry;
     const a = this.active;
-    if (!en || !a) return true;
+    if (!en || !a || !this.t) return true;
     const text = this.enIn.value;
     if (text === en.orig) return true;
-    const res = this.typed(true);
+    const res = silent ? checkTyped(this.t.lines[en.spot.li], text) : this.typed(true);
     if (!res || res.error) {
-      this.enIn.focus({ preventScroll: true });
+      if (!silent) this.enIn.focus({ preventScroll: true });
       return false;
     }
     // cyfry były już widoczne na kartce: zostają w tym samym miejscu, bez ponownego pisania
@@ -2251,19 +2311,26 @@ export class ScorePad {
     this.moveEntry(move);
   }
 
-  /** Następna albo poprzednia kategoria punktowa (PAD-15); bez niej wpisywanie się kończy. */
+  /**
+   * Następna albo poprzednia kategoria punktowa (PAD-15); bez niej wpisywanie się kończy. Gdy
+   * kartka ma imiona graczy, fokus chodzi tylko po miejscach z imieniem (puste miejsca notesu
+   * są pomijane).
+   */
   private moveEntry(move: 1 | -1): void {
     const en = this.entry;
-    if (!en || !this.t) return;
-    const next = nextInput(this.t, en.spot, move);
+    const a = this.active;
+    if (!en || !a || !this.t) return;
+    const names = a.data.names;
+    const seat = names.some(Boolean) ? (p: number): boolean => !!names[p] : undefined;
+    const next = nextInput(this.t, en.spot, move, seat);
     if (next) this.selectCell(next);
     else this.closeEntry(true);
   }
 
-  /** Kończy wpisywanie: zapisuje poprawny wpis, a błędny porzuca. */
+  /** Kończy wpisywanie: zapisuje poprawny wpis, a błędny porzuca (bez komunikatu). */
   private leaveEntry(): void {
     if (!this.entry) return;
-    if (!this.applyEntry()) this.enIn.value = this.entry?.orig ?? '';
+    this.applyEntry(true);
     this.closeEntry(false);
   }
 
@@ -2274,6 +2341,7 @@ export class ScorePad {
     this.ui.entry.hidden = true;
     this.ui.entry.classList.remove('bad');
     this.ui.enErr.textContent = '';
+    this.enIn.removeAttribute('aria-invalid');
     const a = this.active;
     if (a) {
       a.focus = null;
@@ -2288,14 +2356,14 @@ export class ScorePad {
     }
   }
 
-  /** Pole na ekranie (względem notesu): prostokąt opisany na rogach pola na kartce. */
-  private cellBox(sp: Spot): Box {
+  /** Pole na ekranie (względem notesu `wr`): prostokąt opisany na rogach pola na kartce. */
+  private cellBox(sp: Spot, wr: DOMRect = this.wrap.getBoundingClientRect()): Box {
     const r = sp.rect;
     const pts = [
-      this.screenOf(r.x, 1 - r.y),
-      this.screenOf(r.x + r.w, 1 - r.y),
-      this.screenOf(r.x, 1 - r.y - r.h),
-      this.screenOf(r.x + r.w, 1 - r.y - r.h),
+      this.screenOf(r.x, 1 - r.y, wr),
+      this.screenOf(r.x + r.w, 1 - r.y, wr),
+      this.screenOf(r.x, 1 - r.y - r.h, wr),
+      this.screenOf(r.x + r.w, 1 - r.y - r.h, wr),
     ];
     const xs = pts.map((p) => p.x);
     const ys = pts.map((p) => p.y);
@@ -2305,8 +2373,7 @@ export class ScorePad {
   }
 
   /** Widoczna część notesu: bez paska u góry i bez klawiatury ekranowej (visualViewport). */
-  private visibleBox(): Box {
-    const r = this.wrap.getBoundingClientRect();
+  private visibleBox(r: DOMRect = this.wrap.getBoundingClientRect()): Box {
     let top = 0;
     let left = 0;
     let bottom = r.height;
@@ -2319,50 +2386,66 @@ export class ScorePad {
       right = Math.min(right, vv.offsetLeft + vv.width - r.left);
     }
     const bar = this.root.querySelector('.bar') as HTMLElement | null;
-    if (bar && bar.offsetParent) {
+    if (bar && !bar.hidden) {
       const b = bar.getBoundingClientRect();
-      top = Math.max(top, b.bottom - r.top);
+      if (b.height) top = Math.max(top, b.bottom - r.top);
     }
     return { x: left, y: top, w: Math.max(0, right - left), h: Math.max(0, bottom - top) };
   }
 
-  /** Ustawia niewidoczne pole wpisywania nad polem kartki i pasek (±, Dalej, błąd) obok niego. */
+  /** Rozmiar paska przy polu (mierzony raz po zmianie zawartości). */
+  private barSize(): { w: number; h: number } {
+    const bar = this.ui.enBar;
+    if (bar.hidden) return { w: 0, h: 0 };
+    this.barDims ??= { w: bar.offsetWidth, h: bar.offsetHeight };
+    return this.barDims;
+  }
+
+  /**
+   * Ustawia niewidoczne pole wpisywania nad polem kartki i pasek (zakres, ±, Dalej, błąd) obok
+   * niego. Wywoływane w każdej klatce: najpierw odczyty, potem zapisy stylu, tylko po zmianie.
+   */
   private placeEntry(): void {
     const en = this.entry;
     if (!en || !this.active) return;
-    const b = this.cellBox(en.spot);
+    const wr = this.wrap.getBoundingClientRect();
+    const b = this.cellBox(en.spot, wr);
     const bar = this.ui.enBar;
     const key = `${b.x | 0},${b.y | 0},${b.w | 0},${b.h | 0},${bar.hidden}`;
     if (key === this.entryPos) return;
     this.entryPos = key;
+    let pos: { x: number; y: number } | null = null;
+    if (!bar.hidden) {
+      const view = this.visibleBox(wr);
+      const { w: bw, h: bh } = this.barSize();
+      const x = clamp(
+        b.x + b.w / 2 - bw / 2,
+        view.x + 8,
+        Math.max(view.x + 8, view.x + view.w - bw - 8),
+      );
+      let y = b.y + b.h + 8;
+      if (y + bh > view.y + view.h - 8 && b.y - 8 - bh >= view.y) y = b.y - 8 - bh;
+      pos = { x, y };
+    }
     const inp = this.enIn;
     inp.style.left = `${b.x}px`;
     inp.style.top = `${b.y}px`;
     inp.style.width = `${Math.max(1, b.w)}px`;
     inp.style.height = `${Math.max(1, b.h)}px`;
-    if (bar.hidden) return;
-    const view = this.visibleBox();
-    const bw = bar.offsetWidth;
-    const bh = bar.offsetHeight;
-    const x = clamp(
-      b.x + b.w / 2 - bw / 2,
-      view.x + 8,
-      Math.max(view.x + 8, view.x + view.w - bw - 8),
-    );
-    let y = b.y + b.h + 8;
-    if (y + bh > view.y + view.h - 8 && b.y - 8 - bh >= view.y) y = b.y - 8 - bh;
-    bar.style.left = `${x}px`;
-    bar.style.top = `${y}px`;
+    if (pos) {
+      bar.style.left = `${pos.x}px`;
+      bar.style.top = `${pos.y}px`;
+    }
   }
 
   /** Przesuwa widok, gdy zaznaczone pole (z paskiem) wychodzi poza kadr (PAD-15). */
   private revealEntry(): void {
     const en = this.entry;
     if (!en || !this.active || !this.spec) return;
-    const b = this.cellBox(en.spot);
-    const bar = this.ui.enBar;
-    const extra = bar.hidden ? 0 : bar.offsetHeight + 8;
-    const { dx, dy } = revealShift({ ...b, h: b.h + extra }, this.visibleBox(), 12);
+    const wr = this.wrap.getBoundingClientRect();
+    const b = this.cellBox(en.spot, wr);
+    const extra = this.ui.enBar.hidden ? 0 : this.barSize().h + 8;
+    const { dx, dy } = revealShift({ ...b, h: b.h + extra }, this.visibleBox(wr), 12);
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
     const p = this.freePose();
     if (!p) return;
@@ -2371,11 +2454,12 @@ export class ScorePad {
     const pt = this.sheetPoint(r.x + r.w / 2, 1 - r.y - r.h / 2);
     const cam = this.camera;
     const depth = Math.max(0.01, -pt.clone().applyMatrix4(cam.matrixWorldInverse).z);
-    const h = this.renderer.domElement.clientHeight || this.wrap.clientHeight || 1;
+    const h = this.renderer.domElement.clientHeight || wr.height || 1;
     const wpp = (2 * depth * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / h;
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
     p.target.addScaledVector(right, dx * wpp).addScaledVector(up, -dy * wpp);
+    this.clampTarget(p);
     this.poseCamera();
     this.entryPos = '';
     this.placeEntry();
@@ -2692,6 +2776,9 @@ export class ScorePad {
 
   private blankSheetNow(): void {
     if (!this.t) return;
+    // nowa kartka: niezatwierdzony wpis z poprzedniej przepada
+    this.closeEntry(false);
+    this.closeNamePicker();
     const st = this.saved.sheets[this.t.id];
     st.data = blankSheet(this.t, st.data.game);
     if (this.active) {

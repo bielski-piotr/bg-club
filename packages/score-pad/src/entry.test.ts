@@ -74,6 +74,21 @@ describe('kolejne pola (PAD-15)', () => {
     expect(label(t, nextInput(t, spotOf(t, 'a', 0), -1))).toBe('c/2');
   });
 
+  it('z imionami graczy pomija puste miejsca notesu', () => {
+    const t = table(10);
+    const named = (p: number) => p === 0 || p === 3;
+    expect(label(t, nextInput(t, spotOf(t, 'c', 0), 1, named))).toBe('a/3');
+    expect(label(t, nextInput(t, spotOf(t, 'c', 3), 1, named))).toBe('a/0');
+    expect(label(t, nextInput(t, spotOf(t, 'a', 0), -1, named))).toBe('c/3');
+    // jedyny gracz: po ostatniej kategorii wraca do własnej pierwszej
+    expect(
+      label(
+        t,
+        nextInput(t, spotOf(t, 'c', 4), 1, () => false),
+      ),
+    ).toBe('a/4');
+  });
+
   it('działa dla ponad ośmiu miejsc', () => {
     const t = table(10);
     expect(label(t, nextInput(t, spotOf(t, 'c', 8), 1))).toBe('a/9');

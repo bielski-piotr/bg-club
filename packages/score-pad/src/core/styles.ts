@@ -176,7 +176,8 @@ button { font-family: inherit; }
 }
 .en-bar {
   position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 6px; max-width: calc(100% - 16px);
-  padding: 6px; border-radius: 12px; pointer-events: auto;
+  /* dotyk poza przyciskami trafia w kartkę pod paskiem (sąsiednie pola) */
+  padding: 6px; border-radius: 12px; pointer-events: none;
   background: var(--glass); border: 1px solid var(--glass-line); color: var(--chalk);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
@@ -184,13 +185,15 @@ button { font-family: inherit; }
 .en-btn {
   min-width: 44px; height: 40px; padding: 0 12px; border-radius: 9px; cursor: pointer; flex: none;
   font: 600 15px/1 var(--f-ui); color: var(--chalk); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--glass-line);
-  touch-action: manipulation;
+  touch-action: manipulation; pointer-events: auto;
 }
 .en-btn:hover { background: rgba(255, 255, 255, 0.16); }
 .en-sign { font: 700 22px/1 var(--f-ui); }
 .en-scratch[aria-pressed="true"] { background: var(--chalk); color: #1d1611; }
 .en-next { background: var(--chalk); color: #1d1611; border-color: transparent; }
 .en-next:hover { background: #fff; }
+.en-hint { margin: 0 4px; min-width: 0; font-size: 14px; line-height: 1.25; color: var(--chalk-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.en-hint:empty, .entry.bad .en-hint { display: none; }
 .en-err { margin: 0 4px; min-width: 0; font-size: 14px; line-height: 1.25; color: #ffb4a6; }
 .en-err:empty { display: none; }
 

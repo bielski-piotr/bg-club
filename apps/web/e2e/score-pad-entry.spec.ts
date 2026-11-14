@@ -101,9 +101,10 @@ test.describe('na komputerze', () => {
     test.slow();
     const pad = await openPad(page);
     await tapCell(page, 'birds', 0, false);
-    // bez okna wyboru i bez paska przy polu (komputer: tylko klawiatura sprzętowa)
+    // bez okna wyboru; przy polu tylko zakres kategorii, bez przycisków (klawiatura sprzętowa)
     await expect(pad.locator('.picker')).toBeHidden();
-    await expect(pad.locator('.en-bar')).toBeHidden();
+    await expect(pad.locator('.en-hint')).toHaveText('od 0 do 99');
+    await expect(pad.locator('.en-bar button:visible')).toHaveCount(0);
     await expect(input(pad)).toHaveAttribute('inputmode', 'numeric');
     await expect(input(pad)).toHaveAttribute('enterkeyhint', 'next');
 
