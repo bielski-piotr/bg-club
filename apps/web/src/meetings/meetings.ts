@@ -117,7 +117,9 @@ export type MeetingFailure =
   | 'participantDeleted'
   | 'participantHasPlay'
   | 'localTime'
+  | 'dateRequired'
   | 'locked'
+  | 'statusChanged'
   | 'finished'
   | 'otherInProgress'
   | 'notPlanned'
@@ -148,10 +150,11 @@ const HINTS: Readonly<Record<string, MeetingFailure>> = {
   meetings_host_not_deleted: 'hostInvalid',
   meetings_participant_has_play: 'participantHasPlay',
   meetings_local_time_exists: 'localTime',
-  meetings_starts_at_required: 'save',
+  meetings_starts_at_required: 'dateRequired',
   meetings_schedule_locked: 'locked',
   meetings_finished_locked: 'finished',
-  meetings_status_transition: 'locked',
+  meetings_status_transition: 'statusChanged',
+  meetings_not_found: 'gone',
   meetings_single_in_progress: 'otherInProgress',
   meetings_start_planned: 'notPlanned',
   meetings_finish_in_progress: 'notInProgress',
@@ -172,6 +175,9 @@ export function meetingFailure(error: PostgrestLikeError): MeetingFailure {
   if (error.code === '23514' && error.message?.includes('deleted profile')) {
     return 'participantDeleted';
   }
+  // Klucz obcy play_results → uczestnicy: gracz dostał partię w międzyczasie (PLAN-4).
+  if (error.code === '23503' && error.message?.includes('play_results'))
+    return 'participantHasPlay';
   // Klucz obcy plays → meetings: spotkanie ma partie (PLAN-5, Q4).
   if (error.code === '23503' && error.message?.includes('plays')) return 'hasPlays';
   if (error.code === 'PGRST116') return 'gone';
@@ -182,6 +188,12 @@ export interface MeetingDraft {
   /** Id nowego spotkania nadaje formularz (ponowienie po błędzie sieci nie zdubluje go). */
   readonly id: string;
   readonly values: MeetingFormValues;
+  /**
+   * Wartości z chwili otwarcia edycji; `null` = nowe spotkanie. Niezmieniony termin nie jest
+   * wysyłany, więc baza go nie przelicza (strefa klubu mogła się zmienić, NFR-10), a edycja
+   * usuniętego w międzyczasie spotkania kończy się błędem zamiast jego ponownym utworzeniem.
+   */
+  readonly original: MeetingFormValues | null;
 }
 
 /**
@@ -190,14 +202,17 @@ export interface MeetingDraft {
  * ma otwarte głosowanie (PLAN-2).
  */
 export async function saveMeeting(client: SupabaseClient, draft: MeetingDraft): Promise<void> {
-  const { values } = draft;
+  const { values, original } = draft;
+  const keepDate =
+    original !== null && original.date === values.date && original.time === values.time;
   const { error } = await client.rpc('save_meeting', {
     meeting_id: draft.id,
     title: values.title.trim(),
-    local_date: values.date,
-    local_time: values.time,
+    local_date: keepDate ? null : values.date,
+    local_time: keepDate ? null : values.time,
     participant_ids: values.participants,
     host_id: values.hostId,
+    is_new: original === null,
   });
   if (error) throw new MeetingError(meetingFailure(error));
 }

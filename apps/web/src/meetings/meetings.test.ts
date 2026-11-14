@@ -27,6 +27,9 @@ describe('błędy spotkań (reguły bazy [023])', () => {
       ['23514', 'meetings_host_not_admin', 'hostInvalid'],
       ['23514', 'meetings_club_required', 'noClub'],
       ['23514', 'meetings_participants_required', 'noParticipants'],
+      ['23514', 'meetings_status_transition', 'statusChanged'],
+      ['23502', 'meetings_starts_at_required', 'dateRequired'],
+      ['P0002', 'meetings_not_found', 'gone'],
     ];
     for (const [code, hint, reason] of cases) {
       expect(meetingFailure({ code, hint, message: 'x' })).toBe(reason);
@@ -45,6 +48,13 @@ describe('błędy spotkań (reguły bazy [023])', () => {
     expect(meetingFailure({ code: '23503', message: 'meeting_participants_profile_id_fkey' })).toBe(
       'save',
     );
+    expect(
+      meetingFailure({
+        code: '23503',
+        message:
+          'update or delete on table "meeting_participants" violates foreign key constraint "play_results_meeting_id_profile_id_fkey" on table "play_results"',
+      }),
+    ).toBe('participantHasPlay');
     expect(
       meetingFailure({ code: '23514', message: 'deleted profile cannot join a meeting' }),
     ).toBe('participantDeleted');
@@ -92,6 +102,7 @@ describe('RPC spotkań', () => {
         participants: ['a1'],
         hostId: null,
       },
+      original: null,
     });
     expect(fake.rpc).toHaveBeenCalledWith('save_meeting', {
       meeting_id: 'm1',
@@ -100,7 +111,37 @@ describe('RPC spotkań', () => {
       local_time: '18:00',
       participant_ids: ['a1'],
       host_id: null,
+      is_new: true,
     });
+  });
+
+  it('edycja wysyła termin tylko po zmianie i nie tworzy spotkania na nowo', async () => {
+    const original = {
+      title: 'Granie',
+      date: '2026-11-28',
+      time: '18:00',
+      participants: ['a1'],
+      hostId: null,
+    };
+    const fake = fakeClient({});
+    await saveMeeting(fake.client, {
+      id: 'm1',
+      values: { ...original, participants: ['a1', 'b2'] },
+      original,
+    });
+    expect(fake.rpc).toHaveBeenLastCalledWith(
+      'save_meeting',
+      expect.objectContaining({ local_date: null, local_time: null, is_new: false }),
+    );
+    await saveMeeting(fake.client, { id: 'm1', values: { ...original, time: '19:00' }, original });
+    expect(fake.rpc).toHaveBeenLastCalledWith(
+      'save_meeting',
+      expect.objectContaining({ local_date: '2026-11-28', local_time: '19:00', is_new: false }),
+    );
+    const gone = fakeClient({ error: { code: 'P0002', hint: 'meetings_not_found', message: 'x' } });
+    await expect(
+      saveMeeting(gone.client, { id: 'm1', values: original, original }),
+    ).rejects.toMatchObject({ reason: 'gone' });
   });
 
   it('start i koniec zamieniają błąd bazy na powód', async () => {

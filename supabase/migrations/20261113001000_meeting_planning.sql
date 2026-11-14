@@ -162,7 +162,8 @@ create function public.save_meeting(
   local_date date,
   local_time time,
   participant_ids uuid[],
-  host_id uuid
+  host_id uuid,
+  is_new boolean default true
 )
 returns public.meetings
 language plpgsql
@@ -184,7 +185,11 @@ begin
     raise exception 'club is not set up'
       using errcode = '23514', constraint = 'meetings_club_required', hint = 'meetings_club_required';
   end if;
-  starts := private.meeting_local_start(save_meeting.local_date, save_meeting.local_time, club_timezone);
+  -- Edycja bez zmiany terminu wysyła NULL-e: termin zostaje, a formularz nie musi znać
+  -- aktualnej strefy klubu (mogła się zmienić, a zapisanej chwili to nie przesuwa, NFR-10).
+  if save_meeting.is_new or save_meeting.local_date is not null or save_meeting.local_time is not null then
+    starts := private.meeting_local_start(save_meeting.local_date, save_meeting.local_time, club_timezone);
+  end if;
 
   -- Bez duplikatów i NULL-i; kolejność nie ma znaczenia.
   select coalesce(array_agg(distinct p) filter (where p is not null), '{}')
@@ -201,8 +206,15 @@ begin
 
   select m.* into current_meeting from public.meetings m where m.id = save_meeting.meeting_id for update;
 
+  if not found and not save_meeting.is_new then
+    -- Edycja spotkania, które w międzyczasie usunięto: nie wskrzeszamy go.
+    raise exception 'meeting % does not exist', save_meeting.meeting_id
+      using errcode = 'P0002', hint = 'meetings_not_found';
+  end if;
+
   if not found then
     -- Nowe spotkanie: zaplanowane z otwartym głosowaniem (PLAN-2, domyślne wartości kolumn).
+    -- Ponowienie po błędzie sieci (is_new, a wiersz już jest) idzie ścieżką edycji niżej.
     -- Prowadzący po uczestnikach, więc kolejność działa także przy SET CONSTRAINTS IMMEDIATE.
     insert into public.meetings (id, title, starts_at, created_by)
     values (save_meeting.meeting_id, btrim(save_meeting.title), starts, auth.uid())
@@ -227,10 +239,11 @@ begin
      and not (mp.profile_id = any (participants));
 
   if current_meeting.status = 'in_progress' then
-    -- W trakcie tytuł i termin są historią (PLAN-4); porównanie z dokładnością do minuty,
-    -- bo formularz zna tylko godzinę i minutę.
-    if btrim(save_meeting.title) is distinct from current_meeting.title
-       or date_trunc('minute', starts) is distinct from date_trunc('minute', current_meeting.starts_at) then
+    -- W trakcie tytuł i termin są historią (PLAN-4). Termin porównujemy z dokładnością do
+    -- minuty (formularz zna tylko godzinę i minutę), o ile w ogóle przyszedł.
+    if btrim(save_meeting.title) is distinct from btrim(current_meeting.title)
+       or (starts is not null
+           and date_trunc('minute', starts) is distinct from date_trunc('minute', current_meeting.starts_at)) then
       raise exception 'meeting % has started; title and date are locked', current_meeting.id
         using errcode = '23514', constraint = 'meetings_schedule_locked', hint = 'meetings_schedule_locked';
     end if;
@@ -257,9 +270,10 @@ begin
       where mp.meeting_id = current_meeting.id and mp.profile_id = p
    );
 
+  -- Tytuł i termin zmieniają się tylko w zaplanowanym (w trakcie są równe, sprawdzone wyżej).
   update public.meetings m
      set title = case when current_meeting.status = 'planned' then btrim(save_meeting.title) else m.title end,
-         starts_at = case when current_meeting.status = 'planned' then starts else m.starts_at end,
+         starts_at = case when current_meeting.status = 'planned' then coalesce(starts, m.starts_at) else m.starts_at end,
          host_id = save_meeting.host_id
    where m.id = current_meeting.id;
 
@@ -271,8 +285,8 @@ begin
 end;
 $$;
 
-comment on function public.save_meeting(uuid, text, date, time, uuid[], uuid) is
-  'Planuje spotkanie albo zapisuje zmiany: tytuł, termin w strefie klubu, uczestnicy i prowadzący (PLAN-1…PLAN-4). Tylko admin.';
+comment on function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean) is
+  'Planuje spotkanie (is_new) albo zapisuje zmiany: tytuł, termin w strefie klubu (NULL = bez zmiany), uczestnicy i prowadzący (PLAN-1…PLAN-4). Tylko admin.';
 
 -- ---------------------------------------------------------------------------------------------
 -- start_meeting / finish_meeting: admin albo prowadzący (RUN-1, RUN-4, MTG-2)
@@ -343,12 +357,12 @@ comment on function public.finish_meeting(uuid) is
   'Kończy spotkanie w trakcie; szkice partii trzeba wcześniej zapisać albo porzucić (RUN-4). Admin lub prowadzący.';
 
 revoke execute on function
-  public.save_meeting(uuid, text, date, time, uuid[], uuid),
+  public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean),
   public.start_meeting(uuid),
   public.finish_meeting(uuid)
 from public, anon;
 grant execute on function
-  public.save_meeting(uuid, text, date, time, uuid[], uuid),
+  public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean),
   public.start_meeting(uuid),
   public.finish_meeting(uuid)
 to authenticated;

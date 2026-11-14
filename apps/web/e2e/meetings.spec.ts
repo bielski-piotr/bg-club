@@ -110,6 +110,7 @@ test('admin planuje spotkanie z pustego widżetu; widżet pokazuje je w strefie 
     local_date: '2030-11-30',
     local_time: '19:30',
     host_id: BEA.id,
+    is_new: true,
   });
   expect([...(mock.meetingSaves[0]?.participant_ids ?? [])].sort()).toEqual(
     [ADA.id, BEA.id, CEZARY.id].sort(),
@@ -163,6 +164,7 @@ test('edycja zaplanowanego: wszystkie pola; odznaczony prowadzący oddaje prowad
     local_time: '18:00',
     participant_ids: [ADA.id, CEZARY.id],
     host_id: null,
+    is_new: false,
   });
   await expect(widget.getByText('sobota, 5 gru 2026 · 18:00')).toBeVisible();
   await expect(widget.getByText('2 uczestników', { exact: true })).toBeVisible();
@@ -207,15 +209,25 @@ test('w trakcie: tytuł i termin zablokowane, uczestnik z partią zostaje (PLAN-
 
   await dialog.getByRole('button', { name: 'Zapisz' }).click();
   await expect(page.getByText('Zapisano zmiany w spotkaniu Trwające granie')).toBeVisible();
+  // Termin bez zmian nie jest wysyłany (baza go nie przelicza, NFR-10).
   expect(mock.meetingSaves.at(-1)).toMatchObject({
     title: 'Trwające granie',
+    local_date: null,
+    local_time: null,
     participant_ids: [BEA.id, CEZARY.id],
     host_id: CEZARY.id,
+    is_new: false,
   });
 
-  // Menu trwającego spotkania nie ma usuwania (PLAN-3).
+  // Menu trwającego spotkania nie ma usuwania (PLAN-3), a kolejne spotkanie da się zaplanować.
   await widget.getByRole('button', { name: 'Akcje spotkania Trwające granie' }).click();
-  await expect(page.getByRole('menuitem')).toHaveText(['Edytuj spotkanie']);
+  await expect(page.getByRole('menuitem')).toHaveText([
+    'Zaplanuj kolejne spotkanie',
+    'Edytuj spotkanie',
+  ]);
+  await page.getByRole('menuitem', { name: 'Zaplanuj kolejne spotkanie' }).click();
+  await expect(page.getByRole('dialog', { name: 'Zaplanuj spotkanie' })).toBeVisible();
+  expect(await search(page)).toBe('?p=meetings/new');
 });
 
 test('błąd reguły z bazy pokazuje polski komunikat i zostawia formularz', async ({ page }) => {

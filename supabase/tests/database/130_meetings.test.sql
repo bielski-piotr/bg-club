@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(68);
+select plan(74);
 
 -- a001 Ada: admin; a002 Bartek, a003 Celina, a004 Dawid: gracze; a005 Ewa: usunięta;
 -- a006 Filip usunie konto w trakcie spotkania.
@@ -172,6 +172,33 @@ select is(
        array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000003']::uuid[], null)),
   null::uuid, 'usunięcie prowadzącego razem z uczestnictwem: prowadzi admin');
 
+-- Edycja bez terminu (NULL-e) zostawia termin, nawet gdy strefa klubu się zmieniła (NFR-10).
+reset role;
+update public.club set timezone = 'Asia/Tokyo';
+set local role authenticated;
+select is(
+  (select starts_at from public.save_meeting('00000000-0000-4000-c000-000000000001', 'Grudniowe granie', null, null,
+       array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000003']::uuid[], null, false)),
+  '2026-12-05 18:30:00+00'::timestamptz, 'edycja bez terminu: termin bez zmian mimo innej strefy klubu');
+reset role;
+update public.club set timezone = 'Europe/Warsaw';
+set local role authenticated;
+select throws_ok(
+  $$ select public.save_meeting('00000000-0000-4000-c000-000000000001', 'Grudniowe granie', '2026-12-05', null,
+       array['00000000-0000-4000-a000-000000000001']::uuid[], null, false) $$,
+  '23502', 'meeting date and time are required', 'sama data bez godziny: odrzucona');
+select throws_ok(
+  $$ select public.save_meeting('00000000-0000-4000-c000-000000000088', 'Nowe bez terminu', null, null,
+       array['00000000-0000-4000-a000-000000000001']::uuid[], null) $$,
+  '23502', 'meeting date and time are required', 'nowe spotkanie bez terminu: odrzucone');
+select throws_ok(
+  $$ select public.save_meeting('00000000-0000-4000-c000-000000000088', 'Usunięte w międzyczasie', '2026-12-05', '18:00',
+       array['00000000-0000-4000-a000-000000000001']::uuid[], null, false) $$,
+  'P0002', 'meeting 00000000-0000-4000-c000-000000000088 does not exist',
+  'edycja nieistniejącego (usuniętego) spotkania nie tworzy go na nowo');
+select is_empty($$ select 1 from public.meetings where id = '00000000-0000-4000-c000-000000000088' $$,
+  'odrzucona edycja nie zostawia spotkania');
+
 -- Edycja po zamknięciu głosowania nadal działa (PLAN-3).
 reset role;
 update public.meetings set voting_open = false where id = '00000000-0000-4000-c000-000000000001';
@@ -260,12 +287,18 @@ select throws_ok(
   '23514', 'meeting 00000000-0000-4000-c000-000000000001 has started; title and date are locked',
   'w trakcie: termin jest zablokowany');
 select is(
-  (select host_id from public.save_meeting('00000000-0000-4000-c000-000000000001', 'Grudniowe granie 2', '2026-12-05', '19:30',
+  (select host_id from public.save_meeting('00000000-0000-4000-c000-000000000001', 'Grudniowe granie 2', null, null,
        array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002',
              '00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000004']::uuid[],
-       '00000000-0000-4000-a000-000000000004')),
+       '00000000-0000-4000-a000-000000000004', false)),
   '00000000-0000-4000-a000-000000000004'::uuid,
   'w trakcie: admin dopisuje spóźnionego i zmienia prowadzącego (PLAN-4)');
+select lives_ok(
+  $$ select public.save_meeting('00000000-0000-4000-c000-000000000001', '  Grudniowe granie 2 ', '2026-12-05', '19:30',
+       array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002',
+             '00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000004']::uuid[],
+       '00000000-0000-4000-a000-000000000004', false) $$,
+  'w trakcie: ten sam tytuł (spacje na brzegach) i termin nie są zmianą');
 
 -- Uczestnik, który usunął konto w trakcie spotkania, zostaje (MEM-6); kolejny zapis go nie
 -- odrzuca.
@@ -448,7 +481,7 @@ select is(
   array['meetings_club_required', 'meetings_delete_in_progress', 'meetings_finish_in_progress',
         'meetings_finished_locked', 'meetings_host_not_admin', 'meetings_host_not_deleted',
         'meetings_host_participant', 'meetings_local_time_exists', 'meetings_no_drafts_when_finished',
-        'meetings_participant_has_play', 'meetings_participants_required', 'meetings_schedule_locked',
+        'meetings_not_found', 'meetings_participant_has_play', 'meetings_participants_required', 'meetings_schedule_locked',
         'meetings_single_in_progress', 'meetings_start_planned', 'meetings_starts_at_required',
         'meetings_status_transition'],
   'reguły spotkań mają stałe nazwy w HINT (mapowanie komunikatów w SPA)');

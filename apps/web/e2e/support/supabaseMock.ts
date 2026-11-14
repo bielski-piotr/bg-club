@@ -188,10 +188,12 @@ export function mockMeeting(
 export interface MeetingSave {
   readonly meeting_id: string;
   readonly title: string;
-  readonly local_date: string;
-  readonly local_time: string;
+  /** `null` = termin bez zmian (edycja). */
+  readonly local_date: string | null;
+  readonly local_time: string | null;
   readonly participant_ids: string[];
   readonly host_id: string | null;
+  readonly is_new: boolean;
 }
 
 /** Data i godzina w strefie `timeZone` → chwila ISO (jak `save_meeting` w bazie). */
@@ -578,11 +580,21 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       }
       const timeZone = mock.options.club?.timezone ?? 'Europe/Warsaw';
       const existing = (mock.options.meetings ?? []).find((row) => row.id === body.meeting_id);
+      if (!existing && !body.is_new) {
+        return route.fulfill({
+          status: 404,
+          json: { code: 'P0002', hint: 'meetings_not_found', message: 'does not exist' },
+        });
+      }
+      const base = existing ?? mockMeeting(0, '');
       const saved: MockMeeting = {
-        ...(existing ?? mockMeeting(0, '')),
+        ...base,
         id: body.meeting_id,
         title: body.title,
-        starts_at: zonedToIso(body.local_date, body.local_time, timeZone),
+        starts_at:
+          body.local_date && body.local_time
+            ? zonedToIso(body.local_date, body.local_time, timeZone)
+            : base.starts_at,
         participants: body.participant_ids,
         host_id: body.host_id,
       };

@@ -130,7 +130,7 @@ select is_empty(
         and (p.prorettype = 'trigger'::regtype or p.prosecdef)
         and p.oid not in (
           'public.save_scorepad(uuid,uuid,text,jsonb,text,int)'::regprocedure,
-          'public.save_meeting(uuid,text,date,time,uuid[],uuid)'::regprocedure,
+          'public.save_meeting(uuid,text,date,time,uuid[],uuid,boolean)'::regprocedure,
           'public.start_meeting(uuid)'::regprocedure,
           'public.finish_meeting(uuid)'::regprocedure
         )
@@ -145,7 +145,7 @@ select ok(
 );
 select ok(
   (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);'
-     from pg_proc where oid = 'public.save_meeting(uuid,text,date,time,uuid[],uuid)'::regprocedure),
+     from pg_proc where oid = 'public.save_meeting(uuid,text,date,time,uuid[],uuid,boolean)'::regprocedure),
   'save_meeting (security definer) zaczyna od strażnika private.require_admin()'
 );
 select ok(

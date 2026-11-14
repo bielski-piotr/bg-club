@@ -455,6 +455,7 @@ export const pl = {
       finished: 'Zakończone',
     },
     menu: {
+      plan: 'Zaplanuj kolejne spotkanie',
       edit: 'Edytuj spotkanie',
       delete: 'Usuń spotkanie',
     },
@@ -516,6 +517,8 @@ export const pl = {
       participantHasPlay: 'Nie można usunąć uczestnika, który ma już partię w tym spotkaniu.',
       localTime:
         'Tej godziny nie ma w tym dniu w strefie klubu (zmiana czasu). Wybierz inną godzinę.',
+      dateRequired: 'Wybierz datę i godzinę spotkania.',
+      statusChanged: 'Status spotkania właśnie się zmienił. Odśwież widok i spróbuj ponownie.',
       locked: 'Spotkanie już trwa, więc tytułu i terminu nie da się zmienić.',
       finished: 'Spotkanie jest zakończone i nie można go zmieniać.',
       otherInProgress: 'Trwa już inne spotkanie. Najpierw je zakończ.',

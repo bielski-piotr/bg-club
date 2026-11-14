@@ -10,6 +10,7 @@ import { GameCover } from '../games/GameCover';
 import { useCollectionWidget } from '../games/games';
 import { playersLabel } from '../games/labels';
 import { useClub } from './club';
+import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { dateTile, formatMeetingDate, longMeetingDate } from '../meetings/datetime';
 import { useHubMeeting, type Meeting } from '../meetings/meetings';
 import {
@@ -46,7 +47,7 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
   const club = useClub(client);
   const members = useMembers(client);
   const data = meeting.data;
-  const timeZone = club.data?.timezone ?? 'Europe/Warsaw';
+  const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
 
   const action =
     isAdmin && data ? (
@@ -54,6 +55,13 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
         label={format(t.hub.meeting.actions, { title: data.title })}
         align="end"
         items={[
+          // Kolejne spotkanie, zanim powstanie kalendarz ([025]): z menu widżetu (PLAN-1).
+          {
+            id: 'plan',
+            label: t.meetings.menu.plan,
+            icon: 'plus',
+            onSelect: () => open({ kind: 'add-meeting' }),
+          },
           {
             id: 'edit',
             label: t.meetings.menu.edit,

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
+import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useClub } from '../hub/club';
 import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
@@ -108,7 +109,7 @@ function MeetingFormLoader({ me, meeting, date }: LoaderProps) {
     );
   }
   // Bez klubu nie ma strefy czasowej; widżety (i ten formularz) są dopiero po założeniu.
-  const timeZone = club.data?.timezone ?? 'Europe/Warsaw';
+  const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
   return (
     <MeetingForm
       me={me}
@@ -146,8 +147,9 @@ function MeetingForm({ me, meeting, timeZone, members, locked, date }: FormProps
   const inProgress = meeting?.status === 'in_progress';
   // Id nowego spotkania od razu: ponowienie po błędzie sieci nie zaplanuje drugiego.
   const [id] = useState(() => meeting?.id ?? crypto.randomUUID());
-  const [values, setValues] = useState<MeetingFormValues>(() =>
-    meeting ? meetingFormFrom(meeting, timeZone) : emptyMeetingForm(timeZone, me.id, date),
+  const [original] = useState(() => (meeting ? meetingFormFrom(meeting, timeZone) : null));
+  const [values, setValues] = useState<MeetingFormValues>(
+    () => original ?? emptyMeetingForm(timeZone, me.id, date),
   );
   const [showErrors, setShowErrors] = useState(false);
   const [titleTouched, setTitleTouched] = useState(false);
@@ -157,7 +159,7 @@ function MeetingForm({ me, meeting, timeZone, members, locked, date }: FormProps
   const invalid = hasErrors(errors);
 
   const save = useMutation({
-    mutationFn: () => saveMeeting(client, { id, values }),
+    mutationFn: () => saveMeeting(client, { id, values, original }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: meetingsKey });
       toast.show(

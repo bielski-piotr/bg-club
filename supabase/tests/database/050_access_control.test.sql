@@ -92,7 +92,7 @@ select results_eq(
        ('private.is_meeting_runner(uuid)'),
        ('private.is_voting_open(uuid)'),
        ('private.try_uuid(text)'),
-       ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid)'),
+       ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid,boolean)'),
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
        ('search_text(text)'),
