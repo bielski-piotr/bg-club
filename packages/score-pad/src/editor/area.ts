@@ -14,6 +14,11 @@ export const MIN_AREA_POINTS = 3;
 export const MAX_DETECTED_POINTS = 48;
 /** Największa siła wygładzania krawędzi. */
 export const MAX_SMOOTHING = 10;
+/**
+ * Czworokąt opisany większy od otoczki najwyżej o 10% (zaokrąglone rogi, wycięcia, otwory):
+ * to kartka prostokątna, którą prostujemy perspektywą.
+ */
+const QUAD_LIKE = 1.1;
 
 type P2 = [number, number];
 
@@ -112,6 +117,46 @@ export function enclosingQuad(hull: readonly Pt[]): Pt[] {
   return q;
 }
 
+/**
+ * Prostokąt o najmniejszym polu opisany na otoczce (obrotowe suwmiarki): jeden bok prostokąta
+ * leży na boku otoczki. Dla kartek, które nie są czworokątem (koło, sześciokąt), bo czworokąt
+ * opisany ścinałby albo zniekształcał płaską kartkę przy prostowaniu.
+ */
+export function minAreaRect(hull: readonly Pt[]): Pt[] {
+  let best: Pt[] = [];
+  let bestArea = Infinity;
+  for (let i = 0; i < hull.length; i++) {
+    const a = hull[i];
+    const b = hull[(i + 1) % hull.length];
+    const L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (L < 1e-9) continue;
+    const ux = (b.x - a.x) / L;
+    const uy = (b.y - a.y) / L;
+    let s0 = Infinity;
+    let s1 = -Infinity;
+    let t0 = Infinity;
+    let t1 = -Infinity;
+    for (const p of hull) {
+      const s = (p.x - a.x) * ux + (p.y - a.y) * uy;
+      const t = -(p.x - a.x) * uy + (p.y - a.y) * ux;
+      s0 = Math.min(s0, s);
+      s1 = Math.max(s1, s);
+      t0 = Math.min(t0, t);
+      t1 = Math.max(t1, t);
+    }
+    const area = (s1 - s0) * (t1 - t0);
+    if (area < bestArea) {
+      bestArea = area;
+      const at = (s: number, t: number): Pt => ({
+        x: a.x + ux * s - uy * t,
+        y: a.y + uy * s + ux * t,
+      });
+      best = [at(s0, t0), at(s1, t0), at(s1, t1), at(s0, t1)];
+    }
+  }
+  return best;
+}
+
 /** Narożniki w kolejności lewy górny, prawy górny, prawy dolny, lewy dolny. */
 export function orderQuad(pts: readonly Pt[]): Quad {
   const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
@@ -156,7 +201,14 @@ export function areaCorners(area: readonly Pt[], w: number, h: number): Quad {
   let q: Quad | null = null;
   if (hull.length >= 4) {
     const e = enclosingQuad(hull);
-    if (e.length === 4) q = orderQuad(e);
+    // Otoczka daleka od czworokąta (koło, sześciokąt, „domek”) to kartka innego kształtu, a nie
+    // prostokąt w perspektywie: prostujemy ją według prostokąta opisanego, bez ścinania.
+    const hullArea = Math.abs(polygonArea(hull));
+    if (e.length === 4 && Math.abs(polygonArea(e)) <= hullArea * QUAD_LIKE) q = orderQuad(e);
+    else {
+      const r = minAreaRect(hull);
+      if (r.length === 4) q = orderQuad(r);
+    }
   }
   // Trójkąt (i obszar zdegenerowany) prostujemy według prostokąta opisanego na punktach.
   const diag = Math.hypot(w, h);
@@ -316,8 +368,17 @@ export function areaShape(
   const rings = holes
     .map((h) => toSheetRing(h, quad))
     .filter((h) => h.length >= 3 && ringArea(h) > 1e-4);
+  // Prostokąt sprawdzamy przed wygładzeniem: nawet słabe wygładzanie zaokrągla rogi.
+  if (!rings.length && ringArea(outline) >= 0.997) {
+    if (smoothing <= 0) return undefined;
+    outline = [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 1],
+    ];
+  }
   if (smoothing > 0) outline = smoothRing(outline, smoothing);
-  if (!rings.length && ringArea(outline) >= 0.997) return undefined;
   return rings.length ? { outline, holes: rings } : { outline };
 }
 

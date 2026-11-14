@@ -491,6 +491,11 @@ describe('kreator edytora notesu', () => {
     fireEvent.change(width, { target: { value: '12,5' } });
     fireEvent.blur(width);
     expect(fake.setArea).toHaveBeenLastCalledWith({ size: { w: 12.5 } });
+    // Poza zakresem: pole od razu pokazuje wartość zapisaną przez edytor.
+    fireEvent.change(width, { target: { value: '100' } });
+    fireEvent.blur(width);
+    expect(fake.setArea).toHaveBeenLastCalledWith({ size: { w: 60 } });
+    expect(width).toHaveValue('60');
     const height = within(dialog).getByRole('textbox', { name: 'Wysokość kartki' });
     fireEvent.change(height, { target: { value: 'abc' } });
     fireEvent.blur(height);

@@ -15,7 +15,15 @@ import {
   toPhotoRing,
   toSheetRing,
 } from './editor/area';
-import { Persp, dataUrlBytes, encodeSheet, sheetSize, type Pt, type Quad } from './editor/photo';
+import {
+  Persp,
+  dataUrlBytes,
+  encodeSheet,
+  resetWebpProbe,
+  sheetSize,
+  type Pt,
+  type Quad,
+} from './editor/photo';
 
 /*
  * Obszar kartki (EDT-10, zadanie [017]): wielokąt na zdjęciu → narożniki do prostowania
@@ -137,6 +145,31 @@ describe('narożniki z obszaru', () => {
     expect(areaCorners(line, 100, 100)).toEqual(fullArea(100, 100));
   });
 
+  it('kartka innego kształtu (koło, sześciokąt) prostuje się prostokątem, bez ścinania', () => {
+    const ring = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        x: 500 + 300 * Math.cos((i / n) * 2 * Math.PI),
+        y: 700 + 300 * Math.sin((i / n) * 2 * Math.PI),
+      }));
+    for (const area of [ring(40), ring(6)]) {
+      const q = areaCorners(area, 1000, 1400);
+      // kąty proste: sąsiednie boki prostopadłe
+      for (let i = 0; i < 4; i++) {
+        const a = q[i] as Pt;
+        const b = q[(i + 1) % 4] as Pt;
+        const c = q[(i + 2) % 4] as Pt;
+        const cos =
+          ((b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y)) /
+          (Math.hypot(b.x - a.x, b.y - a.y) * Math.hypot(c.x - b.x, c.y - b.y));
+        expect(Math.abs(cos)).toBeLessThan(1e-6);
+      }
+    }
+    const sq = areaCorners(ring(40), 1000, 1400);
+    const side = Math.hypot((sq[1] as Pt).x - (sq[0] as Pt).x, (sq[1] as Pt).y - (sq[0] as Pt).y);
+    expect(side).toBeGreaterThan(590);
+    expect(side).toBeLessThan(610);
+  });
+
   it('otoczka i kolejność narożników nie zależą od kolejności punktów', () => {
     const pts = [
       { x: 5, y: 5 },
@@ -250,9 +283,11 @@ describe('wygładzanie krawędzi', () => {
     expect(cornerGap(smoothRing(square, 9))).toBeGreaterThan(cornerGap(smoothRing(square, 2)));
   });
 
-  it('wygładzony prostokąt ma już kształt (zaokrąglone rogi)', () => {
+  it('wygładzony prostokąt ma już kształt (zaokrąglone rogi), także przy sile 1', () => {
     const q = fullArea(200, 300) as Quad;
     expect(areaShape(q, [], q, 5)?.outline.length).toBeGreaterThan(8);
+    expect(areaShape(q, [], q, 1)?.outline.length).toBeGreaterThan(8);
+    expect(areaShape(q, [], q, 0)).toBeUndefined();
   });
 });
 
@@ -309,7 +344,10 @@ describe('edycja punktów', () => {
 });
 
 describe('rozdzielczość i zapis kartki (EDT-12)', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetWebpProbe();
+  });
 
   const rect = (w: number, h: number): Quad => fullArea(w, h) as Quad;
 
@@ -328,27 +366,47 @@ describe('rozdzielczość i zapis kartki (EDT-12)', () => {
     expect(dataUrlBytes('data:image/jpeg;base64,AAA=')).toBe(2);
   });
 
-  const fakeCanvas = (w: number, h: number, webp: boolean) => {
-    const toDataURL = vi.fn((type: string) =>
-      type === 'image/webp' && !webp ? 'data:image/png;base64,AAAA' : `data:${type};base64,AAAA`,
-    );
+  const fakeCanvas = (w: number, h: number) => {
+    const toDataURL = vi.fn((type: string) => `data:${type};base64,AAAA`);
     return {
       canvas: { width: w, height: h, toDataURL } as unknown as HTMLCanvasElement,
       toDataURL,
     };
   };
 
-  it('WebP o jakości 0,92, a bez WebP w przeglądarce JPEG 0,92', () => {
-    const a = fakeCanvas(4096, 3072, true);
+  /** Przeglądarka z kodowaniem WebP albo bez (sprawdzane raz na płótnie 1×1). */
+  const probe = (webp: boolean) => {
+    resetWebpProbe();
+    return vi
+      .spyOn(HTMLCanvasElement.prototype, 'toDataURL')
+      .mockImplementation((type?: string) =>
+        type === 'image/webp' && webp ? 'data:image/webp;base64,AA' : 'data:image/png;base64,AA',
+      );
+  };
+
+  it('WebP o jakości 0,92, a bez WebP w przeglądarce od razu JPEG 0,92', () => {
+    probe(true);
+    const a = fakeCanvas(4096, 3072);
     expect(encodeSheet(a.canvas)).toBe('data:image/webp;base64,AAAA');
-    expect(a.toDataURL).toHaveBeenCalledWith('image/webp', 0.92);
-    const b = fakeCanvas(4096, 3072, false);
+    expect(a.toDataURL.mock.calls).toEqual([['image/webp', 0.92]]);
+    vi.restoreAllMocks();
+    const spy = probe(false);
+    const b = fakeCanvas(4096, 3072);
     expect(encodeSheet(b.canvas)).toBe('data:image/jpeg;base64,AAAA');
-    expect(b.toDataURL).toHaveBeenLastCalledWith('image/jpeg', 0.92);
+    encodeSheet(b.canvas);
+    // bez zbędnego kodowania kartki do PNG; WebP sprawdzony raz
+    expect(b.toDataURL.mock.calls).toEqual([
+      ['image/jpeg', 0.92],
+      ['image/jpeg', 0.92],
+    ]);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('za duży plik zmniejsza wymiary, a nie jakość', () => {
     const sizes: number[] = [];
+    probe(true);
+    encodeSheet(fakeCanvas(1, 1).canvas);
+    vi.restoreAllMocks();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       drawImage: () => undefined,
     } as unknown as CanvasRenderingContext2D);

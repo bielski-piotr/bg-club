@@ -12,18 +12,21 @@ import {
   flattenPaper,
   fullQuad,
   quadAspect,
+  releasePixels,
   rotate,
   sheetSize,
   warp,
 } from './photo';
 import type { AreaMode } from './area';
 import {
+  MAX_DETECTED_POINTS,
   MAX_SMOOTHING,
   MIN_AREA_POINTS,
   areaCorners,
   areaShape,
   areaValid,
   fullArea,
+  limitPoints,
   removePoint,
   rotatePoint,
   segmentDistance,
@@ -109,6 +112,9 @@ interface AreaSnapshot {
   strength: number;
   detected: EditorArea['detected'];
   fixed: boolean;
+  size: { w: number; h: number };
+  sizeManual: boolean;
+  pristine: boolean;
 }
 
 /** Stan edytora dla kreatora w aplikacji. */
@@ -192,14 +198,23 @@ export class Editor {
   private detected: EditorArea['detected'] = null;
   /** Kartka wczytana z notesu jest już wyprostowana: narożniki to całe zdjęcie. */
   private fixedCorners = false;
+  /** Kształt wczytanego notesu i to, czy obszar od tamtej pory się nie zmienił. */
+  private loadedShape: SheetShape | undefined;
+  private pristine = false;
   private smoothed: { key: string; shape: SheetShape | undefined } = { key: '', shape: undefined };
   private exported = false;
   private sundo: AreaSnapshot[] = [];
   private undoKind = '';
   private undoAt = 0;
   /** Przeciągany punkt obszaru (`moved`: ruszył się, więc to nie dotknięcie ani przytrzymanie). */
-  private pdrag: { i: number; moved: boolean; x: number; y: number; snap: AreaSnapshot } | null =
-    null;
+  private pdrag: {
+    i: number;
+    moved: boolean;
+    x: number;
+    y: number;
+    snap: AreaSnapshot;
+    pointer: number;
+  } | null = null;
   private press = 0;
   private focusPt = -1;
   private refocus = -1;
@@ -398,17 +413,8 @@ export class Editor {
     if (e.key === 'Escape') {
       // Esc obsłużony w edytorze nie zamyka popupu, w którym edytor jest osadzony.
       if (this.pdrag && this.step === 2) {
-        // przeciąganie punktu przerwane: obszar wraca do stanu sprzed przeciągania
         e.preventDefault();
-        const d = this.pdrag;
-        this.pdrag = null;
-        clearTimeout(this.press);
-        if (d.moved) {
-          this.sundo.pop();
-          this.area = d.snap.area;
-          this.mode = d.snap.mode;
-          this.areaChanged();
-        } else this.render();
+        this.cancelDrag();
         return;
       }
       if (this.step === 3 && this.fields.key(e)) {
@@ -681,8 +687,15 @@ export class Editor {
       // Kartka jest już wyprostowana: obszar to jej kształt na całym zdjęciu, bez wygładzania
       // (zapisany kształt jest już wygładzony).
       this.fixedCorners = true;
-      this.area = t.shape ? toPhotoRing(t.shape.outline, this.quad) : fullArea(c.width, c.height);
+      // Wygładzony obrys ma nawet setki punktów: do edycji uproszczony, a zapis bez zmian obszaru
+      // zachowuje dokładny kształt (`pristine`).
+      const diag = Math.hypot(c.width, c.height);
+      this.area = t.shape
+        ? limitPoints(toPhotoRing(t.shape.outline, this.quad), MAX_DETECTED_POINTS, diag)
+        : fullArea(c.width, c.height);
       this.holes = (t.shape?.holes ?? []).map((r) => toPhotoRing(r, this.quad));
+      this.loadedShape = t.shape ? (JSON.parse(JSON.stringify(t.shape)) as SheetShape) : undefined;
+      this.pristine = true;
       if (this.area.length < MIN_AREA_POINTS) this.area = fullArea(c.width, c.height);
       this.mode = t.shape ? 'manual' : 'full';
       this.smoothing = false;
@@ -726,6 +739,8 @@ export class Editor {
     this.detected = r.found;
     this.smoothing = false;
     this.fixedCorners = false;
+    this.pristine = false;
+    this.loadedShape = undefined;
     this.pdrag = null;
     this.sundo = [];
     this.sizeManual = false;
@@ -767,6 +782,8 @@ export class Editor {
 
   /** Kształt kartki z obszaru (po wygładzeniu); undefined = prostokąt. */
   shape(): SheetShape | undefined {
+    // Wczytany notes bez zmian obszaru: dokładnie zapisany kształt (punkty do edycji są uproszczone).
+    if (this.pristine) return this.loadedShape;
     const key = `${this.srcId}|${JSON.stringify(this.area)}|${JSON.stringify(this.holes)}|${this.geomKey()}|${this.smoothing ? this.strength : 0}`;
     if (this.smoothed.key !== key)
       this.smoothed = {
@@ -787,6 +804,9 @@ export class Editor {
       strength: this.strength,
       detected: this.detected,
       fixed: this.fixedCorners,
+      size: { ...this.size },
+      sizeManual: this.sizeManual,
+      pristine: this.pristine,
     };
   }
 
@@ -799,6 +819,8 @@ export class Editor {
     }
     this.undoKind = kind;
     this.undoAt = now;
+    // Każda zmiana obszaru odcina zapisany kształt wczytanego notesu (od teraz liczy się obszar).
+    this.pristine = false;
     this.sundo.push(snap);
     if (this.sundo.length > 60) this.sundo.shift();
   }
@@ -816,6 +838,9 @@ export class Editor {
     this.strength = s.strength;
     this.detected = s.detected;
     this.fixedCorners = s.fixed;
+    this.size = { ...s.size };
+    this.sizeManual = s.sizeManual;
+    this.pristine = s.pristine;
     this.pdrag = null;
     this.areaChanged();
   }
@@ -912,7 +937,15 @@ export class Editor {
     const rot = (r: Pt[]): Pt[] => r.map((p) => rotatePoint(p, w, h, dir));
     this.area = rot(this.area);
     this.holes = this.holes.map(rot);
-    this.sundo = this.sundo.map((s) => ({ ...s, area: rot(s.area), holes: s.holes.map(rot) }));
+    this.sundo = this.sundo.map((s) => ({
+      ...s,
+      area: rot(s.area),
+      holes: s.holes.map(rot),
+      size: { w: s.size.h, h: s.size.w },
+      // zapisany kształt nie obraca się razem ze zdjęciem
+      pristine: false,
+    }));
+    this.pristine = false;
     this.src = rotate(src, dir);
     this.srcId++;
     this.size = { w: this.size.h, h: this.size.w };
@@ -1043,6 +1076,7 @@ export class Editor {
     // EDT-12: rozdzielczość zdjęcia źródłowego (bez powiększania), dłuższy bok do 4096 px
     const { w: ow, h: oh } = sheetSize(this.quad, this.size.w / this.size.h);
     const out = warp(this.src, this.quad, ow, oh);
+    releasePixels();
     if (this.flatten) flattenPaper(out, 0.92);
     this.sheet = out;
     this.sheetKey = key;
@@ -1225,10 +1259,10 @@ export class Editor {
     const c = this.area[i];
     this.loupeSide = { x: c.x > src.width / 2 ? -1 : 1, y: c.y > src.height / 2 ? -1 : 1 };
     const p = this.toSvg(e);
-    this.pdrag = { i, moved, x: p.x, y: p.y, snap };
+    this.pdrag = { i, moved, x: p.x, y: p.y, snap, pointer: e.pointerId };
     clearTimeout(this.press);
-    // przytrzymanie punktu bez ruchu usuwa go (dotyk; mysz: dwuklik)
-    if (!moved)
+    // przytrzymanie punktu bez ruchu usuwa go na ekranie dotykowym (mysz: dwuklik, klawiatura: Delete)
+    if (!moved && e.pointerType === 'touch')
       this.press = window.setTimeout(() => {
         const d = this.pdrag;
         if (!d || d.moved || d.i !== i) return;
@@ -1249,7 +1283,8 @@ export class Editor {
       if (this.sheet) this.fields.down(e);
       return;
     }
-    if (this.step !== 2 || !this.src) return;
+    // drugi palec nie przejmuje przeciąganego punktu
+    if (this.step !== 2 || !this.src || this.pdrag) return;
     if (ph) {
       ph.focus({ preventScroll: true });
       this.startDrag(e, Number(ph.dataset.p), false, this.snapshot());
@@ -1278,7 +1313,7 @@ export class Editor {
     }
     const d = this.pdrag;
     const src = this.src;
-    if (!d || !src) return;
+    if (!d || !src || e.pointerId !== d.pointer) return;
     const p = this.toSvg(e);
     if (!d.moved) {
       // drobne drgnięcie palca to jeszcze nie przeciąganie
@@ -1298,12 +1333,31 @@ export class Editor {
       this.fields.up(e);
       return;
     }
-    clearTimeout(this.press);
     const d = this.pdrag;
-    if (!d) return;
+    if (!d || e.pointerId !== d.pointer) return;
+    clearTimeout(this.press);
+    if (e.type === 'pointercancel') {
+      this.cancelDrag();
+      return;
+    }
     this.pdrag = null;
     if (d.moved) this.areaChanged();
     else this.render();
+  }
+
+  /** Przerwane przeciąganie (Esc, pointercancel): obszar wraca do stanu sprzed przeciągania. */
+  private cancelDrag(): void {
+    const d = this.pdrag;
+    if (!d) return;
+    this.pdrag = null;
+    clearTimeout(this.press);
+    if (d.moved) {
+      this.sundo.pop();
+      this.area = d.snap.area;
+      this.mode = d.snap.mode;
+      this.pristine = d.snap.pristine;
+      this.areaChanged();
+    } else this.render();
   }
 
   /** Dwuklik punktu usuwa go. */

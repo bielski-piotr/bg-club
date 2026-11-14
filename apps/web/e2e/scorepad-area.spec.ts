@@ -189,6 +189,15 @@ test('wycięcie: obszar z wycięciem i ręczna poprawka punktami z lupą', async
   await expect(dialog.getByRole('radio', { name: 'Ręcznie' })).toBeChecked();
   await expect(dialog.getByText(/Kliknij lub dotknij krawędzi/)).toBeVisible();
 
+  // Przytrzymanie myszą nie usuwa punktu (to gest dotykowy; mysz usuwa dwuklikiem).
+  const held = (await settings(page)).points;
+  const hold = await center(handle(page, 3));
+  await page.mouse.move(hold.x, hold.y);
+  await page.mouse.down();
+  await page.waitForTimeout(800);
+  await page.mouse.up();
+  expect((await settings(page)).points).toBe(held);
+
   // Kliknięcie krawędzi dodaje punkt, dwuklik punktu go usuwa, Ctrl+Z cofa.
   const before = (await settings(page)).points;
   // najdłuższa krawędź (na krótkiej środek leży w strefie chwytu punktów)
@@ -343,4 +352,84 @@ test('krok 2 na telefonie i desktopie: układ, nazwa wymagana, zrzut', async ({ 
     results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' | ')}`),
   ).toEqual([]);
   await page.screenshot({ path: info.outputPath('obszar-kartki.png') });
+});
+
+test('notes z wygładzonym obrysem: uproszczone punkty, zapis bez zmian obszaru zachowuje kształt', async ({
+  page,
+}) => {
+  await mockSupabase(page, { club: { name: 'Planszówki', logo_path: null }, games: [GAME] });
+  await storeSession(page, session());
+  await page.goto(WIZARD);
+  const dialog = page.getByRole('dialog', { name: 'Nowy notes' });
+  await expect(dialog.getByRole('button', { name: 'Wybierz plik' })).toBeEnabled();
+  const photo = await samplePhoto(page, 'flat', 600, 840);
+  // obrys z zaokrąglonymi rogami: 4 × 30 punktów
+  const outline: [number, number][] = [];
+  const corners: [number, number, number][] = [
+    [0.1, 0.1, Math.PI],
+    [0.9, 0.1, -Math.PI / 2],
+    [0.9, 0.9, 0],
+    [0.1, 0.9, Math.PI / 2],
+  ];
+  for (const [cx, cy, a0] of corners)
+    for (let k = 0; k < 30; k += 1) {
+      const a = a0 + (k / 29) * (Math.PI / 2);
+      outline.push([
+        Math.round((cx + Math.cos(a) * 0.1) * 10000) / 10000,
+        Math.round((cy + Math.sin(a) * 0.1) * 10000) / 10000,
+      ]);
+    }
+  const file = {
+    format: 'score-pad',
+    version: 2,
+    template: {
+      v: 2,
+      id: 'n-plik',
+      name: 'Zaokrąglony',
+      size: { w: 10, h: 14 },
+      tape: '#22304a',
+      image: `data:image/png;base64,${photo.buffer.toString('base64')}`,
+      shape: { outline },
+      grid: { x: [0.1, 0.4, 0.7, 0.9], y: [0.1, 0.5, 0.9], players: 'cols', labels: 1 },
+      lines: [
+        { id: 'names', label: 'Gracze', kind: 'names' },
+        { id: 'a', label: 'Punkty', kind: 'input' },
+      ],
+    },
+  };
+  await dialog.getByLabel('Plik notesu (.json)').setInputFiles({
+    name: 'notes.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(file)),
+  });
+  await expect(dialog.getByText(/Wczytano notes Zaokrąglony/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Dalej' }).click();
+  const s = await settings(page);
+  expect(s.mode).toBe('manual');
+  expect(s.points).toBeLessThanOrEqual(48);
+  expect(s.points).toBeGreaterThan(8);
+  // Kolor spoza palety jest pierwszą, wybraną próbką.
+  await expect(dialog.getByRole('radio', { name: 'Obecny kolor #22304a' })).toBeChecked();
+
+  // Kształt, który trafi do zapisu (`build()` bierze go z `shape()`).
+  const exported = () =>
+    editorEl(page).evaluate(
+      (el) =>
+        (
+          el as unknown as {
+            editor: { shape(): { outline: [number, number][] } | undefined };
+          }
+        ).editor.shape()?.outline ?? null,
+    );
+  expect(await exported()).toEqual(outline);
+
+  // Zmiana obszaru: od teraz kształt wynika z punktów.
+  const p = await center(handle(page, 0));
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 15, p.y + 15, { steps: 4 });
+  await page.mouse.up();
+  const changed = await exported();
+  expect(changed).not.toEqual(outline);
+  expect(changed?.length).toBeLessThanOrEqual(48);
 });

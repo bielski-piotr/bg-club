@@ -3,7 +3,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { format, plural, t } from '../i18n';
 import { ColorSwatches, IconButton, SegmentedControl, Slider, Switch, TextField } from '../ui';
 import { SCOREPAD_NAME_MAX } from './scorepads';
-import { SPINE_COLORS, areaHint, parseCm } from './area';
+import { SPINE_COLORS, areaHint, clampCm, formatCm, parseCm } from './area';
 
 const text = t.scorepads.wizard.area;
 
@@ -81,8 +81,8 @@ export function AreaPanel({
   readonly onChange: (patch: ScorePadEditorAreaPatch) => void;
 }) {
   const name = useDraft(settings.name);
-  const width = useDraft(String(settings.size.w).replace('.', ','));
-  const height = useDraft(String(settings.size.h).replace('.', ','));
+  const width = useDraft(formatCm(settings.size.w));
+  const height = useDraft(formatCm(settings.size.h));
   const strength = useDraft(settings.strength);
 
   const known = SPINE_COLORS.includes(settings.tape);
@@ -105,12 +105,17 @@ export function AreaPanel({
 
   const commitSize = (key: 'w' | 'h', raw: string) => {
     const value = parseCm(raw);
+    const field = key === 'w' ? width : height;
     if (value === null) {
       // Niepoprawna wartość wraca do bieżącego rozmiaru.
-      (key === 'w' ? width : height).setDraft(String(settings.size[key]).replace('.', ','));
+      field.setDraft(formatCm(settings.size[key]));
       return;
     }
-    onChange({ size: { [key]: value } });
+    // Pole pokazuje wartość tak, jak ją zapisze edytor (zakres i zaokrąglenie), także wtedy,
+    // gdy rozmiar się nie zmienia (np. 100 przy 60 cm).
+    const size = clampCm(value);
+    field.setDraft(formatCm(size));
+    onChange({ size: { [key]: size } });
   };
   const onSizeKey = (key: 'w' | 'h') => (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') commitSize(key, event.currentTarget.value);

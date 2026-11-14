@@ -5,7 +5,7 @@ import type { ShapePt, SheetShape } from '../core/shape';
 import { shapePath } from '../core/shape';
 import { clamp, plural } from '../core/util';
 import type { Pt, Quad } from './photo';
-import { detectPaper, looksCropped, pixelsOf, quadAspect, warp } from './photo';
+import { detectPaper, looksCropped, pixelsOf, quadAspect, releasePixels, warp } from './photo';
 import {
   MAX_DETECTED_POINTS,
   areaCorners,
@@ -682,6 +682,14 @@ export interface AreaScan {
  * Wynik to wielokąt na zdjęciu, który można dalej poprawiać punktami.
  */
 export function detectArea(src: HTMLCanvasElement): AreaScan {
+  try {
+    return detectAreaIn(src);
+  } finally {
+    releasePixels();
+  }
+}
+
+function detectAreaIn(src: HTMLCanvasElement): AreaScan {
   const { width: w, height: h } = src;
   const cropped = looksCropped(src);
   // przycięty skan: kartka to całe zdjęcie (kształt szukamy w jego obrębie), chyba że na jasnym
@@ -692,7 +700,7 @@ export function detectArea(src: HTMLCanvasElement): AreaScan {
   const full = !plain && cropped;
   // Narożniki z wykrycia kartki leżą na łukach zaokrąglonych rogów (czworokąt wpisany), więc
   // kształt szukamy w czworokącie poszerzonym o margines tła; narożniki wyznaczy potem obrys.
-  const frame = full ? quad : growQuad(quad, 0.08);
+  const frame = full ? quad : growQuad(quad, 0.08, w, h);
   const scan = detectShape(src, frame, Math.max(0.05, quadAspect(frame)));
   const sheet = (): AreaScan => ({
     area: quad.map((p) => ({ x: clamp(p.x, 0, w), y: clamp(p.y, 0, h) })),
@@ -722,9 +730,15 @@ export function detectArea(src: HTMLCanvasElement): AreaScan {
   return { area: limitPoints(outline, MAX_DETECTED_POINTS, diag), holes, found: 'shape', cropped };
 }
 
-/** Czworokąt powiększony względem środka o ułamek `k` (margines tła wokół kartki). */
-function growQuad(q: Quad, k: number): Quad {
+/**
+ * Czworokąt powiększony względem środka o ułamek `k` (margines tła wokół kartki), w granicach
+ * zdjęcia: poza nim prostowanie powielałoby brzeg zdjęcia, który nie jest tłem.
+ */
+function growQuad(q: Quad, k: number, w: number, h: number): Quad {
   const cx = q.reduce((s, p) => s + p.x, 0) / 4;
   const cy = q.reduce((s, p) => s + p.y, 0) / 4;
-  return q.map((p) => ({ x: cx + (p.x - cx) * (1 + k), y: cy + (p.y - cy) * (1 + k) })) as Quad;
+  return q.map((p) => ({
+    x: clamp(cx + (p.x - cx) * (1 + k), 0, w),
+    y: clamp(cy + (p.y - cy) * (1 + k), 0, h),
+  })) as Quad;
 }

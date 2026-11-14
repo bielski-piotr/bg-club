@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SPINE_COLORS, areaHint, parseCm } from './area';
+import { SPINE_COLORS, areaHint, clampCm, formatCm, parseCm } from './area';
 
 /** Pomocnicze kroku 2 „Obszar kartki” (EDT-10, DS §18). */
 describe('obszar kartki w kreatorze', () => {
@@ -15,6 +15,13 @@ describe('obszar kartki w kreatorze', () => {
     expect(parseCm('')).toBeNull();
     expect(parseCm('abc')).toBeNull();
     expect(parseCm('-2')).toBeNull();
+  });
+
+  it('rozmiar jak w edytorze: 3–60 cm, co 0,1 cm, z przecinkiem', () => {
+    expect(clampCm(100)).toBe(60);
+    expect(clampCm(0.5)).toBe(3);
+    expect(clampCm(14.84)).toBe(14.8);
+    expect(formatCm(10.5)).toBe('10,5');
   });
 
   it('podpowiedź zależy od trybu i wyniku wykrywania', () => {

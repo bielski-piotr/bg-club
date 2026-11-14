@@ -26,6 +26,16 @@ export function parseCm(raw: string): number | null {
   return value;
 }
 
+/** Zakres rozmiaru kartki w edytorze (3–60 cm, co 0,1 cm). */
+export function clampCm(value: number): number {
+  return Math.round(Math.min(60, Math.max(3, value)) * 10) / 10;
+}
+
+/** Rozmiar w polu: polski przecinek dziesiętny. */
+export function formatCm(value: number): string {
+  return String(value).replace('.', ',');
+}
+
 /** Podpowiedź pod wyborem sposobu wyznaczenia obszaru (szablon z `{points}`). */
 export function areaHint(settings: Pick<ScorePadEditorArea, 'mode' | 'detected'>): string {
   const hints = t.scorepads.wizard.area.hints;

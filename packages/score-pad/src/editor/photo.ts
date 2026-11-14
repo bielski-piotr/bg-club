@@ -52,15 +52,22 @@ export async function canvasFromUrl(url: string): Promise<HTMLCanvasElement> {
   return c;
 }
 
-/** Piksele zdjęcia (pamiętane dla danego płótna: wykrywanie i prostowanie czytają je wiele razy). */
-const pixelCache = new WeakMap<HTMLCanvasElement, ImageData>();
+/**
+ * Piksele zdjęcia, pamiętane na czas jednej operacji (wykrywanie czyta je kilka razy). Kopia
+ * zdjęcia 4096 px to do 64 MB, więc po operacji zwalnia ją `releasePixels()`.
+ */
+let pixelCache: { c: HTMLCanvasElement; d: ImageData } | null = null;
 export function pixelsOf(c: HTMLCanvasElement): ImageData {
-  let d = pixelCache.get(c);
-  if (!d) {
-    d = (c.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, c.width, c.height);
-    pixelCache.set(c, d);
-  }
-  return d;
+  if (pixelCache?.c !== c)
+    pixelCache = {
+      c,
+      d: (c.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, c.width, c.height),
+    };
+  return pixelCache.d;
+}
+
+export function releasePixels(): void {
+  pixelCache = null;
 }
 
 export function rotate(src: HTMLCanvasElement, dir: 1 | -1): HTMLCanvasElement {
@@ -641,6 +648,29 @@ export function sheetSize(q: Quad, aspect: number): { w: number; h: number } {
     : { w: long, h: Math.max(8, Math.round(long / a)) };
 }
 
+let webp: boolean | null = null;
+/**
+ * Czy przeglądarka koduje WebP (sprawdzane raz, na płótnie 1×1). Bez tego `toDataURL` zwraca
+ * PNG, którego kodowanie przy kartce 4096 px trwa długo.
+ */
+export function webpEncoding(): boolean {
+  if (webp === null) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    try {
+      webp = c.toDataURL('image/webp').startsWith('data:image/webp');
+    } catch {
+      webp = false;
+    }
+  }
+  return webp;
+}
+
+/** Tylko testy: ponowne sprawdzenie kodowania WebP. */
+export function resetWebpProbe(): void {
+  webp = null;
+}
+
 /** Bajty pliku zapisanego w data URL (base64). */
 export function dataUrlBytes(url: string): number {
   const i = url.indexOf(',');
@@ -654,12 +684,10 @@ export function dataUrlBytes(url: string): number {
  * Plik większy niż limit Storage zmniejszamy (o 15% na krok), a nie obniżamy jakości.
  */
 export function encodeSheet(c: HTMLCanvasElement, maxBytes = MAX_SHEET_BYTES): string {
+  const type = webpEncoding() ? 'image/webp' : 'image/jpeg';
   let cur = c;
   for (let attempt = 0; ; attempt++) {
-    const webp = cur.toDataURL('image/webp', SHEET_QUALITY);
-    const url = webp.startsWith('data:image/webp')
-      ? webp
-      : cur.toDataURL('image/jpeg', SHEET_QUALITY);
+    const url = cur.toDataURL(type, SHEET_QUALITY);
     if (dataUrlBytes(url) <= maxBytes || attempt >= 6 || Math.max(cur.width, cur.height) < 800)
       return url;
     const [n, g] = makeCanvas(cur.width * 0.85, cur.height * 0.85);
