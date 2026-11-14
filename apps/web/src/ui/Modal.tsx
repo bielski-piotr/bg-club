@@ -18,10 +18,15 @@ export interface ModalProps {
   readonly onBack?: (() => void) | undefined;
   /** Kliknięcie tła poza oknem (desktop). */
   readonly onScrimClick?: (() => void) | undefined;
-  /** 560 (lista, formularz) albo 880 (dwie kolumny), DS §7. */
-  readonly width?: 560 | 880 | undefined;
+  /** 560 (lista, formularz), 880 (dwie kolumny), DS §7, albo 1120 (edytor notesu, DS §18). */
+  readonly width?: 560 | 880 | 1120 | undefined;
   /** Okno przykryte przez popup wyżej na stosie: niewidoczne i poza kolejnością fokusu. */
   readonly covered?: boolean | undefined;
+  /**
+   * Okno pod własnym dialogiem (np. potwierdzeniem): widoczne, ale `inert`, więc fokus
+   * i czytniki ekranu zostają w dialogu.
+   */
+  readonly blocked?: boolean | undefined;
   /** Poziom na stosie (atrybut `data-popup-level`, po nim host przenosi fokus). */
   readonly level?: number | undefined;
   readonly children: ReactNode;
@@ -69,6 +74,7 @@ export function Modal({
   onScrimClick,
   width = 560,
   covered = false,
+  blocked = false,
   level,
   children,
   footer,
@@ -77,7 +83,10 @@ export function Modal({
   const titleId = useId();
 
   return (
-    <div className={cx('popup-layer', covered && 'popup-layer--covered')} inert={covered}>
+    <div
+      className={cx('popup-layer', covered && 'popup-layer--covered')}
+      inert={covered || blocked}
+    >
       <div className="popup-layer__scrim" aria-hidden="true" onClick={onScrimClick} />
       <div
         role="dialog"

@@ -394,6 +394,10 @@ export const EDITOR_CSS = String.raw`
   .spe[data-step="3"] .spe-stage { height: min(64vh, 560px); }
   .spe[data-step="3"] .spe-panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
 }
+/* kreator w aplikacji (EDT-9): kroki, nawigację i zdjęcie prowadzi aplikacja */
+.spe.wizard .spe-rail, .spe.wizard .spe-drop { display: none; }
+.spe.wizard .spe-in { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.spe.wizard .spe-main { grid-row: auto; }
 @media (prefers-reduced-motion: reduce) {
   .spe *, .spe *::before, .spe *::after { animation: none !important; transition: none !important; }
 }

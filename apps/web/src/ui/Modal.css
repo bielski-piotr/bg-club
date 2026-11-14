@@ -150,6 +150,13 @@
     width: min(100%, 880px);
   }
 
+  /* Edytor notesu (DS §18): stała wysokość, żeby okno nie skakało między krokami kreatora. */
+  .modal--1120 {
+    width: min(100%, 1120px);
+    height: min(852px, calc(var(--vv-height, 100dvh) - 48px));
+    max-height: none;
+  }
+
   .modal__header {
     min-height: 0;
     padding: 28px 28px 0;

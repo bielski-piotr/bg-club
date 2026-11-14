@@ -484,6 +484,97 @@ export const pl = {
       notFoundTitle: 'Nie znaleziono notesu',
       notFoundBody: 'Tego notesu nie ma. Mógł zostać usunięty.',
     },
+    /** Kreator edytora notesu (PRD §5.5.2, EDT-9, DS §18, zadanie [016]). */
+    wizard: {
+      steps: ['Zdjęcie', 'Obszar kartki', 'Mapowanie pól', 'Kategorie', 'Test i zapis'],
+      stepsLabel: 'Kroki edytora notesu',
+      stepOf: 'Krok {n} z {total}',
+      stepDone: '{name} (ukończony)',
+      stepCurrent: '{n}. {name} (bieżący)',
+      stepUpcoming: '{n}. {name}',
+      back: 'Wstecz',
+      next: 'Dalej',
+      stage: {
+        title: 'Przeciągnij zdjęcie kartki',
+        helper: 'albo wklej je ze schowka (Ctrl+V). JPG, PNG lub WebP.',
+        dragging: 'Upuść zdjęcie tutaj',
+        choose: 'Wybierz plik',
+        takePhoto: 'Zrób zdjęcie',
+        change: 'Zmień zdjęcie',
+        preview: 'Wczytane zdjęcie kartki',
+        loading: 'Wczytywanie zdjęcia',
+      },
+      camera: {
+        label: 'Podgląd z kamery',
+        starting: 'Włączanie kamery',
+        capture: 'Zrób zdjęcie',
+        cancel: 'Anuluj',
+        unsupported:
+          'Ta przeglądarka nie udostępnia kamery. Wybierz zdjęcie z dysku albo zrób je telefonem.',
+        denied:
+          'Brak dostępu do kamery. Zezwól na nią w ustawieniach przeglądarki albo wybierz zdjęcie z dysku.',
+        missing: 'Nie znaleziono kamery. Wybierz zdjęcie z dysku.',
+        failed: 'Nie udało się włączyć kamery. Wybierz zdjęcie z dysku.',
+      },
+      tips: {
+        title: 'Dobre zdjęcie kartki',
+        items: [
+          'Połóż pustą kartkę na gładkim, kontrastowym tle.',
+          'Zrób zdjęcie z góry, tak żeby cała kartka była w kadrze.',
+          'Zadbaj o równe światło, bez cieni i odblasków.',
+        ],
+      },
+      import: 'Importuj plik .json',
+      importLabel: 'Plik notesu (.json)',
+      imported: 'Wczytano notes {name} z pliku. Wszystkie kroki są gotowe do sprawdzenia.',
+      errors: {
+        type: 'Ten plik nie jest zdjęciem. Wybierz obraz JPG, PNG lub WebP.',
+        image: 'Nie udało się odczytać zdjęcia. Spróbuj z innym plikiem.',
+        noImage: 'Plik notesu nie zawiera zdjęcia kartki, więc nie da się go edytować.',
+        open: 'Nie udało się wczytać zdjęcia tego notesu. Wczytaj zdjęcie kartki od nowa.',
+      },
+      categories: {
+        intro:
+          'Notes ma {seats} i {categories}. Nazwy i rodzaje kategorii ustawisz na razie w kroku „Mapowanie pól”.',
+        count: { one: '{n} kategorię', few: '{n} kategorie', many: '{n} kategorii' },
+        listLabel: 'Kategorie notesu',
+        kinds: {
+          names: 'Nazwa gracza',
+          input: 'Punktacja',
+          total: 'Suma',
+          sum: 'Suma',
+          bonus: 'Premia',
+          skip: 'Puste pole',
+        },
+        unnamed: 'Kategoria {n}',
+      },
+      test: {
+        intro:
+          'Sprawdź kartkę i zapisz notes. Test notesu 3D z losowymi wynikami dojdzie w kolejnym kroku prac nad edytorem.',
+        sheet: 'Kartka notesu',
+        seats: 'Miejsca dla graczy',
+        categories: 'Kategorie',
+      },
+      leave: {
+        title: 'Odrzucić zmiany?',
+        description: 'Notes nie został zapisany. Po zamknięciu edytora zmiany przepadną.',
+        stay: 'Wróć do edycji',
+        discard: 'Odrzuć zmiany',
+      },
+      replacePhoto: {
+        title: 'Zastąpić zdjęcie?',
+        description:
+          'Obszar kartki, pola i kategorie zostaną ustawione od nowa dla nowego zdjęcia. Nazwa i kolor grzbietu zostaną.',
+        cancel: 'Anuluj',
+        confirm: 'Zastąp zdjęcie',
+      },
+      replaceFile: {
+        title: 'Wczytać notes z pliku?',
+        description: 'Zdjęcie, obszar kartki, pola i kategorie zostaną zastąpione notesem z pliku.',
+        cancel: 'Anuluj',
+        confirm: 'Wczytaj plik',
+      },
+    },
     rename: {
       title: 'Zmień nazwę notesu',
       label: 'Nazwa notesu',

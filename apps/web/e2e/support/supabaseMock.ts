@@ -441,6 +441,10 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         },
       });
     }
+    // Notesy gry (GAME-7): lista bez notesów; kreator edytora zaczyna od pustego notesu.
+    if (url.pathname === '/rest/v1/scorepads' && request.method() === 'GET') {
+      return route.fulfill({ json: [] });
+    }
     if (url.pathname === '/rest/v1/rpc/search_games' && request.method() === 'POST') {
       const { query } = request.postDataJSON() as { query: string };
       mock.gameSearches.push(query);

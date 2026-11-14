@@ -5,6 +5,8 @@ import { PopupHost } from './PopupHost';
 import { PopupModal } from './PopupModal';
 import { PopupRouter } from './PopupRouter';
 import type { PopupRoute } from './routes';
+import { useLeaveGuard } from './useLeaveGuard';
+import { useState, type ReactNode } from 'react';
 
 const ID = '00000000-0000-4000-a000-000000000002';
 
@@ -12,22 +14,51 @@ const ID = '00000000-0000-4000-a000-000000000002';
 function TestPopup({ route }: { readonly route: PopupRoute }) {
   if (route.kind === 'members') {
     return (
-      <PopupModal title="Członkowie">
+      <Guarded title="Członkowie">
         <PopupLink to={{ kind: 'profile', id: ID }}>Ania</PopupLink>
-      </PopupModal>
+      </Guarded>
     );
   }
   if (route.kind === 'profile') {
     return (
-      <PopupModal title="Profil">
+      <Guarded title="Profil">
         <label>
           Notatka <input />
         </label>
-      </PopupModal>
+      </Guarded>
     );
   }
   return (
     <PopupModal title="Nie znaleziono">{route.kind === 'invalid' ? route.raw : null}</PopupModal>
+  );
+}
+
+/** Popup z ochroną: przy zaznaczonym „Zmiany” zamknięcie pyta (licznik pytań i „Odrzuć zmiany”). */
+function Guarded({ title, children }: { readonly title: string; readonly children: ReactNode }) {
+  const [dirty, setDirty] = useState(false);
+  const [asked, setAsked] = useState(0);
+  const [pending, setPending] = useState<(() => void) | null>(null);
+  useLeaveGuard(
+    dirty
+      ? (leave) => {
+          setAsked((n) => n + 1);
+          setPending(() => leave);
+        }
+      : null,
+  );
+  return (
+    <PopupModal title={title}>
+      {children}
+      <label>
+        Zmiany <input type="checkbox" checked={dirty} onChange={() => setDirty(!dirty)} />
+      </label>
+      <p>Pytania: {asked}</p>
+      {pending ? (
+        <button type="button" onClick={pending}>
+          Odrzuć zmiany
+        </button>
+      ) : null}
+    </PopupModal>
   );
 }
 
@@ -184,5 +215,97 @@ describe('stos popupów', () => {
     trigger.dispatchEvent(event);
     expect(window.location.search).toBe('');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  describe('ochrona przed zamknięciem (useLeaveGuard)', () => {
+    function openGuarded() {
+      renderStack();
+      fireEvent.click(screen.getByRole('link', { name: 'Członkowie klubu' }));
+      fireEvent.click(screen.getByRole('link', { name: 'Ania' }));
+      fireEvent.click(within(dialog('Profil')).getByRole('checkbox', { name: 'Zmiany' }));
+    }
+
+    it('bez zmian popup zamyka się od razu', () => {
+      renderStack();
+      fireEvent.click(screen.getByRole('link', { name: 'Członkowie klubu' }));
+      fireEvent.click(screen.getByRole('link', { name: 'Ania' }));
+      const back = vi.spyOn(window.history, 'back');
+      fireEvent.click(screen.getByRole('button', { name: 'Wróć' }));
+      expect(back).toHaveBeenCalledTimes(1);
+    });
+
+    it('Esc, ← i × pytają ochronę; potwierdzenie zamyka popup', async () => {
+      openGuarded();
+      const back = vi.spyOn(window.history, 'back');
+      const go = vi.spyOn(window.history, 'go');
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+      fireEvent.click(within(dialog('Profil')).getByRole('button', { name: 'Wróć' }));
+      fireEvent.click(within(dialog('Profil')).getByRole('button', { name: 'Zamknij' }));
+      expect(back).not.toHaveBeenCalled();
+      expect(go).not.toHaveBeenCalled();
+      expect(dialog('Profil')).toBeInTheDocument();
+
+      // Ostatnie pytanie pochodziło z ×: potwierdzenie zamyka cały stos.
+      go.mockRestore();
+      await act(async () => {
+        fireEvent.click(within(dialog('Profil')).getByRole('button', { name: 'Odrzuć zmiany' }));
+        await new Promise((resolve) =>
+          window.addEventListener('popstate', resolve, { once: true }),
+        );
+      });
+      await waitFor(() => expect(window.location.search).toBe(''));
+    });
+
+    it('Wstecz w przeglądarce przywraca popup z ochroną i pyta o potwierdzenie', async () => {
+      openGuarded();
+      const url = window.location.search;
+      await goBack();
+      expect(window.location.search).toBe(url);
+      expect(dialog('Profil')).toBeInTheDocument();
+      expect(within(dialog('Profil')).getByRole('checkbox', { name: 'Zmiany' })).toBeChecked();
+
+      await act(async () => {
+        fireEvent.click(within(dialog('Profil')).getByRole('button', { name: 'Odrzuć zmiany' }));
+        await new Promise((resolve) =>
+          window.addEventListener('popstate', resolve, { once: true }),
+        );
+      });
+      await waitFor(() => expect(window.location.search).toBe('?p=members'));
+      expect(dialog('Członkowie')).toBeInTheDocument();
+    });
+
+    it('zamknięcie karty z niezapisanymi zmianami pyta przeglądarkę', () => {
+      openGuarded();
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      fireEvent.click(within(dialog('Profil')).getByRole('checkbox', { name: 'Zmiany' }));
+      const clean = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(clean);
+      expect(clean.defaultPrevented).toBe(false);
+    });
+
+    it('× pyta każdy chroniony popup; anulowanie niżej zostawia ochronę wyższego', () => {
+      renderStack();
+      fireEvent.click(screen.getByRole('link', { name: 'Członkowie klubu' }));
+      fireEvent.click(within(dialog('Członkowie')).getByRole('checkbox', { name: 'Zmiany' }));
+      fireEvent.click(screen.getByRole('link', { name: 'Ania' }));
+      const profile = dialog('Profil');
+      fireEvent.click(within(profile).getByRole('checkbox', { name: 'Zmiany' }));
+      const go = vi.spyOn(window.history, 'go');
+
+      fireEvent.click(within(profile).getByRole('button', { name: 'Zamknij' }));
+      expect(within(profile).getByText('Pytania: 1')).toBeInTheDocument();
+      fireEvent.click(within(profile).getByRole('button', { name: 'Odrzuć zmiany' }));
+      // Po zgodzie górnego pyta niższy; bez jego zgody nic się nie zamyka.
+      const members = screen.getByRole('dialog', { name: 'Członkowie', hidden: true });
+      expect(within(members).getByText('Pytania: 1')).toBeInTheDocument();
+      expect(go).not.toHaveBeenCalled();
+
+      // Górny popup nadal ma ochronę: Esc znowu pyta.
+      fireEvent.keyDown(profile, { key: 'Escape' });
+      expect(within(profile).getByText('Pytania: 2')).toBeInTheDocument();
+      expect(window.location.search).toBe(`?p=members&p=profile/${ID}`);
+    });
   });
 });
