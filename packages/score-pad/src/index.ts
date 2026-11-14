@@ -18,6 +18,8 @@ export const SCORE_PAD_EDITOR_TAG = 'score-pad-editor';
 /** Wersja źródeł POC, z których pochodzą web componenty. */
 export const SCORE_PAD_POC_VERSION = '2.4.0';
 
+export { scorePadFileName } from './file-name';
+
 /** Motyw przekazywany do notesu i edytora (rozwiązany motyw aplikacji, bez „systemowego”). */
 export type ScorePadTheme = 'light' | 'dark';
 
@@ -49,6 +51,12 @@ export interface ScorePadTemplate {
   readonly v: 2;
   readonly id: string;
   readonly name: string;
+  /**
+   * Zdjęcie kartki (data URL albo adres obrazu). W bazie szablon jest bez niego: obraz leży
+   * w Storage (`scorepad_versions.image_path`, EDT-1), a aplikacja wstawia go przed osadzeniem
+   * notesu i przy eksporcie do pliku.
+   */
+  readonly image?: string | undefined;
   /** Kategorie: imiona, punktacje, sumy, premie i puste pola (EDT-13). */
   readonly lines: readonly ScorePadLine[];
   /** Kategoria decydująca, kierunek i reguły remisów; brak = najwyższa suma końcowa. */

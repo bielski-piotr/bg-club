@@ -65,5 +65,5 @@ export function useScorePadElement<E extends HTMLElement>(
 
   const retry = () => setAttempt((n) => n + 1);
 
-  return { hostRef, state, retry };
+  return { hostRef, elementRef, state, retry };
 }

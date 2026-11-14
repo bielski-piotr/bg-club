@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(38);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
@@ -122,13 +122,21 @@ select is(
   (select prosecdef from pg_proc where oid = 'public.handle_auth_user_deleted()'::regprocedure),
   true, 'handle_auth_user_deleted jest security definer'
 );
+-- Wyjątek: RPC klienta `security definer`, które zaczynają od strażnika roli (README,
+-- „Uprawnienia”); lista jest jawna, a każde z nich sprawdza test poniżej.
 select is_empty(
   $$ select p.oid::regprocedure::text from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and (p.prorettype = 'trigger'::regtype or p.prosecdef)
+        and p.oid not in ('public.save_scorepad(uuid,uuid,text,jsonb,text,int)'::regprocedure)
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
-  'anon i authenticated nie mają EXECUTE na funkcjach wyzwalaczy i security definer'
+  'anon i authenticated nie mają EXECUTE na funkcjach wyzwalaczy i security definer (poza RPC klienta)'
+);
+select ok(
+  (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);'
+     from pg_proc where oid = 'public.save_scorepad(uuid,uuid,text,jsonb,text,int)'::regprocedure),
+  'save_scorepad (security definer) zaczyna od strażnika private.require_admin()'
 );
 
 -- Wartości domyślne.

@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
 import { useAuth } from '../auth/authContext';
 import { format, t } from '../i18n';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { usePopups } from '../popups/popupContext';
+import { useMounted } from '../popups/useMounted';
 import { PopupDialog } from '../popups/PopupDialog';
 import { QueryStatus } from '../popups/QueryStatus';
 import { Banner, Button, useToast } from '../ui';
@@ -22,14 +22,7 @@ export function DeleteGameDialog({ id }: { readonly id: string }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { back } = usePopups();
-  // Dialog zamknięty w trakcie żądania (Esc, tło) jest odmontowany: wtedy nie cofamy drugi raz.
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const mounted = useMounted();
   const query = useGame(client, id);
   const game = query.data;
 

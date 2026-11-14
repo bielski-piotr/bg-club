@@ -31,6 +31,16 @@ export type PopupRoute =
   | { readonly kind: 'edit-game'; readonly id: string }
   /** Potwierdzenie „Usuń grę” (GAME-8, admin), adres `game/<uuid>/delete`. */
   | { readonly kind: 'delete-game'; readonly id: string }
+  /** Notesy gry (GAME-7), adres `game/<uuid>/scorepads`. */
+  | { readonly kind: 'scorepads'; readonly gameId: string }
+  /** Edytor nowego notesu gry (GAME-7, EDT-1, admin), adres `game/<uuid>/scorepads/new`. */
+  | { readonly kind: 'add-scorepad'; readonly gameId: string }
+  /** Edytor notesu: zapis tworzy nową wersję (GAME-9, admin), adres `scorepad/<uuid>/edit`. */
+  | { readonly kind: 'edit-scorepad'; readonly id: string }
+  /** Zmiana nazwy notesu (GAME-7, admin), adres `scorepad/<uuid>/rename`. */
+  | { readonly kind: 'rename-scorepad'; readonly id: string }
+  /** Potwierdzenie „Usuń notes” (GAME-7, admin), adres `scorepad/<uuid>/delete`. */
+  | { readonly kind: 'delete-scorepad'; readonly id: string }
   /** Adres, którego aplikacja nie zna albo który jest uszkodzony. Popup pokazuje czytelny stan. */
   | { readonly kind: 'invalid'; readonly raw: string };
 
@@ -58,6 +68,18 @@ export function parseRoute(raw: string): PopupRoute {
     const id = (args[0] ?? '').toLowerCase();
     if (args[1] === 'edit') return { kind: 'edit-game', id };
     if (args[1] === 'delete') return { kind: 'delete-game', id };
+    if (args[1] === 'scorepads') return { kind: 'scorepads', gameId: id };
+  }
+  if (kind === 'game' && args.length === 3 && isUuid(args[0] ?? '')) {
+    if (args[1] === 'scorepads' && args[2] === 'new') {
+      return { kind: 'add-scorepad', gameId: (args[0] ?? '').toLowerCase() };
+    }
+  }
+  if (kind === 'scorepad' && args.length === 2 && isUuid(args[0] ?? '')) {
+    const id = (args[0] ?? '').toLowerCase();
+    if (args[1] === 'edit') return { kind: 'edit-scorepad', id };
+    if (args[1] === 'rename') return { kind: 'rename-scorepad', id };
+    if (args[1] === 'delete') return { kind: 'delete-scorepad', id };
   }
   if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
   if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
@@ -92,6 +114,16 @@ export function serializeRoute(route: PopupRoute): string {
       return `game/${route.id}/edit`;
     case 'delete-game':
       return `game/${route.id}/delete`;
+    case 'scorepads':
+      return `game/${route.gameId}/scorepads`;
+    case 'add-scorepad':
+      return `game/${route.gameId}/scorepads/new`;
+    case 'edit-scorepad':
+      return `scorepad/${route.id}/edit`;
+    case 'rename-scorepad':
+      return `scorepad/${route.id}/rename`;
+    case 'delete-scorepad':
+      return `scorepad/${route.id}/delete`;
     case 'profile':
       return `profile/${route.id}`;
     case 'delete-member':

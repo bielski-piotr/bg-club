@@ -77,10 +77,8 @@ select results_eq(
        ('meetings', 'INSERT', 'host_id,id,starts_at,title,voting_open'),
        ('meetings', 'UPDATE', 'host_id,starts_at,title,voting_open'),
        ('profiles', 'UPDATE', 'avatar_path,first_name,last_name,password_change_suggested,theme'),
-       ('scorepad_versions', 'INSERT', 'id,image_path,player_slots,scorepad_id,template'),
-       ('scorepads', 'INSERT', 'game_id,id,name'),
        ('scorepads', 'UPDATE', 'current_version_id,deleted_at,name') $$,
-  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at)'
+  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at; notesy przez save_scorepad)'
 );
 select results_eq(
   $$ select p.oid::regprocedure::text from pg_proc p
@@ -96,9 +94,10 @@ select results_eq(
        ('private.is_meeting_runner(uuid)'),
        ('private.is_voting_open(uuid)'),
        ('private.try_uuid(text)'),
+       ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
        ('search_text(text)') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role i wyszukiwanie gier'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier i zapis notesu'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.

@@ -61,6 +61,36 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute('games/edit')).toEqual({ kind: 'invalid', raw: 'games/edit' });
   });
 
+  it('zna notesy gry, edytor, zmianę nazwy i usuwanie notesu (GAME-7)', () => {
+    const PAD = '00000000-0000-4000-d000-000000000001';
+    expect(parseStack(`?p=games&p=game/${ID}/scorepads&p=game/${ID}/scorepads/new`)).toEqual([
+      { kind: 'games' },
+      { kind: 'scorepads', gameId: ID },
+      { kind: 'add-scorepad', gameId: ID },
+    ]);
+    expect(parseRoute(`scorepad/${PAD.toUpperCase()}/edit`)).toEqual({
+      kind: 'edit-scorepad',
+      id: PAD,
+    });
+    expect(parseRoute(`scorepad/${PAD}/rename`)).toEqual({ kind: 'rename-scorepad', id: PAD });
+    expect(parseRoute(`scorepad/${PAD}/delete`)).toEqual({ kind: 'delete-scorepad', id: PAD });
+    for (const route of [
+      { kind: 'scorepads', gameId: ID },
+      { kind: 'add-scorepad', gameId: ID },
+      { kind: 'edit-scorepad', id: PAD },
+      { kind: 'rename-scorepad', id: PAD },
+      { kind: 'delete-scorepad', id: PAD },
+    ] as const) {
+      expect(parseStack(stackSearch('', [route]))).toEqual([route]);
+    }
+    expect(parseRoute(`scorepad/${PAD}`)).toEqual({ kind: 'invalid', raw: `scorepad/${PAD}` });
+    expect(parseRoute('scorepad/1/edit')).toEqual({ kind: 'invalid', raw: 'scorepad/1/edit' });
+    expect(parseRoute(`game/${ID}/scorepads/edit`)).toEqual({
+      kind: 'invalid',
+      raw: `game/${ID}/scorepads/edit`,
+    });
+  });
+
   it('zna formularz dodawania członka (MEM-3)', () => {
     expect(parseStack('?p=members&p=members/new')).toEqual([
       { kind: 'members' },
