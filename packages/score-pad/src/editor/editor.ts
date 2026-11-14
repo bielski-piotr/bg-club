@@ -216,6 +216,8 @@ export class Editor {
     pointer: number;
   } | null = null;
   private press = 0;
+  /** Ostatnie wciśnięcie punktu (wykrywanie dwukliku). */
+  private lastPress: { i: number; at: number } | null = null;
   private focusPt = -1;
   private refocus = -1;
 
@@ -376,7 +378,6 @@ export class Editor {
       document.addEventListener('paste', this.onDocPaste);
     }
     r.addEventListener('keydown', (e) => this.onKey(e));
-    this.svg.addEventListener('dblclick', (e) => this.onDbl(e));
     // Zmiany użytkownika: pola i przyciski narzędzi oraz przeciąganie na scenie (EDT-1). Klik
     // bez skutku też liczy się jako zmiana; zbędne pytanie o odrzucenie zmian jest mniejszym złem
     // niż utracona praca.
@@ -1286,8 +1287,20 @@ export class Editor {
     // drugi palec nie przejmuje przeciąganego punktu
     if (this.step !== 2 || !this.src || this.pdrag) return;
     if (ph) {
+      const i = Number(ph.dataset.p);
+      // Dwuklik (mysz, pióro) usuwa punkt. Wykrywamy go sami: nakładka jest przebudowywana po
+      // każdym wciśnięciu, a wtedy przeglądarka bywa, że nie wysyła zdarzenia `dblclick`.
+      const last = this.lastPress;
+      const now = e.timeStamp;
+      this.lastPress = { i, at: now };
+      if (e.pointerType !== 'touch' && last?.i === i && now - last.at < 400) {
+        this.lastPress = null;
+        e.preventDefault();
+        this.deletePoint(i);
+        return;
+      }
       ph.focus({ preventScroll: true });
-      this.startDrag(e, Number(ph.dataset.p), false, this.snapshot());
+      this.startDrag(e, i, false, this.snapshot());
       return;
     }
     const edge = t.closest('[data-e]') as SVGElement | null;
@@ -1319,6 +1332,7 @@ export class Editor {
       // drobne drgnięcie palca to jeszcze nie przeciąganie
       if (Math.hypot(p.x - d.x, p.y - d.y) < 5 * this.scale(src.width)) return;
       d.moved = true;
+      this.lastPress = null;
       clearTimeout(this.press);
       this.pushUndo(d.snap);
       this.mode = 'manual';
@@ -1358,35 +1372,6 @@ export class Editor {
       this.pristine = d.snap.pristine;
       this.areaChanged();
     } else this.render();
-  }
-
-  /** Dwuklik punktu usuwa go. */
-  private onDbl(e: MouseEvent): void {
-    const src = this.src;
-    if (this.step !== 2 || !src) return;
-    // Po przechwyceniu wskaźnika celem dwukliku jest całe SVG, więc punkt szukamy po położeniu.
-    const ph = (e.target as Element).closest('[data-p]') as SVGElement | null;
-    const i = ph ? Number(ph.dataset.p) : this.pointAt(this.toSvg(e as PointerEvent), src.width);
-    if (i < 0) return;
-    e.preventDefault();
-    clearTimeout(this.press);
-    this.pdrag = null;
-    this.deletePoint(i);
-  }
-
-  /** Najbliższy punkt obszaru w zasięgu chwytu albo -1. */
-  private pointAt(p: Pt, w: number): number {
-    const tol = (coarsePointer() ? 22 : 14) * this.scale(w);
-    let best = -1;
-    let bd = Infinity;
-    this.area.forEach((q, i) => {
-      const d = Math.hypot(q.x - p.x, q.y - p.y);
-      if (d <= tol && d < bd) {
-        bd = d;
-        best = i;
-      }
-    });
-    return best;
   }
 
   /** Klawiatura na punkcie obszaru: strzałki przesuwają (Shift: dalej), Delete usuwa. */

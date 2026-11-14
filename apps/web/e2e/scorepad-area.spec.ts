@@ -125,10 +125,18 @@ async function noHorizontalOverflow(page: Page) {
 
 const handle = (page: Page, i: number) => page.locator(`score-pad-editor [data-p="${i}"] .dot`);
 
+/**
+ * Środek uchwytu. Nakładka edytora jest przebudowywana przy każdym rysowaniu, więc element
+ * może zniknąć między znalezieniem a pomiarem: wtedy mierzymy jeszcze raz.
+ */
 async function center(locator: Locator) {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('brak elementu');
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  let box: Awaited<ReturnType<Locator['boundingBox']>> = null;
+  await expect(async () => {
+    box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+  }).toPass({ timeout: 5000 });
+  const b = box as unknown as { x: number; y: number; width: number; height: number };
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 }
 
 test('zaokrąglone rogi: wykryty nieregularny obszar, wygładzanie i panel kroku', async ({
@@ -223,7 +231,14 @@ test('wycięcie: obszar z wycięciem i ręczna poprawka punktami z lupą', async
   await expect.poll(async () => (await settings(page)).points).toBe(before + 1);
 
   // Klawiatura: punkt z fokusem przesuwają strzałki, Delete go usuwa.
-  await handle(page, 0).evaluate((dot) => (dot.parentElement as unknown as SVGElement).focus());
+  // fokus na punkcie (uchwyt mógł zostać przebudowany między znalezieniem a fokusem)
+  await expect(async () => {
+    await handle(page, 0).evaluate((dot) => (dot.parentElement as unknown as SVGElement).focus());
+    const focused = await editorEl(page).evaluate(
+      (el) => el.shadowRoot?.activeElement?.getAttribute('data-p') ?? null,
+    );
+    expect(focused).toBe('0');
+  }).toPass({ timeout: 5000 });
   await page.keyboard.press('Delete');
   await expect.poll(async () => (await settings(page)).points).toBe(before);
   await page.keyboard.press('Control+z');
