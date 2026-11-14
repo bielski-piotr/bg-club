@@ -36,6 +36,24 @@ const EMPTY: ScorePadEditorStatus = {
     canUndo: false,
     detected: 'sheet',
   },
+  mapping: {
+    mode: 'rects',
+    players: 'cols',
+    seats: 1,
+    categories: 0,
+    rows: 0,
+    labels: 1,
+    maxLabels: 3,
+    activeSeat: 0,
+    activeCategory: 0,
+    selected: 0,
+    canDuplicate: false,
+    canUndo: false,
+    hasContent: false,
+    detected: null,
+    problem: 'Narysuj na kartce pole pierwszej kategorii.',
+    zoomed: false,
+  },
   dirty: false,
   openFailed: false,
 };
@@ -44,6 +62,7 @@ const READY: ScorePadEditorStatus = {
   ...PHOTO,
   step: 3,
   fields: null,
+  mapping: { ...EMPTY.mapping, mode: 'table', seats: 4, categories: 2, problem: null },
   seats: 4,
   lines: [
     { label: 'Gracze', kind: 'names' },
@@ -69,7 +88,16 @@ describe('poprawność kroków', () => {
 
   it('kroki 3 i 4 wymagają pól i poprawnych kategorii (EDT-13)', () => {
     expect(isStepValid(3, { ...PHOTO, seats: 0, lines: READY.lines })).toBe(false);
-    expect(isStepValid(3, { ...PHOTO, seats: 4, lines: READY.lines })).toBe(true);
+    expect(isStepValid(3, { ...PHOTO, seats: 4, lines: READY.lines, mapping: READY.mapping })).toBe(
+      true,
+    );
+    // EDT-11: miejsce albo kategoria bez pól blokuje przejście dalej.
+    expect(
+      isStepValid(3, {
+        ...READY,
+        mapping: { ...READY.mapping, problem: 'Miejsce 2 nie ma jeszcze pól.' },
+      }),
+    ).toBe(false);
     expect(isStepValid(4, { ...READY, fields: 'Tylko jedna kategoria może być „Imiona”.' })).toBe(
       false,
     );

@@ -3,7 +3,13 @@
 
 import type { PadConfig } from '../core/settings';
 import type { PadTemplate } from '../core/templates';
-import { Editor, type EditorAreaPatch, type EditorStatus, type Step } from './editor';
+import {
+  Editor,
+  type EditorAreaPatch,
+  type EditorMappingAction,
+  type EditorStatus,
+  type Step,
+} from './editor';
 import { EDITOR_CSS } from './styles';
 
 export interface MountOptions {
@@ -114,5 +120,14 @@ export class ScorePadEditorElement extends HTMLElement {
   /** Cofa ostatnią zmianę obszaru (jak Ctrl+Z na scenie). */
   undoArea(): void {
     this.editor?.undoArea();
+  }
+
+  /**
+   * Zmiana kroku 3 „Mapowanie pól” (EDT-11): sposób mapowania, gracze w kolumnach lub wierszach,
+   * miejsca, kategorie, powielenie pól dla następnego miejsca, cofnięcie i dopasowanie widoku.
+   * Zmiana sposobu mapowania kasuje pola i kategorie bez pytania (pyta aplikacja).
+   */
+  editMapping(action: EditorMappingAction): void {
+    this.editor?.editMapping(action);
   }
 }

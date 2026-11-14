@@ -1,6 +1,7 @@
 import type {
   ScorePadEditorArea,
   ScorePadEditorAreaPatch,
+  ScorePadEditorMappingAction,
   ScorePadEditorStatus,
   ScorePadTemplate,
 } from '@bg-club/score-pad';
@@ -70,11 +71,37 @@ const EMPTY: ScorePadEditorStatus = {
     canUndo: false,
     detected: 'sheet',
   },
+  mapping: {
+    mode: 'rects',
+    players: 'cols',
+    seats: 1,
+    categories: 0,
+    rows: 0,
+    labels: 1,
+    maxLabels: 3,
+    activeSeat: 0,
+    activeCategory: 0,
+    selected: 0,
+    canDuplicate: false,
+    canUndo: false,
+    hasContent: false,
+    detected: null,
+    problem: 'Narysuj na kartce pole pierwszej kategorii.',
+    zoomed: false,
+  },
   dirty: false,
   openFailed: false,
 };
 const MAPPED: Partial<ScorePadEditorStatus> = {
   fields: null,
+  mapping: {
+    ...EMPTY.mapping,
+    mode: 'table',
+    seats: 3,
+    categories: 3,
+    hasContent: true,
+    problem: null,
+  },
   seats: 3,
   lines: [
     { label: 'Gracze', kind: 'names' },
@@ -92,6 +119,7 @@ const fake = vi.hoisted(() => ({
   setArea: vi.fn(),
   rotatePhoto: vi.fn(),
   undoArea: vi.fn(),
+  editMapping: vi.fn(),
   loadPhoto: vi.fn(),
   loadTemplate: vi.fn(),
   failPhoto: false,
@@ -147,6 +175,14 @@ vi.mock('./ScorePadEditorView', () => ({
       },
       rotatePhoto: (dir: 1 | -1) => fake.rotatePhoto(dir),
       undoArea: () => fake.undoArea(),
+      editMapping: (action: ScorePadEditorMappingAction) => {
+        fake.editMapping(action);
+        const current = (fake.status as ScorePadEditorStatus).mapping;
+        if (action.type === 'mode')
+          update({
+            mapping: { ...current, mode: action.mode, hasContent: false, categories: 0 },
+          });
+      },
     }));
     return <div data-testid="editor" />;
   },
@@ -164,6 +200,7 @@ beforeEach(() => {
   fake.setArea.mockClear();
   fake.rotatePhoto.mockClear();
   fake.undoArea.mockClear();
+  fake.editMapping.mockClear();
   save.mockReset();
   save.mockResolvedValue({ name: 'Z pliku', version: 1, playerSlots: 3 });
 });
@@ -528,5 +565,158 @@ describe('kreator edytora notesu', () => {
     expect(
       within(dialog).getAllByRole('radio', { name: /kolor|owy|ony|Różowy|Granatowy/ })[0],
     ).toBe(custom);
+  });
+
+  it('krok 3: mapowanie pól, liczby, ostrzeżenie EDT-6 i walidacja (EDT-11)', async () => {
+    const dialog = renderWizard();
+    await choosePhoto(dialog);
+    fireEvent.click(next());
+    fireEvent.click(next());
+    expect(fake.goStep).toHaveBeenLastCalledWith(3);
+    expect(within(dialog).getByText('Krok 3 z 5')).toBeInTheDocument();
+    // Prostokąty ręczne: bez pól „Dalej” jest wyłączone, a panel mówi, czego brakuje.
+    expect(await within(dialog).findByRole('radio', { name: 'Prostokąty ręczne' })).toBeChecked();
+    expect(within(dialog).getByText('Narysuj na kartce pole pierwszej kategorii.')).toBeVisible();
+    expect(next()).toBeDisabled();
+    expect(within(dialog).getByRole('radio', { name: 'Miejsce 1' })).toBeChecked();
+    expect(within(dialog).getByText('Nowa kategoria (1)')).toBeInTheDocument();
+    const toolbar = within(dialog).getByRole('toolbar', { name: 'Narzędzia mapowania' });
+    expect(within(toolbar).getByRole('button', { name: 'Cofnij (Ctrl+Z)' })).toBeDisabled();
+    expect(within(toolbar).getByRole('button', { name: 'Dopasuj widok' })).toBeDisabled();
+    // EDT-6: mniej miejsc niż max. graczy gry (5).
+    expect(
+      within(dialog).getByText(
+        'Notes ma 1 miejsce dla gracza, a gra pozwala na 5 graczy. Tego notesu można używać tylko w partiach do 1 graczy.',
+      ),
+    ).toBeVisible();
+
+    // Pola dwóch miejsc: kafelki, nawigator kategorii, powielenie dla następnego miejsca.
+    update({
+      seats: 2,
+      lines: [
+        { label: 'Kategoria 1', kind: 'input' },
+        { label: 'Kategoria 2', kind: 'input' },
+      ],
+      mapping: {
+        ...EMPTY.mapping,
+        seats: 2,
+        categories: 2,
+        activeSeat: 1,
+        activeCategory: 1,
+        selected: 2,
+        canDuplicate: true,
+        canUndo: true,
+        hasContent: true,
+        zoomed: true,
+        problem: null,
+      },
+    });
+    expect(next()).toBeEnabled();
+    const tiles = dialog.querySelectorAll('.wizard-stat__number');
+    expect([...tiles].map((tile) => tile.textContent)).toEqual(['2', '2']);
+    expect(within(dialog).getByText('Kategoria 2 z 2')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Poprzednia kategoria' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'category', category: 0 });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Powiel dla miejsca 3' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'duplicate' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Usuń 2 zaznaczone pola' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'delete' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Miejsce 1' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'seat', seat: 0 });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dodaj miejsce' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'seats', delta: 1 });
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'Dopasuj widok' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'fit' });
+    // Ctrl+Z w panelu (poza polem tekstowym) cofa zmianę mapowania.
+    fireEvent.keyDown(within(dialog).getByRole('radio', { name: 'Miejsce 2' }), {
+      key: 'z',
+      ctrlKey: true,
+    });
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'undo' });
+    // Problem mapowania blokuje przejście dalej.
+    update({
+      mapping: {
+        ...(fake.status as ScorePadEditorStatus).mapping,
+        problem: 'Miejsce 2 nie ma jeszcze pól.',
+      },
+    });
+    expect(next()).toBeDisabled();
+    expect(within(dialog).getByText('Miejsce 2 nie ma jeszcze pól.')).toBeVisible();
+  });
+
+  it('krok 3: zmiana sposobu mapowania z polami wymaga potwierdzenia; anulowanie niczego nie zmienia', async () => {
+    const dialog = renderWizard();
+    await choosePhoto(dialog);
+    fireEvent.click(next());
+    fireEvent.click(next());
+    await within(dialog).findByRole('radio', { name: 'Wykryj tabelę' });
+    update({
+      mapping: { ...EMPTY.mapping, categories: 2, hasContent: true, problem: null },
+    });
+    const table = within(dialog).getByRole('radio', { name: 'Wykryj tabelę' });
+    fireEvent.click(table);
+    const confirm = screen.getByRole('dialog', { name: 'Zmienić sposób mapowania?' });
+    expect(within(confirm).getByText(/pola i kategorie zostaną usunięte/)).toBeInTheDocument();
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Anuluj' }));
+    expect(screen.queryByRole('dialog', { name: 'Zmienić sposób mapowania?' })).toBeNull();
+    expect(fake.editMapping).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole('radio', { name: 'Prostokąty ręczne' })).toBeChecked();
+
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Wykryj tabelę' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Zmienić sposób mapowania?' })).getByRole(
+        'button',
+        { name: 'Usuń i zmień' },
+      ),
+    );
+    expect(fake.editMapping).toHaveBeenCalledWith({ type: 'mode', mode: 'table' });
+    expect(within(dialog).getByRole('radio', { name: 'Wykryj tabelę' })).toBeChecked();
+    // Bez pól zmiana nie pyta.
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Prostokąty ręczne' }));
+    expect(screen.queryByRole('dialog', { name: 'Zmienić sposób mapowania?' })).toBeNull();
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'mode', mode: 'rects' });
+  });
+
+  it('krok 3: narzędzia tabeli (gracze w kolumnach lub wierszach, liczby, ponowne wykrycie)', async () => {
+    const dialog = renderWizard();
+    await choosePhoto(dialog);
+    fireEvent.click(next());
+    fireEvent.click(next());
+    await within(dialog).findByRole('radio', { name: 'Wykryj tabelę' });
+    update({
+      seats: 6,
+      lines: Array.from({ length: 7 }, (_, i) => ({ label: `K${i}`, kind: 'input' as const })),
+      mapping: {
+        ...EMPTY.mapping,
+        mode: 'table',
+        seats: 6,
+        categories: 7,
+        rows: 7,
+        hasContent: true,
+        detected: false,
+        problem: null,
+      },
+    });
+    expect(within(dialog).getByText(/Nie znaleziono tabeli na kartce/)).toBeVisible();
+    // 6 miejsc ≥ 5 graczy gry: bez ostrzeżenia EDT-6.
+    expect(within(dialog).queryByText(/można używać tylko w partiach/)).toBeNull();
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Wierszach' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'players', players: 'rows' });
+    const seats = within(dialog).getByRole('spinbutton', { name: 'Miejsca dla graczy' });
+    fireEvent.keyDown(seats, { key: 'ArrowUp' });
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'seats', delta: 1 });
+    const rows = within(dialog).getByRole('spinbutton', { name: 'Wiersze kategorii' });
+    fireEvent.keyDown(rows, { key: 'ArrowDown' });
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'categories', delta: -1 });
+    // PageUp: dziesięć kroków naraz.
+    fake.editMapping.mockClear();
+    fireEvent.keyDown(seats, { key: 'PageUp' });
+    expect(fake.editMapping).toHaveBeenCalledTimes(10);
+    fireEvent.keyDown(within(dialog).getByRole('spinbutton', { name: 'Kolumny opisu' }), {
+      key: 'ArrowUp',
+    });
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'labels', delta: 1 });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Wykryj tabelę ponownie' }));
+    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'detect' });
   });
 });

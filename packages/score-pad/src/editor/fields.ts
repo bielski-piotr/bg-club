@@ -1,4 +1,8 @@
-// Krok 3 edytora: pola punktacji — tabela (wiersze i kolumny), pola dowolne i kategorie.
+// Krok 3 edytora: mapowanie pól (EDT-11) — prostokąty ręczne albo wykryta tabela — i kategorie.
+//
+// Tryby się wykluczają: notes ma albo tabelę (wiersze i kolumny, gracze w kolumnach lub
+// wierszach), albo same prostokąty ręczne (pola kategorii dla kolejnych miejsc graczy). Zmiana
+// trybu kasuje pola i kategorie; w kreatorze aplikacji pyta o to wcześniej popup (DS §18).
 
 import type { Ranking } from '@bg-club/scoring';
 import { parseRanking } from '@bg-club/scoring';
@@ -19,17 +23,77 @@ import { shapeSvgPath } from '../core/shape';
 import { detectLines } from './photo';
 import { icon } from './icons';
 
+/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo wykryta tabela. */
+export type MappingMode = 'rects' | 'table';
+
 export interface Draft {
   name: string;
   tape: string;
-  /** Tabela: zawsze jest, wyznacza kolumny (albo wiersze) graczy. */
+  /** Tabela (tryb `table`): wyznacza kolumny (albo wiersze) graczy i kategorie. */
   grid: GridDef;
-  /** Kategorie: pierwsze `rows()` to wiersze tabeli, reszta ma tylko pola dowolne. */
+  /** Liczba miejsc dla graczy w trybie prostokątów (w tabeli wynika z kolumn albo wierszy). */
+  seats: number;
+  /** Kategorie: w tabeli kolejne wiersze (albo kolumny), w prostokątach kategorie pól. */
   lines: LineDef[];
   fields: FreeField[];
   /** Reguła miejsc wczytanego notesu (EDT-7); edycję reguły przyniesie krok „Kategorie”. */
   ranking?: Ranking;
 }
+
+/** Stan mapowania dla panelu kreatora (EDT-11, EDT-6). */
+export interface MappingState {
+  readonly mode: MappingMode;
+  /** Tabela: gracze w kolumnach albo w wierszach. */
+  readonly players: 'cols' | 'rows';
+  /** Liczba miejsc dla graczy. */
+  readonly seats: number;
+  /** Liczba kategorii. */
+  readonly categories: number;
+  /** Tabela: liczba wierszy (albo kolumn) kategorii w tabeli. */
+  readonly rows: number;
+  /** Tabela: liczba kolumn (albo wierszy) opisu przed miejscami graczy. */
+  readonly labels: number;
+  /** Tabela: najwięcej kolumn (albo wierszy) opisu (zostaje co najmniej jedno miejsce). */
+  readonly maxLabels: number;
+  /** Prostokąty: miejsce, dla którego rysuje się pola (od 0). */
+  readonly activeSeat: number;
+  /** Prostokąty: kategoria następnego pola (od 0; `categories` oznacza nową kategorię). */
+  readonly activeCategory: number;
+  /** Prostokąty: liczba zaznaczonych pól. */
+  readonly selected: number;
+  /** Prostokąty: pola bieżącego miejsca można powielić dla następnego. */
+  readonly canDuplicate: boolean;
+  /** Jest zmiana mapowania do cofnięcia. */
+  readonly canUndo: boolean;
+  /** Są pola lub kategorie, które przepadną przy zmianie trybu (pytanie o potwierdzenie). */
+  readonly hasContent: boolean;
+  /** Wynik ostatniego wykrywania tabeli na prośbę (null: nie było). */
+  readonly detected: boolean | null;
+  /** Powód, dla którego mapowanie nie jest jeszcze gotowe, albo null. */
+  readonly problem: string | null;
+}
+
+/** Zmiana mapowania z panelu kreatora. */
+export type MappingAction =
+  | { readonly type: 'mode'; readonly mode: MappingMode }
+  | { readonly type: 'players'; readonly players: 'cols' | 'rows' }
+  | { readonly type: 'seat'; readonly seat: number }
+  | { readonly type: 'category'; readonly category: number }
+  /** Tabela: kolumny (wiersze) graczy; prostokąty: nowe miejsce albo usunięcie ostatniego. */
+  | { readonly type: 'seats'; readonly delta: 1 | -1 }
+  /** Tabela: wiersze (kolumny) kategorii. */
+  | { readonly type: 'categories'; readonly delta: 1 | -1 }
+  /** Tabela: kolumny (wiersze) opisu. */
+  | { readonly type: 'labels'; readonly delta: 1 | -1 }
+  /** Tabela: wykrywa tabelę na kartce ponownie. */
+  | { readonly type: 'detect' }
+  /** Prostokąty: powiela pola bieżącego miejsca dla następnego. */
+  | { readonly type: 'duplicate' }
+  /** Prostokąty: usuwa zaznaczone pola. */
+  | { readonly type: 'delete' }
+  /** Prostokąty: usuwa bieżącą kategorię razem z jej polami. */
+  | { readonly type: 'removeCategory' }
+  | { readonly type: 'undo' };
 
 /** To, czego krok potrzebuje od edytora. */
 export interface FieldsHost {
@@ -46,6 +110,10 @@ export interface FieldsHost {
   /** Coś się zmieniło w notesie (np. poprawność do zapisu). */
   changed(): void;
   toast(msg: string, kind?: 'err' | 'ok'): void;
+  /** Potwierdzenie zmiany trybu w samodzielnym edytorze (w kreatorze pyta aplikacja). */
+  confirm?(msg: string): boolean;
+  /** Tryb kreatora: pasek i panel kroku prowadzi aplikacja. */
+  readonly wizard?: boolean;
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -53,6 +121,15 @@ type FreeDrag =
   | { kind: 'new'; x0: number; y0: number; box: Box | null }
   | { kind: 'move'; x0: number; y0: number; orig: Map<string, Box>; moved: boolean }
   | { kind: 'resize'; id: string };
+
+/** Stan mapowania do cofnięcia (bez nazwy i koloru grzbietu, które należą do kroku 2). */
+interface Snapshot {
+  draft: string;
+  mode: MappingMode;
+  sel: number;
+  activeP: number;
+  detected: boolean | null;
+}
 
 /**
  * Rodzaje kategorii w edytorze. „Suma” to jeden rodzaj: sumuje wybrane kategorie (także inne sumy),
@@ -84,12 +161,19 @@ const PLAYER_COLORS = [
   '#6b7280',
 ];
 const GAP = 0.008;
+const UNDO_LIMIT = 60;
+/** Tabela, gdy wykrywanie na prośbę nic nie znalazło: do poprawienia liniami. */
+const FALLBACK_TABLE = { lines: 6, players: 4, labels: 1 };
+const FALLBACK_FRAME = { x0: 0.06, y0: 0.06, x1: 0.94, y1: 0.62 };
+/** Automatyczna nazwa kategorii (EDT-11): numer zmienia się razem z kolejnością. */
+const AUTO_LABEL = /^Kategoria \d+$/;
 
 export function freshDraft(): Draft {
   return {
     name: 'Mój notes',
     tape: '#161a2b',
     grid: { x: [0.06, 0.94], y: [0.05, 0.11], players: 'cols', labels: 1 },
+    seats: 1,
     lines: [],
     fields: [],
   };
@@ -97,22 +181,33 @@ export function freshDraft(): Draft {
 
 export class FieldsStep {
   draft: Draft = freshDraft();
-  mode: 'grid' | 'free' = 'grid';
+  mode: MappingMode = 'table';
   /** Czy krok był już otwarty (wykrywanie tabeli tylko za pierwszym razem). */
   ready = false;
-  /** Aktywna kategoria (indeks). */
+  /** Aktywna kategoria (indeks; w prostokątach `lines.length` = nowa kategoria). */
   private sel = 0;
-  /** Gracz, dla którego rysuje się pola dowolne. */
+  /** Miejsce gracza, dla którego rysuje się prostokąty. */
   private activeP = 0;
   private fsel = new Set<string>();
   private fdrag: FreeDrag | null = null;
   private gdrag: { axis: 'x' | 'y'; i: number } | null = null;
+  /** Wciśnięty znacznik miejsca nad tabelą (przełączenie „bez wpisu” po puszczeniu). */
+  private pendingTrack: number | null = null;
+  /** Stan sprzed przeciągania (cofanie i przerwanie drugim palcem). */
+  private dragSnap: Snapshot | null = null;
   private lastSize = { w: 0.06, h: 0.04 };
   private dupOffset: { dx: number; dy: number } | null = null;
   private lastDup: string[] = [];
   private open = new Set<string>();
   /** Świeżo dodane pole lub kategoria (krótka animacja). */
   private fresh = '';
+  private undoStack: Snapshot[] = [];
+  private undoKind = '';
+  private undoAt = 0;
+  /** Wynik ostatniego wykrywania tabeli na prośbę (zmiana trybu, „Wykryj tabelę ponownie”). */
+  private detected: boolean | null = null;
+  /** Tabela domyślna po nieudanym wykryciu, jeszcze bez zmian: nie ma czego tracić. */
+  private untouchedFallback = false;
 
   constructor(private h: FieldsHost) {
     this.resetGrid(1, 4, 1, { x0: 0.06, y0: 0.05, x1: 0.94, y1: 0.11 });
@@ -122,30 +217,34 @@ export class FieldsStep {
   reset(): void {
     const { name, tape } = this.draft;
     this.draft = { ...freshDraft(), name, tape };
+    this.mode = 'table';
     this.resetGrid(1, 4, 1, { x0: 0.06, y0: 0.05, x1: 0.94, y1: 0.11 });
     this.ready = false;
-    this.mode = 'grid';
     this.sel = 0;
     this.activeP = 0;
     this.fsel.clear();
     this.open.clear();
     this.dupOffset = null;
     this.lastDup = [];
+    this.undoStack = [];
+    this.detected = null;
   }
 
   // ─────────────────────────────────────────────── model
 
   tpl(): PadTemplate {
     const d = this.draft;
+    const table = this.mode === 'table';
     return {
       v: 2,
       id: 'draft',
       name: d.name,
       size: { w: 10, h: 14 },
       tape: d.tape,
-      grid: d.grid,
+      grid: table ? d.grid : undefined,
       lines: d.lines,
       fields: d.fields,
+      players: table ? undefined : d.seats,
       ranking: d.ranking,
     };
   }
@@ -160,9 +259,9 @@ export class FieldsStep {
     return g.players === 'cols' ? g.x : g.y;
   }
 
-  /** Liczba wierszy (kategorii) tabeli. */
+  /** Liczba wierszy (kategorii) tabeli; w prostokątach 0. */
   rows(): number {
-    return this.catAxis().length - 1;
+    return this.mode === 'table' ? this.catAxis().length - 1 : 0;
   }
 
   players(): number {
@@ -179,6 +278,13 @@ export class FieldsStep {
     return l;
   }
 
+  /** Automatyczne nazwy („Kategoria 3”) idą za kolejnością kategorii. */
+  private renumber(): void {
+    this.draft.lines.forEach((l, i) => {
+      if (AUTO_LABEL.test(l.label)) l.label = `Kategoria ${i + 1}`;
+    });
+  }
+
   /** Dopasowuje liczbę kategorii-wierszy (było `old`, ma być `n`); kategorie spoza tabeli zostają na końcu. */
   private setRowCount(old: number, n: number): void {
     const ls = this.draft.lines;
@@ -190,10 +296,10 @@ export class FieldsStep {
     const gone = rows.splice(n);
     this.draft.lines = [...rows, ...extra];
     for (const g of gone) this.forget(g.id);
-    this.sel = clamp(this.sel, 0, this.draft.lines.length - 1);
+    this.sel = clamp(this.sel, 0, Math.max(0, this.draft.lines.length - 1));
   }
 
-  /** Usuwa ślady kategorii (sumy, pola dowolne). */
+  /** Usuwa ślady kategorii (sumy, pola). */
   private forget(id: string): void {
     for (const l of this.draft.lines) if (l.of) l.of = l.of.filter((x) => x !== id);
     this.draft.fields = this.draft.fields.filter((f) => f.line !== id);
@@ -207,7 +313,7 @@ export class FieldsStep {
   /** Rozkłada linie równo w ramce. */
   private resetGrid(lines: number, players: number, labels: number, fr = this.frame()): void {
     const g = this.draft.grid;
-    const old = this.draft.lines.length ? this.rows() : 0;
+    const old = this.draft.lines.length ? this.catAxis().length - 1 : 0;
     g.labels = labels;
     const along = (a: number, b: number): number[] => {
       if (!labels) return uniform(a, b, players);
@@ -239,13 +345,19 @@ export class FieldsStep {
     }
   }
 
-  /** Wykrywa linie tabeli na zdjęciu. Zwraca, czy się udało. */
-  autoLines(first: boolean): boolean {
+  /**
+   * Wykrywa linie tabeli na zdjęciu. `auto` (pierwsze wejście w krok): tylko wyraźna tabela na
+   * całej kartce, kategorie od nowa. `sheet` (prośba użytkownika): cała kartka, kategorie zostają,
+   * o ile ich liczba się zgadza. `frame`: tylko w obrębie bieżącej ramki tabeli. Zwraca, czy się
+   * udało.
+   */
+  autoLines(scope: 'auto' | 'sheet' | 'frame'): boolean {
     const sheet = this.h.sheet;
     if (!sheet) return false;
     const g = this.draft.grid;
-    const fr = first ? { x0: 0.01, y0: 0.01, x1: 0.99, y1: 0.99 } : this.frame();
-    const pad = first ? 0 : 0.015;
+    const whole = scope !== 'frame';
+    const fr = whole ? { x0: 0.01, y0: 0.01, x1: 0.99, y1: 0.99 } : this.frame();
+    const pad = whole ? 0 : 0.015;
     const res = detectLines(sheet, {
       x0: Math.max(0, fr.x0 - pad),
       y0: Math.max(0, fr.y0 - pad),
@@ -265,7 +377,7 @@ export class FieldsStep {
     let labels = 0;
     while (labels < Math.min(2, widths.length - 1) && Math.abs(widths[labels] - med) / med > 0.35)
       labels++;
-    if (first) {
+    if (scope === 'auto') {
       // samo, bez prośby: tylko wyraźna tabela (zbliżone wiersze, spora część kartki) — plansza bez tabeli zostaje pusta
       const hs = catAx
         .slice(1)
@@ -281,11 +393,11 @@ export class FieldsStep {
       )
         return false;
     }
-    const old = this.rows();
-    if (first) {
+    const old = this.catAxis().length - 1;
+    if (scope === 'auto') {
       this.draft.lines = this.draft.lines.slice(old);
       this.setRowCount(0, catAx.length - 1);
-    } else this.setRowCount(old, catAx.length - 1);
+    } else this.setRowCount(this.draft.lines.length ? old : 0, catAx.length - 1);
     for (const i of openCat)
       if (this.draft.lines[i] && this.draft.lines[i].kind === 'input')
         this.draft.lines[i].kind = 'skip';
@@ -299,49 +411,251 @@ export class FieldsStep {
       g.y = plAx;
     }
     if (!this.players()) g.blank = [];
+    this.renumber();
     return true;
   }
 
-  /** Pierwsze wejście w krok: wykrycie tabeli ze zdjęcia. */
+  /** Pierwsze wejście w krok: tabela, jeśli jest na kartce, a bez niej prostokąty ręczne. */
   enter(): void {
     if (!this.ready) {
       this.ready = true;
-      this.autoLines(true);
+      this.mode = 'table';
+      if (!this.autoLines('auto')) this.startRects();
     }
-    if (this.mode === 'free' && !this.players()) this.mode = 'grid';
     this.activeP = clamp(this.activeP, 0, Math.max(0, this.players() - 1));
     this.renderAll();
+  }
+
+  /** Prostokąty od zera: jedno miejsce, bez kategorii i pól. */
+  private startRects(): void {
+    this.mode = 'rects';
+    this.draft.lines = [];
+    this.draft.fields = [];
+    this.draft.seats = 1;
+    delete this.draft.ranking;
+    this.sel = 0;
+    this.activeP = 0;
   }
 
   /** Wczytuje istniejący notes do edycji. */
   load(t: PadTemplate): void {
     const lines: LineDef[] = JSON.parse(JSON.stringify(t.lines));
     const fields: FreeField[] = JSON.parse(JSON.stringify(t.fields ?? []));
-    let grid: GridDef;
-    if (t.grid) grid = JSON.parse(JSON.stringify(t.grid));
-    else {
-      // notes bez tabeli: tabela z jednym wierszem (imiona) wyznacza graczy
-      const n = Math.max(1, t.players ?? Math.max(1, ...fields.map((f) => f.p + 1)));
-      let ni = lines.findIndex((l) => l.kind === 'names');
-      if (ni < 0) {
-        lines.unshift(this.newLine(0, 'names'));
-        ni = 0;
-      }
-      lines.unshift(...lines.splice(ni, 1));
-      grid = { x: [0.06, ...uniform(0.3, 0.94, n)], y: [0.03, 0.08], players: 'cols', labels: 1 };
-    }
     const ranking = t.ranking ? (JSON.parse(JSON.stringify(t.ranking)) as Ranking) : undefined;
-    this.draft = { name: t.name, tape: t.tape, grid, lines, fields, ranking };
+    // Notes z tabelą to tryb tabeli (starsze notesy z tabelą i polami dowolnymi zachowują pola,
+    // dopóki tryb się nie zmieni); notes bez tabeli to prostokąty ręczne.
+    const grid: GridDef = t.grid ? JSON.parse(JSON.stringify(t.grid)) : freshDraft().grid;
+    this.draft = {
+      name: t.name,
+      tape: t.tape,
+      grid,
+      seats: playerCount(t),
+      lines,
+      fields,
+      ranking,
+    };
+    this.mode = t.grid ? 'table' : 'rects';
     this.ready = true;
     this.sel = 0;
-    this.mode = t.fields?.length && !t.grid ? 'free' : 'grid';
+    this.activeP = 0;
+    this.fsel.clear();
+    this.open.clear();
+    this.dupOffset = null;
+    this.lastDup = [];
+    this.undoStack = [];
+    this.detected = null;
+  }
+
+  // ─────────────────────────────────────────────── cofanie
+
+  private snapshot(): Snapshot {
+    // nazwa i kolor grzbietu należą do kroku 2: cofanie mapowania ich nie zmienia
+    const rest: Partial<Draft> = { ...this.draft };
+    delete rest.name;
+    delete rest.tape;
+    return {
+      draft: JSON.stringify(rest),
+      mode: this.mode,
+      sel: this.sel,
+      activeP: this.activeP,
+      detected: this.detected,
+    };
+  }
+
+  /** Zapamiętuje stan do cofnięcia; `kind` łączy serię zmian (np. strzałki) w jeden krok. */
+  private pushUndo(snap = this.snapshot(), kind = ''): void {
+    const now = Date.now();
+    if (kind && kind === this.undoKind && now - this.undoAt < 900) {
+      this.undoAt = now;
+      return;
+    }
+    this.undoKind = kind;
+    this.undoAt = now;
+    this.untouchedFallback = false;
+    this.undoStack.push(snap);
+    if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
+  }
+
+  private restore(s: Snapshot): void {
+    const rest = JSON.parse(s.draft) as Omit<Draft, 'name' | 'tape'>;
+    this.draft = { ...rest, name: this.draft.name, tape: this.draft.tape };
+    this.mode = s.mode;
+    this.sel = s.sel;
+    this.activeP = s.activeP;
+    this.detected = s.detected;
+    this.untouchedFallback = false;
+    this.fsel.clear();
+    this.fdrag = null;
+    this.gdrag = null;
+    this.dragSnap = null;
+  }
+
+  /** Cofa ostatnią zmianę mapowania (Ctrl+Z). */
+  undo(): boolean {
+    const s = this.undoStack.pop();
+    if (!s) return false;
+    this.undoKind = '';
+    this.restore(s);
+    this.renderAll();
+    return true;
+  }
+
+  get canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  // ─────────────────────────────────────────────── tryb i akcje panelu
+
+  /** Są pola lub kategorie, które przepadną przy zmianie trybu. */
+  hasContent(): boolean {
+    return this.mode === 'table'
+      ? this.rows() > 0 && !this.untouchedFallback
+      : this.draft.lines.length > 0 || this.draft.fields.length > 0;
+  }
+
+  /** Zmienia tryb mapowania: dotychczasowe pola i kategorie są usuwane (EDT-11). */
+  setMode(m: MappingMode): void {
+    if (m === this.mode) return;
+    this.pushUndo();
+    this.fsel.clear();
+    this.dupOffset = null;
+    this.lastDup = [];
+    this.open.clear();
+    if (m === 'rects') {
+      this.startRects();
+      this.detected = null;
+    } else {
+      this.mode = 'table';
+      this.draft.lines = [];
+      this.draft.fields = [];
+      delete this.draft.ranking;
+      this.sel = 0;
+      this.activeP = 0;
+      this.draft.grid.blank = [];
+      this.detected = this.autoLines('sheet');
+      if (!this.detected) {
+        this.resetGrid(
+          FALLBACK_TABLE.lines,
+          FALLBACK_TABLE.players,
+          FALLBACK_TABLE.labels,
+          FALLBACK_FRAME,
+        );
+        this.untouchedFallback = true;
+      }
+    }
+    this.renderAll();
+  }
+
+  /** Zmiana mapowania z panelu kreatora. Zwraca, czy coś się zmieniło. */
+  apply(a: MappingAction): void {
+    const table = this.mode === 'table';
+    switch (a.type) {
+      case 'mode':
+        this.setMode(a.mode);
+        return;
+      case 'undo':
+        this.undo();
+        return;
+      case 'players':
+        if (table) this.setPlayersAxis(a.players);
+        return;
+      case 'labels':
+        if (table) this.setLabels(this.draft.grid.labels + a.delta);
+        return;
+      case 'categories':
+        if (!table) return;
+        if (a.delta > 0) this.addCategory();
+        else if (this.rows() > 1) this.removeLine(this.rows() - 1);
+        return;
+      case 'seats':
+        if (table) {
+          if (a.delta > 0) this.addTrack();
+          else this.removeTrack();
+        } else if (a.delta > 0) this.addSeat();
+        else this.removeSeat();
+        return;
+      case 'detect':
+        if (!table) return;
+        {
+          const snap = this.snapshot();
+          this.detected = this.autoLines('sheet');
+          if (this.detected) this.pushUndo(snap);
+        }
+        this.renderAll();
+        return;
+      case 'seat':
+        if (table) return;
+        this.chooseSeat(a.seat);
+        return;
+      case 'category':
+        this.sel = clamp(
+          Math.round(a.category),
+          0,
+          table ? Math.max(0, this.draft.lines.length - 1) : this.draft.lines.length,
+        );
+        this.renderAll();
+        return;
+      case 'duplicate':
+        if (!table) this.duplicateSeat();
+        return;
+      case 'delete':
+        if (!table) this.deleteFields();
+        return;
+      case 'removeCategory':
+        if (!table && this.draft.lines[this.sel]) this.removeLine(this.sel);
+        return;
+    }
+  }
+
+  /** Stan mapowania dla panelu kreatora. */
+  state(): MappingState {
+    const d = this.draft;
+    const table = this.mode === 'table';
+    return {
+      mode: this.mode,
+      players: d.grid.players,
+      seats: this.players(),
+      categories: d.lines.length,
+      rows: this.mode === 'table' ? this.rows() : 0,
+      labels: d.grid.labels,
+      maxLabels: Math.max(0, this.plAxis().length - 2),
+      activeSeat: table ? 0 : this.activeP,
+      activeCategory: this.sel,
+      selected: table ? 0 : this.fsel.size,
+      canDuplicate: !table && this.duplicateSource().length > 0,
+      canUndo: this.canUndo,
+      hasContent: this.hasContent(),
+      detected: table ? this.detected : null,
+      problem: this.mappingProblem(),
+    };
   }
 
   // ─────────────────────────────────────────────── kategorie
 
   private addCategory(): void {
+    this.pushUndo();
     const ls = this.draft.lines;
-    if (this.mode === 'grid') {
+    if (this.mode === 'table') {
       const old = this.rows();
       this.extend(this.catAxis(), 'end');
       const l = this.newLine(old);
@@ -354,6 +668,7 @@ export class FieldsStep {
       this.sel = ls.length - 1;
       this.fresh = l.id;
     }
+    this.renumber();
     this.renderAll();
     requestAnimationFrame(() =>
       this.h.panel
@@ -363,12 +678,14 @@ export class FieldsStep {
   }
 
   private splitRow(i: number): void {
+    this.pushUndo();
     const arr = this.catAxis();
     arr.splice(i + 1, 0, (arr[i] + arr[i + 1]) / 2);
     const l = this.newLine(i + 1);
     this.draft.lines.splice(i + 1, 0, l);
     this.sel = i + 1;
     this.fresh = l.id;
+    this.renumber();
     this.renderAll();
   }
 
@@ -377,20 +694,26 @@ export class FieldsStep {
     const rows = this.rows();
     if (i < rows) {
       if (rows <= 1) return;
+      this.pushUndo();
       const arr = this.catAxis();
       // pierwszy i ostatni wiersz zwężają ramkę; środkowy dołącza do poprzedniego
       if (i === 0) arr.splice(0, 1);
       else if (i === rows - 1) arr.splice(arr.length - 1, 1);
       else arr.splice(i, 1);
-    }
+    } else this.pushUndo();
     const [gone] = ls.splice(i, 1);
     this.open.delete(gone.id);
     this.forget(gone.id);
-    this.sel = clamp(Math.min(this.sel, ls.length - 1), 0, ls.length - 1);
+    for (const id of [...this.fsel])
+      if (!this.draft.fields.some((f) => f.id === id)) this.fsel.delete(id);
+    const max = this.mode === 'rects' ? ls.length : ls.length - 1;
+    this.sel = clamp(Math.min(this.sel, max), 0, Math.max(0, max));
+    this.renumber();
     this.renderAll();
   }
 
   private addTrack(): void {
+    this.pushUndo();
     this.extend(this.plAxis(), 'end');
     this.renderAll();
   }
@@ -399,6 +722,7 @@ export class FieldsStep {
     const g = this.draft.grid;
     const arr = this.plAxis();
     if (arr.length - 1 <= g.labels + 1) return;
+    this.pushUndo();
     arr.pop();
     const n = arr.length - 1;
     g.blank = (g.blank ?? []).filter((k) => k < n);
@@ -410,7 +734,10 @@ export class FieldsStep {
   private setLabels(n: number): void {
     const g = this.draft.grid;
     const tracks = this.plAxis().length - 1;
-    g.labels = clamp(n, 0, Math.max(0, tracks - 1));
+    const next = clamp(n, 0, Math.max(0, tracks - 1));
+    if (next === g.labels) return;
+    this.pushUndo();
+    g.labels = next;
     g.blank = (g.blank ?? []).filter((k) => k >= g.labels);
     if (!this.players()) g.blank = [];
     this.renderAll();
@@ -424,6 +751,7 @@ export class FieldsStep {
       if (this.players() <= 1) return;
       set.add(k);
     }
+    this.pushUndo();
     g.blank = [...set].sort((a, b) => a - b);
     this.activeP = clamp(this.activeP, 0, Math.max(0, this.players() - 1));
     this.renderAll();
@@ -432,6 +760,7 @@ export class FieldsStep {
   private setPlayersAxis(pl: 'cols' | 'rows'): void {
     const g = this.draft.grid;
     if (pl === g.players) return;
+    this.pushUndo();
     const old = this.rows();
     // linie tabeli zostają na miejscu — zmienia się tylko to, co jest kategorią, a co graczem
     g.players = pl;
@@ -439,28 +768,80 @@ export class FieldsStep {
     const across = pl === 'cols' ? g.x : g.y;
     if (across.length - 1 - g.labels < 1) g.labels = 0;
     this.setRowCount(old, this.rows());
+    this.renumber();
     this.renderAll();
   }
 
-  /** Następna kategoria, w którą można wpisywać (po narysowaniu pola). */
-  private nextDrawable(i: number): number {
+  /**
+   * Następna kategoria (po `i`, potem od początku), której miejsce `p` nie ma jeszcze pola; gdy
+   * miejsce ma już wszystkie — nowa kategoria.
+   */
+  private nextFor(p: number, i: number): number {
     const ls = this.draft.lines;
-    for (let k = i + 1; k < ls.length; k++) if (ls[k].kind !== 'skip') return k;
-    return i;
+    const missing = (k: number): boolean =>
+      ls[k].kind !== 'skip' && !this.draft.fields.some((f) => f.line === ls[k].id && f.p === p);
+    for (let k = i + 1; k < ls.length; k++) if (missing(k)) return k;
+    for (let k = 0; k <= Math.min(i, ls.length - 1); k++) if (missing(k)) return k;
+    return ls.length;
   }
 
-  private firstDrawable(): number {
-    const k = this.draft.lines.findIndex((l) => l.kind !== 'skip');
-    return k < 0 ? 0 : k;
+  // ─────────────────────────────────────────────── prostokąty ręczne
+
+  /**
+   * Miejsce, dla którego rysuje się pola. Z paska samodzielnego edytora (`move`) zaznaczone pola
+   * przechodzą do tego miejsca; z panelu kreatora zaznaczenie jest tylko zdejmowane.
+   */
+  private chooseSeat(p: number, move = false): void {
+    const seat = clamp(Math.round(p), 0, Math.max(0, this.players() - 1));
+    if (!move && seat !== this.activeP) this.fsel.clear();
+    if (move && this.fsel.size) {
+      // zaznaczone pola przechodzą do wybranego miejsca
+      this.pushUndo();
+      for (const f of this.draft.fields) if (this.fsel.has(f.id)) f.p = seat;
+    } else if (seat !== this.activeP) this.sel = this.nextFor(seat, -1);
+    this.activeP = seat;
+    this.renderAll();
   }
 
-  // ─────────────────────────────────────────────── pola dowolne
+  private addSeat(): void {
+    this.pushUndo();
+    this.draft.seats = this.players() + 1;
+    this.activeP = this.draft.seats - 1;
+    this.fsel.clear();
+    this.sel = this.nextFor(this.activeP, -1);
+    this.renderAll();
+  }
+
+  /** Usuwa ostatnie miejsce razem z jego polami (zostaje co najmniej jedno). */
+  private removeSeat(): void {
+    const n = this.players();
+    if (n <= 1) return;
+    this.pushUndo();
+    const gone = n - 1;
+    this.draft.fields = this.draft.fields.filter((f) => f.p !== gone);
+    this.draft.seats = n - 1;
+    for (const id of [...this.fsel])
+      if (!this.draft.fields.some((f) => f.id === id)) this.fsel.delete(id);
+    if (this.activeP >= this.draft.seats) {
+      this.activeP = this.draft.seats - 1;
+      this.sel = this.nextFor(this.activeP, -1);
+    }
+    this.renderAll();
+  }
 
   private addField(b: Box): FreeField | null {
-    const l = this.draft.lines[this.sel];
-    if (!l || l.kind === 'skip') return null;
+    let l = this.draft.lines[this.sel];
+    if (!l) {
+      if (this.mode !== 'rects') return null;
+      // EDT-11: kategoria powstaje z pierwszym polem; ma tylko numer i automatyczną nazwę
+      l = this.newLine(this.draft.lines.length);
+      this.draft.lines.push(l);
+      this.sel = this.draft.lines.length - 1;
+    }
+    if (l.kind === 'skip') return null;
     const f: FreeField = { id: `f${uid()}`, line: l.id, p: this.activeP, ...clampBox(b) };
     this.draft.fields.push(f);
+    if (this.activeP >= this.draft.seats) this.draft.seats = this.activeP + 1;
     this.fresh = f.id;
     return f;
   }
@@ -481,6 +862,7 @@ export class FieldsStep {
       this.h.toast('Brak miejsca na kartce w tym kierunku.', 'err');
       return;
     }
+    this.pushUndo();
     const made = src.map((f) => ({
       ...f,
       id: `f${uid()}`,
@@ -491,38 +873,64 @@ export class FieldsStep {
     this.renderAll();
   }
 
-  private duplicateForNext(): void {
+  /** Pola bieżącego miejsca, których następne miejsce jeszcze nie ma (do powielenia). */
+  private duplicateSource(): FreeField[] {
     const d = this.draft;
-    const src = d.fields.filter((f) => this.fsel.has(f.id));
+    const from = this.activeP;
+    const have = new Set(d.fields.filter((f) => f.p === from + 1).map((f) => f.line));
+    return d.fields.filter((f) => f.p === from && !have.has(f.line));
+  }
+
+  /** Przesunięcie kopii dla następnego miejsca: w prawo, a bez miejsca na kartce — w dół. */
+  private defaultOffset(src: FreeField[]): { dx: number; dy: number } {
+    const x0 = Math.min(...src.map((f) => f.x));
+    const x1 = Math.max(...src.map((f) => f.x + f.w));
+    const y0 = Math.min(...src.map((f) => f.y));
+    const y1 = Math.max(...src.map((f) => f.y + f.h));
+    const gapX = Math.min(0.02, (x1 - x0) * 0.15);
+    const gapY = Math.min(0.02, (y1 - y0) * 0.15);
+    if (x1 + (x1 - x0) + gapX <= 1.001) return { dx: x1 - x0 + gapX, dy: 0 };
+    if (y1 + (y1 - y0) + gapY <= 1.001) return { dx: 0, dy: y1 - y0 + gapY };
+    return { dx: 0.02, dy: 0.02 };
+  }
+
+  /**
+   * Powiela pola bieżącego miejsca dla następnego (EDT-11). Ostatnie miejsce dostaje nowe miejsce
+   * obok. Kopie są zaznaczone: przesunięcie ich poprawia też położenie kolejnych kopii.
+   */
+  private duplicateSeat(): void {
+    const d = this.draft;
+    const src = this.duplicateSource();
     if (!src.length) return;
-    const n = this.players();
-    const maxP = Math.max(...src.map((f) => f.p));
-    if (maxP + 1 >= n) return;
-    const bx = Math.min(...src.map((f) => f.x));
-    const bw = Math.max(...src.map((f) => f.x + f.w)) - bx;
-    const off = this.dupOffset ?? { dx: bw + 0.02, dy: 0 };
+    this.pushUndo();
+    const to = this.activeP + 1;
+    const off = this.dupOffset ?? this.defaultOffset(src);
     const made: FreeField[] = src.map((f) => ({
       ...f,
       id: `f${uid()}`,
-      p: f.p + 1,
+      p: to,
       ...clampBox({ x: f.x + off.dx, y: f.y + off.dy, w: f.w, h: f.h }),
     }));
     d.fields.push(...made);
+    if (to >= d.seats) d.seats = to + 1;
     this.fsel = new Set(made.map((f) => f.id));
     this.lastDup = made.map((f) => f.id);
     this.dupOffset = off;
-    this.activeP = maxP + 1;
+    this.activeP = to;
+    this.sel = this.nextFor(to, -1);
     this.renderAll();
   }
 
   private deleteFields(): void {
     if (!this.fsel.size) return;
+    this.pushUndo();
     this.draft.fields = this.draft.fields.filter((f) => !this.fsel.has(f.id));
     this.fsel.clear();
     this.renderAll();
   }
 
   private nudge(dx: number, dy: number): void {
+    this.pushUndo(this.snapshot(), 'nudge');
     for (const f of this.draft.fields) {
       if (!this.fsel.has(f.id)) continue;
       Object.assign(f, clampBox({ x: f.x + dx, y: f.y + dy, w: f.w, h: f.h }));
@@ -530,6 +938,7 @@ export class FieldsStep {
     if (this.sameAsDup() && this.dupOffset)
       this.dupOffset = { dx: this.dupOffset.dx + dx, dy: this.dupOffset.dy + dy };
     this.h.render();
+    this.h.changed();
   }
 
   private sameAsDup(): boolean {
@@ -544,7 +953,11 @@ export class FieldsStep {
 
   /** Zwraca true, gdy klawisz został obsłużony. */
   key(e: KeyboardEvent): boolean {
-    if (this.mode !== 'free') return false;
+    if (e.key === 'Escape' && (this.fdrag || this.gdrag)) {
+      this.cancel();
+      return true;
+    }
+    if (this.mode !== 'rects') return false;
     if (e.key === 'Escape' && this.fsel.size) {
       this.fsel.clear();
       this.renderAll();
@@ -570,13 +983,29 @@ export class FieldsStep {
     return false;
   }
 
-  // ─────────────────────────────────────────────── pasek narzędzi
+  // ─────────────────────────────────────────────── pasek narzędzi (samodzielny edytor)
 
   renderAll(): void {
-    this.renderToolbar();
-    this.renderPanel();
+    // w kreatorze pasek i panel kroku są w aplikacji (ukryte tutaj), więc ich nie budujemy
+    if (!this.h.wizard) {
+      this.renderToolbar();
+      this.renderPanel();
+    }
     this.h.render();
     this.h.changed();
+  }
+
+  /** Zmiana trybu z paska samodzielnego edytora: z polami pyta o potwierdzenie. */
+  private askMode(m: MappingMode): void {
+    if (m === this.mode) return;
+    const ok =
+      !this.hasContent() ||
+      (this.h.confirm?.(
+        'Zmienić sposób mapowania? Dotychczasowe pola i kategorie zostaną usunięte.',
+      ) ??
+        true);
+    if (ok) this.setMode(m);
+    else this.renderToolbar();
   }
 
   renderToolbar(): void {
@@ -585,12 +1014,13 @@ export class FieldsStep {
     const cols = g.players === 'cols';
     const n = this.players();
     const tracks = this.plAxis().length - 1;
-    const tabs = `<div class="spe-seg" role="tablist" aria-label="Rodzaj pól">
-        <button type="button" role="tab" data-mode="grid" aria-selected="${this.mode === 'grid'}">${icon('table')}<span>Tabela</span></button>
-        <button type="button" role="tab" data-mode="free" aria-selected="${this.mode === 'free'}" ${n ? '' : `disabled title="Najpierw ustaw kolumny graczy w tabeli"`}>${icon('fields')}<span>Pola dowolne</span></button>
+    const tabs = `<div class="spe-seg" role="radiogroup" aria-label="Sposób mapowania">
+        <button type="button" role="radio" data-mode="rects" aria-checked="${this.mode === 'rects'}">${icon('fields')}<span>Prostokąty</span></button>
+        <button type="button" role="radio" data-mode="table" aria-checked="${this.mode === 'table'}">${icon('table')}<span>Tabela</span></button>
       </div>`;
+    const undo = `<button type="button" class="spe-tb-btn" data-a="undo" title="Cofnij (Ctrl+Z)" ${this.canUndo ? '' : 'disabled'}>${icon('undo')}</button>`;
     let tools: string;
-    if (this.mode === 'grid') {
+    if (this.mode === 'table') {
       tools = `
         <div class="spe-tb-group">
           <div class="spe-seg" role="radiogroup" aria-label="Gracze w tabeli">
@@ -604,37 +1034,31 @@ export class FieldsStep {
         <div class="spe-tb-group">
           ${stepper('tracks', cols ? 'Kolumny graczy' : 'Wiersze graczy', 'Gracze', tracks - g.labels, tracks - g.labels <= 1, false)}
           ${stepper('labels', cols ? 'Kolumny opisu' : 'Wiersze opisu', 'Opis', g.labels, g.labels <= 0, g.labels >= tracks - 1)}
+          ${undo}
         </div>`;
     } else {
       const sel = this.draft.fields.filter((f) => this.fsel.has(f.id));
-      const canNext = sel.length > 0 && Math.max(...sel.map((f) => f.p)) + 1 < n;
       tools = `
-        <div class="spe-tb-group spe-players" role="radiogroup" aria-label="Gracz">
-          ${Array.from({ length: n }, (_, p) => `<button type="button" role="radio" class="spe-chip" data-p="${p}" aria-checked="${p === this.activeP}" style="--pc:${PLAYER_COLORS[p % PLAYER_COLORS.length]}" title="Rysuj pola gracza ${p + 1}">${icon('user')}<span>${p + 1}</span></button>`).join('')}
+        <div class="spe-tb-group spe-players" role="radiogroup" aria-label="Miejsce gracza">
+          ${Array.from({ length: n }, (_, p) => `<button type="button" role="radio" class="spe-chip" data-p="${p}" aria-checked="${p === this.activeP}" style="--pc:${PLAYER_COLORS[p % PLAYER_COLORS.length]}" title="Rysuj pola miejsca ${p + 1}">${icon('user')}<span>${p + 1}</span></button>`).join('')}
+          <button type="button" class="spe-tb-btn" data-a="seat+" title="Dodaj miejsce">${icon('plus')}</button>
         </div>
-        ${
-          sel.length
-            ? `<span class="spe-tb-sep"></span>
+        <span class="spe-tb-sep"></span>
         <div class="spe-tb-group spe-pop">
-          <button type="button" class="spe-tb-btn" data-a="dup" ${canNext ? '' : 'disabled'} title="Powiel dla następnego gracza">${icon('dupNext')}</button>
-          <button type="button" class="spe-tb-btn" data-a="down" title="Powiel w dół">${icon('dupDown')}</button>
+          <button type="button" class="spe-tb-btn" data-a="dup" ${this.duplicateSource().length ? '' : 'disabled'} title="Powiel dla następnego miejsca">${icon('dupNext')}</button>
+          ${
+            sel.length
+              ? `<button type="button" class="spe-tb-btn" data-a="down" title="Powiel w dół">${icon('dupDown')}</button>
           <button type="button" class="spe-tb-btn" data-a="right" title="Powiel w prawo">${icon('dupRight')}</button>
-          <button type="button" class="spe-tb-btn danger" data-a="del" title="Usuń (Delete)">${icon('trash')}</button>
-        </div>`
-            : ''
-        }`;
+          <button type="button" class="spe-tb-btn danger" data-a="del" title="Usuń (Delete)">${icon('trash')}</button>`
+              : ''
+          }
+          ${undo}
+        </div>`;
     }
     tb.innerHTML = `<div class="spe-tb-group">${tabs}</div><span class="spe-tb-sep"></span>${tools}`;
     tb.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const m = b.dataset.mode as 'grid' | 'free';
-        if (m === this.mode) return;
-        this.mode = m;
-        this.fsel.clear();
-        if (m === 'free')
-          this.sel = this.draft.lines[this.sel]?.kind === 'skip' ? this.firstDrawable() : this.sel;
-        this.renderAll();
-      }),
+      b.addEventListener('click', () => this.askMode(b.dataset.mode as MappingMode)),
     );
     tb.querySelectorAll<HTMLButtonElement>('[data-pl]').forEach((b) =>
       b.addEventListener('click', () => this.setPlayersAxis(b.dataset.pl as 'cols' | 'rows')),
@@ -649,37 +1073,35 @@ export class FieldsStep {
       }),
     );
     tb.querySelectorAll<HTMLButtonElement>('[data-p]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const p = Number(b.dataset.p);
-        if (this.fsel.size) {
-          // zaznaczone pola przechodzą do wybranego gracza
-          for (const f of this.draft.fields) if (this.fsel.has(f.id)) f.p = p;
-        } else if (p !== this.activeP) this.sel = this.firstDrawable();
-        this.activeP = p;
-        this.renderAll();
-      }),
+      b.addEventListener('click', () => this.chooseSeat(Number(b.dataset.p), true)),
     );
     tb.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
       b.addEventListener('click', () => {
         const a = b.dataset.a;
         if (a === 'detect') {
-          if (!this.autoLines(false))
+          const snap = this.snapshot();
+          if (this.autoLines('frame')) this.pushUndo(snap);
+          else {
             this.h.toast('Nie znalazłem linii tabeli — ustaw je ręcznie.', 'err');
+          }
           this.renderAll();
         } else if (a === 'even') {
+          this.pushUndo();
           const tr = this.plAxis().length - 1;
           const keep = g.blank;
           this.resetGrid(this.rows(), tr - g.labels, g.labels);
           g.blank = keep;
           this.renderAll();
-        } else if (a === 'dup') this.duplicateForNext();
+        } else if (a === 'dup') this.duplicateSeat();
+        else if (a === 'seat+') this.addSeat();
         else if (a === 'down' || a === 'right') this.copyFields(a);
         else if (a === 'del') this.deleteFields();
+        else if (a === 'undo') this.undo();
       }),
     );
   }
 
-  // ─────────────────────────────────────────────── panel: notes i kategorie
+  // ─────────────────────────────────────────────── panel: notes i kategorie (samodzielny edytor)
 
   renderPanel(): void {
     const p = this.h.panel;
@@ -697,7 +1119,8 @@ export class FieldsStep {
       <section class="spe-card spe-cats-card">
         <header class="spe-card-head"><b>Kategorie</b><span class="spe-count">${d.lines.length}</span></header>
         <ol class="spe-cats">${d.lines.map((l, i) => this.lineHtml(l, i)).join('')}</ol>
-        <button type="button" class="spe-add" data-add title="${this.mode === 'grid' ? 'Nowy wiersz tabeli' : 'Kategoria tylko z polami dowolnymi'}">${icon('plus')}<span>Dodaj kategorię</span></button>
+        ${this.mode === 'rects' && this.sel >= d.lines.length ? `<p class="spe-muted">Następne pole utworzy kategorię ${d.lines.length + 1}.</p>` : ''}
+        <button type="button" class="spe-add" data-add title="${this.mode === 'table' ? 'Nowy wiersz tabeli' : 'Nowa kategoria pól'}">${icon('plus')}<span>Dodaj kategorię</span></button>
       </section>`;
     const list = p.querySelector('.spe-cats') as HTMLElement;
     list.scrollTop = keep;
@@ -748,7 +1171,7 @@ export class FieldsStep {
       ([k, n]) => (k === 'total' && l.kind === 'sum' ? ['sum', n] : [k, n]) as [LineKind, string],
     ).concat(l.kind === 'bonus' ? [['bonus', 'Premia']] : []);
     const cnt =
-      this.mode === 'free'
+      this.mode === 'rects'
         ? this.draft.fields.filter((f) => f.line === l.id && f.p === this.activeP).length
         : 0;
     let more = '';
@@ -798,10 +1221,10 @@ export class FieldsStep {
     }
     return `<li class="spe-cat${i === this.sel ? ' active' : ''}${on ? ' open' : ''}${l.id === this.fresh ? ' fresh' : ''}${l.hint?.trim() && l.kind !== 'skip' ? ' has-hint' : ''}" data-i="${i}" style="--k:${KIND_COLOR[l.kind]}">
       <div class="spe-cat-row">
-        <span class="spe-cat-tag${row ? '' : ' free'}" title="${row ? `Wiersz ${i + 1} tabeli` : 'Tylko pola dowolne'}">${row ? i + 1 : icon('free')}</span>
+        <span class="spe-cat-tag${row ? '' : ' free'}" title="${row ? `Wiersz ${i + 1} tabeli` : 'Pola na kartce'}">${row ? i + 1 : icon('free')}</span>
         <input type="text" class="spe-cat-name" maxlength="30" data-f="label" value="${esc(l.label)}" aria-label="Nazwa kategorii ${i + 1}">
         <span class="spe-cat-hint" title="${esc(l.hint ?? '')}" aria-hidden="true">${icon('note')}</span>
-        ${cnt ? `<span class="spe-cat-n" title="Pola gracza ${this.activeP + 1}">${cnt}</span>` : ''}
+        ${cnt ? `<span class="spe-cat-n" title="Pola miejsca ${this.activeP + 1}">${cnt}</span>` : ''}
         <select data-f="kind" aria-label="Rodzaj kategorii ${i + 1}">${kinds.map(([k, tt]) => `<option value="${k}" ${k === l.kind ? 'selected' : ''}>${tt}</option>`).join('')}</select>
         <button type="button" class="spe-icon-btn" data-f="more" aria-expanded="${on}" title="Ustawienia kategorii">${icon('sliders')}</button>
       </div>
@@ -899,9 +1322,10 @@ export class FieldsStep {
     );
   }
 
-  /** Wybór kategorii; przy zaznaczonych polach dowolnych — przypisanie ich do tej kategorii. */
+  /** Wybór kategorii; przy zaznaczonych prostokątach — przypisanie ich do tej kategorii. */
   private activate(i: number, quiet = false): void {
-    if (this.mode === 'free' && this.fsel.size && !quiet && this.draft.lines[i]?.kind !== 'skip') {
+    if (this.mode === 'rects' && this.fsel.size && !quiet && this.draft.lines[i]?.kind !== 'skip') {
+      this.pushUndo();
       const id = this.draft.lines[i].id;
       for (const f of this.draft.fields) if (this.fsel.has(f.id)) f.line = id;
       this.sel = i;
@@ -914,6 +1338,7 @@ export class FieldsStep {
       .querySelectorAll<HTMLElement>('.spe-cat')
       .forEach((x) => x.classList.toggle('active', Number(x.dataset.i) === i));
     this.h.render();
+    this.h.changed();
   }
 
   // ─────────────────────────────────────────────── podgląd
@@ -928,7 +1353,7 @@ export class FieldsStep {
     const sh = this.h.shape();
     if (sh)
       s += `<path d="M0 0H${w}V${h}H0Z${shapeSvgPath(sh, w, h)}" class="spe-dim" fill-rule="evenodd"/>`;
-    s += this.mode === 'grid' ? this.gridSvg(w, h, k) : this.freeSvg(w, h, k);
+    s += this.mode === 'table' ? this.gridSvg(w, h, k) : this.freeSvg(w, h, k);
     return s;
   }
 
@@ -960,7 +1385,28 @@ export class FieldsStep {
       const fs = 11 * k;
       s += `<g pointer-events="none"><rect x="${bx}" y="${by}" width="${fs * 2}" height="${fs * 1.5}" rx="${4 * k}" fill="${c}"/><text x="${bx + fs}" y="${by + fs * 1.1}" font-size="${fs}" class="spe-num">${i + 1}</text></g>`;
     }
-    // ścieżki graczy: przełącznik „bez wpisu” po kliknięciu nagłówka
+    // linie tabeli; uchwyty 10 px na końcach przy górnej i lewej krawędzi (DS §18), z większą
+    // strefą chwytu pod palcem
+    const grab = (coarsePointer() ? 16 : 9) * k;
+    const lineEl = (axis: 'x' | 'y', i: number, v: number): string => {
+      const outer = i === 0 || i === (axis === 'x' ? X.length - 1 : Y.length - 1);
+      const [x1, y1, x2, y2] =
+        axis === 'x' ? [v, Y[0], v, Y[Y.length - 1]] : [X[0], v, X[X.length - 1], v];
+      const on = this.gdrag?.axis === axis && this.gdrag.i === i;
+      return `<g data-g="${axis}" data-i="${i}" class="spe-gl ${axis}${outer ? ' outer' : ''}${on ? ' on' : ''}">
+        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="hit"/>
+        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="vis"/>
+        ${
+          // narożnik należy do lewej krawędzi (x[0]); linia y[0] chwyta się za samą linię
+          axis === 'y' && i === 0
+            ? ''
+            : `<circle cx="${x1}" cy="${y1}" r="${grab}" fill="transparent"/>
+        <circle cx="${x1}" cy="${y1}" r="${5 * k}" class="knob"/>`
+        }</g>`;
+    };
+    X.forEach((v, i) => (s += lineEl('x', i, v)));
+    Y.forEach((v, i) => (s += lineEl('y', i, v)));
+    // ścieżki graczy (nad uchwytami linii, żeby ich nie zasłaniały): przełącznik „bez wpisu” po kliknięciu nagłówka
     const blank = new Set(g.blank ?? []);
     const tracks = trackCount(this.tpl());
     let pn = 0;
@@ -977,31 +1423,16 @@ export class FieldsStep {
       const cx = cols ? (X[t] + X[t + 1]) / 2 : Math.max(pw / 2 + 2 * k, X[0] - pw / 2 - 6 * k);
       const cy = cols ? Math.max(ph / 2 + 2 * k, Y[0] - ph / 2 - 6 * k) : (Y[t] + Y[t + 1]) / 2;
       const color = off ? '#8a8f98' : PLAYER_COLORS[(pn - 1) % PLAYER_COLORS.length];
-      s += `<g data-track="${t}" class="spe-track${off ? ' off' : ''}"><title>${off ? 'Bez wpisu — kliknij, by przywrócić gracza' : 'Kliknij, by oznaczyć jako miejsce bez wpisu'}</title>
+      s += `<g data-track="${t}" class="spe-track${off ? ' off' : ''}"><title>${off ? 'Bez wpisu — kliknij, by przywrócić miejsce' : 'Kliknij, by oznaczyć jako miejsce bez wpisu'}</title>
         <rect x="${cx - pw / 2}" y="${cy - ph / 2}" width="${pw}" height="${ph}" rx="${ph / 2}" fill="${color}"/>
         <text x="${cx}" y="${cy + fs * 0.36}" font-size="${fs}" class="spe-num">${off ? '—' : `G${pn}`}</text></g>`;
     }
-    const lineEl = (axis: 'x' | 'y', i: number, v: number): string => {
-      const outer = i === 0 || i === (axis === 'x' ? X.length - 1 : Y.length - 1);
-      const [x1, y1, x2, y2] =
-        axis === 'x' ? [v, Y[0], v, Y[Y.length - 1]] : [X[0], v, X[X.length - 1], v];
-      return `<g data-g="${axis}" data-i="${i}" class="spe-gl ${axis}${outer ? ' outer' : ''}">
-        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="hit"/>
-        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="vis"/></g>`;
-    };
-    X.forEach((v, i) => (s += lineEl('x', i, v)));
-    Y.forEach((v, i) => (s += lineEl('y', i, v)));
     s += this.fieldsSvg(w, h, k, false);
     return s;
   }
 
   private freeSvg(w: number, h: number, k: number): string {
-    const g = this.draft.grid;
     let s = `<rect data-bg="1" x="0" y="0" width="${w}" height="${h}" fill="transparent" class="spe-draw"/>`;
-    for (const v of g.x)
-      s += `<line x1="${v * w}" y1="${g.y[0] * h}" x2="${v * w}" y2="${g.y[g.y.length - 1] * h}" class="spe-ghost-line"/>`;
-    for (const v of g.y)
-      s += `<line x1="${g.x[0] * w}" y1="${v * h}" x2="${g.x[g.x.length - 1] * w}" y2="${v * h}" class="spe-ghost-line"/>`;
     s += this.fieldsSvg(w, h, k, true);
     const fd = this.fdrag;
     if (fd?.kind === 'new' && fd.box) {
@@ -1012,7 +1443,7 @@ export class FieldsStep {
     return s;
   }
 
-  /** Pola dowolne; `live` = można je zaznaczać i przesuwać. */
+  /** Prostokąty pól; `live` = można je zaznaczać i przesuwać. */
   private fieldsSvg(w: number, h: number, k: number, live: boolean): string {
     const d = this.draft;
     const idx = new Map(d.lines.map((l, i) => [l.id, i]));
@@ -1043,7 +1474,7 @@ export class FieldsStep {
     if (live && this.fsel.size === 1) {
       const f = d.fields.find((x) => this.fsel.has(x.id));
       if (f) {
-        const hs = 10 * k;
+        const hs = (coarsePointer() ? 16 : 10) * k;
         s += `<rect data-fh="${f.id}" x="${(f.x + f.w) * w - hs / 2}" y="${(f.y + f.h) * h - hs / 2}" width="${hs}" height="${hs}" rx="${2 * k}" class="spe-resize"/>`;
       }
     }
@@ -1058,18 +1489,42 @@ export class FieldsStep {
     return { x: clamp(p.x / c.width, 0, 1), y: clamp(p.y / c.height, 0, 1) };
   }
 
+  /** Trwa przeciąganie linii tabeli albo prostokąta. */
+  get dragging(): boolean {
+    return !!(this.fdrag || this.gdrag || this.pendingTrack !== null);
+  }
+
+  /** Przerywa przeciąganie (Esc, drugi palec): mapowanie wraca do stanu sprzed niego. */
+  cancel(): void {
+    this.pendingTrack = null;
+    const snap = this.dragSnap;
+    const hadNew = this.fdrag?.kind === 'new';
+    this.fdrag = null;
+    this.gdrag = null;
+    this.dragSnap = null;
+    if (snap && !hadNew) {
+      const fsel = new Set(this.fsel);
+      this.restore(snap);
+      this.fsel = new Set([...fsel].filter((id) => this.draft.fields.some((f) => f.id === id)));
+    }
+    this.renderAll();
+  }
+
   down(e: PointerEvent): void {
     const t = e.target as Element;
-    if (this.mode === 'grid') {
+    if (this.mode === 'table') {
       const gl = t.closest('[data-g]') as HTMLElement | null;
       if (gl) {
+        this.dragSnap = this.snapshot();
         this.gdrag = { axis: gl.dataset.g as 'x' | 'y', i: Number(gl.dataset.i) };
         this.h.capture(e);
+        this.h.render();
         return;
       }
       const tr = t.closest('[data-track]') as HTMLElement | null;
       if (tr) {
-        this.toggleBlank(Number(tr.dataset.track));
+        // przełącza się dopiero po puszczeniu: drugi palec (szczypanie) to anuluje
+        this.pendingTrack = Number(tr.dataset.track);
         return;
       }
       const band = t.closest('[data-line]') as HTMLElement | null;
@@ -1086,29 +1541,40 @@ export class FieldsStep {
     const fields = this.draft.fields;
     const hs = t.closest('[data-fh]') as HTMLElement | null;
     const fg = t.closest('[data-fid]') as HTMLElement | null;
+    this.dragSnap = this.snapshot();
     if (hs) {
       const f = fields.find((x) => x.id === hs.dataset.fh);
       if (f) this.fdrag = { kind: 'resize', id: f.id };
     } else if (fg) {
       const id = fg.dataset.fid as string;
+      const f = fields.find((x) => x.id === id);
       if (e.shiftKey) {
         if (this.fsel.has(id)) this.fsel.delete(id);
         else this.fsel.add(id);
       } else if (!this.fsel.has(id)) this.fsel = new Set([id]);
+      // pole innego miejsca: od teraz rysuje się dla tego miejsca
+      if (f && !e.shiftKey) {
+        this.activeP = f.p;
+        const li = this.draft.lines.findIndex((l) => l.id === f.line);
+        if (li >= 0) this.sel = li;
+      }
       const orig = new Map<string, Box>();
-      for (const f of fields)
-        if (this.fsel.has(f.id)) orig.set(f.id, { x: f.x, y: f.y, w: f.w, h: f.h });
+      for (const x of fields)
+        if (this.fsel.has(x.id)) orig.set(x.id, { x: x.x, y: x.y, w: x.w, h: x.h });
       this.fdrag = { kind: 'move', x0: p.x, y0: p.y, orig, moved: false };
       this.renderToolbar();
+      this.renderPanel();
+      this.h.changed();
     } else if (this.fsel.size) {
       // klik obok zaznaczenia tylko je zdejmuje
+      this.dragSnap = null;
       this.fsel.clear();
-      this.renderToolbar();
-      this.h.render();
+      this.renderAll();
       return;
     } else {
       const l = this.draft.lines[this.sel];
-      if (!l || l.kind === 'skip') {
+      if (l?.kind === 'skip') {
+        this.dragSnap = null;
         this.h.toast('Wybierz kategorię, do której należy pole.', 'err');
         return;
       }
@@ -1144,6 +1610,7 @@ export class FieldsStep {
       const dx = p.x - fd.x0;
       const dy = p.y - fd.y0;
       if (Math.abs(dx) + Math.abs(dy) > 0.002) fd.moved = true;
+      if (!fd.moved) return;
       for (const f of this.draft.fields) {
         const o = fd.orig.get(f.id);
         if (o) Object.assign(f, clampBox({ x: o.x + dx, y: o.y + dy, w: o.w, h: o.h }));
@@ -1159,8 +1626,18 @@ export class FieldsStep {
   }
 
   up(e: PointerEvent): void {
+    if (this.pendingTrack !== null) {
+      const t = this.pendingTrack;
+      this.pendingTrack = null;
+      this.toggleBlank(t);
+      return;
+    }
+    const snap = this.dragSnap;
+    this.dragSnap = null;
     if (this.gdrag) {
       this.gdrag = null;
+      if (snap && snap.draft !== this.snapshot().draft) this.pushUndo(snap);
+      this.renderAll();
       return;
     }
     const fd = this.fdrag;
@@ -1169,6 +1646,7 @@ export class FieldsStep {
     const p = this.norm(e);
     if (fd.kind === 'new') {
       const b = fd.box;
+      const at = this.sel;
       const f =
         !b || (b.w < 0.006 && b.h < 0.006)
           ? this.addField({
@@ -1179,9 +1657,10 @@ export class FieldsStep {
             })
           : this.addField({ ...b, w: Math.max(b.w, 0.006), h: Math.max(b.h, 0.006) });
       if (f) {
+        if (snap) this.pushUndo(snap);
         this.lastSize = { w: f.w, h: f.h };
-        // od razu następna kategoria tego samego gracza — można rysować bez przerwy
-        this.sel = this.nextDrawable(this.sel);
+        // od razu następna kategoria tego samego miejsca — można rysować bez przerwy (EDT-11)
+        this.sel = this.nextFor(this.activeP, Math.max(at, this.sel));
       }
       this.renderAll();
       requestAnimationFrame(() =>
@@ -1191,6 +1670,7 @@ export class FieldsStep {
       );
       return;
     }
+    if (snap && snap.draft !== this.snapshot().draft) this.pushUndo(snap);
     if (fd.kind === 'move' && fd.moved && this.sameAsDup() && this.dupOffset) {
       // poprawka położenia kopii uczy przesunięcie dla kolejnych powieleń
       this.dupOffset = {
@@ -1206,16 +1686,37 @@ export class FieldsStep {
 
   /** Kursor nad podglądem zależny od trybu. */
   cursorClass(): string {
-    return this.mode === 'free' ? 'spe-c-draw' : '';
+    return this.mode === 'rects' ? 'spe-c-draw' : '';
   }
 
   // ─────────────────────────────────────────────── poprawność i wynik
 
+  /** Powód, dla którego mapowanie (krok 3) nie jest gotowe, albo null. */
+  mappingProblem(): string | null {
+    const d = this.draft;
+    if (this.mode === 'table') {
+      if (this.players() < 1) return 'Ustaw co najmniej jedno miejsce dla gracza.';
+      if (this.rows() < 1) return 'Ustaw co najmniej jedną kategorię.';
+      return null;
+    }
+    if (!d.fields.length) return 'Narysuj na kartce pole pierwszej kategorii.';
+    const n = this.players();
+    for (let p = 0; p < n; p++)
+      if (!d.fields.some((f) => f.p === p)) return `Miejsce ${p + 1} nie ma jeszcze pól.`;
+    // kategorie punktowe muszą mieć pola; suma, imiona i puste pole mogą nie mieć
+    const empty = d.lines.findIndex(
+      (l) => l.kind === 'input' && !d.fields.some((f) => f.line === l.id && f.p < n),
+    );
+    if (empty >= 0) return `Kategoria ${empty + 1} nie ma jeszcze pól.`;
+    return null;
+  }
+
   /** Powód, dla którego nie da się jeszcze zapisać (albo null). */
   problem(): string | null {
+    const mapping = this.mappingProblem();
+    if (mapping) return mapping;
     const d = this.draft;
     const rows = this.rows();
-    if (this.players() < 1) return 'Ustaw co najmniej jedną kolumnę gracza.';
     if (d.lines.filter((l) => l.kind === 'names').length > 1)
       return 'Tylko jedna kategoria może być „Imiona”.';
     const placed = (l: LineDef, i: number): boolean =>
@@ -1225,10 +1726,14 @@ export class FieldsStep {
     return null;
   }
 
-  /** Część szablonu: tabela, kategorie i pola (zaokrąglone). */
-  output(): Pick<PadTemplate, 'name' | 'tape' | 'grid' | 'lines' | 'fields' | 'ranking'> {
+  /** Część szablonu: tabela albo prostokąty, kategorie i pola (zaokrąglone). */
+  output(): Pick<
+    PadTemplate,
+    'name' | 'tape' | 'grid' | 'lines' | 'fields' | 'players' | 'ranking'
+  > {
     const d = this.draft;
     const n = this.players();
+    const table = this.mode === 'table';
     const ids = new Set(d.lines.map((l) => l.id));
     const fields = d.fields
       .filter((f) => ids.has(f.line) && f.p < n)
@@ -1261,14 +1766,17 @@ export class FieldsStep {
     return {
       name: d.name.trim() || 'Mój notes',
       tape: d.tape,
-      grid: {
-        ...g,
-        x: g.x.map(r4),
-        y: g.y.map(r4),
-        blank: g.blank?.length ? [...g.blank] : undefined,
-      },
+      grid: table
+        ? {
+            ...g,
+            x: g.x.map(r4),
+            y: g.y.map(r4),
+            blank: g.blank?.length ? [...g.blank] : undefined,
+          }
+        : undefined,
       lines,
       fields: fields.length ? fields : undefined,
+      players: table ? undefined : n,
       // Reguła wskazująca usuniętą albo zmienioną kategorię przestaje obowiązywać (domyślna reguła).
       ranking: d.ranking && parseRanking(d.ranking, lines).ranking,
     };
@@ -1290,6 +1798,10 @@ function stepper(
 }
 
 const r4 = (v: number): number => Math.round(v * 10000) / 10000;
+
+/** Dotyk jako główny wskaźnik (telefon, tablet): większe strefy chwytu. */
+const coarsePointer = (): boolean =>
+  typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 /** Prostokąt przycięty do kartki. */
 function clampBox(b: Box): Box {

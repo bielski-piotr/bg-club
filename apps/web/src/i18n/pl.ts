@@ -578,9 +578,55 @@ export const pl = {
         spineSide: 'Grzbiet notesu',
         spineSides: { top: 'U góry', left: 'Z lewej' },
       },
+      /** Krok 3: Mapowanie pól (EDT-11, EDT-6, zadanie [018]). */
+      mapping: {
+        stage: 'Kartka z polami do wpisywania',
+        toolbar: 'Narzędzia mapowania',
+        undo: 'Cofnij (Ctrl+Z)',
+        fit: 'Dopasuj widok',
+        mode: 'Sposób mapowania',
+        modes: { rects: 'Prostokąty ręczne', table: 'Wykryj tabelę' },
+        hints: {
+          rects:
+            'Narysuj prostokąt pola na kartce. Po każdym polu edytor przechodzi do następnej kategorii tego samego miejsca.',
+          table:
+            'Przeciągnij linię albo jej uchwyt, żeby ją poprawić. Kliknij znacznik miejsca nad tabelą, żeby je pominąć.',
+          zoom: 'Powiększ kartkę dwoma palcami albo Ctrl i kółkiem myszy.',
+        },
+        playersIn: 'Gracze są w',
+        playersAxis: { cols: 'Kolumnach', rows: 'Wierszach' },
+        seats: 'Miejsca dla graczy',
+        categories: 'Kategorie',
+        rows: { cols: 'Wiersze kategorii', rows: 'Kolumny kategorii' },
+        labels: { cols: 'Kolumny opisu', rows: 'Wiersze opisu' },
+        labelsHint: 'Kolumny z nazwami kategorii przed miejscami graczy.',
+        labelsHintRows: 'Wiersze z nazwami kategorii przed miejscami graczy.',
+        redetect: 'Wykryj tabelę ponownie',
+        notDetected:
+          'Nie znaleziono tabeli na kartce. Ustaw linie ręcznie albo narysuj prostokąty.',
+        detected: 'Wykryto tabelę. Sprawdź linie i popraw je w razie potrzeby.',
+        seat: 'Miejsce gracza',
+        seatOption: 'Miejsce {n}',
+        addSeat: 'Dodaj miejsce',
+        category: 'Kategoria następnego pola',
+        categoryOf: 'Kategoria {n} z {total}',
+        newCategory: 'Nowa kategoria ({n})',
+        previousCategory: 'Poprzednia kategoria',
+        nextCategory: 'Następna kategoria',
+        duplicate: 'Powiel dla miejsca {n}',
+        duplicateHint:
+          'Kopie pól są zaznaczone: przesuń je na kartce, a kolejne kopie trafią w to samo miejsce.',
+        deleteSelected: {
+          one: 'Usuń zaznaczone pole',
+          few: 'Usuń {n} zaznaczone pola',
+          many: 'Usuń {n} zaznaczonych pól',
+        },
+        removeSeat: 'Usuń miejsce {n}',
+        removeCategory: 'Usuń kategorię {n}',
+      },
       categories: {
         intro:
-          'Notes ma {seats} i {categories}. Nazwy i rodzaje kategorii ustawisz na razie w kroku „Mapowanie pól”.',
+          'Notes ma {seats} i {categories}. Nazwy, rodzaje i zakresy kategorii ustawisz tutaj w kolejnym etapie prac nad edytorem.',
         count: { one: '{n} kategorię', few: '{n} kategorie', many: '{n} kategorii' },
         listLabel: 'Kategorie notesu',
         kinds: {
@@ -612,6 +658,13 @@ export const pl = {
           'Obszar kartki, pola i kategorie zostaną ustawione od nowa dla nowego zdjęcia. Nazwa i kolor grzbietu zostaną.',
         cancel: 'Anuluj',
         confirm: 'Zastąp zdjęcie',
+      },
+      changeMapping: {
+        title: 'Zmienić sposób mapowania?',
+        description:
+          'Dotychczasowe pola i kategorie zostaną usunięte. Nazwa notesu i obszar kartki zostaną.',
+        cancel: 'Anuluj',
+        confirm: 'Usuń i zmień',
       },
       replaceFile: {
         title: 'Wczytać notes z pliku?',

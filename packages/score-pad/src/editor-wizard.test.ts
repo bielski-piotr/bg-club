@@ -129,4 +129,14 @@ describe('edytor w trybie kreatora', () => {
     await frame();
     expect(onChange.mock.lastCall?.[0]).toMatchObject({ settings: { name: 'Turniejowy' } });
   });
+
+  it('stan mapowania (krok 3) jest w statusie; zmiana mapowania poza krokiem 3 nic nie robi', () => {
+    const { editor } = mount();
+    const status = editor.status();
+    expect(status.mapping).toMatchObject({ zoomed: false, canUndo: false });
+    editor.editMapping({ type: 'mode', mode: 'rects' });
+    editor.editMapping({ type: 'fit' });
+    expect(editor.status().dirty).toBe(false);
+    expect(editor.status().mapping).toEqual(status.mapping);
+  });
 });

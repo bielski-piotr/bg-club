@@ -1,4 +1,4 @@
-// Edytor notesu w trzech krokach: zdjęcie → obszar kartki → pola punktacji.
+// Edytor notesu w trzech krokach: zdjęcie → obszar kartki → mapowanie pól (EDT-11).
 // Działa samodzielnie (<score-pad-editor>) albo — na życzenie — jako nakładka w notesie.
 // W trybie kreatora (`wizard`, EDT-9) kroki, nawigację i wczytywanie zdjęcia prowadzi aplikacja:
 // edytor pokazuje tylko scenę z narzędziami bieżącego kroku i zgłasza zmiany stanu (`onChange`).
@@ -38,12 +38,22 @@ import type { PadConfig } from '../core/settings';
 import type { ShapePt, SheetShape } from '../core/shape';
 import { clamp, el, esc, uid } from '../core/util';
 import { detectArea } from './shape-tools';
-import { FieldsStep } from './fields';
+import { FieldsStep, type MappingAction, type MappingState } from './fields';
 import { icon } from './icons';
 import { scorePadFileName } from '../file-name';
 
 export type Step = 1 | 2 | 3;
 export type { AreaMode } from './area';
+export type { MappingAction, MappingMode, MappingState } from './fields';
+
+/** Stan kroku 3 „Mapowanie pól” (EDT-11) dla panelu kreatora. */
+export interface EditorMapping extends MappingState {
+  /** Widok kartki jest powiększony (przycisk „Dopasuj widok”). */
+  readonly zoomed: boolean;
+}
+
+/** Zmiana mapowania z panelu kreatora; `fit` dopasowuje widok do całej kartki. */
+export type EditorMappingAction = MappingAction | { readonly type: 'fit' };
 
 export interface EditorOptions {
   /** Notes do poprawienia (zamiast nowego). */
@@ -139,6 +149,8 @@ export interface EditorStatus {
   readonly lines: readonly EditorLine[];
   /** Ustawienia kroku 2: obszar, rozmiar, grzbiet, nazwa i kolor (EDT-10). */
   readonly settings: EditorArea;
+  /** Krok 3: sposób mapowania, miejsca, kategorie i problem do poprawy (EDT-11, EDT-6). */
+  readonly mapping: EditorMapping;
   /** Notes został zmieniony od otwarcia edytora (zdjęcie, kształt, pola, kategorie). */
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
@@ -227,6 +239,11 @@ export class Editor {
   private sheetKey = '';
   readonly fields: FieldsStep;
   private raf = 0;
+  /** Widok kartki w kroku 3 (powiększenie), null = cała kartka. */
+  private view: { x: number; y: number; w: number; h: number } | null = null;
+  /** Palce na scenie kroku 3 (szczypanie powiększa, dwa palce przesuwają widok). */
+  private touches = new Map<number, { x: number; y: number }>();
+  private pinch: { d: number; x: number; y: number } | null = null;
 
   constructor(
     mount: ShadowRoot | HTMLElement,
@@ -307,6 +324,9 @@ export class Editor {
       render: () => this.render(),
       changed: () => this.renderChrome(),
       toast: (m, k) => this.toast(m, k),
+      // W kreatorze zmianę trybu potwierdza popup aplikacji (DS §18), tu systemowe pytanie.
+      confirm: (m) => typeof window.confirm !== 'function' || window.confirm(m),
+      wizard: !!opts.wizard,
     });
     mount.appendChild(this.root);
     this.bind();
@@ -395,6 +415,8 @@ export class Editor {
     const up = (e: PointerEvent): void => this.onUp(e);
     this.svg.addEventListener('pointerup', up);
     this.svg.addEventListener('pointercancel', up);
+    // krok 3: Ctrl + kółko (i szczypanie na gładziku) powiększa, kółko w powiększeniu przesuwa
+    this.svg.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     this.resizeObs = new ResizeObserver(() => this.render());
     this.resizeObs.observe(this.svg);
   }
@@ -418,8 +440,9 @@ export class Editor {
         this.cancelDrag();
         return;
       }
-      if (this.step === 3 && this.fields.key(e)) {
+      if (this.step === 3 && (this.pinch || this.fields.key(e))) {
         e.preventDefault();
+        this.endPinch();
         return;
       }
       if (this.opts.onClose) this.close();
@@ -435,6 +458,15 @@ export class Editor {
     if (this.step === 2 && !e.ctrlKey && !e.metaKey && !e.altKey && this.pointKey(e)) {
       e.preventDefault();
       this.touch();
+      return;
+    }
+    if (this.step === 3 && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      if (!e.shiftKey) this.editMapping({ type: 'undo' });
+      return;
+    }
+    if (this.step === 3 && !e.ctrlKey && !e.metaKey && !e.altKey && this.zoomKey(e)) {
+      e.preventDefault();
       return;
     }
     if (this.step === 3 && this.fields.key(e)) {
@@ -499,6 +531,7 @@ export class Editor {
       seats: this.fields.players(),
       lines: this.fields.draft.lines.map((l) => ({ label: l.label, kind: l.kind })),
       settings: this.areaState(),
+      mapping: { ...this.fields.state(), zoomed: !!this.view },
       dirty: this.dirty,
       openFailed: this.openFailed,
     };
@@ -544,6 +577,8 @@ export class Editor {
     if (s > this.reached) this.reached = s;
     this.pdrag = null;
     clearTimeout(this.press);
+    this.touches.clear();
+    this.pinch = null;
     this.exported = false;
     this.root.dataset.step = String(s);
     if (prev !== s) {
@@ -1081,6 +1116,7 @@ export class Editor {
     if (this.flatten) flattenPaper(out, 0.92);
     this.sheet = out;
     this.sheetKey = key;
+    this.view = null;
     const k = Math.min(1, 1400 / Math.max(out.width, out.height));
     if (k >= 1) this.sheetUrl = out.toDataURL('image/jpeg', 0.86);
     else {
@@ -1117,7 +1153,8 @@ export class Editor {
 
   private draw(): void {
     const svg = this.svg;
-    svg.classList.toggle('spe-c-draw', this.step === 3 && this.fields.mode === 'free');
+    svg.classList.toggle('spe-c-draw', this.step === 3 && this.fields.mode === 'rects');
+    svg.classList.toggle('spe-zoomed', this.step === 3 && !!this.view);
     if (this.step !== 2 || !this.pdrag?.moved) this.loupe.style.display = 'none';
     if (this.step === 1 || !this.src) {
       this.baseImg.style.display = 'none';
@@ -1128,7 +1165,11 @@ export class Editor {
     if (this.step === 3) {
       const sheet = this.sheet;
       if (!sheet) return;
-      svg.setAttribute('viewBox', `0 0 ${sheet.width} ${sheet.height}`);
+      const v = this.view;
+      svg.setAttribute(
+        'viewBox',
+        v ? `${v.x} ${v.y} ${v.w} ${v.h}` : `0 0 ${sheet.width} ${sheet.height}`,
+      );
       this.setImage(this.baseImg, this.sheetUrl, sheet.width, sheet.height);
       this.ov.innerHTML = this.fields.draw() + this.spineSvg(sheet.width, sheet.height);
       return;
@@ -1281,7 +1322,7 @@ export class Editor {
     const ph = t.closest('[data-p]') as SVGElement | null;
     if (this.step !== 2 || !ph) this.svg.focus({ preventScroll: true });
     if (this.step === 3) {
-      if (this.sheet) this.fields.down(e);
+      if (this.sheet) this.sheetDown(e);
       return;
     }
     // drugi palec nie przejmuje przeciąganego punktu
@@ -1321,7 +1362,7 @@ export class Editor {
 
   private onMove(e: PointerEvent): void {
     if (this.step === 3) {
-      this.fields.move(e);
+      this.sheetMove(e);
       return;
     }
     const d = this.pdrag;
@@ -1344,7 +1385,7 @@ export class Editor {
 
   private onUp(e: PointerEvent): void {
     if (this.step === 3) {
-      this.fields.up(e);
+      this.sheetUp(e);
       return;
     }
     const d = this.pdrag;
@@ -1406,6 +1447,152 @@ export class Editor {
     this.refocus = i;
     this.areaChanged();
     return true;
+  }
+
+  // ─────────────────────────────────────────────── krok 3: mapowanie pól (EDT-11)
+
+  /** Zmiana mapowania z panelu kreatora (sposób, miejsca, kategorie, cofanie, widok). */
+  editMapping(action: EditorMappingAction): void {
+    if (this.step !== 3 || !this.sheet || this.busy) return;
+    if (action.type === 'fit') {
+      this.view = null;
+      this.render();
+      return;
+    }
+    if (action.type !== 'category' && action.type !== 'seat') this.touch();
+    this.fields.apply(action);
+    this.notify();
+  }
+
+  /** Widok kartki: cała kartka albo powiększony fragment (współrzędne kartki). */
+  private viewBox(): { x: number; y: number; w: number; h: number } {
+    const sheet = this.sheet as HTMLCanvasElement;
+    return this.view ?? { x: 0, y: 0, w: sheet.width, h: sheet.height };
+  }
+
+  /** Punkt ekranu → punkt kartki dla widoku `v` (viewBox z preserveAspectRatio „meet”). */
+  private screenToSheet(cx: number, cy: number, v = this.viewBox()): { x: number; y: number } {
+    const r = this.svg.getBoundingClientRect();
+    const k = Math.min(r.width / v.w, r.height / v.h) || 1;
+    const ox = (r.width - v.w * k) / 2;
+    const oy = (r.height - v.h * k) / 2;
+    return { x: v.x + (cx - r.left - ox) / k, y: v.y + (cy - r.top - oy) / k };
+  }
+
+  /** Ustawia widok w granicach kartki (od całej kartki do ośmiokrotnego powiększenia). */
+  private setView(v: { x: number; y: number; w: number; h: number }): void {
+    const sheet = this.sheet;
+    if (!sheet) return;
+    const W = sheet.width;
+    const H = sheet.height;
+    const w = clamp(v.w, W / MAX_ZOOM, W);
+    const h = (w * H) / W;
+    if (w >= W - 0.5) {
+      this.view = null;
+    } else {
+      this.view = { x: clamp(v.x, 0, W - w), y: clamp(v.y, 0, H - h), w, h };
+    }
+    this.render();
+  }
+
+  /** Powiększa `f` razy wokół punktu ekranu (punkt kartki pod nim zostaje na miejscu). */
+  private zoomAt(cx: number, cy: number, f: number): void {
+    const v = this.viewBox();
+    const p = this.screenToSheet(cx, cy, v);
+    const w = v.w / f;
+    const h = v.h / f;
+    this.setView({ x: p.x - (p.x - v.x) / f, y: p.y - (p.y - v.y) / f, w, h });
+  }
+
+  /** Przesuwa widok o wektor ekranu. */
+  private panBy(dx: number, dy: number): void {
+    const v = this.viewBox();
+    const r = this.svg.getBoundingClientRect();
+    const k = Math.min(r.width / v.w, r.height / v.h) || 1;
+    this.setView({ ...v, x: v.x - dx / k, y: v.y - dy / k });
+  }
+
+  private onWheel(e: WheelEvent): void {
+    if (this.step !== 3 || !this.sheet) return;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      this.zoomAt(e.clientX, e.clientY, Math.exp(-clamp(e.deltaY, -60, 60) * 0.01));
+    } else if (this.view) {
+      e.preventDefault();
+      this.panBy(-e.deltaX, -e.deltaY);
+    }
+  }
+
+  /** Klawiatura w kroku 3: + i - powiększają, 0 dopasowuje widok. */
+  private zoomKey(e: KeyboardEvent): boolean {
+    if (!this.sheet) return false;
+    const r = this.svg.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    if (e.key === '+' || e.key === '=') this.zoomAt(cx, cy, 1.25);
+    else if (e.key === '-' || e.key === '_') this.zoomAt(cx, cy, 0.8);
+    else if (e.key === '0') {
+      this.view = null;
+      this.render();
+    } else return false;
+    return true;
+  }
+
+  private sheetDown(e: PointerEvent): void {
+    if (e.pointerType === 'touch') {
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.touches.size >= 2) {
+        // drugi palec: zamiast rysowania powiększenie i przesuwanie widoku
+        if (this.fields.dragging) this.fields.cancel();
+        const [a, b] = [...this.touches.values()];
+        this.pinch = {
+          d: Math.hypot(a.x - b.x, a.y - b.y),
+          x: (a.x + b.x) / 2,
+          y: (a.y + b.y) / 2,
+        };
+        this.capture(e);
+        return;
+      }
+    }
+    if (this.pinch) return;
+    this.fields.down(e);
+  }
+
+  private sheetMove(e: PointerEvent): void {
+    if (e.pointerType === 'touch' && this.touches.has(e.pointerId))
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pin = this.pinch;
+    if (pin) {
+      const [a, b] = [...this.touches.values()];
+      if (!a || !b) return;
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const x = (a.x + b.x) / 2;
+      const y = (a.y + b.y) / 2;
+      this.panBy(x - pin.x, y - pin.y);
+      if (pin.d > 0 && d > 0) this.zoomAt(x, y, d / pin.d);
+      this.pinch = { d, x, y };
+      return;
+    }
+    this.fields.move(e);
+  }
+
+  private sheetUp(e: PointerEvent): void {
+    this.touches.delete(e.pointerId);
+    if (this.pinch) {
+      // palec, który został po szczypaniu, niczego nie rysuje
+      if (!this.touches.size) this.pinch = null;
+      return;
+    }
+    if (e.type === 'pointercancel') {
+      if (this.fields.dragging) this.fields.cancel();
+      return;
+    }
+    this.fields.up(e);
+  }
+
+  private endPinch(): void {
+    this.pinch = null;
+    this.touches.clear();
   }
 
   // ─────────────────────────────────────────────── wynik
@@ -1508,6 +1695,9 @@ export class Editor {
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
+/** Największe powiększenie kartki w kroku 3. */
+const MAX_ZOOM = 8;
+
 /** Dotyk jako główny wskaźnik (telefon, tablet). */
 const coarsePointer = (): boolean =>
   typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -1526,9 +1716,14 @@ function sameStatus(a: EditorStatus, b: EditorStatus): boolean {
     a.dirty === b.dirty &&
     a.openFailed === b.openFailed &&
     sameArea(a.settings, b.settings) &&
+    sameMapping(a.mapping, b.mapping) &&
     a.lines.length === b.lines.length &&
     a.lines.every((l, i) => l.label === b.lines[i]?.label && l.kind === b.lines[i]?.kind)
   );
+}
+
+function sameMapping(a: EditorMapping, b: EditorMapping): boolean {
+  return (Object.keys(a) as (keyof EditorMapping)[]).every((k) => a[k] === b[k]);
 }
 
 function sameArea(a: EditorArea, b: EditorArea): boolean {
