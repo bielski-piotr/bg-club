@@ -29,6 +29,13 @@ function urlWith(stack: readonly PopupRoute[]): string {
   return `${pathname}${stackSearch(search, stack)}${hash}`;
 }
 
+function sameStack(a: readonly PopupRoute[], b: readonly PopupRoute[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((route, level) => routeKey(route, level) === routeKey(b[level] as PopupRoute, level))
+  );
+}
+
 /** Najwyższy poziom z ochroną, którego popup znika (albo zmienia się) przy przejściu `before` → `after`. */
 function lostGuardLevel(
   guards: ReadonlyMap<number, LeaveGuard>,
@@ -147,49 +154,59 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
     [openers],
   );
 
-  const back = useCallback(function back() {
+  /**
+   * Pyta po kolei ochrony poziomów `levels` (od góry); `done` dopiero po zgodzie wszystkich.
+   * Ochrony zostają zarejestrowane: anulowanie albo nieudana nawigacja nie zostawia popupu
+   * ze zmianami bez ochrony.
+   */
+  const askGuards = useCallback((levels: readonly number[], done: () => void) => {
+    const ask = (index: number) => {
+      const level = levels[index];
+      const guard = level === undefined ? undefined : guardMap.current.get(level);
+      if (!guard) {
+        if (index >= levels.length) done();
+        else ask(index + 1);
+        return;
+      }
+      guard(() => ask(index + 1));
+    };
+    ask(0);
+  }, []);
+
+  const back = useCallback(() => {
     if (navigating.current) return;
     const current = parseStack(window.location.search);
     if (current.length === 0) return;
-    const guard = guardMap.current.get(current.length - 1);
-    if (guard) {
-      guard(() => {
-        guardMap.current.delete(current.length - 1);
-        back();
-      });
-      return;
-    }
-    if (currentDepth() > 0) {
-      navigating.current = true;
-      window.history.back();
-      return;
-    }
-    window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith(current.slice(0, -1)));
-    setSearch(window.location.search);
-  }, []);
+    askGuards([current.length - 1], () => {
+      // Stos mógł się zmienić, gdy ochrona czekała na odpowiedź.
+      if (navigating.current || !sameStack(parseStack(window.location.search), current)) return;
+      if (currentDepth() > 0) {
+        navigating.current = true;
+        window.history.back();
+        return;
+      }
+      window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith(current.slice(0, -1)));
+      setSearch(window.location.search);
+    });
+  }, [askGuards]);
 
-  const closeAll = useCallback(function closeAll() {
+  const closeAll = useCallback(() => {
     const current = parseStack(window.location.search);
     if (navigating.current || current.length === 0) return;
-    const level = lostGuardLevel(guardMap.current, current, []);
-    const guard = level === undefined ? undefined : guardMap.current.get(level);
-    if (level !== undefined && guard) {
-      guard(() => {
-        guardMap.current.delete(level);
-        closeAll();
-      });
-      return;
-    }
-    const depth = currentDepth();
-    if (depth > 0) {
-      navigating.current = true;
-      clearAfterPop.current = true;
-      window.history.go(-depth);
-      return;
-    }
-    window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith([]));
-    setSearch(window.location.search);
-  }, []);
+    const levels = current.map((_, level) => level).reverse();
+    askGuards(levels, () => {
+      if (navigating.current || !sameStack(parseStack(window.location.search), current)) return;
+      const depth = currentDepth();
+      if (depth > 0) {
+        navigating.current = true;
+        clearAfterPop.current = true;
+        window.history.go(-depth);
+        return;
+      }
+      window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith([]));
+      setSearch(window.location.search);
+    });
+  }, [askGuards]);
 
   const hrefFor = useCallback(
     (route: PopupRoute) => `${window.location.pathname}${stackSearch(search, [...stack, route])}`,

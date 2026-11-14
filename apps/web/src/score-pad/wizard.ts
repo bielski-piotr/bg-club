@@ -29,7 +29,6 @@ export function isStepValid(step: WizardStep, status: ScorePadEditorStatus | nul
     case 3:
       return status.photo && status.area && status.seats > 0 && status.lines.length > 0;
     case 4:
-      return status.photo && status.area && status.fields === null;
     case 5:
       return status.photo && status.area && status.fields === null;
   }

@@ -75,6 +75,18 @@ describe('edytor w trybie kreatora', () => {
     expect(onChange.mock.calls[0]?.[0]).toMatchObject({ dirty: true });
   });
 
+  it('nie zgłasza stanu, gdy nic się nie zmieniło (np. przerysowanie przy przeciąganiu)', async () => {
+    const onChange = vi.fn();
+    const { editor } = mount(onChange);
+    await frame();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    editor.render();
+    await frame();
+    editor.render();
+    await frame();
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
   it('Esc obsłużony przez edytor nie zamyka popupu (preventDefault)', () => {
     const { editor } = mount();
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });

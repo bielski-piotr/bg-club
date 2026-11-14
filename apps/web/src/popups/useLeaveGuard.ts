@@ -29,6 +29,8 @@ export function useLeaveGuard(guard: LeaveGuard | null): { readonly release: () 
     });
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
+      // Starsze przeglądarki (np. WebView) pytają tylko przy ustawionym `returnValue`.
+      event.returnValue = '';
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => {

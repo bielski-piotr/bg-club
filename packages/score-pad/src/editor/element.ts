@@ -86,12 +86,14 @@ export class ScorePadEditorElement extends HTMLElement {
 
   /** Wczytuje zdjęcie kartki (kreator: krok 1). */
   async loadPhoto(file: Blob): Promise<void> {
-    await this.editor?.loadFile(file);
+    if (!this.editor) throw new Error('score-pad-editor: not connected');
+    await this.editor.loadFile(file);
   }
 
   /** Wczytuje notes z pliku `.json` (kreator: import w kroku 1); liczy się jako zmiana. */
   async loadTemplate(template: PadTemplate): Promise<void> {
-    await this.editor?.loadTemplate(template, true);
+    if (!this.editor) throw new Error('score-pad-editor: not connected');
+    await this.editor.loadTemplate(template, true);
   }
 
   /** Przechodzi do kroku edytora (1 zdjęcie, 2 obszar kartki, 3 pola), jeśli jest dostępny. */

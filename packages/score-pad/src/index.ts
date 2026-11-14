@@ -205,9 +205,12 @@ export interface ScorePadEditorElement extends HTMLElement {
   exportConfig(): ScorePadFile | null;
   /** Stan edytora; null przed dołączeniem do strony. */
   status(): ScorePadEditorStatus | null;
-  /** Wczytuje zdjęcie kartki. Odrzuca, gdy plik nie jest obrazem albo jest uszkodzony. */
+  /**
+   * Wczytuje zdjęcie kartki. Odrzuca (`reason`: `type`, `image`, `busy`), gdy plik nie jest
+   * obrazem, jest uszkodzony albo edytor jest zajęty.
+   */
   loadPhoto(file: Blob): Promise<void>;
-  /** Wczytuje notes z pliku `.json` (szablon ze zdjęciem). */
+  /** Wczytuje notes z pliku `.json` (szablon ze zdjęciem); odrzuca jak `loadPhoto`. */
   loadTemplate(template: ScorePadTemplate): Promise<void>;
   /** Przechodzi do kroku edytora, jeśli jest dostępny. */
   goStep(step: 1 | 2 | 3): void;

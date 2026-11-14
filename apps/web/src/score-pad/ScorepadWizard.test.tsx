@@ -326,6 +326,14 @@ describe('kreator edytora notesu', () => {
         grid: { x: [0, 0.25, 0.5, 0.75, 1], y: [0, 0.5, 1], players: 'cols', labels: 1 },
       },
     });
+    const noImage = JSON.parse(json) as { template: Record<string, unknown> };
+    delete noImage.template.image;
+    fireEvent.change(input, {
+      target: { files: [new File([JSON.stringify(noImage)], 'bez-zdjecia.json')] },
+    });
+    expect(await within(dialog).findByText(/nie zawiera zdjęcia kartki/)).toBeInTheDocument();
+    expect(fake.loadTemplate).not.toHaveBeenCalled();
+
     fireEvent.change(input, { target: { files: [new File([json], 'notes.json')] } });
     expect(await within(dialog).findByText(/Wczytano notes Z pliku z pliku/)).toBeInTheDocument();
     expect(fake.loadTemplate).toHaveBeenCalledWith(expect.objectContaining({ name: 'Z pliku' }));

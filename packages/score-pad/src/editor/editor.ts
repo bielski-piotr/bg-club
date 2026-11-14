@@ -135,6 +135,8 @@ export class Editor {
   /** Zmiany od otwarcia edytora (EDT-1: ochrona przed utratą zmian). */
   private dirty = false;
   private notifyRaf = 0;
+  /** Ostatnio zgłoszony stan: bez zmiany (np. przeciąganie w kroku 2) aplikacja nie dostaje nic. */
+  private lastStatus: EditorStatus | null = null;
   /** Nie udało się wczytać notesu otwartego do edycji (kreator: zdjęcie trzeba wczytać od nowa). */
   private openFailed = false;
 
@@ -421,7 +423,11 @@ export class Editor {
     if (!this.opts.onChange || this.notifyRaf) return;
     this.notifyRaf = requestAnimationFrame(() => {
       this.notifyRaf = 0;
-      if (this.root.isConnected) this.opts.onChange?.(this.status());
+      if (!this.root.isConnected) return;
+      const status = this.status();
+      if (this.lastStatus && sameStatus(this.lastStatus, status)) return;
+      this.lastStatus = status;
+      this.opts.onChange?.(status);
     });
   }
 
@@ -553,15 +559,18 @@ export class Editor {
    * błąd zamiast komunikatu w edytorze, bo komunikaty pokazuje aplikacja.
    */
   async loadFile(f: File | Blob): Promise<void> {
-    if (this.busy) return;
+    if (this.busy) {
+      // Kreator nie może uznać pominiętego wczytania za udane.
+      if (this.opts.wizard) throw new EditorLoadError('busy');
+      return;
+    }
     const isJson = f.type === 'application/json' || ('name' in f && /\.json$/i.test(f.name));
     if (isJson && !this.opts.wizard) {
       try {
         const raw = JSON.parse(await f.text()) as PadConfig & Record<string, unknown>;
         const t = validateTemplate(raw.template ?? raw.templates?.[0] ?? raw);
         if (!t || !t.image) throw new Error('To nie jest plik notesu ze zdjęciem kartki.');
-        await this.loadTemplate(t);
-        this.touch();
+        if (await this.loadTemplate(t)) this.touch();
       } catch (err) {
         this.toast((err as Error).message || 'Nie udało się wczytać pliku.');
       }
@@ -584,6 +593,7 @@ export class Editor {
       this.sheetKey = '';
       this.reached = 1;
       this.dirty = true;
+      this.openFailed = false;
       this.setBusy('');
       if (this.opts.wizard) this.show(1);
       else this.goStep(2);
@@ -596,14 +606,18 @@ export class Editor {
 
   /**
    * Notes do poprawienia: zdjęcie już wyprostowane, więc kadr to całe zdjęcie. `imported`
-   * (plik `.json` w kreatorze) liczy się jako zmiana; notes otwarty do edycji nie.
+   * (plik `.json` w kreatorze) liczy się jako zmiana; notes otwarty do edycji nie. Zwraca,
+   * czy notes został wczytany (poza kreatorem błąd kończy się komunikatem w edytorze).
    */
-  async loadTemplate(t: PadTemplate, imported = false): Promise<void> {
+  async loadTemplate(t: PadTemplate, imported = false): Promise<boolean> {
     if (!t.image) {
       if (this.opts.wizard) throw new EditorLoadError('image');
-      return;
+      return false;
     }
-    if (this.busy && this.busy !== 'load') return;
+    if (this.busy) {
+      if (this.opts.wizard) throw new EditorLoadError('busy');
+      return false;
+    }
     this.setBusy('load');
     try {
       const c = await canvasFromUrl(t.image);
@@ -625,13 +639,16 @@ export class Editor {
       this.refreshSrcUrl();
       this.reached = 3;
       if (imported) this.dirty = true;
+      this.openFailed = false;
       this.setBusy('');
       if (this.opts.wizard) this.show(1);
       else this.goStep(3);
+      return true;
     } catch (err) {
       this.setBusy('');
       if (this.opts.wizard) throw new EditorLoadError('image');
       this.toast((err as Error).message || 'Nie udało się wczytać notesu.');
+      return false;
     }
   }
 
@@ -1279,9 +1296,30 @@ export class Editor {
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
-/** Nieudane wczytanie w kreatorze: plik nie jest obrazem (`type`) albo obrazu nie da się odczytać. */
+/** Czy stan edytora się zmienił (podglądy porównujemy po adresie, nie po treści). */
+function sameStatus(a: EditorStatus, b: EditorStatus): boolean {
+  return (
+    a.step === b.step &&
+    a.busy === b.busy &&
+    a.photo === b.photo &&
+    a.photoUrl === b.photoUrl &&
+    a.area === b.area &&
+    a.fields === b.fields &&
+    a.sheetUrl === b.sheetUrl &&
+    a.seats === b.seats &&
+    a.dirty === b.dirty &&
+    a.openFailed === b.openFailed &&
+    a.lines.length === b.lines.length &&
+    a.lines.every((l, i) => l.label === b.lines[i]?.label && l.kind === b.lines[i]?.kind)
+  );
+}
+
+/**
+ * Nieudane wczytanie w kreatorze: plik nie jest obrazem (`type`), obrazu nie da się odczytać
+ * (`image`) albo edytor jest zajęty innym wczytywaniem lub prostowaniem kartki (`busy`).
+ */
 export class EditorLoadError extends Error {
-  constructor(readonly reason: 'type' | 'image') {
+  constructor(readonly reason: 'type' | 'image' | 'busy') {
     super(`score-pad-editor: ${reason}`);
     this.name = 'EditorLoadError';
   }

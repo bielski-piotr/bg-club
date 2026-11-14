@@ -47,9 +47,13 @@ interface ScorepadWizardProps {
 }
 
 /** Potwierdzenie w kreatorze: opuszczenie ze zmianami albo zastąpienie bieżącej pracy. */
-type Confirm =
-  | { readonly kind: 'leave'; readonly run: () => void }
-  | { readonly kind: 'replacePhoto' | 'replaceFile'; readonly run: () => void };
+interface Confirm {
+  readonly kind: 'leave' | 'replacePhoto' | 'replaceFile';
+  readonly run: () => void;
+}
+
+/** Edytor był zajęty (np. prostował kartkę): wczytanie pominięte, nic się nie zmieniło. */
+const editorBusy = (error: unknown) => (error as { reason?: unknown }).reason === 'busy';
 
 /**
  * Kreator edytora notesu (PRD §5.5.2, EDT-1, EDT-9, DS §18): pięć kroków nad jednym edytorem
@@ -150,6 +154,7 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
           setStep(1);
         })
         .catch((error: unknown) => {
+          if (editorBusy(error)) return;
           const reason = (error as { reason?: unknown }).reason;
           setPhotoError(reason === 'type' ? wizard.errors.type : wizard.errors.image);
         })
@@ -165,7 +170,10 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
       readImportFile(file)
         .then(async (value) => {
           const imported = value as ScorePadTemplate;
-          if (!imported.image) throw new ScorepadError('image');
+          if (!imported.image) {
+            setPhotoError(wizard.errors.noImage);
+            return;
+          }
           const handle = editor.current;
           if (!handle) throw new Error('editor');
           await handle.loadTemplate(imported);
@@ -174,12 +182,9 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
           setNotice(format(wizard.imported, { name: imported.name }));
         })
         .catch((error: unknown) => {
+          if (editorBusy(error)) return;
           setPhotoError(
-            error instanceof ScorepadError
-              ? error.reason === 'image'
-                ? wizard.errors.noImage
-                : scorepadErrorMessage(error)
-              : wizard.errors.image,
+            error instanceof ScorepadError ? scorepadErrorMessage(error) : wizard.errors.image,
           );
         })
         .finally(() => setLoading(false));
@@ -326,13 +331,7 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
           ) : null}
         </div>
       </PopupModal>
-      {confirm ? (
-        <ConfirmDialog
-          confirm={confirm}
-          onCancel={closeConfirm}
-          onDone={() => setConfirm(undefined)}
-        />
-      ) : null}
+      {confirm ? <ConfirmDialog confirm={confirm} onClose={closeConfirm} /> : null}
     </>
   );
 }
@@ -474,12 +473,11 @@ function TestAndSave({
 /** Dialog potwierdzenia nad kreatorem (DS §7 „Small dialog”); Esc i tło anulują. */
 function ConfirmDialog({
   confirm,
-  onCancel,
-  onDone,
+  onClose,
 }: {
   readonly confirm: Confirm;
-  readonly onCancel: () => void;
-  readonly onDone: () => void;
+  /** Zamyka dialog i oddaje fokus elementowi w kreatorze, z którego go otwarto. */
+  readonly onClose: () => void;
 }) {
   const copy =
     confirm.kind === 'leave'
@@ -489,7 +487,7 @@ function ConfirmDialog({
     if (event.key !== 'Escape') return;
     // Esc zamyka tylko dialog, nie popup pod nim (PopupHost pomija obsłużone Esc).
     event.preventDefault();
-    onCancel();
+    onClose();
   };
   return (
     <div className="wizard-confirm" onKeyDown={onKeyDown}>
@@ -498,16 +496,16 @@ function ConfirmDialog({
         description={copy.description}
         icon={confirm.kind === 'leave' ? 'alert' : 'image'}
         tone={confirm.kind === 'leave' ? 'danger' : 'accent'}
-        onScrimClick={onCancel}
+        onScrimClick={onClose}
         footer={
           <>
-            <Button variant="secondary" autoFocus onClick={onCancel}>
+            <Button variant="secondary" autoFocus onClick={onClose}>
               {copy.cancel}
             </Button>
             <Button
               variant={confirm.kind === 'leave' ? 'destructive' : 'primary'}
               onClick={() => {
-                onDone();
+                onClose();
                 confirm.run();
               }}
             >
