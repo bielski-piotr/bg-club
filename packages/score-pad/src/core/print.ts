@@ -424,11 +424,30 @@ export interface PrintSet {
 
 const cache = new Map<string, PrintSet>();
 
-export function texSize(t: PadTemplate): [number, number] {
+/** Najkrótszy dłuższy bok tekstury: małe zdjęcie jest powiększane, żeby pismo było czytelne. */
+export const MIN_TEX_SIDE = 1600;
+/** Dłuższy bok tekstury tyłu kartki (sam papier i ślad kleju, bez drobnych szczegółów). */
+export const BACK_TEX_SIDE = 1600;
+
+/**
+ * Rozmiar tekstury kartki (PAD-16): zdjęcie z edytora w pełnej rozdzielczości (EDT-12), bez
+ * zmniejszania przy uruchomieniu notesu. Ograniczeniem jest `maxSide` (`maxTextureSize`
+ * urządzenia, najwyżej 4096). Proporcje z rozmiaru kartki, jak dotąd.
+ */
+export function texSize(
+  t: PadTemplate,
+  imageLong = MIN_TEX_SIDE,
+  maxSide = 4096,
+): [number, number] {
   if (t.print) return [1024, 1434];
   const a = t.size.w / t.size.h;
-  const long = 1600;
+  const long = Math.max(256, Math.min(maxSide, Math.max(MIN_TEX_SIDE, Math.round(imageLong))));
   return a <= 1 ? [Math.round(long * a), long] : [long, Math.round(long / a)];
+}
+
+function fitLong(w: number, h: number, long: number): [number, number] {
+  const k = Math.min(1, long / Math.max(w, h));
+  return [Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k))];
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {
@@ -456,19 +475,24 @@ function paperTone(c: HTMLCanvasElement): string {
   return `#${avg.map((v) => Math.min(255, v).toString(16).padStart(2, '0')).join('')}`;
 }
 
-export function printKey(t: PadTemplate): string {
-  return `${t.id}:${t.size.w}x${t.size.h}:${t.image ? t.image.length : 'p'}:${t.tape}:${t.binding ?? 'top'}`;
+export function printKey(t: PadTemplate, maxSide = 4096): string {
+  return `${t.id}:${t.size.w}x${t.size.h}:${t.image ? t.image.length : 'p'}:${t.tape}:${t.binding ?? 'top'}:${maxSide}`;
 }
 
-export async function preparePrint(t: PadTemplate, glue: number): Promise<PrintSet> {
-  const key = printKey(t);
+export async function preparePrint(
+  t: PadTemplate,
+  glue: number,
+  maxSide = 4096,
+): Promise<PrintSet> {
+  const key = printKey(t, maxSide);
   const hit = cache.get(key);
   if (hit) return hit;
-  const [CW, CH] = texSize(t);
   let print: HTMLCanvasElement;
   let tone = '#f8f6f1';
+  let [CW, CH] = texSize(t, MIN_TEX_SIDE, maxSide);
   if (t.image) {
     const im = await loadImage(t.image);
+    [CW, CH] = texSize(t, Math.max(im.naturalWidth, im.naturalHeight), maxSide);
     const [c, g] = makeCanvas(CW, CH);
     g.imageSmoothingQuality = 'high';
     g.drawImage(im, 0, 0, CW, CH);
@@ -479,17 +503,19 @@ export async function preparePrint(t: PadTemplate, glue: number): Promise<PrintS
   } else {
     print = buildBuiltin(t, CW, CH, glue);
   }
-  const [b, bg] = makeCanvas(CW, CH);
-  paperBase(bg, CW, CH, tone);
-  glueResidue(bg, CW, CH, glue, t.tape, t.binding === 'left');
-  applyGrain(bg, CW, CH);
+  const [BW, BH] = fitLong(CW, CH, BACK_TEX_SIDE);
+  const [b, bg] = makeCanvas(BW, BH);
+  paperBase(bg, BW, BH, tone);
+  glueResidue(bg, BW, BH, glue, t.tape, t.binding === 'left');
+  applyGrain(bg, BW, BH);
   const set: PrintSet = { key, t, glue, print, back: b, tone, CW, CH };
   cache.set(key, set);
   return set;
 }
 
+/** Usuwa z pamięci wszystkie nadruki notesu (także dla starego zdjęcia, rozmiaru i taśmy). */
 export function dropPrint(t: PadTemplate): void {
-  cache.delete(printKey(t));
+  for (const set of [...cache.values()]) if (set.t.id === t.id) cache.delete(set.key);
 }
 
 /** Przerysowuje nadruki wbudowanych notesów (gdy doczytają się fonty). */

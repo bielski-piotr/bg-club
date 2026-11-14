@@ -257,6 +257,8 @@ export interface ScorePadApi {
   exportConfig(opt?: { sheet?: boolean }): ScorePadFile;
   /** Wczytuje plik notesu v2; w trybie klubowym tylko do pamięci tego osadzenia. */
   importConfig(raw: unknown, persist?: boolean): Promise<string>;
+  /** Płynnie przywraca widok domyślny z góry po obrocie lub zoomie (PAD-12). */
+  resetView(): void;
   destroy(): void;
 }
 
