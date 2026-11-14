@@ -1,4 +1,9 @@
-import type { ScorePadEditorStatus, ScorePadTemplate } from '@bg-club/score-pad';
+import type {
+  ScorePadEditorMappingAction,
+  ScorePadEditorStatus,
+  ScorePadMappingMode,
+  ScorePadTemplate,
+} from '@bg-club/score-pad';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '../auth/authContext';
@@ -11,6 +16,7 @@ import { useLeaveGuard } from '../popups/useLeaveGuard';
 import { Banner, Button, Dialog, Icon, Tray, useToast } from '../ui';
 import { cx } from '../ui/cx';
 import { AreaPanel, AreaToolbar } from './AreaStep';
+import { MappingPanel, MappingToolbar } from './MappingStep';
 import { fewerSeatsMessage, scorepadErrorMessage } from './messages';
 import { PhotoStep } from './PhotoStep';
 import { ScorePadEditorView, type ScorePadEditorHandle } from './ScorePadEditorView';
@@ -40,6 +46,7 @@ import './wizard.css';
 const text = t.scorepads.editor;
 const wizard = t.scorepads.wizard;
 const area = wizard.area;
+const mapping = wizard.mapping;
 
 interface ScorepadWizardProps {
   readonly game: Game;
@@ -48,9 +55,12 @@ interface ScorepadWizardProps {
   readonly template: ScorePadTemplate | undefined;
 }
 
-/** Potwierdzenie w kreatorze: opuszczenie ze zmianami albo zastąpienie bieżącej pracy. */
+/**
+ * Potwierdzenie w kreatorze: opuszczenie ze zmianami, zastąpienie bieżącej pracy albo zmiana
+ * sposobu mapowania, która usuwa pola i kategorie (EDT-11).
+ */
 interface Confirm {
-  readonly kind: 'leave' | 'replacePhoto' | 'replaceFile';
+  readonly kind: 'leave' | 'replacePhoto' | 'replaceFile' | 'changeMapping';
   readonly run: () => void;
 }
 
@@ -64,8 +74,9 @@ const editorBusy = (error: unknown) => (error as { reason?: unknown }).reason ==
  *
  * - Krok 1 (Zdjęcie) prowadzi aplikacja: plik, przeciągnięcie, schowek, aparat lub kamera
  *   i import `.json`. Krok 2 (Obszar kartki, EDT-10) to scena edytora z punktami obszaru
- *   i panel aplikacji. Krok 3 to narzędzia edytora; 4 (Kategorie) i 5 (Test i zapis) to
- *   na razie podsumowania (pełne wersje: zadania [019] i [022]).
+ *   i panel aplikacji. Krok 3 (Mapowanie pól, EDT-11) to scena edytora z polami i panel
+ *   aplikacji: prostokąty ręczne albo wykryta tabela; zmiana sposobu z polami pyta o zgodę.
+ *   Kroki 4 (Kategorie) i 5 (Test i zapis) to na razie podsumowania (zadania [019] i [022]).
  * - „Dalej” jest wyłączone, dopóki bieżący krok nie jest poprawny. Pigułki odwiedzonych kroków
  *   są klikalne; edycja notesu i import pliku otwierają kreator z wszystkimi krokami wykonanymi.
  * - Zmiany są chronione: zamknięcie (Esc, ←, ×, tło, Wstecz w przeglądarce) pyta o odrzucenie
@@ -244,6 +255,26 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
     event.preventDefault();
     editor.current?.undoArea();
   };
+  // Ctrl+Z w panelu mapowania (poza polami tekstowymi) cofa zmianę mapowania jak na scenie.
+  const onMappingKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (event.key.toLowerCase() !== 'z' || event.shiftKey) return;
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest('input[type=text], textarea')) return;
+    event.preventDefault();
+    editor.current?.editMapping({ type: 'undo' });
+  };
+  const editMapping = (action: ScorePadEditorMappingAction) => editor.current?.editMapping(action);
+  const changeMapping = (mode: ScorePadMappingMode) => {
+    if (!status || mode === status.mapping.mode) return;
+    // EDT-11: tryby się wykluczają; z polami lub kategoriami najpierw pytamy.
+    if (!status.mapping.hasContent) {
+      editMapping({ type: 'mode', mode });
+      return;
+    }
+    restoreFocus.current = document.activeElement;
+    setConfirm({ kind: 'changeMapping', run: () => editMapping({ type: 'mode', mode }) });
+  };
   const closeConfirm = () => {
     setConfirm(undefined);
     const target = restoreFocus.current;
@@ -326,12 +357,15 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
           <div
             className={cx(
               'wizard-work',
-              step === 2 && 'wizard-body wizard-work--area',
+              (step === 2 || step === 3) && 'wizard-body wizard-work--area',
               (step === 1 || step >= 4) && 'wizard-editor--hidden',
             )}
-            onKeyDown={step === 2 ? onAreaKeyDown : undefined}
+            onKeyDown={step === 2 ? onAreaKeyDown : step === 3 ? onMappingKeyDown : undefined}
           >
-            <div className="wizard-editor" aria-label={step === 2 ? area.stage : undefined}>
+            <div
+              className="wizard-editor"
+              aria-label={step === 2 ? area.stage : step === 3 ? mapping.stage : undefined}
+            >
               <ScorePadEditorView
                 ref={editor}
                 wizard
@@ -348,11 +382,22 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
                   onUndo={() => editor.current?.undoArea()}
                 />
               ) : null}
+              {step === 3 && status?.photo && status.step === 3 ? (
+                <MappingToolbar mapping={status.mapping} disabled={busy} onAction={editMapping} />
+              ) : null}
             </div>
             {step === 2 && status?.photo ? (
               <AreaPanel
                 settings={status.settings}
                 onChange={(patch) => editor.current?.setArea(patch)}
+              />
+            ) : null}
+            {step === 3 && status?.photo && status.step === 3 ? (
+              <MappingPanel
+                mapping={status.mapping}
+                maxPlayers={game.max_players}
+                onAction={editMapping}
+                onModeChange={changeMapping}
               />
             ) : null}
           </div>
@@ -521,6 +566,7 @@ function ConfirmDialog({
     confirm.kind === 'leave'
       ? { ...wizard.leave, cancel: wizard.leave.stay, confirm: wizard.leave.discard }
       : wizard[confirm.kind];
+  const destructive = confirm.kind === 'leave' || confirm.kind === 'changeMapping';
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape') return;
     // Esc zamyka tylko dialog, nie popup pod nim (PopupHost pomija obsłużone Esc).
@@ -532,8 +578,8 @@ function ConfirmDialog({
       <Dialog
         title={copy.title}
         description={copy.description}
-        icon={confirm.kind === 'leave' ? 'alert' : 'image'}
-        tone={confirm.kind === 'leave' ? 'danger' : 'accent'}
+        icon={destructive ? 'alert' : 'image'}
+        tone={destructive ? 'danger' : 'accent'}
         onScrimClick={onClose}
         footer={
           <>
@@ -541,7 +587,7 @@ function ConfirmDialog({
               {copy.cancel}
             </Button>
             <Button
-              variant={confirm.kind === 'leave' ? 'destructive' : 'primary'}
+              variant={destructive ? 'destructive' : 'primary'}
               onClick={() => {
                 onClose();
                 confirm.run();

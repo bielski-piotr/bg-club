@@ -168,10 +168,12 @@ describe('edytor zachowuje regułę wczytanego notesu', () => {
       name: t.name,
       tape: t.tape,
       grid: structuredClone(t.grid as NonNullable<PadTemplate['grid']>),
+      seats: 1,
       lines: structuredClone(t.lines),
       fields: [],
       ranking: t.ranking,
     };
+    s.mode = 'table';
     return s;
   };
 

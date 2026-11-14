@@ -367,6 +367,54 @@
   border-radius: 22px;
 }
 
+/* Krok 3: mapowanie pól (DS §18). */
+.wizard-hint--problem {
+  color: var(--c-warning-text);
+  font-weight: 600;
+}
+
+.wizard-panel__action {
+  align-self: flex-start;
+}
+
+/* Miejsca graczy zawijają się w wiersze (EDT-8: dowolna liczba miejsc). */
+.wizard-seats {
+  align-items: center;
+}
+
+.wizard-navigator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: var(--r-tray);
+  background: var(--c-tint);
+}
+
+.wizard-navigator .icon-btn {
+  background: var(--c-surface);
+}
+
+.wizard-navigator__label {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wizard-navigator__label.is-new {
+  color: var(--c-accent-text);
+}
+
+.wizard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* Krok 4: kategorie. */
 .wizard-line {
   display: flex;

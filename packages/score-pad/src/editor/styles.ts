@@ -251,7 +251,10 @@ export const EDITOR_CSS = String.raw`
 .spe-svg .spe-gl .hit { stroke: transparent; stroke-width: 18; vector-effect: non-scaling-stroke; }
 .spe-svg .spe-gl .vis { stroke: var(--accent-vivid); stroke-width: 1.5; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; transition: stroke-width .15s; }
 .spe-svg .spe-gl.outer .vis { stroke-dasharray: none; stroke-width: 2.2; }
-.spe-svg .spe-gl:hover .vis { stroke-width: 3.2; }
+.spe-svg .spe-gl:hover .vis, .spe-svg .spe-gl.on .vis { stroke-width: 3.2; }
+.spe-svg .spe-gl .knob { fill: #fff; stroke: var(--accent-vivid); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.spe-svg .spe-gl:hover .knob, .spe-svg .spe-gl.on .knob { fill: var(--accent-vivid); }
+.spe-svg.spe-zoomed { overflow: hidden; }
 .spe-svg .spe-gl.x { cursor: ew-resize; }
 .spe-svg .spe-gl.y { cursor: ns-resize; }
 .spe-svg .spe-ghost-line { stroke: var(--accent-vivid); stroke-opacity: .3; stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
@@ -409,6 +412,15 @@ export const EDITOR_CSS = String.raw`
 .spe.wizard[data-step="2"] .spe-stage { padding: 16px 16px 76px; background: var(--wizard-stage, #f1f3f9); }
 .spe.wizard.dark[data-step="2"] .spe-stage { --wizard-stage: #22273b; }
 @media (prefers-color-scheme: dark) { .spe.wizard:not(.light)[data-step="2"] .spe-stage { --wizard-stage: #22273b; } }
+/* krok 3 w kreatorze (EDT-11, DS §18): kartka z siatką pól; pasek i panel są w aplikacji */
+.spe.wizard[data-step="3"] .spe-toolbar, .spe.wizard[data-step="3"] .spe-panel { display: none; }
+.spe.wizard[data-step="3"] .spe-main { grid-template-rows: minmax(0, 1fr); }
+.spe.wizard[data-step="3"] .spe-work { display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.spe.wizard[data-step="3"] .spe-stage { height: auto; padding: 28px 16px 76px; background: var(--wizard-stage, #f1f3f9); }
+.spe.wizard.dark[data-step="3"] .spe-stage { --wizard-stage: #22273b; }
+@media (prefers-color-scheme: dark) { .spe.wizard:not(.light)[data-step="3"] .spe-stage { --wizard-stage: #22273b; } }
+.spe.wizard[data-step="3"] .spe-gl .vis { stroke-dasharray: none; stroke-width: 1.5; }
+.spe.wizard[data-step="3"] .spe-gl.outer .vis { stroke-width: 2; }
 @media (prefers-reduced-motion: reduce) {
   .spe *, .spe *::before, .spe *::after { animation: none !important; transition: none !important; }
 }

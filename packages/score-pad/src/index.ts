@@ -160,6 +160,56 @@ export interface ScorePadEditorAreaPatch {
   readonly binding?: 'top' | 'left';
 }
 
+/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo wykryta tabela. */
+export type ScorePadMappingMode = 'rects' | 'table';
+
+/** Stan kroku 3 „Mapowanie pól” (EDT-11, EDT-6). */
+export interface ScorePadEditorMapping {
+  readonly mode: ScorePadMappingMode;
+  /** Tabela: gracze w kolumnach albo w wierszach. */
+  readonly players: 'cols' | 'rows';
+  /** Liczba miejsc dla graczy. */
+  readonly seats: number;
+  /** Liczba kategorii. */
+  readonly categories: number;
+  /** Tabela: kolumny (albo wiersze) opisu przed miejscami graczy. */
+  readonly labels: number;
+  /** Prostokąty: miejsce, dla którego rysuje się pola (od 0). */
+  readonly activeSeat: number;
+  /** Prostokąty: kategoria następnego pola (od 0; równa `categories` oznacza nową kategorię). */
+  readonly activeCategory: number;
+  /** Prostokąty: liczba zaznaczonych pól. */
+  readonly selected: number;
+  /** Prostokąty: pola bieżącego miejsca można powielić dla następnego. */
+  readonly canDuplicate: boolean;
+  /** Jest zmiana mapowania do cofnięcia. */
+  readonly canUndo: boolean;
+  /** Zmiana sposobu mapowania usunie pola lub kategorie (trzeba zapytać). */
+  readonly hasContent: boolean;
+  /** Wynik ostatniego wykrywania tabeli na prośbę (null: nie było). */
+  readonly detected: boolean | null;
+  /** Powód, dla którego mapowanie nie jest jeszcze gotowe, albo null. */
+  readonly problem: string | null;
+  /** Widok kartki jest powiększony. */
+  readonly zoomed: boolean;
+}
+
+/** Zmiana mapowania (`editMapping`). */
+export type ScorePadEditorMappingAction =
+  | { readonly type: 'mode'; readonly mode: ScorePadMappingMode }
+  | { readonly type: 'players'; readonly players: 'cols' | 'rows' }
+  | { readonly type: 'seat'; readonly seat: number }
+  | { readonly type: 'category'; readonly category: number }
+  | { readonly type: 'seats'; readonly delta: 1 | -1 }
+  | { readonly type: 'categories'; readonly delta: 1 | -1 }
+  | { readonly type: 'labels'; readonly delta: 1 | -1 }
+  | { readonly type: 'detect' }
+  | { readonly type: 'duplicate' }
+  | { readonly type: 'delete' }
+  | { readonly type: 'removeCategory' }
+  | { readonly type: 'undo' }
+  | { readonly type: 'fit' };
+
 /** Stan `<score-pad-editor>` w trybie kreatora (EDT-9). */
 export interface ScorePadEditorStatus {
   /** Bieżący krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola. */
@@ -179,6 +229,8 @@ export interface ScorePadEditorStatus {
   readonly lines: readonly { readonly label: string; readonly kind: ScorePadLineKind }[];
   /** Ustawienia kroku 2: obszar, rozmiar, grzbiet, nazwa i kolor grzbietu. */
   readonly settings: ScorePadEditorArea;
+  /** Stan kroku 3: sposób mapowania, miejsca, kategorie i problem do poprawy. */
+  readonly mapping: ScorePadEditorMapping;
   /** Zmiany od otwarcia edytora. */
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
@@ -256,6 +308,8 @@ export interface ScorePadEditorElement extends HTMLElement {
   rotatePhoto(dir: 1 | -1): void;
   /** Cofa ostatnią zmianę obszaru. */
   undoArea(): void;
+  /** Zmienia mapowanie pól (krok 3, EDT-11); zmiana sposobu kasuje pola bez pytania. */
+  editMapping(action: ScorePadEditorMappingAction): void;
   addEventListener<K extends keyof ScorePadEditorElementEventMap>(
     type: K,
     listener: Listener<ScorePadEditorElement, ScorePadEditorElementEventMap[K]>,

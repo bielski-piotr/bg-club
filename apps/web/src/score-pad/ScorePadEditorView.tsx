@@ -1,5 +1,6 @@
 import type {
   ScorePadEditorAreaPatch,
+  ScorePadEditorMappingAction,
   ScorePadEditorEventMap,
   ScorePadEditorStatus,
   ScorePadFile,
@@ -49,6 +50,8 @@ export interface ScorePadEditorHandle {
   rotatePhoto(dir: 1 | -1): void;
   /** Cofa ostatnią zmianę obszaru. */
   undoArea(): void;
+  /** Zmienia mapowanie pól w kroku 3 (EDT-11). */
+  editMapping(action: ScorePadEditorMappingAction): void;
 }
 
 /** Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). */
@@ -116,6 +119,7 @@ export function ScorePadEditorView({
       setArea: (patch) => elementRef.current?.setArea(patch),
       rotatePhoto: (dir) => elementRef.current?.rotatePhoto(dir),
       undoArea: () => elementRef.current?.undoArea(),
+      editMapping: (action) => elementRef.current?.editMapping(action),
     };
   }, [elementRef]);
 
