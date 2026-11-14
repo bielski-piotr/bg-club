@@ -23,9 +23,19 @@ export { scorePadFileName } from './file-name';
 /** Motyw przekazywany do notesu i edytora (rozwiązany motyw aplikacji, bez „systemowego”). */
 export type ScorePadTheme = 'light' | 'dark';
 
-import type { Ranking, ScoringLine } from '@bg-club/scoring';
+import type { Ranking, ScoringIssue, ScoringLine } from '@bg-club/scoring';
 
-export type { Direction, Ranking, ScoringLine, TiebreakRule } from '@bg-club/scoring';
+/** Kategoria decydująca notesu bez sumy (suma wszystkich punktacji) i kategorie liczbowe. */
+export { FINAL_TOTAL, isNumeric } from '@bg-club/scoring';
+
+export type {
+  Direction,
+  Ranking,
+  ScoringIssue,
+  ScoringIssueCode,
+  ScoringLine,
+  TiebreakRule,
+} from '@bg-club/scoring';
 
 /** Kategoria notesu (`LineDef` w `core/templates.ts`): pola liczenia i opis na kartce. */
 export interface ScorePadLine extends ScoringLine {
@@ -214,10 +224,79 @@ export type ScorePadEditorMappingAction =
   | { readonly type: 'undo' }
   | { readonly type: 'fit' };
 
+/** Zakładka kroku 4: szczegóły kategorii albo wygrana i remisy (DS §18). */
+export type ScorePadCategoriesView = 'lines' | 'ranking';
+
+/** Zakres wartości punktacji (EDT-13): dowolny, min–max–krok albo lista wartości. */
+export type ScorePadRangeMode = 'free' | 'range' | 'list';
+
+/** Kategoria w kroku 4 „Kategorie” (EDT-13). */
+export interface ScorePadEditorCategory {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: ScorePadLineKind;
+  /** Opis (chmurka w notesie); pusty napis, gdy brak. */
+  readonly hint: string;
+  readonly range: ScorePadRangeMode;
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+  readonly values: readonly number[];
+  /** Suma: sumowane kategorie (jawne albo domyślne). */
+  readonly of: readonly string[];
+  /** Suma: kategorie, które może sumować bez cyklu. */
+  readonly sumOptions: readonly string[];
+  /** Kategoria ma pola na kartce. */
+  readonly placed: boolean;
+}
+
+/** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4). */
+export interface ScorePadEditorCategories {
+  readonly view: ScorePadCategoriesView;
+  /** Wybrana kategoria (indeks). */
+  readonly active: number;
+  readonly lines: readonly ScorePadEditorCategory[];
+  /**
+   * Obowiązująca reguła miejsc: jawna (`explicit`) albo domyślna. Bez żadnej sumy domyślna
+   * kategoria decydująca to `__total` (suma wszystkich punktacji), której nie da się zapisać.
+   */
+  readonly ranking: Ranking;
+  readonly explicit: boolean;
+  /** Problemy walidatora zapisu (`validateScoring`); pusta lista = krok poprawny. */
+  readonly issues: readonly ScoringIssue[];
+  /** Widok kartki jest powiększony. */
+  readonly zoomed: boolean;
+}
+
+/** Zmiana jednej kategorii w kroku 4. */
+export interface ScorePadEditorCategoryPatch {
+  readonly label?: string;
+  readonly kind?: ScorePadLineKind;
+  readonly hint?: string;
+  readonly range?: ScorePadRangeMode;
+  readonly min?: number;
+  readonly max?: number;
+  readonly step?: number;
+  readonly values?: readonly number[];
+  readonly of?: readonly string[];
+}
+
+/** Zmiana kroku 4 (`editCategories`). */
+export type ScorePadEditorCategoriesAction =
+  | { readonly type: 'view'; readonly view: ScorePadCategoriesView }
+  | { readonly type: 'select'; readonly index: number }
+  | {
+      readonly type: 'update';
+      readonly index: number;
+      readonly patch: ScorePadEditorCategoryPatch;
+    }
+  | { readonly type: 'ranking'; readonly ranking: Ranking }
+  | { readonly type: 'fit' };
+
 /** Stan `<score-pad-editor>` w trybie kreatora (EDT-9). */
 export interface ScorePadEditorStatus {
-  /** Bieżący krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola. */
-  readonly step: 1 | 2 | 3;
+  /** Bieżący krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola, 4 kategorie na kartce. */
+  readonly step: 1 | 2 | 3 | 4;
   /** Trwa wczytywanie zdjęcia albo prostowanie kartki. */
   readonly busy: boolean;
   readonly photo: boolean;
@@ -235,6 +314,8 @@ export interface ScorePadEditorStatus {
   readonly settings: ScorePadEditorArea;
   /** Stan kroku 3: sposób mapowania, miejsca, kategorie i problem do poprawy. */
   readonly mapping: ScorePadEditorMapping;
+  /** Stan kroku 4: kategorie, reguła miejsc i problemy walidatora. */
+  readonly categories: ScorePadEditorCategories;
   /** Zmiany od otwarcia edytora. */
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
@@ -306,8 +387,8 @@ export interface ScorePadEditorElement extends HTMLElement {
   loadPhoto(file: Blob): Promise<void>;
   /** Wczytuje notes z pliku `.json` (szablon ze zdjęciem); odrzuca jak `loadPhoto`. */
   loadTemplate(template: ScorePadTemplate): Promise<void>;
-  /** Przechodzi do kroku edytora, jeśli jest dostępny. */
-  goStep(step: 1 | 2 | 3): void;
+  /** Przechodzi do kroku edytora, jeśli jest dostępny (4: kategorie na kartce). */
+  goStep(step: 1 | 2 | 3 | 4): void;
   /** Zmienia ustawienia kroku 2 (EDT-10). */
   setArea(patch: ScorePadEditorAreaPatch): void;
   /** Obraca zdjęcie o 90° (1 w prawo, -1 w lewo). */
@@ -316,6 +397,8 @@ export interface ScorePadEditorElement extends HTMLElement {
   undoArea(): void;
   /** Zmienia mapowanie pól (krok 3, EDT-11); zmiana sposobu kasuje pola bez pytania. */
   editMapping(action: ScorePadEditorMappingAction): void;
+  /** Zmienia kategorie i regułę miejsc (krok 4, EDT-13, EDT-2…EDT-4). */
+  editCategories(action: ScorePadEditorCategoriesAction): void;
   addEventListener<K extends keyof ScorePadEditorElementEventMap>(
     type: K,
     listener: Listener<ScorePadEditorElement, ScorePadEditorElementEventMap[K]>,

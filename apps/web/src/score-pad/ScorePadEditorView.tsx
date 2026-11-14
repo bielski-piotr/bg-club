@@ -1,5 +1,6 @@
 import type {
   ScorePadEditorAreaPatch,
+  ScorePadEditorCategoriesAction,
   ScorePadEditorMappingAction,
   ScorePadEditorEventMap,
   ScorePadEditorStatus,
@@ -42,8 +43,8 @@ export interface ScorePadEditorHandle {
   loadPhoto(file: Blob): Promise<void>;
   /** Wczytuje notes z pliku `.json`. */
   loadTemplate(template: ScorePadTemplate): Promise<void>;
-  /** Krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola. */
-  goStep(step: 1 | 2 | 3): void;
+  /** Krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola, 4 kategorie na kartce. */
+  goStep(step: 1 | 2 | 3 | 4): void;
   /** Ustawienia kroku 2 (EDT-10): nazwa, kolor grzbietu, obszar, wygładzanie, rozmiar, grzbiet. */
   setArea(patch: ScorePadEditorAreaPatch): void;
   /** Obrót zdjęcia o 90° (1 w prawo, -1 w lewo). */
@@ -52,6 +53,8 @@ export interface ScorePadEditorHandle {
   undoArea(): void;
   /** Zmienia mapowanie pól w kroku 3 (EDT-11). */
   editMapping(action: ScorePadEditorMappingAction): void;
+  /** Zmienia kategorie i regułę miejsc w kroku 4 (EDT-13, EDT-2…EDT-4). */
+  editCategories(action: ScorePadEditorCategoriesAction): void;
 }
 
 /** Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). */
@@ -120,6 +123,7 @@ export function ScorePadEditorView({
       rotatePhoto: (dir) => elementRef.current?.rotatePhoto(dir),
       undoArea: () => elementRef.current?.undoArea(),
       editMapping: (action) => elementRef.current?.editMapping(action),
+      editCategories: (action) => elementRef.current?.editCategories(action),
     };
   }, [elementRef]);
 

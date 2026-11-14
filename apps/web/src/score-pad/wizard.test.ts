@@ -54,6 +54,15 @@ const EMPTY: ScorePadEditorStatus = {
     problem: 'Narysuj na kartce pole pierwszej kategorii.',
     zoomed: false,
   },
+  categories: {
+    view: 'lines',
+    active: 0,
+    lines: [],
+    ranking: { line: '__total', dir: 'desc', tiebreak: [] },
+    explicit: false,
+    issues: [{ code: 'names-count', path: 'lines' }],
+    zoomed: false,
+  },
   dirty: false,
   openFailed: false,
 };
@@ -68,6 +77,7 @@ const READY: ScorePadEditorStatus = {
     { label: 'Gracze', kind: 'names' },
     { label: 'Ptaki', kind: 'input' },
   ],
+  categories: { ...EMPTY.categories, issues: [] },
 };
 
 describe('poprawność kroków', () => {
@@ -101,6 +111,14 @@ describe('poprawność kroków', () => {
     expect(isStepValid(4, { ...READY, fields: 'Tylko jedna kategoria może być „Imiona”.' })).toBe(
       false,
     );
+    // Walidator kategorii i reguły miejsc (validateScoring) blokuje kroki 4 i 5.
+    const invalid = {
+      ...READY,
+      categories: { ...READY.categories, issues: [{ code: 'invalid-range', path: 'lines[1]' }] },
+    } as const;
+    expect(isStepValid(4, invalid)).toBe(false);
+    expect(isStepValid(5, invalid)).toBe(false);
+    expect(isStepValid(4, { ...READY, mapping: { ...READY.mapping, problem: 'x' } })).toBe(false);
     expect(isStepValid(4, READY)).toBe(true);
     expect(isStepValid(5, READY)).toBe(true);
   });
@@ -150,8 +168,8 @@ describe('przechodzenie między krokami', () => {
     expect(stepState(2, 1, 5, { ...READY, area: false })).toBe('upcoming');
   });
 
-  it('kroki edytora: 4 i 5 korzystają z kartki kroku 3', () => {
-    expect([1, 2, 3, 4, 5].map((s) => editorStepFor(s as 1))).toEqual([1, 2, 3, 3, 3]);
+  it('kroki edytora: 4 to kartka z kategoriami, 5 jej nie zmienia', () => {
+    expect([1, 2, 3, 4, 5].map((s) => editorStepFor(s as 1))).toEqual([1, 2, 3, 4, 4]);
     expect(nextStep(5)).toBe(5);
     expect(previousStep(1)).toBe(1);
     expect(nextStep(2)).toBe(3);

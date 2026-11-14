@@ -1,4 +1,5 @@
 import type {
+  ScorePadEditorCategoriesAction,
   ScorePadEditorMappingAction,
   ScorePadEditorStatus,
   ScorePadMappingMode,
@@ -8,14 +9,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { Game } from '../games/games';
-import { format, plural, t } from '../i18n';
+import { format, t } from '../i18n';
 import type { LeaveGuard } from '../popups/popupContext';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { useLeaveGuard } from '../popups/useLeaveGuard';
-import { Banner, Button, Dialog, Icon, Tray, useToast } from '../ui';
+import { Banner, Button, Dialog, Icon, useToast } from '../ui';
 import { cx } from '../ui/cx';
 import { AreaPanel, AreaToolbar } from './AreaStep';
+import { CategoriesPanel, CategoriesToolbar } from './CategoriesStep';
 import { MappingPanel, MappingToolbar } from './MappingStep';
 import { fewerSeatsMessage, scorepadErrorMessage } from './messages';
 import { PhotoStep } from './PhotoStep';
@@ -47,6 +49,7 @@ const text = t.scorepads.editor;
 const wizard = t.scorepads.wizard;
 const area = wizard.area;
 const mapping = wizard.mapping;
+const categories = wizard.categories;
 
 interface ScorepadWizardProps {
   readonly game: Game;
@@ -76,7 +79,9 @@ const editorBusy = (error: unknown) => (error as { reason?: unknown }).reason ==
  *   i import `.json`. Krok 2 (Obszar kartki, EDT-10) to scena edytora z punktami obszaru
  *   i panel aplikacji. Krok 3 (Mapowanie pól, EDT-11) to scena edytora z polami i panel
  *   aplikacji: prostokąty ręczne albo wykryta tabela; zmiana sposobu z polami pyta o zgodę.
- *   Kroki 4 (Kategorie) i 5 (Test i zapis) to na razie podsumowania (zadania [019] i [022]).
+ *   Krok 4 (Kategorie, EDT-13) to kartka z numerami kategorii i panel aplikacji: nazwa, typ,
+ *   zakres, sumy i opis kategorii oraz kategoria decydująca, kierunek i reguły remisów.
+ *   Krok 5 (Test i zapis) to na razie podsumowanie (zadanie [022]).
  * - „Dalej” jest wyłączone, dopóki bieżący krok nie jest poprawny. Pigułki odwiedzonych kroków
  *   są klikalne; edycja notesu i import pliku otwierają kreator z wszystkimi krokami wykonanymi.
  * - Zmiany są chronione: zamknięcie (Esc, ←, ×, tło, Wstecz w przeglądarce) pyta o odrzucenie
@@ -265,6 +270,8 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
     editor.current?.editMapping({ type: 'undo' });
   };
   const editMapping = (action: ScorePadEditorMappingAction) => editor.current?.editMapping(action);
+  const editCategories = (action: ScorePadEditorCategoriesAction) =>
+    editor.current?.editCategories(action);
   const changeMapping = (mode: ScorePadMappingMode) => {
     if (!status || mode === status.mapping.mode) return;
     // EDT-11: tryby się wykluczają; z polami lub kategoriami najpierw pytamy.
@@ -352,19 +359,27 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
               onImport={importFile}
             />
           ) : null}
-          {/* Jeden edytor dla kroków 2 i 3 (ukryty w pozostałych, ale zamontowany): w kroku 2
-              obok sceny jest panel obszaru, w kroku 3 edytor ma własny panel pól. */}
+          {/* Jeden edytor dla kroków 2–4 (ukryty w pozostałych, ale zamontowany): obok sceny
+              jest panel aplikacji dla obszaru, mapowania pól albo kategorii. */}
           <div
             className={cx(
               'wizard-work',
-              (step === 2 || step === 3) && 'wizard-body wizard-work--area',
-              (step === 1 || step >= 4) && 'wizard-editor--hidden',
+              step >= 2 && step <= 4 && 'wizard-body wizard-work--area',
+              (step === 1 || step === 5) && 'wizard-editor--hidden',
             )}
             onKeyDown={step === 2 ? onAreaKeyDown : step === 3 ? onMappingKeyDown : undefined}
           >
             <div
               className="wizard-editor"
-              aria-label={step === 2 ? area.stage : step === 3 ? mapping.stage : undefined}
+              aria-label={
+                step === 2
+                  ? area.stage
+                  : step === 3
+                    ? mapping.stage
+                    : step === 4
+                      ? categories.stage
+                      : undefined
+              }
             >
               <ScorePadEditorView
                 ref={editor}
@@ -385,6 +400,13 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
               {step === 3 && status?.photo && status.step === 3 ? (
                 <MappingToolbar mapping={status.mapping} disabled={busy} onAction={editMapping} />
               ) : null}
+              {step === 4 && status?.photo && status.step === 4 ? (
+                <CategoriesToolbar
+                  zoomed={status.categories.zoomed}
+                  disabled={busy}
+                  onAction={editCategories}
+                />
+              ) : null}
             </div>
             {step === 2 && status?.photo ? (
               <AreaPanel
@@ -400,8 +422,14 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
                 onModeChange={changeMapping}
               />
             ) : null}
+            {step === 4 && status?.photo && status.step === 4 ? (
+              <CategoriesPanel
+                categories={status.categories}
+                fieldsProblem={status.fields}
+                onAction={editCategories}
+              />
+            ) : null}
           </div>
-          {step === 4 && status ? <CategoriesSummary status={status} /> : null}
           {step === 5 && status ? (
             <TestAndSave
               status={status}
@@ -478,37 +506,6 @@ function WizardSteps({
         </div>
       </div>
     </>
-  );
-}
-
-/** Krok 4 (do czasu zadania [019]): kategorie z kroku 3 i poprawność notesu (EDT-13). */
-function CategoriesSummary({ status }: { readonly status: ScorePadEditorStatus }) {
-  const text = wizard.categories;
-  return (
-    <div className="wizard-body wizard-body--single">
-      <div className="wizard-panel">
-        <Banner variant="info">
-          {format(text.intro, {
-            seats: plural(status.seats, t.scorepads.list.seats),
-            categories: plural(status.lines.length, text.count),
-          })}
-        </Banner>
-        {status.fields ? <Banner variant="warning">{status.fields}</Banner> : null}
-        <Tray label={text.listLabel} className="wizard-lines">
-          {status.lines.map((line, index) => (
-            <li key={index} className="wizard-line">
-              <span className="wizard-line__badge" aria-hidden="true">
-                {index + 1}
-              </span>
-              <span className="wizard-line__name">
-                {line.label.trim() || format(text.unnamed, { n: index + 1 })}
-              </span>
-              <span className="wizard-line__kind">{text.kinds[line.kind]}</span>
-            </li>
-          ))}
-        </Tray>
-      </div>
-    </div>
   );
 }
 

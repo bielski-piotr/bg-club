@@ -239,6 +239,18 @@ export const EDITOR_CSS = String.raw`
 .spe-svg .spe-loupe .ring { fill: #fff; filter: drop-shadow(0 12px 32px rgba(22, 26, 43, .22)); }
 .spe-svg .spe-loupe .lp, .spe-svg .spe-loupe .cross { fill: none; stroke: var(--accent-vivid); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 
+/* krok 4 kreatora: kategorie na kartce (DS §18 „Category badges”, „Ranking marks”); kolory
+   kartki są stałe w obu motywach, bo kartka to zdjęcie */
+.spe-svg .spe-cat-box { fill: transparent; cursor: pointer; stroke: rgba(47, 84, 235, .32); stroke-width: 1; vector-effect: non-scaling-stroke; transition: fill .15s; }
+.spe-svg .spe-cat-box:hover { fill: rgba(47, 84, 235, .06); }
+.spe-svg .spe-cat-box.tint { fill: rgba(47, 84, 235, .08); }
+.spe-svg .spe-cat-box.on { stroke: #2F54EB; stroke-width: 1.5; }
+.spe-svg .spe-cat-badge circle { fill: #fff; stroke: #E4E7F0; stroke-width: 1; vector-effect: non-scaling-stroke; filter: drop-shadow(0 1px 1.5px rgba(22, 26, 43, .18)); }
+.spe-svg .spe-cat-badge text { fill: #6B7188; font-family: var(--font); font-weight: 600; text-anchor: middle; }
+.spe-svg .spe-cat-badge.on circle { fill: #2F54EB; stroke: #2F54EB; }
+.spe-svg .spe-cat-badge.on text { fill: #fff; }
+.spe-svg .spe-cat-badge.rule text { fill: #2F54EB; font-weight: 700; }
+
 /* krok 3: tabela i pola */
 .spe-svg .spe-labels { fill: rgba(70, 76, 90, .1); pointer-events: none; }
 .spe-svg .spe-band { cursor: pointer; transition: fill-opacity .2s; }
@@ -412,13 +424,14 @@ export const EDITOR_CSS = String.raw`
 .spe.wizard[data-step="2"] .spe-stage { padding: 16px 16px 76px; background: var(--wizard-stage, #f1f3f9); }
 .spe.wizard.dark[data-step="2"] .spe-stage { --wizard-stage: #22273b; }
 @media (prefers-color-scheme: dark) { .spe.wizard:not(.light)[data-step="2"] .spe-stage { --wizard-stage: #22273b; } }
-/* krok 3 w kreatorze (EDT-11, DS §18): kartka z siatką pól; pasek i panel są w aplikacji */
-.spe.wizard[data-step="3"] .spe-toolbar, .spe.wizard[data-step="3"] .spe-panel { display: none; }
-.spe.wizard[data-step="3"] .spe-main { grid-template-rows: minmax(0, 1fr); }
-.spe.wizard[data-step="3"] .spe-work { display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
-.spe.wizard[data-step="3"] .spe-stage { height: auto; padding: 28px 16px 76px; background: var(--wizard-stage, #f1f3f9); }
-.spe.wizard.dark[data-step="3"] .spe-stage { --wizard-stage: #22273b; }
-@media (prefers-color-scheme: dark) { .spe.wizard:not(.light)[data-step="3"] .spe-stage { --wizard-stage: #22273b; } }
+/* kroki 3 i 4 w kreatorze (EDT-11, EDT-13, DS §18): kartka z siatką pól albo z kategoriami;
+   pasek i panel są w aplikacji */
+.spe.wizard:is([data-step="3"], [data-step="4"]) .spe-toolbar, .spe.wizard:is([data-step="3"], [data-step="4"]) .spe-panel { display: none; }
+.spe.wizard:is([data-step="3"], [data-step="4"]) .spe-main { grid-template-rows: minmax(0, 1fr); }
+.spe.wizard:is([data-step="3"], [data-step="4"]) .spe-work { display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.spe.wizard:is([data-step="3"], [data-step="4"]) .spe-stage { height: auto; padding: 28px 16px 76px; background: var(--wizard-stage, #f1f3f9); }
+.spe.wizard.dark:is([data-step="3"], [data-step="4"]) .spe-stage { --wizard-stage: #22273b; }
+@media (prefers-color-scheme: dark) { .spe.wizard:not(.light):is([data-step="3"], [data-step="4"]) .spe-stage { --wizard-stage: #22273b; } }
 .spe.wizard[data-step="3"] .spe-gl .vis { stroke-dasharray: none; stroke-width: 1.5; }
 .spe.wizard[data-step="3"] .spe-gl.outer .vis { stroke-width: 2; }
 @media (prefers-reduced-motion: reduce) {
