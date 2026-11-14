@@ -2,7 +2,10 @@
 // Ładuje kod modelu notesu bez web componentów; typy dla aplikacji są w `template.d.ts`.
 import { parseRanking, validateScoring } from '@bg-club/scoring';
 import type { PadTemplate } from './core/templates';
-import { playerCount, validateTemplate } from './core/templates';
+import { padRanking, playerCount, validateTemplate } from './core/templates';
+import type { PackedSheet, SheetResult, TestSheetOptions } from './core/test-sheet';
+import { sheetResults as resultsOf, testSheet as sheetOf } from './core/test-sheet';
+import type { ScorePadSheet } from './index';
 import type { ReadTemplateResult } from './template';
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -46,4 +49,28 @@ export function readScorePadFile(raw: unknown): ReadTemplateResult {
     (list.length === 1 ? list[0] : undefined);
   if (chosen === undefined) return { ok: false, reason: list.length > 1 ? 'many' : 'format' };
   return readTemplate(chosen);
+}
+
+/**
+ * Kartka testowa kreatora (EDT-14): imiona „Gracz 1…n” i opcjonalnie losowe wpisy zgodne
+ * z zakresami kategorii, z wymuszonym remisem na kategorii decydującej. `null` dla złego szablonu.
+ */
+export function testSheet(raw: unknown, opt?: TestSheetOptions): PackedSheet | null {
+  const template = validateTemplate(raw);
+  return template ? sheetOf(template, opt) : null;
+}
+
+/**
+ * Miejsca graczy kartki według reguły notesu, jak przy oderwaniu karteczki w partii (§5.6.1),
+ * oraz kategoria reguły remisu, która rozstrzygnęła remis. Pusta lista dla złego szablonu.
+ */
+export function sheetResults(raw: unknown, sheet: ScorePadSheet): SheetResult[] {
+  const template = validateTemplate(raw);
+  return template ? resultsOf(template, sheet) : [];
+}
+
+/** Kategoria decydująca o miejscu według notesu (jawna reguła albo domyślna suma końcowa). */
+export function rankingLine(raw: unknown): string {
+  const template = validateTemplate(raw);
+  return template ? padRanking(template).line : '';
 }

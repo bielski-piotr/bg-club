@@ -2,9 +2,11 @@ import type {
   ScorePadEventMap,
   ScorePadFile,
   ScorePadSaveDetail,
+  ScorePadSheet,
   ScorePadTemplate,
 } from '@bg-club/score-pad';
-import { useEffect, useRef } from 'react';
+import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
+import type { ScorePadLoadState } from './useScorePadElement';
 import { t } from '../i18n';
 import { cx } from '../ui/cx';
 import { useTheme } from '../theme/useTheme';
@@ -21,9 +23,26 @@ export interface ScorePadViewProps {
   readonly template?: string | undefined;
   /** Pasek notesu (wybór notesu, dźwięk). */
   readonly controls?: boolean | undefined;
+  /** Karta wskazówek notesu (domyślnie według notesu). */
+  readonly help?: boolean | undefined;
+  /** Notes testowy kreatora (EDT-14): podsumowanie mówi, że karteczki nie zapisano. */
+  readonly test?: boolean | undefined;
   readonly onReady?: (() => void) | undefined;
   readonly onSave?: ((detail: ScorePadSaveDetail) => void) | undefined;
+  /** Stan ładowania modułu notesu (np. żeby wyłączyć przyciski do czasu wczytania). */
+  readonly onLoadState?: ((state: ScorePadLoadState) => void) | undefined;
   readonly className?: string | undefined;
+  /** Uchwyt do notesu (test w kreatorze: losowe wpisy, oderwanie, widok z góry). */
+  readonly ref?: Ref<ScorePadHandle> | undefined;
+}
+
+export interface ScorePadHandle {
+  /** Zastępuje wpisy na wierzchniej kartce; `null` daje czystą kartkę. */
+  setSheet(sheet: ScorePadSheet | null): void;
+  /** Odrywa wierzchnią kartkę (wynik w `onSave`). */
+  tear(): void;
+  /** Płynnie wraca do widoku z góry (PAD-12). */
+  resetView(): void;
 }
 
 /**
@@ -37,9 +56,13 @@ export function ScorePadView({
   templates,
   template,
   controls,
+  help,
+  test,
   onReady,
   onSave,
+  onLoadState,
   className,
+  ref,
 }: ScorePadViewProps) {
   const { resolved } = useTheme();
   const handlers = useRef({ onReady, onSave });
@@ -48,19 +71,35 @@ export function ScorePadView({
     handlers.current = { onReady, onSave };
   });
 
-  const { hostRef, state, retry } = useScorePadElement(
+  const { hostRef, elementRef, state, retry } = useScorePadElement(
     'pad',
     resolved,
     () => {
       const element = document.createElement('score-pad');
-      element.options = { club: true, config, templates, template, controls };
+      element.options = { club: true, config, templates, template, controls, help, test };
       element.addEventListener('scorepad:ready', () => handlers.current.onReady?.());
       element.addEventListener('scorepad:save', (event: ScorePadEventMap['scorepad:save']) =>
         handlers.current.onSave?.(event.detail),
       );
       return element;
     },
-    [config, templates, template, controls],
+    [config, templates, template, controls, help, test],
+  );
+
+  const onLoadStateRef = useRef(onLoadState);
+  useEffect(() => {
+    onLoadStateRef.current = onLoadState;
+  });
+  useEffect(() => onLoadStateRef.current?.(state), [state]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      setSheet: (sheet) => elementRef.current?.pad?.setSheet(sheet),
+      tear: () => elementRef.current?.pad?.tear(),
+      resetView: () => elementRef.current?.pad?.resetView(),
+    }),
+    [elementRef],
   );
 
   return (

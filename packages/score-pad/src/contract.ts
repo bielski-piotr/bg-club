@@ -55,4 +55,7 @@ export type Contract = [
   Assert<Extends<EditorCategoriesAction, ScorePadEditorCategoriesAction>>,
   Assert<Extends<typeof TemplateImpl.readTemplate, typeof TemplateDecl.readTemplate>>,
   Assert<Extends<typeof TemplateImpl.readScorePadFile, typeof TemplateDecl.readScorePadFile>>,
+  Assert<Extends<typeof TemplateImpl.testSheet, typeof TemplateDecl.testSheet>>,
+  Assert<Extends<typeof TemplateImpl.sheetResults, typeof TemplateDecl.sheetResults>>,
+  Assert<Extends<typeof TemplateImpl.rankingLine, typeof TemplateDecl.rankingLine>>,
 ];

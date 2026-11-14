@@ -142,7 +142,30 @@ export interface MockOptions {
   deleteOwnAccount?: { readonly status: number; readonly body: unknown } | undefined;
   /** Gry kolekcji, także usunięte (`deleted_at`). Zapis z aplikacji zmienia tę listę. */
   games?: MockGame[];
+  /** Notesy gier (GAME-7) z aktualną wersją; domyślnie brak. */
+  scorepads?: MockScorepad[];
 }
+
+/** Notes gry z aktualną wersją: szablon w bazie bez zdjęcia, zdjęcie w buckecie `scorepads`. */
+export interface MockScorepad {
+  readonly id: string;
+  readonly game_id: string;
+  readonly name: string;
+  readonly created_at: string;
+  readonly current: {
+    readonly id: string;
+    readonly version: number;
+    readonly image_path: string;
+    readonly player_slots: number;
+    readonly created_at: string;
+  };
+  readonly template: Record<string, unknown>;
+  /** Zdjęcie kartki zwracane z bucketu `scorepads`. */
+  readonly image: Buffer;
+}
+
+/** Wywołanie RPC `save_scorepad` (EDT-1) z treścią żądania. */
+export type ScorepadSave = Record<string, unknown>;
 
 /** Wiersz `games` z datą ostatniej partii z widoku `game_collection` (GAME-1). */
 export interface MockGame {
@@ -240,6 +263,9 @@ export interface SupabaseMock {
   /** Zapisy gier (`/rest/v1/games`) i zapytania wyszukiwania (`search_games`). */
   readonly gameWrites: GameWrite[];
   readonly gameSearches: string[];
+  /** Pliki wysłane do bucketu `scorepads` i wywołania `save_scorepad`. */
+  readonly scorepadUploads: string[];
+  readonly scorepadSaves: ScorepadSave[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -293,6 +319,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     deleteOwnBodies: [],
     gameWrites: [],
     gameSearches: [],
+    scorepadUploads: [],
+    scorepadSaves: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -441,9 +469,41 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         },
       });
     }
-    // Notesy gry (GAME-7): lista bez notesów; kreator edytora zaczyna od pustego notesu.
+    // Notesy gry (GAME-7): lista z `options.scorepads` (filtr `id` albo `game_id`).
     if (url.pathname === '/rest/v1/scorepads' && request.method() === 'GET') {
-      return route.fulfill({ json: [] });
+      const id = url.searchParams.get('id')?.replace(/^eq\./, '');
+      const gameId = url.searchParams.get('game_id')?.replace(/^eq\./, '');
+      const rows = (mock.options.scorepads ?? [])
+        .filter((p) => (!id || p.id === id) && (!gameId || p.game_id === gameId))
+        .map((p) => ({
+          id: p.id,
+          game_id: p.game_id,
+          name: p.name,
+          created_at: p.created_at,
+          current: p.current,
+        }));
+      const single = (request.headers()['accept'] ?? '').includes('vnd.pgrst.object');
+      if (single) {
+        return rows[0]
+          ? route.fulfill({ json: rows[0] })
+          : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } });
+      }
+      return route.fulfill({ json: rows });
+    }
+    // Szablon wersji notesu (edycja istniejącego notesu).
+    if (url.pathname === '/rest/v1/scorepad_versions' && request.method() === 'GET') {
+      const id = url.searchParams.get('id')?.replace(/^eq\./, '');
+      const pad = (mock.options.scorepads ?? []).find((p) => p.current.id === id);
+      return pad
+        ? route.fulfill({ json: { template: pad.template, image_path: pad.current.image_path } })
+        : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } });
+    }
+    // Zapis nowej wersji notesu (EDT-1): numer wersji po istniejącej.
+    if (url.pathname === '/rest/v1/rpc/save_scorepad' && request.method() === 'POST') {
+      const body = request.postDataJSON() as ScorepadSave;
+      mock.scorepadSaves.push(body);
+      const pad = (mock.options.scorepads ?? []).find((p) => p.id === body.scorepad_id);
+      return route.fulfill({ json: { version: (pad?.current.version ?? 0) + 1 } });
     }
     if (url.pathname === '/rest/v1/rpc/search_games' && request.method() === 'POST') {
       const { query } = request.postDataJSON() as { query: string };
@@ -503,6 +563,23 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       const { prefixes } = request.postDataJSON() as { prefixes: string[] };
       mock.removed.push(...prefixes);
       return route.fulfill({ json: [] });
+    }
+    // Bucket `scorepads` (EDT-1): wysyłka zdjęcia kartki i pobranie zdjęcia wersji.
+    if (url.pathname.startsWith(`${objectPrefix}scorepads/`) && request.method() === 'POST') {
+      mock.scorepadUploads.push(
+        decodeURIComponent(url.pathname.slice(`${objectPrefix}scorepads/`.length)),
+      );
+      return route.fulfill({ json: { Key: url.pathname.slice(objectPrefix.length) } });
+    }
+    const scorepadObject = /^\/storage\/v1\/object\/(?:authenticated\/)?scorepads\/(.+)$/.exec(
+      url.pathname,
+    );
+    if (scorepadObject && request.method() === 'GET') {
+      const path = decodeURIComponent(scorepadObject[1] ?? '');
+      const pad = (mock.options.scorepads ?? []).find((p) => p.current.image_path === path);
+      return pad
+        ? route.fulfill({ contentType: 'image/png', body: pad.image })
+        : route.fulfill({ status: 400, json: { statusCode: '404', error: 'not_found' } });
     }
     // Bucket `avatars` (USR-3): to samo dla zdjęć profilowych.
     if (url.pathname.startsWith(`${objectPrefix}sign/avatars/`)) {

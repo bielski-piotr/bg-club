@@ -112,6 +112,8 @@ export interface ScorePadClubOptions {
   /** Karta wskazówek. */
   readonly help?: boolean | undefined;
   readonly sound?: boolean | undefined;
+  /** Notes testowy kreatora (EDT-14): podsumowanie oderwanej kartki mówi, że jej nie zapisano. */
+  readonly test?: boolean | undefined;
 }
 
 /** Wynik po oderwaniu karteczki (`scorepad:save`); pełny wynik z miejscami przyniesie PAD-7. */
@@ -340,6 +342,10 @@ export interface ScorePadApi {
   importConfig(raw: unknown, persist?: boolean): Promise<string>;
   /** Płynnie przywraca widok domyślny z góry po obrocie lub zoomie (PAD-12). */
   resetView(): void;
+  /** Zastępuje wpisy na wierzchniej kartce; `null` daje czystą kartkę (test w kreatorze). */
+  setSheet(sheet: ScorePadSheet | null): void;
+  /** Odrywa wierzchnią kartkę bez gestu (wynik w `scorepad:save`). */
+  tear(): void;
   destroy(): void;
 }
 

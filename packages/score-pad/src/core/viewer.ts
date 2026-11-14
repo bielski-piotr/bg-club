@@ -62,6 +62,7 @@ import {
 } from './templates';
 import type { Ink } from './util';
 import { clamp, el, esc, fmtDate, fmtTime, inkDone, inkNow, lerp, plural, uid } from './util';
+import type { ScorePadSheet } from '../index';
 import type { Box, Typed } from './entry';
 import { checkTyped, cleanNumber, flipSign, nextInput, revealShift, stepTyped } from './entry';
 
@@ -96,6 +97,11 @@ export interface ScorePadOptions {
    * Pliki notesu w formacie v2 nadal można wczytać, ale tylko do pamięci tego osadzenia.
    */
   club?: boolean;
+  /**
+   * Notes testowy kreatora (EDT-14): podsumowanie po oderwaniu mówi, że karteczki testowej nie
+   * zapisano. Zapisów i historii i tak nie prowadzi aplikacja dla zdarzeń z testu.
+   */
+  test?: boolean;
   /** Motyw otoczenia notesu (stół i winieta); domyślnie ciemny. Nakładki notesu są zawsze ciemne. */
   theme?: PadTheme;
 }
@@ -1902,6 +1908,8 @@ export class ScorePad {
     st.left = st.left > 1 ? st.left - 1 : this.cfg.view.sheets;
     this.pad.setLeft(st.left);
     st.data = blankSheet(t, sheet.data.game + 1);
+    // notes testowy kreatora: fikcyjni gracze zostają na kolejnej kartce (EDT-14)
+    if (this.opts.test) st.data.names = sheet.data.names.map((n) => (n ? { ...n } : null));
     this.active = this.makeSheet(st.data);
     this.scene.add(this.active.mesh);
     this.updatePadInfo();
@@ -2570,7 +2578,7 @@ export class ScorePad {
           <div><h2 class="note-title"><span>Kartka oderwana</span></h2>
           <p class="note-meta">${esc(t.name)} · partia nr ${data.game}</p></div>
         </div>
-        <p class="note-foot">Kartka była pusta, więc nic nie zapisano.</p>`;
+        <p class="note-foot">${this.opts.test ? 'Kartka była pusta.' : 'Kartka była pusta, więc nic nie zapisano.'}</p>`;
     } else {
       const max = Math.max(1, ...entry.players.map((p) => Math.max(0, p.total)));
       const rows = [...entry.players]
@@ -2591,11 +2599,11 @@ export class ScorePad {
       card.innerHTML = `<span class="note-tape" aria-hidden="true"></span>
         <div class="note-top">
           <svg class="note-check" viewBox="0 0 40 40" aria-hidden="true"><path pathLength="1" d="M7 21.5c3.2 2.4 6 5.6 8.6 9.4C20 21.2 26 13.4 34 7"/></svg>
-          <div><h2 class="note-title"><span>Wynik zapisany</span></h2>
+          <div><h2 class="note-title"><span>${this.opts.test ? 'Wynik testu' : 'Wynik zapisany'}</span></h2>
           <p class="note-meta">${esc(t.name)} · partia nr ${entry.game} · ${fmtTime(new Date(entry.at))}</p></div>
         </div>
         <ol class="note-rows">${rows}</ol>
-        <p class="note-foot">${foot}</p>`;
+        <p class="note-foot">${foot}</p>${this.opts.test ? '<p class="note-foot">Karteczka testowa nie jest zapisywana.</p>' : ''}`;
     }
     this.ui.annot.replaceChildren(card);
     this.ui.annot.hidden = false;
@@ -2775,12 +2783,21 @@ export class ScorePad {
   }
 
   private blankSheetNow(): void {
-    if (!this.t) return;
-    // nowa kartka: niezatwierdzony wpis z poprzedniej przepada
+    this.setSheet(null);
+  }
+
+  /**
+   * Zastępuje wpisy na wierzchniej kartce (np. losowe wpisy testu w kreatorze, EDT-14); `null`
+   * daje czystą kartkę. Numer partii zostaje, a niezatwierdzony wpis z klawiatury przepada.
+   */
+  setSheet(sheet: ScorePadSheet | null): void {
+    if (!this.t || this.switching) return;
     this.closeEntry(false);
     this.closeNamePicker();
     const st = this.saved.sheets[this.t.id];
-    st.data = blankSheet(this.t, st.data.game);
+    // `unpackSheet` tylko czyta wpisy.
+    const raw = sheet ? ({ ...sheet, game: st.data.game } as PadConfig['sheet']) : null;
+    st.data = raw ? unpackSheet(raw, this.t) : blankSheet(this.t, st.data.game);
     if (this.active) {
       this.scene.remove(this.active.mesh);
       this.active.dispose();
@@ -3056,6 +3073,12 @@ export class ScorePad {
       this.emit('frame', now);
     }
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** Odrywa wierzchnią kartkę bez gestu (przycisk „Oderwij kartkę” w kreatorze, EDT-14). */
+  tear(): void {
+    if (!this.t || this.switching) return;
+    this.completeTear();
   }
 
   /** Do testów: wymusza oderwanie bieżącej kartki. */

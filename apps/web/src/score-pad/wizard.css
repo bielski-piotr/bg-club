@@ -570,6 +570,102 @@ button.wizard-rule__body:focus-visible {
   color: var(--c-muted);
 }
 
+/* Krok 5: notes testowy na scenie i wynik testu (DS §18 „Test notepad”, EDT-14). */
+.wizard-test {
+  height: 380px;
+  place-items: stretch;
+}
+
+.wizard-test .wizard-test__pad {
+  min-height: 0;
+  height: 100%;
+  border-radius: 0;
+}
+
+.wizard-result {
+  display: grid;
+  gap: 8px;
+}
+
+.wizard-result .wizard-panel__title {
+  margin: 0;
+}
+
+.wizard-result__tray {
+  padding: 8px;
+  border-radius: var(--r-tray);
+  background: var(--c-tint);
+}
+
+.wizard-result__list {
+  display: grid;
+  gap: 4px;
+  max-height: 288px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.wizard-result__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: var(--c-surface);
+}
+
+.wizard-result__place {
+  flex-shrink: 0;
+  min-width: 24px;
+  font: 700 15px/20px var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-muted);
+}
+
+.wizard-result__row.is-first .wizard-result__place {
+  color: var(--c-accent-text);
+}
+
+.wizard-result__player {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.wizard-result__name {
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wizard-result__note {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.wizard-result__score {
+  flex-shrink: 0;
+  font: 700 16px/20px var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.wizard-result__empty {
+  margin: 0;
+  padding: 8px 6px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
 /* Stopka: na telefonie dwa przyciski po równo (Modal.css), na desktopie Wstecz | Dalej. */
 .scorepad-wizard .wizard-footer__next {
   margin-left: auto;
@@ -605,6 +701,7 @@ button.wizard-rule__body:focus-visible {
   }
 
   .wizard-editor,
+  .wizard-test,
   .wizard-work--area .wizard-editor {
     height: clamp(360px, calc(var(--vv-height, 100dvh) - 340px), 560px);
   }
