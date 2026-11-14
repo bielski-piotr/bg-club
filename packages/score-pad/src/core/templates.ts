@@ -868,7 +868,8 @@ export function exampleGeneral(t: PadTemplate): SheetData {
 export const FREE_MIN = -9999;
 export const FREE_MAX = 99999;
 
-const hasRange = (l: LineDef): boolean => l.min != null && l.max != null;
+/** Kategoria ma zakres min–max (zamiast listy wartości). */
+export const hasRange = (l: LineDef): boolean => l.min != null && l.max != null;
 
 /** Zakres dozwolonych wartości kategorii (domyślnie 0–50). */
 export function bounds(l: LineDef): { min: number; max: number; step: number } {

@@ -59,8 +59,9 @@ async function axe(page: Page) {
   );
   const results = await new AxeBuilder({ page })
     .include('.scorepad-wizard')
-    // Shadow DOM edytora (kroki 2–3) ma własne style z POC; sprawdzamy ramę kreatora.
+    // Shadow DOM edytora (kroki 2–3) i notesu (krok 5) ma własne style z POC; sprawdzamy ramę.
     .exclude('score-pad-editor')
+    .exclude('score-pad')
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
     .analyze();
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' | ')}`);
@@ -213,7 +214,7 @@ test('import pliku .json w kroku 1: wszystkie kroki wykonane', async ({ page }) 
   } else {
     for (let i = 0; i < 4; i += 1) await dialog.getByRole('button', { name: 'Dalej' }).click();
   }
-  await expect(dialog.getByRole('img', { name: 'Kartka notesu' })).toBeVisible();
+  await expect(dialog.getByRole('group', { name: 'Test notesu' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Zapisz notes' })).toBeEnabled();
   await noHorizontalOverflow(page);
   expect(await axe(page)).toEqual([]);

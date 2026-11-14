@@ -5,7 +5,8 @@ import { t } from '../i18n';
 import { setThemePreference } from '../theme/useTheme';
 import type * as LoadModule from './load';
 import { ScorePadEditorView } from './ScorePadEditorView';
-import { ScorePadView } from './ScorePadView';
+import { ScorePadView, type ScorePadHandle } from './ScorePadView';
+import { createRef } from 'react';
 
 // Moduły pakietu ładują się naprawdę (jsdom nie ma WebGL, więc notes zatrzymuje się na
 // ekranie ładowania); flaga pozwala zasymulować nieudane pobranie chunka.
@@ -63,6 +64,41 @@ describe('ScorePadView', () => {
     unmount();
     expect(element?.isConnected).toBe(false);
     expect(element?.pad).toBeNull();
+  });
+
+  it('tryb testowy kreatora i uchwyt: wpisy kartki, oderwanie, widok z góry (EDT-14)', async () => {
+    const ref = createRef<ScorePadHandle>();
+    const onLoadState = vi.fn();
+    render(
+      <ScorePadView
+        ref={ref}
+        config={SAMPLE_SCORE_PAD}
+        controls={false}
+        help={false}
+        test
+        onLoadState={onLoadState}
+      />,
+    );
+    await vi.waitFor(() => expect(padElement()).not.toBeNull());
+    const element = padElement();
+    expect(element?.options).toMatchObject({
+      club: true,
+      test: true,
+      help: false,
+      controls: false,
+    });
+    expect(onLoadState).toHaveBeenLastCalledWith('ready');
+
+    // jsdom nie ma WebGL, więc metody notesu podmieniamy, żeby sprawdzić tylko przekazanie.
+    const api = { setSheet: vi.fn(), tear: vi.fn(), resetView: vi.fn(), destroy: vi.fn() };
+    Object.defineProperty(element, 'pad', { value: api, configurable: true });
+    const sheet = { game: 1, names: ['Gracz 1'], cells: {} };
+    ref.current?.setSheet(sheet);
+    ref.current?.tear();
+    ref.current?.resetView();
+    expect(api.setSheet).toHaveBeenCalledWith(sheet);
+    expect(api.tear).toHaveBeenCalled();
+    expect(api.resetView).toHaveBeenCalled();
   });
 
   it('po błędzie pobrania pokazuje komunikat i ponawia', async () => {

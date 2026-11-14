@@ -18,6 +18,7 @@ import { PopupHost } from '../popups/PopupHost';
 import { PopupRouter } from '../popups/PopupRouter';
 import { ToastProvider } from '../ui';
 import type { ScorePadEditorViewProps } from './ScorePadEditorView';
+import type { ScorePadViewProps } from './ScorePadView';
 import { ScorepadWizard } from './ScorepadWizard';
 import type * as Scorepads from './scorepads';
 import type { Scorepad } from './scorepads';
@@ -168,6 +169,51 @@ const fake = vi.hoisted(() => ({
   loadPhoto: vi.fn(),
   loadTemplate: vi.fn(),
   failPhoto: false,
+  /** Szablon z `exportConfig` (domyślnie `TEMPLATE`). */
+  exported: null as ScorePadTemplate | null,
+}));
+
+/** Atrapa notesu 3D `<score-pad>` w kroku 5 (WebGL testuje E2E): props i wywołania uchwytu. */
+const padFake = vi.hoisted(() => ({
+  props: null as ScorePadViewProps | null,
+  sheet: null as unknown,
+  setSheet: vi.fn(),
+  tear: vi.fn(),
+  resetView: vi.fn(),
+}));
+
+vi.mock('./ScorePadView', () => ({
+  ScorePadView: function FakePad(props: ScorePadViewProps) {
+    padFake.props = props;
+    const { onReady, ref } = props;
+    useEffect(() => {
+      padFake.sheet = props.config?.sheet ?? null;
+      onReady?.();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    useImperativeHandle(ref, () => ({
+      setSheet: (sheet) => {
+        padFake.setSheet(sheet);
+        padFake.sheet = sheet;
+      },
+      tear: () => {
+        padFake.tear();
+        padFake.props?.onTear?.();
+        padFake.props?.onSave?.({
+          id: 'x',
+          tpl: 't',
+          tplName: 't',
+          game: 1,
+          at: '2026-11-14T12:00:00Z',
+          players: [],
+          winners: [],
+          sheet: padFake.sheet as never,
+        });
+      },
+      resetView: () => padFake.resetView(),
+    }));
+    return <div data-testid="pad" />;
+  },
 }));
 
 function update(patch: Partial<ScorePadEditorStatus>) {
@@ -191,7 +237,11 @@ vi.mock('./ScorePadEditorView', () => ({
       onStatus?.(fake.status);
     }, [onStatus, onLoadState, template]);
     useImperativeHandle(ref, () => ({
-      exportConfig: () => ({ format: 'score-pad', version: 2, template: TEMPLATE }),
+      exportConfig: () => ({
+        format: 'score-pad',
+        version: 2,
+        template: fake.exported ?? TEMPLATE,
+      }),
       status: () => fake.status,
       loadPhoto: async (file: Blob) => {
         fake.loadPhoto(file);
@@ -262,6 +312,11 @@ vi.mock('./scorepads', async (original) => ({
 beforeEach(() => {
   fake.status = null;
   fake.failPhoto = false;
+  fake.exported = null;
+  padFake.props = null;
+  padFake.setSheet.mockClear();
+  padFake.tear.mockClear();
+  padFake.resetView.mockClear();
   fake.setArea.mockClear();
   fake.rotatePhoto.mockClear();
   fake.undoArea.mockClear();
@@ -535,7 +590,7 @@ describe('kreator edytora notesu', () => {
     const dialog = renderWizard(pad, TEMPLATE);
     await waitFor(() => expect(pill('Obszar kartki (ukończony)')).toBeEnabled());
     fireEvent.click(pill('5. Test i zapis'));
-    expect(within(dialog).getByRole('img', { name: 'Kartka notesu' })).toBeInTheDocument();
+    expect(await within(dialog).findByRole('group', { name: 'Test notesu' })).toBeInTheDocument();
     expect(within(dialog).getByText(/Zapis utworzy wersję 3 notesu/)).toBeInTheDocument();
     expect(
       within(dialog).getByText(/Tego notesu można używać tylko w partiach do 3 graczy/),
@@ -551,6 +606,95 @@ describe('kreator edytora notesu', () => {
       }),
     );
     expect(screen.queryByRole('dialog', { name: 'Odrzucić zmiany?' })).not.toBeInTheDocument();
+  });
+
+  it('krok 5: test notesu z fikcyjnymi graczami, losowy remis i wynik bez zapisu (EDT-14)', async () => {
+    // Notes z tabelą dla 3 graczy: punkty 0–3, remis rozstrzygają „Jaja” (więcej = lepiej).
+    fake.exported = {
+      v: 2,
+      id: 'n-test',
+      name: 'Turniejowy',
+      image: 'data:image/jpeg;base64,/9j/4AAQ',
+      size: { w: 10, h: 14 },
+      tape: '#161A2B',
+      grid: { x: [0, 0.25, 0.5, 0.75, 1], y: [0, 0.25, 0.5, 0.75, 1], players: 'cols', labels: 1 },
+      lines: [
+        { id: 'n', label: 'Gracze', kind: 'names' },
+        { id: 'a', label: 'Ptaki', kind: 'input', min: 0, max: 3 },
+        { id: 'e', label: 'Jaja', kind: 'input', min: 0, max: 3 },
+        { id: 's', label: 'Suma', kind: 'total', of: ['a', 'e'] },
+      ],
+      ranking: { line: 'a', dir: 'desc', tiebreak: [{ type: 'line', line: 'e', dir: 'desc' }] },
+    } as ScorePadTemplate;
+    const pad: Scorepad = {
+      id: '00000000-0000-4000-d000-000000000009',
+      game_id: GAME.id,
+      name: 'Turniejowy',
+      created_at: '2026-10-01T12:00:00Z',
+      current: null,
+    };
+    const dialog = renderWizard(pad, TEMPLATE);
+    await waitFor(() => expect(pill('Obszar kartki (ukończony)')).toBeEnabled());
+    fireEvent.click(pill('5. Test i zapis'));
+    await within(dialog).findByRole('group', { name: 'Test notesu' });
+
+    // Notes jak w partii, w trybie testowym, z graczami „Gracz 1…n” zamiast członków klubu.
+    await within(dialog).findByTestId('pad');
+    expect(padFake.props).toMatchObject({ test: true, controls: false });
+    expect(padFake.props?.config?.template).toBe(fake.exported);
+    expect(padFake.props?.config?.sheet?.names).toEqual(['Gracz 1', 'Gracz 2', 'Gracz 3']);
+    const fill = within(dialog).getByRole('button', { name: 'Wypełnij losowo' });
+    const tear = within(dialog).getByRole('button', { name: 'Oderwij kartkę' });
+    await waitFor(() => expect(fill).toBeEnabled());
+    expect(within(dialog).getByText('Miejsca według: Ptaki')).toBeInTheDocument();
+    expect(within(dialog).getByText(/Oderwij wypełnioną kartkę/)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Wymuś remis przy losowaniu' }));
+    fireEvent.click(fill);
+    const sheet = padFake.setSheet.mock.lastCall?.[0] as {
+      names: string[];
+      cells: Record<string, number[]>;
+    };
+    expect(sheet.names).toEqual(['Gracz 1', 'Gracz 2', 'Gracz 3']);
+    for (const id of ['a', 'e'])
+      for (const v of sheet.cells[id] ?? []) expect([0, 1, 2, 3]).toContain(v);
+    // Wymuszony remis: dwóch graczy ma tyle samo „Ptaków” co lider.
+    const best = Math.max(...(sheet.cells.a ?? []));
+    expect((sheet.cells.a ?? []).filter((v) => v === best).length).toBeGreaterThanOrEqual(2);
+
+    fireEvent.click(tear);
+    expect(padFake.tear).toHaveBeenCalledTimes(1);
+    const result = within(dialog).getByRole('region', { name: 'Wynik testu' });
+    const rows = within(result).getAllByRole('listitem');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent(/^1\.Gracz \d/);
+    // Remis lidera opisuje reguła „Jaja” albo wspólne miejsce, gdy i ona nie rozstrzyga.
+    expect(
+      within(result).getAllByText(/^(Wspólne miejsce|Remis rozstrzygnęła kategoria Jaja)$/).length,
+    ).toBeGreaterThanOrEqual(2);
+
+    // Oderwanie pustej kartki (bez wyniku) kończy poprzedni wynik testu.
+    act(() => padFake.props?.onTear?.());
+    expect(within(result).queryAllByRole('listitem')).toHaveLength(0);
+    expect(within(dialog).getByText(/Oderwij wypełnioną kartkę/)).toBeInTheDocument();
+
+    // Widok z góry z paska sceny; test niczego nie zapisuje, zapis jest osobnym przyciskiem.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Widok z góry' }));
+    expect(padFake.resetView).toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz notes' }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  });
+
+  it('krok 5: notes można zapisać od razu, bez testu (EDT-14)', async () => {
+    const dialog = renderWizard(null, TEMPLATE);
+    await waitFor(() => expect(pill('Obszar kartki (ukończony)')).toBeEnabled());
+    fireEvent.click(pill('5. Test i zapis'));
+    expect(await within(dialog).findByText(/Test nie jest wymagany/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz notes' }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(padFake.setSheet).not.toHaveBeenCalled();
+    expect(padFake.tear).not.toHaveBeenCalled();
   });
 
   it('krok 2: panel obszaru kartki zmienia ustawienia edytora (EDT-10)', async () => {

@@ -14,13 +14,14 @@ import type { LeaveGuard } from '../popups/popupContext';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { useLeaveGuard } from '../popups/useLeaveGuard';
-import { Banner, Button, Dialog, Icon, useToast } from '../ui';
+import { Banner, Button, Dialog, Icon, Spinner, useToast } from '../ui';
 import { cx } from '../ui/cx';
 import { AreaPanel, AreaToolbar } from './AreaStep';
 import { CategoriesPanel, CategoriesToolbar } from './CategoriesStep';
 import { MappingPanel, MappingToolbar } from './MappingStep';
 import { fewerSeatsMessage, scorepadErrorMessage } from './messages';
 import { PhotoStep } from './PhotoStep';
+import { TestStep } from './TestStep';
 import { ScorePadEditorView, type ScorePadEditorHandle } from './ScorePadEditorView';
 import {
   ScorepadError,
@@ -81,7 +82,9 @@ const editorBusy = (error: unknown) => (error as { reason?: unknown }).reason ==
  *   aplikacji: prostokąty ręczne albo wykryta tabela; zmiana sposobu z polami pyta o zgodę.
  *   Krok 4 (Kategorie, EDT-13) to kartka z numerami kategorii i panel aplikacji: nazwa, typ,
  *   zakres, sumy i opis kategorii oraz kategoria decydująca, kierunek i reguły remisów.
- *   Krok 5 (Test i zapis) to na razie podsumowanie (zadanie [022]).
+ *   Krok 5 (Test i zapis, EDT-14) to notes 3D z fikcyjnymi graczami, losowym wypełnieniem
+ *   i wynikiem testu (`TestStep`); „Zapisz notes” zapisuje szablon w bazie i zdjęcie w Storage
+ *   (EDT-1), także bez testu.
  * - „Dalej” jest wyłączone, dopóki bieżący krok nie jest poprawny. Pigułki odwiedzonych kroków
  *   są klikalne; edycja notesu i import pliku otwierają kreator z wszystkimi krokami wykonanymi.
  * - Zmiany są chronione: zamknięcie (Esc, ←, ×, tło, Wstecz w przeglądarce) pyta o odrzucenie
@@ -115,6 +118,9 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
   const [confirm, setConfirm] = useState<Confirm | undefined>(undefined);
+  // Szablon do testu w kroku 5 (EDT-14), pobrany z edytora przy wejściu w krok.
+  // `undefined`: jeszcze nie pobrany, `null`: edytor nie oddał szablonu (zapis pokaże błąd).
+  const [testTemplate, setTestTemplate] = useState<ScorePadTemplate | null | undefined>(undefined);
   const restoreFocus = useRef<Element | null>(null);
 
   const dirty = status?.dirty ?? false;
@@ -136,8 +142,16 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
     if (status.step !== want) editor.current?.goStep(want);
   }, [step, editorLoad.state, status]);
 
+  // Krok 5: szablon do testu bierzemy z edytora, gdy ten pokazuje już gotową kartkę (krok 4).
+  const testReady = step === LAST_STEP && status?.step === 4 && !status.busy;
+  useEffect(() => {
+    if (!testReady || testTemplate !== undefined) return;
+    setTestTemplate(editor.current?.exportConfig()?.template ?? null);
+  }, [testReady, testTemplate]);
+
   const goTo = (target: WizardStep) => {
     if (target === step || !canOpenStep(target, step, reached, status)) return;
+    if (target !== LAST_STEP) setTestTemplate(undefined);
     setStep(target);
     if (target > reached) setReached(target);
     setSaveError(undefined);
@@ -430,8 +444,24 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
               />
             ) : null}
           </div>
-          {step === 5 && status ? (
-            <TestAndSave
+          {step === 5 && !testTemplate ? (
+            <div className="wizard-body">
+              <div className="wizard-stage wizard-test wizard-test__loading">
+                {testTemplate === undefined ? <Spinner label={t.scorePad.loadingPad} /> : null}
+              </div>
+              <div className="wizard-panel">
+                {saveError ? <Banner variant="error">{saveError}</Banner> : null}
+                {testTemplate === null ? (
+                  <Banner variant="error">
+                    {scorepadErrorMessage(new ScorepadError('incomplete'))}
+                  </Banner>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {step === 5 && status && testTemplate ? (
+            <TestStep
+              template={testTemplate}
               status={status}
               maxPlayers={game.max_players}
               versionNote={
@@ -506,47 +536,6 @@ function WizardSteps({
         </div>
       </div>
     </>
-  );
-}
-
-/** Krok 5 (do czasu zadania [022]): kartka, liczby i zapis (EDT-1, EDT-6). */
-function TestAndSave({
-  status,
-  maxPlayers,
-  versionNote,
-  error,
-}: {
-  readonly status: ScorePadEditorStatus;
-  readonly maxPlayers: number;
-  readonly versionNote: string | undefined;
-  readonly error: string | undefined;
-}) {
-  const text = wizard.test;
-  const warning = fewerSeatsMessage(status.seats, maxPlayers);
-  return (
-    <div className="wizard-body">
-      <div className="wizard-stage wizard-stage--sheet">
-        {status.sheetUrl ? (
-          <img className="wizard-photo__preview" src={status.sheetUrl} alt={text.sheet} />
-        ) : null}
-      </div>
-      <div className="wizard-panel">
-        {error ? <Banner variant="error">{error}</Banner> : null}
-        <Banner variant="info">{text.intro}</Banner>
-        <div className="wizard-stats">
-          <div className="wizard-stat">
-            <span className="wizard-stat__number">{status.seats}</span>
-            <span className="wizard-stat__label">{text.seats}</span>
-          </div>
-          <div className="wizard-stat">
-            <span className="wizard-stat__number">{status.lines.length}</span>
-            <span className="wizard-stat__label">{text.categories}</span>
-          </div>
-        </div>
-        {warning ? <Banner variant="warning">{warning}</Banner> : null}
-        {versionNote ? <p className="scorepads__note">{versionNote}</p> : null}
-      </div>
-    </div>
   );
 }
 

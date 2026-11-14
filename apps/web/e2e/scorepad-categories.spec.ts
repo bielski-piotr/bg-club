@@ -200,7 +200,7 @@ test('kategorie: nazwa, typ, zakres, sumy i walidacja (EDT-13)', async ({ page }
 
   await next.click();
   await expect(editorEl(page).locator('.spe.wizard')).toHaveAttribute('data-step', '4');
-  await expect(dialog.getByRole('img', { name: 'Kartka notesu' })).toBeVisible();
+  await expect(dialog.getByRole('group', { name: 'Test notesu' })).toBeVisible();
 });
 
 test('wygrana i remisy: kategoria decydująca, kierunek i reguły (EDT-2…EDT-4, EDT-7)', async ({
