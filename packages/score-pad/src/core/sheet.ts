@@ -136,8 +136,21 @@ class Painter {
               { weight: 700, maxW: r.w * 0.86 },
             ) || anim;
       } else if (ln.kind === 'input') {
+        const draft = s.draft && s.draft.key === sp.key ? s.draft : null;
         const cell = cellOf(d, t, sp);
-        if (cell)
+        if (draft) {
+          if (draft.text)
+            anim =
+              hand(
+                g,
+                draft.text,
+                cx,
+                cy,
+                digitSize(r.w, r.h, Math.max(digitsOf(ln), draft.text.length), res),
+                draft.ink,
+                now,
+              ) || anim;
+        } else if (cell)
           anim =
             drawCell(g, cell, cx, cy, digitSize(r.w, r.h, digitsOf(ln), res), r.w, now, pen) ||
             anim;
@@ -221,7 +234,8 @@ class Painter {
     m.drawImage(this.ps.print, 0, 0);
     if (s.focus) {
       const r = px(s.focus.rect);
-      m.fillStyle = 'rgba(255, 206, 84, 0.34)';
+      // wpis spoza zakresu kategorii: pole na czerwono (PAD-15)
+      m.fillStyle = s.draft?.bad ? 'rgba(214, 64, 58, 0.3)' : 'rgba(255, 206, 84, 0.34)';
       if (s.focus.round) {
         m.beginPath();
         m.ellipse(r.x + r.w / 2, r.y + r.h / 2, r.w / 2 - 2, r.h / 2 - 2, 0, 0, Math.PI * 2);
@@ -431,6 +445,11 @@ export class PaperSheet {
   animating = false;
   offscreen = 0;
   focus: Spot | null = null;
+  /**
+   * Tekst wpisywany z klawiatury w zaznaczone pole (PAD-13, PAD-14): cyfry pojawiają się na
+   * kartce od razu, zanim wpis zostanie zatwierdzony; `bad` to wpis spoza zakresu kategorii.
+   */
+  draft: { key: string; text: string; bad: boolean; ink: Ink } | null = null;
 
   constructor(
     readonly t: PadTemplate,
