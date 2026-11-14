@@ -12,7 +12,7 @@ set constraints all immediate;
 -- Storage blokuje bezpośrednie DELETE na storage.objects; w teście sprawdzamy same polityki.
 set local storage.allow_delete_query = 'true';
 
-select plan(101);
+select plan(105);
 
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe (jako właściciel, bez RLS)
@@ -208,11 +208,16 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.meetings (title, starts_at) values ('Spotkanie Bartka', now()) $$,
   '42501', null, 'gracz: nie planuje spotkań');
-select results_eq(
-  $$ with u as (update public.meetings set title = 'Zmienione' returning 1) select count(*)::int from u $$,
-  $$ values (0) $$,
-  'gracz: nie edytuje spotkań'
-);
+select throws_ok(
+  $$ update public.meetings set title = 'Zmienione' $$,
+  '42501', 'permission denied for table meetings', 'gracz: nie edytuje spotkań');
+select throws_ok(
+  $$ select public.save_meeting('00000000-0000-4000-c000-000000000002', 'Zmienione', current_date, '18:00',
+       array['00000000-0000-4000-a000-000000000002']::uuid[], null) $$,
+  '42501', 'administrator required', 'gracz: nie planuje ani nie edytuje spotkań przez RPC');
+select throws_ok(
+  $$ select public.start_meeting('00000000-0000-4000-c000-000000000002') $$,
+  '42501', null, 'gracz: nie rozpoczyna spotkania (§2.1)');
 select results_eq(
   $$ with d as (delete from public.meetings where id = '00000000-0000-4000-c000-000000000005' returning 1)
      select count(*)::int from d $$,
@@ -362,13 +367,15 @@ select results_eq(
   $$ values (0) $$,
   'prowadzący: nie nadpisuje karteczek'
 );
-select results_eq(
-  $$ with u as (update public.meetings set title = 'Zmienione przez prowadzącego'
-                 where id = '00000000-0000-4000-c000-000000000001' returning 1)
-     select count(*)::int from u $$,
-  $$ values (0) $$,
-  'prowadzący: nie edytuje spotkania (Q14)'
-);
+select throws_ok(
+  $$ update public.meetings set title = 'Zmienione przez prowadzącego'
+      where id = '00000000-0000-4000-c000-000000000001' $$,
+  '42501', 'permission denied for table meetings', 'prowadzący: nie edytuje spotkania (Q14)');
+select throws_ok(
+  $$ select public.save_meeting('00000000-0000-4000-c000-000000000001', 'W trakcie', current_date, '18:00',
+       array['00000000-0000-4000-a000-000000000004', '00000000-0000-4000-a000-000000000006']::uuid[],
+       '00000000-0000-4000-a000-000000000004') $$,
+  '42501', 'administrator required', 'prowadzący: nie dodaje uczestników ani nie zmienia prowadzącego (PLAN-4, Q14)');
 select throws_ok(
   $$ insert into public.meeting_participants (meeting_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000006') $$,
@@ -437,9 +444,9 @@ select lives_ok(
   'admin: usuwa grę miękko'
 );
 select lives_ok(
-  $$ insert into public.meetings (id, title, starts_at) values
-     ('00000000-0000-4000-c000-000000000009', 'Nowe spotkanie', now() + interval '30 days') $$,
-  'admin: planuje spotkanie'
+  $$ select public.save_meeting('00000000-0000-4000-c000-000000000009', 'Nowe spotkanie',
+       current_date + 30, '18:00', array['00000000-0000-4000-a000-000000000001']::uuid[], null) $$,
+  'admin: planuje spotkanie (save_meeting)'
 );
 select is(
   (select created_by from public.meetings where id = '00000000-0000-4000-c000-000000000009'),
@@ -474,22 +481,30 @@ select throws_ok(
   '42501', 'permission denied for table plays',
   'admin: usuwa partię tylko przez RPC, które przelicza statystyki (§5.6.5)');
 select lives_ok(
-  $$ insert into public.meeting_participants (meeting_id, profile_id) values
-     ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000006') $$,
+  $$ select public.save_meeting(m.id, m.title, (m.starts_at at time zone 'Europe/Warsaw')::date,
+       (m.starts_at at time zone 'Europe/Warsaw')::time,
+       array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002',
+             '00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000004',
+             '00000000-0000-4000-a000-000000000006']::uuid[], m.host_id)
+       from public.meetings m where m.id = '00000000-0000-4000-c000-000000000001' $$,
   'admin: dodaje uczestnika do spotkania w trakcie (PLAN-4)'
 );
 select throws_ok(
   $$ insert into public.meeting_participants (meeting_id, profile_id) values
-     ('00000000-0000-4000-c000-000000000003', '00000000-0000-4000-a000-000000000006') $$,
-  '42501', null, 'admin: nie zmienia uczestników zakończonego spotkania');
-select results_eq(
-  $$ with d as (delete from public.meeting_participants
-                 where meeting_id = '00000000-0000-4000-c000-000000000003'
-                   and profile_id = '00000000-0000-4000-a000-000000000001' returning 1)
-     select count(*)::int from d $$,
-  $$ values (0) $$,
-  'admin: nie usuwa uczestników zakończonego spotkania'
-);
+     ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000006') $$,
+  '42501', null, 'admin: uczestników zmienia tylko save_meeting');
+select throws_ok(
+  $$ select public.save_meeting(m.id, m.title, (m.starts_at at time zone 'Europe/Warsaw')::date,
+       (m.starts_at at time zone 'Europe/Warsaw')::time,
+       array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000006']::uuid[], null)
+       from public.meetings m where m.id = '00000000-0000-4000-c000-000000000003' $$,
+  '23514', 'meeting 00000000-0000-4000-c000-000000000003 is finished',
+  'admin: nie zmienia uczestników zakończonego spotkania');
+select throws_ok(
+  $$ delete from public.meeting_participants
+      where meeting_id = '00000000-0000-4000-c000-000000000003'
+        and profile_id = '00000000-0000-4000-a000-000000000001' $$,
+  '42501', null, 'admin: nie usuwa uczestników bezpośrednio');
 select lives_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id) values
      ('covers', 'games/00000000-0000-4000-b000-000000000009.webp', '00000000-0000-4000-a000-000000000001') $$,

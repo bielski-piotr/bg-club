@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(40);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
@@ -128,7 +128,12 @@ select is_empty(
   $$ select p.oid::regprocedure::text from pg_proc p
       where p.pronamespace = 'public'::regnamespace
         and (p.prorettype = 'trigger'::regtype or p.prosecdef)
-        and p.oid not in ('public.save_scorepad(uuid,uuid,text,jsonb,text,int)'::regprocedure)
+        and p.oid not in (
+          'public.save_scorepad(uuid,uuid,text,jsonb,text,int)'::regprocedure,
+          'public.save_meeting(uuid,text,date,time,uuid[],uuid)'::regprocedure,
+          'public.start_meeting(uuid)'::regprocedure,
+          'public.finish_meeting(uuid)'::regprocedure
+        )
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
   'anon i authenticated nie mają EXECUTE na funkcjach wyzwalaczy i security definer (poza RPC klienta)'
@@ -137,6 +142,16 @@ select ok(
   (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);'
      from pg_proc where oid = 'public.save_scorepad(uuid,uuid,text,jsonb,text,int)'::regprocedure),
   'save_scorepad (security definer) zaczyna od strażnika private.require_admin()'
+);
+select ok(
+  (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);'
+     from pg_proc where oid = 'public.save_meeting(uuid,text,date,time,uuid[],uuid)'::regprocedure),
+  'save_meeting (security definer) zaczyna od strażnika private.require_admin()'
+);
+select ok(
+  (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(')
+     from pg_proc where oid in ('public.start_meeting(uuid)'::regprocedure, 'public.finish_meeting(uuid)'::regprocedure)),
+  'start_meeting i finish_meeting (security definer) zaczynają od strażnika private.require_meeting_runner()'
 );
 
 -- Wartości domyślne.

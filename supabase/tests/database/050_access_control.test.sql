@@ -48,7 +48,7 @@ select results_eq(
        ('game_votes', 'DELETE,SELECT'),
        ('games', 'SELECT'),
        ('meeting_games', 'DELETE,SELECT'),
-       ('meeting_participants', 'DELETE,SELECT'),
+       ('meeting_participants', 'SELECT'),
        ('meetings', 'DELETE,SELECT'),
        ('play_results', 'SELECT'),
        ('plays', 'SELECT'),
@@ -73,12 +73,9 @@ select results_eq(
        ('games', 'UPDATE', 'cover_path,deleted_at,max_players,min_players,placement_points,title'),
        ('meeting_games', 'INSERT', 'game_id,meeting_id,position'),
        ('meeting_games', 'UPDATE', 'position'),
-       ('meeting_participants', 'INSERT', 'meeting_id,profile_id'),
-       ('meetings', 'INSERT', 'host_id,id,starts_at,title,voting_open'),
-       ('meetings', 'UPDATE', 'host_id,starts_at,title,voting_open'),
        ('profiles', 'UPDATE', 'avatar_path,first_name,last_name,password_change_suggested,theme'),
        ('scorepads', 'UPDATE', 'current_version_id,deleted_at,name') $$,
-  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at; notesy przez save_scorepad)'
+  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at; notesy przez save_scorepad, spotkania przez save_meeting)'
 );
 select results_eq(
   $$ select p.oid::regprocedure::text from pg_proc p
@@ -87,6 +84,7 @@ select results_eq(
       order by 1 $$,
   $$ values
        ('f_unaccent(text)'),
+       ('finish_meeting(uuid)'),
        ('is_valid_points(integer[],integer)'),
        ('is_valid_timezone(text)'),
        ('private.is_active_member()'),
@@ -94,10 +92,12 @@ select results_eq(
        ('private.is_meeting_runner(uuid)'),
        ('private.is_voting_open(uuid)'),
        ('private.try_uuid(text)'),
+       ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid)'),
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
-       ('search_text(text)') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier i zapis notesu'
+       ('search_text(text)'),
+       ('start_meeting(uuid)') $$,
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu i RPC spotkań'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.
@@ -152,8 +152,8 @@ select results_eq(
        ('game_votes', 'DELETE,INSERT,SELECT'),
        ('games', 'INSERT,SELECT,UPDATE'),
        ('meeting_games', 'DELETE,INSERT,SELECT,UPDATE'),
-       ('meeting_participants', 'DELETE,INSERT,SELECT'),
-       ('meetings', 'DELETE,INSERT,SELECT,UPDATE'),
+       ('meeting_participants', 'SELECT'),
+       ('meetings', 'DELETE,SELECT'),
        ('play_results', 'SELECT'),
        ('plays', 'SELECT'),
        ('profiles', 'SELECT,UPDATE'),

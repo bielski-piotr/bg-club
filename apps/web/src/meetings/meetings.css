@@ -1,0 +1,241 @@
+/* Spotkania: formularz planowania i blok widżetu (DS §15). */
+
+.meeting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.meeting-form__state {
+  margin: 0;
+  color: var(--c-muted);
+}
+
+/* Data i godzina obok siebie; na wąskim telefonie jedna pod drugą. */
+.meeting-form__when {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.meeting-form__hint {
+  margin: -8px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.meeting-form__label {
+  padding: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+/* „Wybrano 5 z 8” i „Zaznacz wszystkich” (DS §15 „Member selection row”). */
+.meeting-form__label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.meeting-form__count {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-form__link {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-accent-text);
+  cursor: pointer;
+}
+
+.meeting-form__link:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.meeting-form__error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-danger-text);
+}
+
+/* Wiersz członka h52: checkbox, awatar 36, imię i nazwisko, oznaczenia. */
+.meeting-member {
+  min-height: 52px;
+  cursor: pointer;
+}
+
+.meeting-member .choice__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.meeting-member__body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.meeting-member__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.meeting-member__badges {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+/* Blok widżetu (DS §15 „Widget meeting block”). */
+.meeting-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 20px;
+}
+
+.meeting-widget__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.meeting-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--c-accent-tint);
+}
+
+.meeting-tile__month {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--c-accent-text);
+}
+
+.meeting-tile__day {
+  font: 700 22px/26px var(--font-display);
+  color: var(--c-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.meeting-widget__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.meeting-widget__title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: 700 22px/28px var(--font-display);
+  color: var(--c-ink);
+}
+
+.meeting-widget__date,
+.meeting-widget__people {
+  margin: 0;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-widget__people {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.meeting-widget__people strong {
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.meeting-widget__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.meeting-widget__stack {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.meeting-widget__stack li + li {
+  margin-left: -8px;
+}
+
+.meeting-widget__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (min-width: 1112px) {
+  .meeting-widget__head {
+    gap: 16px;
+  }
+
+  .meeting-tile {
+    width: 64px;
+    height: 72px;
+  }
+
+  .meeting-tile__day {
+    font-size: 26px;
+    line-height: 30px;
+  }
+
+  .meeting-widget__title {
+    font-size: 28px;
+    line-height: 32px;
+  }
+}

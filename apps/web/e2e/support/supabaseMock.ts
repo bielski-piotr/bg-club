@@ -144,6 +144,80 @@ export interface MockOptions {
   games?: MockGame[];
   /** Notesy gier (GAME-7) z aktualną wersją; domyślnie brak. */
   scorepads?: MockScorepad[];
+  /** Spotkania (§5.8). Zapis z aplikacji (`save_meeting`, DELETE) zmienia tę listę. */
+  meetings?: MockMeeting[];
+  /** Gracze z partią w spotkaniu (`play_results`, PLAN-4). */
+  playResults?: readonly { readonly meeting_id: string; readonly profile_id: string }[];
+  /** Błąd PostgREST zwracany przez `save_meeting` (np. reguła z HINT). */
+  saveMeetingError?: { readonly code: string; readonly hint?: string; readonly message: string };
+}
+
+/** Spotkanie z identyfikatorami uczestników (jak wiersz `meetings` z osadzonymi uczestnikami). */
+export interface MockMeeting {
+  readonly id: string;
+  readonly title: string;
+  readonly starts_at: string;
+  readonly status: 'planned' | 'in_progress' | 'finished';
+  readonly voting_open: boolean;
+  readonly host_id: string | null;
+  readonly started_at: string | null;
+  readonly finished_at: string | null;
+  readonly participants: readonly string[];
+}
+
+export function mockMeeting(
+  n: number,
+  title: string,
+  extra: Partial<MockMeeting> = {},
+): MockMeeting {
+  return {
+    id: `00000000-0000-4000-c000-${n.toString(16).padStart(12, '0')}`,
+    title,
+    starts_at: '2026-11-28T17:00:00+00:00',
+    status: 'planned',
+    voting_open: true,
+    host_id: null,
+    started_at: null,
+    finished_at: null,
+    participants: [ADA.id],
+    ...extra,
+  };
+}
+
+/** Treść wywołania `save_meeting` (PLAN-1). */
+export interface MeetingSave {
+  readonly meeting_id: string;
+  readonly title: string;
+  readonly local_date: string;
+  readonly local_time: string;
+  readonly participant_ids: string[];
+  readonly host_id: string | null;
+}
+
+/** Data i godzina w strefie `timeZone` → chwila ISO (jak `save_meeting` w bazie). */
+function zonedToIso(date: string, time: string, timeZone: string): string {
+  const guess = new Date(`${date}T${time}:00Z`);
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(guess)
+      .map((part) => [part.type, part.value]),
+  );
+  const shown = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+  );
+  return new Date(guess.getTime() - (shown - guess.getTime())).toISOString();
 }
 
 /** Notes gry z aktualną wersją: szablon w bazie bez zdjęcia, zdjęcie w buckecie `scorepads`. */
@@ -266,6 +340,9 @@ export interface SupabaseMock {
   /** Pliki wysłane do bucketu `scorepads` i wywołania `save_scorepad`. */
   readonly scorepadUploads: string[];
   readonly scorepadSaves: ScorepadSave[];
+  /** Wywołania `save_meeting` i usunięte spotkania (id). */
+  readonly meetingSaves: MeetingSave[];
+  readonly meetingDeletes: string[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -321,6 +398,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     gameSearches: [],
     scorepadUploads: [],
     scorepadSaves: [],
+    meetingSaves: [],
+    meetingDeletes: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -445,6 +524,80 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       }
       const club = mock.options.club ?? null;
       return route.fulfill({ json: club ? [{ timezone: 'Europe/Warsaw', ...club }] : [] });
+    }
+    // Spotkania (PLAN-1…PLAN-5): odczyt z osadzonymi uczestnikami, zapis RPC, usunięcie.
+    if (url.pathname === '/rest/v1/meetings' && request.method() === 'GET') {
+      let rows = [...(mock.options.meetings ?? [])];
+      const id = url.searchParams.get('id')?.replace(/^eq\./, '');
+      if (id) rows = rows.filter((row) => row.id === id);
+      const status = /^in\.\((.*)\)$/.exec(url.searchParams.get('status') ?? '');
+      if (status) {
+        const allowed = (status[1] ?? '').split(',');
+        rows = rows.filter((row) => allowed.includes(row.status));
+      }
+      rows.sort(
+        (a, b) =>
+          a.status.localeCompare(b.status) ||
+          a.starts_at.localeCompare(b.starts_at) ||
+          a.id.localeCompare(b.id),
+      );
+      const limit = Number(url.searchParams.get('limit') ?? rows.length);
+      const json = rows.slice(0, limit).map(({ participants, ...row }) => ({
+        ...row,
+        meeting_participants: participants.map((profile_id) => ({ profile_id })),
+      }));
+      const single = (request.headers()['accept'] ?? '').includes('vnd.pgrst.object');
+      if (single) {
+        return json[0]
+          ? route.fulfill({ json: json[0] })
+          : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } });
+      }
+      return route.fulfill({ json });
+    }
+    if (url.pathname === '/rest/v1/meetings' && request.method() === 'DELETE') {
+      const id = url.searchParams.get('id')?.replace(/^eq\./, '');
+      const target = (mock.options.meetings ?? []).find((row) => row.id === id);
+      if (target?.status === 'in_progress') {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'meetings_delete_in_progress', message: 'in progress' },
+        });
+      }
+      if (target && (mock.options.playResults ?? []).some((r) => r.meeting_id === target.id)) {
+        return route.fulfill({ status: 409, json: { code: '23503', message: 'plays fkey' } });
+      }
+      mock.options.meetings = (mock.options.meetings ?? []).filter((row) => row.id !== id);
+      if (target) mock.meetingDeletes.push(target.id);
+      return route.fulfill({ json: target ? [{ id: target.id }] : [] });
+    }
+    if (url.pathname === '/rest/v1/rpc/save_meeting' && request.method() === 'POST') {
+      const body = request.postDataJSON() as MeetingSave;
+      mock.meetingSaves.push(body);
+      if (mock.options.saveMeetingError) {
+        return route.fulfill({ status: 400, json: mock.options.saveMeetingError });
+      }
+      const timeZone = mock.options.club?.timezone ?? 'Europe/Warsaw';
+      const existing = (mock.options.meetings ?? []).find((row) => row.id === body.meeting_id);
+      const saved: MockMeeting = {
+        ...(existing ?? mockMeeting(0, '')),
+        id: body.meeting_id,
+        title: body.title,
+        starts_at: zonedToIso(body.local_date, body.local_time, timeZone),
+        participants: body.participant_ids,
+        host_id: body.host_id,
+      };
+      mock.options.meetings = existing
+        ? (mock.options.meetings ?? []).map((row) => (row.id === saved.id ? saved : row))
+        : [...(mock.options.meetings ?? []), saved];
+      const { participants, ...row } = saved;
+      return route.fulfill({ json: { ...row, participant_count: participants.length } });
+    }
+    if (url.pathname === '/rest/v1/play_results' && request.method() === 'GET') {
+      const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
+      const rows = (mock.options.playResults ?? [])
+        .filter((row) => row.meeting_id === meetingId)
+        .map((row) => ({ profile_id: row.profile_id }));
+      return route.fulfill({ json: rows });
     }
     // Kolekcja gier (GAME-1…GAME-8): widok, wyszukiwanie i zapis jak RLS dla admina.
     const activeGames = () => (mock.options.games ?? []).filter((g) => g.deleted_at === null);

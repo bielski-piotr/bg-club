@@ -41,6 +41,15 @@ export type PopupRoute =
   | { readonly kind: 'rename-scorepad'; readonly id: string }
   /** Potwierdzenie „Usuń notes” (GAME-7, admin), adres `scorepad/<uuid>/delete`. */
   | { readonly kind: 'delete-scorepad'; readonly id: string }
+  /**
+   * „Zaplanuj spotkanie” (PLAN-1, admin), adres `meetings/new` albo `meetings/new/<RRRR-MM-DD>`
+   * z wypełnioną datą (np. pusty dzień w kalendarzu, CAL-3).
+   */
+  | { readonly kind: 'add-meeting'; readonly date?: string | undefined }
+  /** „Edytuj spotkanie” (PLAN-3, PLAN-4, admin), adres `meeting/<uuid>/edit`. */
+  | { readonly kind: 'edit-meeting'; readonly id: string }
+  /** Potwierdzenie „Usuń spotkanie” (PLAN-3, PLAN-5, admin), adres `meeting/<uuid>/delete`. */
+  | { readonly kind: 'delete-meeting'; readonly id: string }
   /** Adres, którego aplikacja nie zna albo który jest uszkodzony. Popup pokazuje czytelny stan. */
   | { readonly kind: 'invalid'; readonly raw: string };
 
@@ -54,6 +63,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isUuid(value: string): boolean {
   return UUID.test(value);
+}
+
+/** Data `RRRR-MM-DD`, która istnieje w kalendarzu (np. bez 2026-02-30). */
+export function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
 }
 
 /** Jeden wpis `p`, np. `profile/<uuid>`. Nieznany albo uszkodzony daje `invalid`. */
@@ -80,6 +96,16 @@ export function parseRoute(raw: string): PopupRoute {
     if (args[1] === 'edit') return { kind: 'edit-scorepad', id };
     if (args[1] === 'rename') return { kind: 'rename-scorepad', id };
     if (args[1] === 'delete') return { kind: 'delete-scorepad', id };
+  }
+  if (kind === 'meetings' && args[0] === 'new') {
+    if (args.length === 1) return { kind: 'add-meeting' };
+    if (args.length === 2 && isIsoDate(args[1] ?? ''))
+      return { kind: 'add-meeting', date: args[1] };
+  }
+  if (kind === 'meeting' && args.length === 2 && isUuid(args[0] ?? '')) {
+    const id = (args[0] ?? '').toLowerCase();
+    if (args[1] === 'edit') return { kind: 'edit-meeting', id };
+    if (args[1] === 'delete') return { kind: 'delete-meeting', id };
   }
   if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
   if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
@@ -124,6 +150,12 @@ export function serializeRoute(route: PopupRoute): string {
       return `scorepad/${route.id}/rename`;
     case 'delete-scorepad':
       return `scorepad/${route.id}/delete`;
+    case 'add-meeting':
+      return route.date ? `meetings/new/${route.date}` : 'meetings/new';
+    case 'edit-meeting':
+      return `meeting/${route.id}/edit`;
+    case 'delete-meeting':
+      return `meeting/${route.id}/delete`;
     case 'profile':
       return `profile/${route.id}`;
     case 'delete-member':
