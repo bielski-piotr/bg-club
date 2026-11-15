@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(25);
 
 -- a001 Ada: admin; a002 Bartek, a003 Celina: gracze.
 insert into public.profiles (id, hook, first_name, last_name, role) values
@@ -154,6 +154,16 @@ select is(public.test_unlocks(2), array['voter-10@10/-'],
 select is((select unlocked_at from public.achievement_unlocks where achievement_id = 'voter-10'),
   (select starts_at from public.meetings where id = pg_temp.meeting(10)), 'data odblokowania to termin spotkania');
 select is(public.test_unlocks(3), '{}'::text[], 'Celina zagłosowała raz');
+
+-- Zmiana terminu zaplanowanego spotkania z zamkniętym głosowaniem przesuwa datę Głosu ludu.
+reset role;
+update public.meetings set starts_at = starts_at + interval '10 weeks' where id = pg_temp.meeting(9);
+select is(public.test_unlocks(2), array['voter-10@9/-'],
+  'spotkanie 9 przeniesione za 10: dziesiątym głosowaniem jest teraz spotkanie 9');
+update public.meetings set starts_at = starts_at - interval '10 weeks' where id = pg_temp.meeting(9);
+select is(public.test_unlocks(2), array['voter-10@10/-'], 'powrót terminu przywraca datę');
+set local role authenticated;
+set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 
 -- =============================================================================================
 -- Partie: zapis, ponowienie, zakończenie spotkania (c010 w trakcie)

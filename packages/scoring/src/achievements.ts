@@ -332,8 +332,14 @@ export interface AchievementUnlock {
   readonly unlockedAt: string;
 }
 
-const compareText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-const compareTime = (a: string, b: string): number => Date.parse(a) - Date.parse(b);
+/** Porównanie tekstu po punktach kodowych (jak `uuid` i identyfikatory w bazie). */
+export const compareText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/** Mikrosekundy ponad milisekundę z ułamka sekund ISO 8601 (Postgres zapisuje do 1 µs). */
+const micros = (iso: string): number =>
+  Number((/\.\d{3}(\d{1,3})/.exec(iso)?.[1] ?? '').padEnd(3, '0'));
+const compareTime = (a: string, b: string): number =>
+  Date.parse(a) - Date.parse(b) || micros(a) - micros(b);
 
 /** Kolejność spotkań z §5.6.6: termin, potem identyfikator. */
 export const compareMeetings = (a: HistoryMeeting, b: HistoryMeeting): number =>
@@ -512,7 +518,8 @@ export function computeAchievements(history: AchievementHistory): AchievementUnl
           if (firstOfGame) unlock(r.profileId, 'beginners-luck', meeting, play.id);
           if (winners >= 2) unlock(r.profileId, 'tie-top', meeting, play.id);
         }
-        if (r.place === lastPlace) {
+        // Ostatnie miejsce, także wspólne, ale nie wtedy, gdy wszyscy dzielą 1. miejsce.
+        if (r.place === lastPlace && lastPlace > 1) {
           state.lastPlaces += 1;
           if (state.lastPlaces >= 10) unlock(r.profileId, 'lantern-10', meeting, play.id);
         }

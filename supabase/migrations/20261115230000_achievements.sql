@@ -15,7 +15,8 @@
 --   - zapis partii (`save_play`: szkic → zapisana) i usunięcie partii (`delete_play` przez
 --     `private.recalculate_after_plays_change`),
 --   - zakończenie spotkania (i każda inna zmiana statusu z albo na `finished`, np. RUN-5),
---   - zamknięcie głosowania (publikacja gier albo rozpoczęcie spotkania, Q18),
+--   - zamknięcie głosowania (publikacja gier albo rozpoczęcie spotkania, Q18) oraz zmiana
+--     terminu zaplanowanego spotkania z zamkniętym głosowaniem (termin to data `voter-10`),
 --   - usunięcie spotkania (PLAN-3, PLAN-5; jego odblokowania znikają kaskadą, a głosy
 --     przestają się liczyć do `voter-10`).
 --   Pojedynczy głos niczego nie przelicza (Q18).
@@ -28,7 +29,13 @@
 --   warunki liczą każdą zapisaną partię, także w spotkaniu w trakcie (jak leaderboard).
 -- - Równoległe przeliczenia szereguje blokada doradcza transakcji: drugie czyta historię po
 --   zatwierdzeniu pierwszego, więc dwie partie zapisane jednocześnie (RUN-3) nie gubią
---   osiągnięcia spełnionego dopiero przez obie.
+--   osiągnięcia spełnionego dopiero przez obie. Usunięcie spotkania bierze tę blokadę przed
+--   blokadami wierszy (wyzwalacz BEFORE na poziomie instrukcji), żeby nie czekać na nią
+--   z zablokowanym spotkaniem, do którego przeliczenie dopisuje odblokowanie. RPC biorą ją po
+--   blokadzie swojego spotkania; ewentualne zakleszczenie Postgres wykrywa i przerywa jedną
+--   transakcję (błąd 40P01), a ponowienie RPC jest bezpieczne.
+-- - Przy skali jednego klubu (PRD §6) pełne przeliczenie w transakcji zapisu jest tanie;
+--   przy dużej historii można je zawęzić do graczy i gier, których zmiana dotyczy.
 -- - Klient niczego tu nie wywołuje: odblokowania czyta z `achievement_unlocks` (RLS), a zapisuje
 --   je wyłącznie przeliczenie.
 
@@ -38,8 +45,6 @@
 create table private.meeting_voters (
   meeting_id uuid not null references public.meetings (id) on delete cascade,
   profile_id uuid not null references public.profiles (id),
-  -- Pierwsze zamknięcie głosowania, w którym gracz miał głos.
-  closed_at timestamptz not null default now(),
   primary key (meeting_id, profile_id)
 );
 
@@ -52,8 +57,8 @@ revoke all on private.meeting_voters from public, anon, authenticated;
 
 -- Spotkania, których głosowanie zamknięto przed tą migracją: głosy zostają po zamknięciu
 -- (publikacja ich nie usuwa), więc to najlepsze przybliżenie stanu z chwili zamknięcia.
-insert into private.meeting_voters (meeting_id, profile_id, closed_at)
-select distinct v.meeting_id, v.profile_id, coalesce(m.started_at, m.updated_at)
+insert into private.meeting_voters (meeting_id, profile_id)
+select distinct v.meeting_id, v.profile_id
   from public.game_votes v
   join public.meetings m on m.id = v.meeting_id
  where not m.voting_open;
@@ -106,7 +111,8 @@ as $$
            count(*) over w as plays_n,
            count(*) filter (where x.is_win) over w as wins_n,
            sum(x.points) over w as points_n,
-           count(*) filter (where x.place = x.last_place) over w as last_n,
+           -- Ostatnie miejsce, także wspólne, ale nie wtedy, gdy wszyscy dzielą 1. miejsce.
+           count(*) filter (where x.place = x.last_place and x.last_place > 1) over w as last_n,
            count(*) filter (where x.first_of_game) over w as games_n,
            count(*) filter (where x.is_win and x.game_wins = 1) over w as won_games_n,
            count(*) filter (where x.meeting_plays = 1) over w as meetings_n
@@ -312,7 +318,8 @@ create trigger plays_after_save
 revoke execute on function public.plays_after_save() from public, anon, authenticated;
 
 -- Zamknięcie głosowania (`publish_meeting_games`, `start_meeting`) zapisuje migawkę głosujących
--- i przelicza `voter-10`; zmiana statusu z albo na zakończone przelicza `flawless`.
+-- i przelicza `voter-10`; zmiana statusu z albo na zakończone przelicza `flawless`, a zmiana
+-- terminu spotkania z migawką głosów (`save_meeting`) datę i kolejność `voter-10`.
 create function public.meetings_after_change()
 returns trigger
 language plpgsql
@@ -328,7 +335,9 @@ begin
     on conflict do nothing;
   end if;
   if (old.voting_open and not new.voting_open)
-     or ((old.status = 'finished') <> (new.status = 'finished')) then
+     or ((old.status = 'finished') <> (new.status = 'finished'))
+     or (new.starts_at is distinct from old.starts_at
+         and exists (select 1 from private.meeting_voters v where v.meeting_id = new.id)) then
     perform private.recalculate_achievements();
   end if;
   return null;
@@ -336,14 +345,32 @@ end;
 $$;
 
 create trigger meetings_after_change
-  after update of status, voting_open on public.meetings
+  after update of status, voting_open, starts_at on public.meetings
   for each row
   execute function public.meetings_after_change();
 
 revoke execute on function public.meetings_after_change() from public, anon, authenticated;
 
 -- Usunięcie spotkania (admin, RLS): odblokowania i migawka głosów znikają kaskadą, a wyzwalacz
--- na poziomie instrukcji przelicza resztę po kaskadach.
+-- na poziomie instrukcji przelicza resztę po kaskadach. Blokadę przeliczenia bierze wcześniej,
+-- przed blokadami usuwanych wierszy (patrz nagłówek).
+create function public.meetings_before_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended('bg-club:achievements', 0));
+  return null;
+end;
+$$;
+
+create trigger meetings_before_delete
+  before delete on public.meetings
+  for each statement
+  execute function public.meetings_before_delete();
+
 create function public.meetings_after_delete()
 returns trigger
 language plpgsql
@@ -351,17 +378,24 @@ security definer
 set search_path = ''
 as $$
 begin
-  perform private.recalculate_achievements();
+  -- Instrukcja bez usuniętych wierszy (np. odmowa RLS) niczego nie zmienia.
+  if exists (select 1 from deleted_meetings) then
+    perform private.recalculate_achievements();
+  end if;
   return null;
 end;
 $$;
 
 create trigger meetings_after_delete
   after delete on public.meetings
+  referencing old table as deleted_meetings
   for each statement
   execute function public.meetings_after_delete();
 
-revoke execute on function public.meetings_after_delete() from public, anon, authenticated;
+revoke execute on function
+  public.meetings_before_delete(),
+  public.meetings_after_delete()
+from public, anon, authenticated;
 
 -- Odblokowania z historii sprzed tej migracji.
 select private.recalculate_achievements();

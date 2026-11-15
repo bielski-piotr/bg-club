@@ -139,6 +139,24 @@ describe('computeAchievements: przeliczanie', () => {
     expect(ids({ meetings: [meeting(1)], plays, voters: [] }, p1)).toContain('flawless@1');
   });
 
+  it('kolejność partii uwzględnia mikrosekundy zapisu (jak Postgres)', () => {
+    const at = (savedAt: string, id: string, winner: string) => ({
+      ...play(1, 1, winner, winner === p1 ? p2 : p1),
+      id,
+      savedAt,
+    });
+    const h: AchievementHistory = {
+      meetings: [meeting(1)],
+      // Partia „b” zapisana 300 µs przed „a” w tej samej milisekundzie.
+      plays: [
+        at('2026-01-10T19:00:00.123900+00:00', 'a', p1),
+        at('2026-01-10T19:00:00.123600+00:00', 'b', p2),
+      ],
+      voters: [],
+    };
+    expect(computeAchievements(h).find((u) => u.achievementId === 'meet-1')?.playId).toBe('b');
+  });
+
   it('odrzuca partie i głosy nieznanych spotkań', () => {
     expect(() =>
       computeAchievements({ meetings: [], plays: [play(1, 1, p1, p2)], voters: [] }),

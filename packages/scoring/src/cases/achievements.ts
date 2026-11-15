@@ -9,7 +9,12 @@
  * `achievementHistory`. `expected` wymienia odblokowania z `only` (domyślnie wszystkie
  * osiągnięcia), każde ze spotkaniem i partią (numer partii w spotkaniu), która je dopełniła.
  */
-import type { AchievementHistory, AchievementId, AchievementUnlock } from '../achievements';
+import {
+  compareText,
+  type AchievementHistory,
+  type AchievementId,
+  type AchievementUnlock,
+} from '../achievements';
 
 /** `[gracz, miejsce, punkty, wartość kategorii decydującej]`. */
 export type CaseResult = readonly [
@@ -119,7 +124,7 @@ export function expectedUnlocks(c: AchievementCase): AchievementUnlock[] {
     })
     .sort(
       (a, b) =>
-        a.profileId.localeCompare(b.profileId) || a.achievementId.localeCompare(b.achievementId),
+        compareText(a.profileId, b.profileId) || compareText(a.achievementId, b.achievementId),
     );
 }
 
@@ -199,6 +204,46 @@ export const achievementCases: readonly AchievementCase[] = [
       { player: 1, id: 'win-1', meeting: 1, play: 1 },
       { player: 2, id: 'tie-top', meeting: 1, play: 1 },
       { player: 2, id: 'win-1', meeting: 1, play: 1 },
+    ],
+  },
+  {
+    name: 'czerwona latarnia: wspólne ostatnie miejsce się liczy, wspólne 1. miejsce wszystkich nie',
+    only: ['lantern-10', 'tie-top'],
+    meetings: [
+      {
+        plays: [
+          ...times(10, () => ({
+            results: [
+              [1, 1],
+              [2, 1],
+            ] as const,
+          })),
+          ...times(9, () => ({
+            results: [
+              [3, 1],
+              [1, 2],
+              [2, 2],
+            ] as const,
+          })),
+        ],
+      },
+      {
+        plays: [
+          {
+            results: [
+              [3, 1],
+              [1, 2],
+              [2, 2],
+            ],
+          },
+        ],
+      },
+    ],
+    expected: [
+      { player: 1, id: 'tie-top', meeting: 1, play: 1 },
+      { player: 1, id: 'lantern-10', meeting: 2, play: 1 },
+      { player: 2, id: 'tie-top', meeting: 1, play: 1 },
+      { player: 2, id: 'lantern-10', meeting: 2, play: 1 },
     ],
   },
   {

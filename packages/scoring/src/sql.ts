@@ -12,6 +12,7 @@ import {
   type AchievementCase,
   achievementHistory,
   caseGameId,
+  casePlayId,
   caseProfileId,
   expectedUnlocks,
 } from './cases/achievements';
@@ -243,6 +244,11 @@ export function renderAchievementSqlTest(cases: readonly AchievementCase[]): str
   lines.push('', 'set local session_replication_role = replica;', '');
 
   for (const { c, h } of histories) {
+    const gameOf = new Map(
+      c.meetings.flatMap((m, i) =>
+        (m.plays ?? []).map((p, j) => [casePlayId(i + 1, j + 1), p.game ?? 1] as const),
+      ),
+    );
     lines.push(`-- ${c.name}`);
     lines.push(
       'insert into public.meetings (id, title, starts_at, status, voting_open, created_by, started_at, finished_at) values',
@@ -258,7 +264,7 @@ export function renderAchievementSqlTest(cases: readonly AchievementCase[]): str
         'insert into public.plays (id, meeting_id, game_id, scorepad_version_id, status, points_snapshot, started_by, saved_at) values',
         h.plays
           .map((p) => {
-            const game = Number(p.gameId.slice(-12));
+            const game = gameOf.get(p.id) ?? 1;
             return `  (${literal(p.id)}, ${literal(p.meetingId)}, ${literal(p.gameId)}, ${literal(version(game, p.dir))}, 'saved', '{10,6,4,2,1,0,0,0}', ${literal(admin)}, ${ts(p.savedAt)})`;
           })
           .join(',\n') + ';',
