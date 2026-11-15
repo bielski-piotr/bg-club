@@ -254,6 +254,11 @@
   color: var(--c-danger-text);
 }
 
+.dialog__icon--warning {
+  background: var(--c-warning-bg);
+  color: var(--c-warning-icon);
+}
+
 .dialog__title {
   margin: 0;
   font: 700 20px/26px var(--font-display);

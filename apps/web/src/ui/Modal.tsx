@@ -126,9 +126,12 @@ export interface DialogProps {
   readonly title: string;
   /** Opis pod tytułem (14/20, kolor pomocniczy). */
   readonly description?: ReactNode | undefined;
-  /** Ikona w kółku 44 nad tytułem; `danger` dla działań nieodwracalnych (DS §15). */
+  /**
+   * Ikona w kółku 44 nad tytułem; `danger` dla działań nieodwracalnych, `warning` dla
+   * przeszkody do usunięcia (np. partie w toku, DS §15 „Dialog variants”).
+   */
   readonly icon?: IconName | undefined;
-  readonly tone?: 'accent' | 'danger' | undefined;
+  readonly tone?: 'accent' | 'danger' | 'warning' | undefined;
   /** Kliknięcie tła poza oknem. Esc obsługuje `PopupHost`. */
   readonly onScrimClick?: (() => void) | undefined;
   readonly covered?: boolean | undefined;

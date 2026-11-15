@@ -487,3 +487,359 @@
   outline: 2px solid var(--c-accent);
   outline-offset: 4px;
 }
+
+/* Nagłówek widżetu: odliczanie „za 16 dni” albo chip „Trwa” obok menu (DS §15 „Widget header”). */
+.meeting-widget__countdown {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+
+/* Taca stanu w widżecie (DS §15 „Widget tray head”, wiersze h54). */
+.meeting-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meeting-tray__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 2px;
+}
+
+.meeting-tray__label {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.meeting-tray__note,
+.meeting-tray__more,
+.meeting-tray__empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-tray__empty {
+  padding-inline: 6px;
+  line-height: 18px;
+}
+
+.meeting-tray__more {
+  padding-inline: 6px;
+}
+
+.meeting-tray__row {
+  padding-block: 8px;
+}
+
+.meeting-tray__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.meeting-tray__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+.meeting-tray__meta {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-tray__meta--live {
+  font-weight: 600;
+  color: var(--c-success-text);
+}
+
+/* Stos głosujących 20/6 z liczbą (DS §15 „Voter mini-stack + count”). */
+.voter-count {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.voter-count__n {
+  min-width: 16px;
+  text-align: right;
+  font: 700 16px/20px var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink);
+}
+
+/* Partie spotkania (DS §15 „Play card”, „Live play card”). */
+.play-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.play-list + .play-list {
+  margin-top: 10px;
+}
+
+.play-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
+  background: var(--c-surface);
+}
+
+.play-card--live {
+  border-color: transparent;
+  background: var(--c-success-bg);
+}
+
+.play-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.play-card__head--button {
+  width: 100%;
+  margin: -4px;
+  padding: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: content-box;
+}
+
+.play-card__head--button:hover .play-card__title {
+  color: var(--c-accent-text);
+}
+
+.play-card__head--button:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.play-card__chevron {
+  flex-shrink: 0;
+  color: var(--c-disabled);
+}
+
+.play-card__cover.game-cover--thumb {
+  width: 44px;
+  height: 44px;
+}
+
+.play-card__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.play-card__title {
+  overflow-wrap: anywhere;
+  font: 700 16px/20px var(--font-display);
+  color: var(--c-ink);
+}
+
+.play-card__sub,
+.play-card__live {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.play-card__live {
+  font-weight: 600;
+  color: var(--c-success-text);
+}
+
+/* Miniatura oderwanej karteczki 44×56 (DS §15 „Score-sheet thumbnail”): papier w obu motywach. */
+.play-sheet {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 5px;
+  width: 44px;
+  height: 56px;
+  border: 1px solid #e8dfc8;
+  border-radius: 6px;
+  background: #fbf7ec;
+  overflow: hidden;
+  transform: rotate(-3deg);
+  box-sizing: border-box;
+}
+
+.play-sheet--small {
+  width: 36px;
+  height: 46px;
+}
+
+.play-sheet__band {
+  flex-shrink: 0;
+  height: 8px;
+}
+
+.play-sheet__line {
+  height: 2px;
+  margin-inline: 6px;
+  border-radius: 2px;
+  background: #d9cfb4;
+}
+
+.play-sheet__line:nth-child(2) {
+  width: 28px;
+}
+
+.play-sheet__line:nth-child(3) {
+  width: 22px;
+}
+
+.play-sheet__line:nth-child(4) {
+  width: 26px;
+}
+
+.play-sheet__line:nth-child(5) {
+  width: 16px;
+}
+
+/* Wiersze wyników h28 (DS §15 „Play card”: miejsce, awatar, imię, wynik, punkty). */
+.play-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.play-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.play-result__place {
+  flex-shrink: 0;
+  width: 14px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.play-result--first .play-result__place {
+  color: var(--c-accent-text);
+}
+
+.play-result__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+.play-result--first .play-result__name {
+  font-weight: 600;
+}
+
+.play-result__score {
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+  font: 700 15px/20px var(--font-display);
+  color: var(--c-ink);
+}
+
+.play-result__points {
+  flex-shrink: 0;
+  min-width: 30px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-accent-text);
+}
+
+.play-result__points--zero {
+  color: var(--c-muted);
+}
+
+/* Partie w toku w dialogu zakończenia (DS §15 „Dialog variants”: taca r18 / padding 6, h56). */
+.drafts-tray {
+  padding: 6px;
+  border-radius: 18px;
+}
+
+.draft-row {
+  min-height: 56px;
+  padding-block: 8px;
+}
+
+.draft-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.draft-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+.draft-row__meta {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-success-text);
+}
+
+.play-winners {
+  margin-bottom: 12px;
+}

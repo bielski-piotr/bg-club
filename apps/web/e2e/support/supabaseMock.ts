@@ -164,15 +164,24 @@ export interface MockVote {
   readonly profile_id: string;
 }
 
-/** Partia spotkania z wynikami (osadzona w wierszu `meetings`, MTG-3). */
+/**
+ * Partia spotkania z wynikami: osadzona w wierszu `meetings` (MTG-3) i zwracana przez
+ * `GET /rest/v1/plays` (VIEW-3). Pola karty partii są opcjonalne (domyślne w `playRow`).
+ */
 export interface MockPlay {
   readonly id: string;
   readonly meeting_id: string;
   readonly status: 'draft' | 'saved';
   readonly saved_at: string | null;
+  readonly started_at?: string;
+  readonly game_id?: string;
   readonly play_results: readonly {
     readonly profile_id: string;
     readonly is_win: boolean | null;
+    readonly seat?: number;
+    readonly place?: number | null;
+    readonly points?: number | null;
+    readonly ranking_value?: number | null;
   }[];
 }
 
@@ -372,6 +381,8 @@ export interface SupabaseMock {
   /** Wywołania `publish_meeting_games` i `reopen_voting` (treść żądania). */
   readonly publishes: { meeting_id: string; game_ids: string[] }[];
   readonly reopens: string[];
+  /** Wywołania `start_meeting` i `finish_meeting` (RUN-1, RUN-4). */
+  readonly runs: { action: 'start' | 'finish'; meeting_id: string }[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -431,6 +442,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     meetingDeletes: [],
     publishes: [],
     reopens: [],
+    runs: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -778,6 +790,72 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         (row) => row.meeting_id !== meeting_id,
       );
       const saved = { ...target, voting_open: true };
+      setMeeting(saved);
+      return route.fulfill({ json: saved });
+    }
+    // Partie spotkania z grą i wynikami (VIEW-3), jak `plays?meeting_id=eq.…&select=…games(…)`.
+    if (url.pathname === '/rest/v1/plays' && request.method() === 'GET') {
+      const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
+      const json = (mock.options.plays ?? [])
+        .filter((play) => play.meeting_id === meetingId)
+        .map((play) => {
+          const gameId = play.game_id ?? '00000000-0000-4000-b000-000000000001';
+          const game = (mock.options.games ?? []).find((g) => g.id === gameId);
+          return {
+            id: play.id,
+            status: play.status,
+            started_at: play.started_at ?? play.saved_at ?? '2026-11-28T17:10:00+00:00',
+            saved_at: play.saved_at,
+            started_by: ADA.id,
+            game_id: gameId,
+            games: game ? { id: game.id, title: game.title, cover_path: game.cover_path } : null,
+            play_results: play.play_results.map((r, index) => ({
+              profile_id: r.profile_id,
+              seat: r.seat ?? index + 1,
+              ranking_value: r.ranking_value ?? null,
+              place: r.place ?? null,
+              points: r.points ?? null,
+              is_win: r.is_win,
+            })),
+          };
+        });
+      return route.fulfill({ json });
+    }
+    // Rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4, MTG-2) z regułami jak w bazie.
+    const run = /^\/rest\/v1\/rpc\/(start|finish)_meeting$/.exec(url.pathname);
+    if (run && request.method() === 'POST') {
+      const action = run[1] as 'start' | 'finish';
+      const { meeting_id } = request.postDataJSON() as { meeting_id: string };
+      mock.runs.push({ action, meeting_id });
+      const target = meetingById(meeting_id);
+      const fail = (status: number, code: string, hint: string) =>
+        route.fulfill({ status, json: { code, hint, message: hint } });
+      if (!target) return fail(404, 'P0002', 'meetings_not_found');
+      if (action === 'start') {
+        if (target.status !== 'planned') return fail(400, '23514', 'meetings_start_planned');
+        const other = (mock.options.meetings ?? []).some(
+          (m) => m.id !== target.id && m.status === 'in_progress',
+        );
+        if (other) return fail(409, '23505', 'meetings_single_in_progress');
+        const saved = {
+          ...target,
+          status: 'in_progress' as const,
+          voting_open: false,
+          started_at: new Date().toISOString(),
+        };
+        setMeeting(saved);
+        return route.fulfill({ json: saved });
+      }
+      if (target.status !== 'in_progress') return fail(400, '23514', 'meetings_finish_in_progress');
+      const drafts = (mock.options.plays ?? []).some(
+        (p) => p.meeting_id === target.id && p.status === 'draft',
+      );
+      if (drafts) return fail(400, '23514', 'meetings_no_drafts_when_finished');
+      const saved = {
+        ...target,
+        status: 'finished' as const,
+        finished_at: new Date().toISOString(),
+      };
       setMeeting(saved);
       return route.fulfill({ json: saved });
     }

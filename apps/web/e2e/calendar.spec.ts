@@ -173,9 +173,15 @@ test('timeline: 2 nadchodzące od dalszego, divider „Dziś” i 4 ostatnie zak
   await expect(dialog).toBeVisible();
   expect(await search(page)).toBe(`?p=meeting/${PLAYED.id}`);
   await expect(dialog.getByText('Zakończone', { exact: true })).toBeVisible();
-  await expect(dialog.getByText('3 partie')).toBeVisible();
+  await expect(dialog.getByText('3 rozegrane')).toBeVisible();
   await expect(dialog.getByText('Zoja, Ada, Bea')).toBeVisible();
-  await expect(dialog.getByText('Zoja Zawada')).toBeVisible();
+  // Partie w kolejności rozegrania (VIEW-3), a usunięty członek zostaje w historii (MEM-5).
+  await expect(
+    dialog.getByRole('list', { name: 'Zapisane partie' }).getByRole('article'),
+  ).toHaveCount(3);
+  await expect(
+    dialog.getByRole('list', { name: 'Uczestnicy spotkania' }).getByText('Zoja Zawada'),
+  ).toBeVisible();
   // Zakończonego z partiami nie edytujemy ani nie usuwamy (PLAN-5): brak menu.
   await expect(dialog.getByRole('button', { name: 'Akcje spotkania' })).toHaveCount(0);
   expect(await axe(page)).toEqual([]);

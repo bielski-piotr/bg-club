@@ -56,6 +56,20 @@ export const pl = {
       actions: 'Akcje spotkania {title}',
       participants: { one: '{n} uczestnik', few: '{n} uczestników', many: '{n} uczestników' },
       host: 'prowadzi {name}',
+      /** Odliczanie w nagłówku widżetu (DS §15 „Widget header”). */
+      countdown: {
+        today: 'dziś',
+        tomorrow: 'jutro',
+        days: { one: 'za {n} dzień', few: 'za {n} dni', many: 'za {n} dni' },
+      },
+      live: 'Trwa',
+      open: 'Otwórz spotkanie {title}',
+      topVotes: 'Najwięcej głosów',
+      topVotesLabel: 'Gry z największą liczbą głosów',
+      noVotes: 'Nikt jeszcze nie głosował. Otwórz spotkanie, aby zagłosować.',
+      playsLabel: 'Partie spotkania',
+      noPlays: 'Jeszcze nie zapisano partii.',
+      more: { one: 'i {n} kolejna', few: 'i {n} kolejne', many: 'i {n} kolejnych' },
     },
     ranking: {
       title: 'Ranking',
@@ -468,6 +482,51 @@ export const pl = {
       plays: 'Partie',
       noPlays: 'Brak zapisanych partii.',
     },
+    /** Partie spotkania (VIEW-3, DS §15 „Play card”, „Live play card”, zadanie [026]). */
+    plays: {
+      saved: { one: '{n} rozegrana', few: '{n} rozegrane', many: '{n} rozegranych' },
+      drafts: { one: '{n} w toku', few: '{n} w toku', many: '{n} w toku' },
+      players: { one: '{n} gracz', few: '{n} graczy', many: '{n} graczy' },
+      subtitle: 'Partia {n} · {time} · {players}',
+      liveSince: 'Trwa partia · od {time}',
+      liveLabel: 'Partie w toku',
+      savedLabel: 'Zapisane partie',
+      resultsLabel: 'Wyniki partii {title}',
+      place: '{n}.',
+      placeLabel: 'Miejsce {n}',
+      score: 'Wynik {n}',
+      points: '+{n}',
+      pointsLabel: '{n} pkt do rankingu',
+      sheet: 'Karteczka partii {title}',
+      unknownGame: 'Usunięta gra',
+      unknownPlayer: 'Usunięty gracz',
+      emptyInProgress: 'Jeszcze nie zapisano partii. Rozpoczęte partie pojawią się tutaj.',
+    },
+    /** Rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4, DS §15 „Dialog variants”). */
+    run: {
+      start: 'Rozpocznij spotkanie',
+      finish: 'Zakończ spotkanie',
+      plannedRunner:
+        'Gdy wszyscy dotrą, rozpocznij spotkanie. Rozpoczęcie zamknie głosowanie i pozwoli zapisywać partie.',
+      inProgressRunner:
+        'Spotkanie trwa. Partie zapisujecie w notesie, a po ostatniej zakończ spotkanie. Partie w toku trzeba wcześniej zapisać albo porzucić.',
+      startTitle: 'Rozpocząć spotkanie?',
+      startBody: '„{title}” zmieni status na „W trakcie”. Od tej chwili można zapisywać partie.',
+      startVoting: 'Głosowanie jest otwarte. Rozpoczęcie je zamknie, a oddane głosy zostaną.',
+      finishTitle: 'Zakończyć spotkanie?',
+      finishBody: '„{title}” zmieni status na „Zakończone”. Potem nie można już dodawać partii.',
+      draftsTitle: 'Najpierw dokończ partie w toku',
+      draftsBody:
+        'Tych partii nie zapisano. Zapisz albo porzuć każdą z nich w notesie, a potem zakończ spotkanie.',
+      draftsLabel: 'Partie w toku',
+      cancel: 'Anuluj',
+      close: 'Zamknij',
+      confirmStart: 'Rozpocznij',
+      confirmFinish: 'Zakończ',
+      notRunner: 'Spotkanie rozpoczyna i kończy administrator albo prowadzący.',
+      alreadyStarted: 'To spotkanie już się rozpoczęło.',
+      notInProgress: 'To spotkanie nie trwa, więc nie można go zakończyć.',
+    },
     /** Kalendarz spotkań (CAL-1…CAL-3, DS §15.1, zadanie [025]). */
     calendar: {
       title: 'Kalendarz',
@@ -501,6 +560,9 @@ export const pl = {
       edit: 'Edytuj spotkanie',
       delete: 'Usuń spotkanie',
       reopen: 'Otwórz głosowanie ponownie',
+      finish: 'Zakończ spotkanie',
+      addParticipant: 'Dodaj uczestnika',
+      changeHost: 'Zmień prowadzącego',
     },
     /** Popup spotkania z głosowaniem i opublikowanymi grami (VIEW-1, VIEW-2, VOTE-1…VOTE-6). */
     popup: {
@@ -511,7 +573,6 @@ export const pl = {
       hostBadge: 'Prowadzi',
       hostLine: 'prowadzi {name}',
       adminHost: 'prowadzi administrator',
-      startedNote: 'Spotkanie już się rozpoczęło. Partie i podsumowanie pojawią się tutaj.',
     },
     voting: {
       title: 'Głosowanie',
@@ -657,6 +718,8 @@ export const pl = {
       withdrawn: 'Głos cofnięty',
       published: 'Gry opublikowane. Głosowanie zamknięte.',
       reopened: 'Głosowanie otwarte ponownie',
+      started: 'Spotkanie rozpoczęte',
+      finished: 'Spotkanie zakończone',
     },
   },
   /** Notesy gry: lista, edytor, import i eksport pliku `.json` (PRD GAME-7, EDT-1, zadanie [015]). */
