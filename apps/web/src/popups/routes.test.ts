@@ -34,6 +34,18 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
+  it('zna ranking z zakładką (LB-3)', () => {
+    expect(parseStack('?p=leaderboard&p=leaderboard/streak')).toEqual([
+      { kind: 'leaderboard' },
+      { kind: 'leaderboard', tab: 'streak' },
+    ]);
+    expect(stackSearch('', [{ kind: 'leaderboard', tab: 'wins' }])).toBe('?p=leaderboard/wins');
+    expect(stackSearch('', [{ kind: 'leaderboard' }])).toBe('?p=leaderboard');
+    for (const raw of ['leaderboard/rok', 'leaderboard/points/2026']) {
+      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    }
+  });
+
   it('zna rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4)', () => {
     const stack = [
       { kind: 'meeting', id: ID },

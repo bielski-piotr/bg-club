@@ -167,6 +167,30 @@ export const pl = {
     loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
   },
+  /** Ranking: widżet i popup (PRD LB-1…LB-7, DS §6, §8, zadanie [033]). */
+  leaderboard: {
+    title: 'Ranking',
+    tabsLabel: 'Klasyfikacja',
+    tabs: { points: 'Punkty', wins: 'Wygrane', streak: 'Seria' },
+    yearLabel: 'Zakres rankingu',
+    allTime: 'Cała historia',
+    seeMore: 'Zobacz pełny ranking',
+    loading: 'Wczytywanie rankingu',
+    podiumLabel: 'Podium',
+    listLabel: 'Kolejne miejsca',
+    count: { one: '{n} gracz', few: '{n} graczy', many: '{n} graczy' },
+    place: '{place}. miejsce',
+    tied: { one: '{n} osoba', few: '{n} osoby', many: '{n} osób' },
+    more: 'i {n} więcej',
+    moreLabel: 'Pozostałe osoby na tym miejscu: {names}',
+    units: {
+      points: { one: 'pkt', few: 'pkt', many: 'pkt' },
+      wins: { one: 'wygrana', few: 'wygrane', many: 'wygranych' },
+      streak: { one: 'z rzędu', few: 'z rzędu', many: 'z rzędu' },
+    },
+    emptyYearTitle: 'Brak partii w {year}',
+    emptyYearHelper: 'Wybierz inny rok albo całą historię.',
+  },
   /** Strona pod nieznanym adresem (np. literówka w ścieżce). */
   notFound: {
     title: 'Nie ma takiej strony',

@@ -62,9 +62,9 @@ import '../meetings/meetings.css';
 import '../meetings/calendar.css';
 
 /*
- * Widżety huba (PRD §4, DS §6, §17). Ranking ma na razie tylko pusty stan (CLUB-4); jego treść
- * dochodzi w zadaniu [033]. Spotkanie (MTG-1, od [023], przebieg w [026]), Timeline (MTG-3, [025]), Kolekcja
- * (GAME-1) i Członkowie (MEM-1) pokazują już prawdziwe dane.
+ * Widżety huba (PRD §4, DS §6, §17): Spotkanie (MTG-1, od [023], przebieg w [026]), Ranking
+ * (LB-1…LB-7, [033], moduł `leaderboard`), Timeline (MTG-3, [025]), Kolekcja (GAME-1)
+ * i Członkowie (MEM-1).
  */
 
 /**
@@ -485,17 +485,8 @@ function PlaysTray({
   );
 }
 
-export function RankingWidget() {
-  return (
-    <Card title={t.hub.ranking.title}>
-      <EmptyState
-        icon="trophy"
-        title={t.hub.ranking.emptyTitle}
-        helper={t.hub.ranking.emptyHelper}
-      />
-    </Card>
-  );
-}
+/** Ranking (LB-1…LB-7) ma własny moduł; hub importuje wszystkie widżety stąd. */
+export { RankingWidget } from '../leaderboard/RankingWidget';
 
 /**
  * Timeline (MTG-3, DS §15.1): najwyżej 2 najbliższe nadchodzące spotkania (od dalszego), divider

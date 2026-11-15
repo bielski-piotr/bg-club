@@ -130,7 +130,13 @@ function fakeClient(members: Profile[], options: FakeOptions = {}) {
     },
   );
   return {
-    client: { from, storage, functions: { invoke } } as unknown as SupabaseClient,
+    // Ranking (LB-1): bez zapisanych partii funkcje SQL zwracają pustą listę.
+    client: {
+      from,
+      storage,
+      functions: { invoke },
+      rpc: vi.fn(async () => ({ data: [], error: null })),
+    } as unknown as SupabaseClient,
     writes,
     db,
     invoke,

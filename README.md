@@ -121,7 +121,7 @@ Wygląd opisuje [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md). W kodzie:
 
 Wymagania: PRD §4, NFR-4, NFR-6; wygląd DS §6, §7, §17. Kod: [`apps/web/src/hub`](apps/web/src/hub), [`apps/web/src/popups`](apps/web/src/popups).
 
-- **Widok Klubu** (`/`) jest jedynym pełnoekranowym widokiem po zalogowaniu (przed założeniem klubu: pierwsze uruchomienie, sekcja „Klub”): nagłówek z klubem i chipem użytkownika oraz pięć widżetów w kolejności PRD (Spotkanie, Ranking, Timeline, Kolekcja, Członkowie). Od 1112 px treść ma 1064 px i dwie kolumny po 520 px o niezależnych wysokościach (`useMasonry`), węższe ekrany mają jedną kolumnę. Kolejność dokumentu (czytnik ekranu, Tab) jest zawsze ta z PRD. Widżety Spotkanie, Ranking, Timeline i Kolekcja mają na razie puste stany; ich treść dochodzi w kolejnych zadaniach.
+- **Widok Klubu** (`/`) jest jedynym pełnoekranowym widokiem po zalogowaniu (przed założeniem klubu: pierwsze uruchomienie, sekcja „Klub”): nagłówek z klubem i chipem użytkownika oraz pięć widżetów w kolejności PRD (Spotkanie, Ranking, Timeline, Kolekcja, Członkowie). Od 1112 px treść ma 1064 px i dwie kolumny po 520 px o niezależnych wysokościach (`useMasonry`), węższe ekrany mają jedną kolumnę. Kolejność dokumentu (czytnik ekranu, Tab) jest zawsze ta z PRD. Każdy widżet ma własny pusty stan (CLUB-4).
 - **Adres popupu:** stos popupów jest w parametrach `p`, od dołu do góry, np. `/?p=members&p=profile/<uuid>`. Odświeżenie i link wysłany komuś odtwarzają cały stos (także po zalogowaniu). Nieznany lub uszkodzony wpis otwiera popup „Nie znaleziono”, profil spoza klubu pokazuje „Nie znaleziono gracza”, a nieznana ścieżka stronę „Nie ma takiej strony”. Stos ma najwyżej 8 poziomów.
 - **Historia:** otwarcie popupu dodaje wpis historii, więc Wstecz zamyka górny popup, a Dalej otwiera go ponownie. ← i Esc zamykają górny popup, × cały stos. Popup otwarty z linku nie ma wpisu pod sobą, więc zamknięcie podmienia adres zamiast wychodzić z aplikacji.
 - **Dostępność:** popup ma `role="dialog"`, fokus po otwarciu, pętlę Tab, Esc, a po zamknięciu oddaje fokus elementowi, który go otworzył. Hub i niższe popupy dostają `inert`. Strona pod popupem się nie przewija, a arkusz na telefonie ma wysokość widocznego obszaru (`visualViewport`), więc klawiatura ekranowa nie zasłania treści.
@@ -235,7 +235,7 @@ Wymagania: PRD VIEW-6, PLAN-5, §5.6.5, Q4, Q17. Kod: [`apps/web/src/meetings/pl
 
 ## Rankingi, serie i filtr roku
 
-Wymagania: PRD LB-1, LB-4–LB-7, §5.6.3, §5.6.4, §5.6.6, NFR-10. Migracja [`20261113001700_leaderboard.sql`](supabase/migrations/20261113001700_leaderboard.sql), test SQL `200_leaderboard`. Widżet i popup leaderboardu (LB-2, LB-3) dochodzą w kolejnym zadaniu E5.
+Wymagania: PRD LB-1, LB-4–LB-7, §5.6.3, §5.6.4, §5.6.6, NFR-10. Migracja [`20261113001700_leaderboard.sql`](supabase/migrations/20261113001700_leaderboard.sql), test SQL `200_leaderboard`. Widżet i popup: sekcja „Widżet i popup rankingu” niżej.
 
 - **`leaderboard(kind, year)`** (`security invoker`, więc RLS daje wynik tylko aktywnym członkom): `kind` to `points` (suma punktów, §5.6.2), `wins` (wygrane partie, także wspólne 1. miejsce) albo `streak` (rekord serii zwycięstw). `year` NULL to cała historia; rok kalendarzowy liczy się w strefie klubu (`club.timezone`) po `meetings.starts_at`, więc spotkanie 1 stycznia o 00:30 należy do nowego roku, a zmiana strefy przesuwa granice roku bez zmiany zapisanych terminów. Zwraca wiersze `place, profile_id, first_name, last_name, avatar_path, deleted, podium, value` w kolejności wyświetlania. Zły `kind` albo rok spoza 1–9999: `22023` (`leaderboard_kind_invalid`, `leaderboard_year_invalid`).
 - **Zakres**: tylko zapisane partie (szkice pomija), także ze spotkania w trakcie. Klasyfikowani są gracze z co najmniej jedną zapisaną partią w zakresie (LB-5).
@@ -243,6 +243,16 @@ Wymagania: PRD LB-1, LB-4–LB-7, §5.6.3, §5.6.4, §5.6.6, NFR-10. Migracja [`
 - **Miejsca** (LB-6, LB-7): równe wyniki mają wspólne miejsce (1, 1, 3), a w remisie kolejność jest alfabetyczna (imię, nazwisko, polskie sortowanie ICU `pl-x-icu`). Usunięci członkowie są zawsze za aktywnymi (między sobą według wyniku), ich miejsca liczą się dalej, a `podium` jest u nich zawsze `false`.
 - **`leaderboard_years()`**: lata (w strefie klubu) ze spotkaniami z zapisaną partią, od najnowszego, do listy filtru roku. Obie funkcje biorą strefę z `private.club_timezone()` (przed założeniem klubu `Europe/Warsaw`).
 - **Przeliczenia** (§5.6.5): rankingi liczą się z `play_results` przy odczycie, więc `save_play` i `delete_play` zmieniają je od razu, bez zapisanych agregatów; `private.recalculate_after_plays_change` pozostaje punktem dla osiągnięć ([036]).
+
+## Widżet i popup rankingu
+
+Wymagania: PRD LB-1…LB-7, §4; wygląd DS §6, §7, §8. Kod: [`apps/web/src/leaderboard`](apps/web/src/leaderboard).
+
+- **Widżet** (LB-1…LB-3): zakładki Punkty / Wygrane / Seria, podium i najwyżej 4 kolejne wiersze (miejsca 4–7), zawsze z całej historii (LB-4, `leaderboard(kind, null)`). Gdy zalogowany jest dalej niż 7., jego wiersz dochodzi na końcu listy. „Zobacz więcej” otwiera popup na tej samej zakładce. Bez zapisanych partii: pusty stan „Ranking pojawi się po pierwszej partii” bez CTA.
+- **Popup** (`?p=leaderboard` albo `?p=leaderboard/<points|wins|streak>`, LB-3, LB-4): te same zakładki i podium, pełna lista, licznik graczy i filtr roku (pigułka: „Cała historia” domyślnie albo lata z `leaderboard_years()`). Wybrany rok, który zniknął z listy (np. po usunięciu partii), zostaje do wyboru i pokazuje pusty stan roku.
+- **Wspólny układ** (`LeaderboardBoard`): stopnie podium w kolejności 2 – 1 – 3 (w DOM od 1., dla czytnika ekranu), awatar w ringu akcentu z odznaką miejsca i koroną nad 1. (DS §8; 104/80 px od 768 px, 80/64 px na telefonie). Remisujący stoją razem na jednym stopniu (LB-6; numeracja 1, 1, 3 z bazy, więc przy remisie na 1. kolejny stopień to 3.); w widżecie stopień pokazuje najwyżej 3 awatary i „+N”, w popupie wszystkich. Bieżący użytkownik ma wiersz akcentu z „Ty” (na podium odznakę „Ty”). Usunięci są na końcu listy, wyszarzeni, z „–” zamiast miejsca i „(usunięty)” (LB-7). Każdy awatar otwiera profil (PRD §4), długie imiona i nazwiska są ucinane wielokropkiem.
+- **Dane** (`leaderboard.ts`): klucze pod `profilesKey`, więc zapis i usunięcie partii odświeżają ranking (`PLAY_DEPENDENT_KEYS`). Kolor monogramu bierze hook z `useAllProfiles`.
+- Testy: Vitest (`leaderboard/leaderboard.test.ts`: podział na podium i listę, 0/1/2 graczy, remisy, usunięci, wiersze widżetu; `leaderboard/LeaderboardBoard.test.tsx`: skrócony remis w widżecie, pełna lista w popupie, „Ty”, linki do profili, jednostki), E2E `e2e/leaderboard.spec.ts` (widżet, popup z filtrem roku, profile z awatarów, 1 gracz, pusty stan, axe, 360 px).
 
 ## Członkowie
 
