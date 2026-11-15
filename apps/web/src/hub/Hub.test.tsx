@@ -52,6 +52,22 @@ const PLANSZOWKI: FakeClub = { name: 'Planszówki', logo_path: null, timezone: '
  * Atrapa PostgREST: `eq('id', …)` filtruje, `is('deleted_at', null)` pomija usuniętych. Tabela
  * `club` przyjmuje `insert` i `update` (jak RLS dla admina) i zapamiętuje wiersz.
  */
+
+/** `player_stats` gracza bez zapisanych partii. */
+const EMPTY_PLAYER_STATS = {
+  years: [],
+  meetings: 0,
+  plays: 0,
+  wins: 0,
+  points: 0,
+  streak_record: 0,
+  streak_current: 0,
+  places: { points: null, wins: null, streak: null },
+  favorite_game: null,
+  best_game: null,
+  recent_plays: [],
+};
+
 function fakeClient(members: Profile[], options: FakeOptions = {}) {
   const db = { club: options.club === undefined ? PLANSZOWKI : options.club };
   const writes: { op: 'insert' | 'update'; row: Partial<FakeClub> }[] = [];
@@ -130,12 +146,16 @@ function fakeClient(members: Profile[], options: FakeOptions = {}) {
     },
   );
   return {
-    // Ranking (LB-1): bez zapisanych partii funkcje SQL zwracają pustą listę.
+    // Ranking (LB-1): bez zapisanych partii funkcje SQL zwracają pustą listę, a statystyki
+    // gracza (STAT-1) same zera.
     client: {
       from,
       storage,
       functions: { invoke },
-      rpc: vi.fn(async () => ({ data: [], error: null })),
+      rpc: vi.fn(async (name: string) => ({
+        data: name === 'player_stats' ? EMPTY_PLAYER_STATS : [],
+        error: null,
+      })),
     } as unknown as SupabaseClient,
     writes,
     db,
