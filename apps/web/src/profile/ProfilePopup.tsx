@@ -3,7 +3,8 @@ import { t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { Badge, Banner, Button, EmptyState, type IconName } from '../ui';
+import { Badge, Banner, Button, EmptyState } from '../ui';
+import { AchievementShowcase } from './AchievementShowcase';
 import { PlayerStatsSection } from './PlayerStats';
 import { ProfileAvatar } from './ProfileAvatar';
 import { fullName, useProfile } from './profiles';
@@ -11,8 +12,8 @@ import './profile.css';
 
 /**
  * Popup profilu gracza (PRD USR-4, USR-5, MEM-5): awatar, imię i nazwisko, hook, statystyki
- * i gablota osiągnięć. Statystyki (§5.9) liczy `player_stats`; gablota (§5.10) ma stan
- * oczekiwania do etapu E6. Właściciel ma przycisk **Ustawienia** (USR-5); cudzy profil nie ma akcji edycji
+ * i gablota osiągnięć. Statystyki (§5.9) liczy `player_stats`, gablotę (§5.10, ACH-3)
+ * `player_achievements`. Właściciel ma przycisk **Ustawienia** (USR-5); cudzy profil nie ma akcji edycji
  * także dla administratora (USR-7). Usunięty członek ma profil tylko do odczytu
  * (MEM-5) i zachowuje statystyki z historii.
  * Administrator ma w profilu aktywnego gracza przycisk **Usuń członka** (MEM-4); profilu
@@ -95,32 +96,7 @@ export function ProfilePopup({ id, isAdmin }: { readonly id: string; readonly is
         </Banner>
       ) : null}
       <PlayerStatsSection key={data.id} profileId={data.id} />
-      <PendingSection
-        icon="flag"
-        title={t.profile.achievements.title}
-        headline={t.profile.achievements.pendingTitle}
-        helper={t.profile.achievements.pendingHelper}
-      />
+      <AchievementShowcase key={`${data.id}-achievements`} profileId={data.id} />
     </PopupModal>
-  );
-}
-
-/** Sekcja profilu, której dane dochodzą w kolejnych etapach (stan oczekiwania). */
-function PendingSection({
-  icon,
-  title,
-  headline,
-  helper,
-}: {
-  readonly icon: IconName;
-  readonly title: string;
-  readonly headline: string;
-  readonly helper: string;
-}) {
-  return (
-    <section className="profile__section" aria-label={title}>
-      <h3 className="profile__section-title">{title}</h3>
-      <EmptyState icon={icon} title={headline} helper={helper} />
-    </section>
   );
 }

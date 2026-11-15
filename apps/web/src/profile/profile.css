@@ -399,3 +399,179 @@
 .btn.settings__delete {
   color: var(--c-danger-text);
 }
+
+/* Gablota osiągnięć (PRD ACH-3, DS §15 „Achievement row”, §11). */
+.showcase__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.showcase__count {
+  font: 500 13px/16px var(--font-ui);
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.showcase__group {
+  padding-top: 16px;
+}
+
+.showcase__group-title {
+  margin: 0 0 8px;
+  font: 600 13px/16px var(--font-ui);
+  color: var(--c-muted);
+}
+
+.showcase__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.showcase__grid > li {
+  display: flex;
+  min-width: 0;
+}
+
+.showcase-tile {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-row);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  text-decoration: none;
+  transition: background-color 120ms var(--ease);
+}
+
+.showcase-tile:hover {
+  background: var(--c-tint);
+}
+
+.showcase-tile:focus-visible,
+.achievement-details__meeting:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.showcase-tile--locked {
+  background: var(--c-tint);
+  border-color: transparent;
+}
+
+.showcase-tile--locked:hover {
+  background: var(--c-tint-hover);
+}
+
+.showcase-tile__name {
+  font: 700 14px/18px var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+.showcase-tile--locked .showcase-tile__name {
+  color: var(--c-muted);
+}
+
+.showcase-tile__meta {
+  font: 500 12px/16px var(--font-ui);
+  color: var(--c-muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.showcase-tile__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.achievement-badge {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+}
+
+.achievement-badge--large {
+  width: 56px;
+  height: 56px;
+}
+
+.achievement-badge--unlocked {
+  background: var(--c-achievement);
+  color: var(--c-on-achievement);
+}
+
+.achievement-badge--locked {
+  background: var(--c-surface);
+  color: var(--c-muted);
+  box-shadow: inset 0 0 0 1.5px var(--c-disabled);
+}
+
+.achievement-progress {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  min-width: 32px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--c-border);
+}
+
+.achievement-progress__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--c-accent);
+}
+
+/* Szczegóły odznaki (DS „Profil / Osiągnięcie – szczegóły”). */
+.achievement-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.achievement-details p {
+  margin: 0;
+}
+
+.achievement-details__player {
+  font: 600 14px/18px var(--font-ui);
+}
+
+.achievement-details__state {
+  font: 500 14px/20px var(--font-ui);
+  color: var(--c-muted);
+}
+
+.achievement-details__meeting {
+  color: var(--c-accent-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.achievement-details__meeting:hover {
+  text-decoration: underline;
+}
+
+.achievement-details__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 13px/16px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}

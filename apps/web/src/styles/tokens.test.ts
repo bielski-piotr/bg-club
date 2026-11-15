@@ -57,6 +57,7 @@ const textPairs: ReadonlyArray<readonly [string, string]> = [
   ['c-toast-success', 'c-toast'],
   ['c-toast-error', 'c-toast'],
   ['c-on-avatar-removed', 'c-avatar-removed'],
+  ['c-on-achievement', 'c-achievement'],
   ...Array.from({ length: 10 }, (_, i) => ['c-on-avatar', `c-avatar-${i}`] as const),
 ];
 
@@ -67,6 +68,9 @@ const uiPairs: ReadonlyArray<readonly [string, string]> = [
   ['c-accent-text', 'c-page'],
   ['c-danger-text', 'c-surface'],
   ['c-warning-icon', 'c-warning-bg'],
+  // Kółko odblokowanej odznaki na karcie i pasek postępu na tle wyszarzonej odznaki.
+  ['c-achievement', 'c-surface'],
+  ['c-accent', 'c-tint'],
 ];
 
 describe('tokeny motywów', () => {

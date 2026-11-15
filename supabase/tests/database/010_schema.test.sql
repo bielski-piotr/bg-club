@@ -142,7 +142,8 @@ select is_empty(
           'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
           'public.attach_play_sheet_image(uuid,text)'::regprocedure,
           'public.orphan_sheet_images(uuid)'::regprocedure,
-          'public.delete_play(uuid)'::regprocedure
+          'public.delete_play(uuid)'::regprocedure,
+          'public.player_achievements(uuid)'::regprocedure
         )
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,

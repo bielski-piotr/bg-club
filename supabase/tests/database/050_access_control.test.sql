@@ -91,8 +91,10 @@ select results_eq(
        ('is_valid_timezone(text)'),
        ('leaderboard(text,integer)'),
        ('leaderboard_years()'),
+       ('meeting_achievements(uuid)'),
        ('meeting_summary(uuid)'),
        ('orphan_sheet_images(uuid)'),
+       ('player_achievements(uuid)'),
        ('player_stats(uuid,integer)'),
        ('private.club_timezone()'),
        ('private.is_active_member()'),
@@ -111,7 +113,7 @@ select results_eq(
        ('search_text(text)'),
        ('start_meeting(uuid)'),
        ('start_play(uuid,uuid,uuid,uuid[])') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie, zapis i usunięcie partii, obrazy karteczek, rankingi, statystyki gry, podsumowanie spotkania i statystyki gracza'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie, zapis i usunięcie partii, obrazy karteczek, rankingi, statystyki gry, podsumowanie spotkania, statystyki gracza i osiągnięcia'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.

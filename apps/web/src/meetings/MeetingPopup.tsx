@@ -34,6 +34,7 @@ import {
 import { cx } from '../ui/cx';
 import { formatMeetingDate, longMeetingDate } from './datetime';
 import { MeetingPlaysSection } from './MeetingPlays';
+import { MeetingAchievementsSection } from './MeetingAchievements';
 import { MeetingSummarySection } from './MeetingSummary';
 import { claimOrphanSweep, sweepOrphanSheetImages } from '../sheets/sheetImages';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
@@ -201,6 +202,8 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
           />
         ) : null}
         {!planned ? <MeetingSummarySection meetingId={meeting.id} /> : null}
+        {/* Także zaplanowane: zamknięcie głosowania może odblokować Głos ludu (Q18). */}
+        <MeetingAchievementsSection meetingId={meeting.id} />
 
         <section className="meeting-view__section" aria-labelledby={`${meeting.id}-people`}>
           <h3 id={`${meeting.id}-people`} className="meeting-view__head">
