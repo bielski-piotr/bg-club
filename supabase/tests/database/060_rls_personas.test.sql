@@ -461,10 +461,11 @@ select throws_ok(
   $$ update public.meetings set status = 'finished', finished_at = now()
       where id = '00000000-0000-4000-c000-000000000001' $$,
   '42501', 'permission denied for table meetings', 'admin: status spotkania zmienia tylko RPC');
-select lives_ok(
+select throws_ok(
   $$ insert into public.meeting_games (meeting_id, game_id, position) values
      ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-b000-000000000001', 0) $$,
-  'admin: publikuje grę'
+  '42501', 'permission denied for table meeting_games',
+  'admin: gry publikuje tylko publish_meeting_games (razem z zamknięciem głosowania)'
 );
 select results_eq(
   $$ with u as (update public.profiles set first_name = 'Zmieniona przez admina'

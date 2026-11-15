@@ -46,6 +46,10 @@ export type PopupRoute =
    * z wypełnioną datą (np. pusty dzień w kalendarzu, CAL-3).
    */
   | { readonly kind: 'add-meeting'; readonly date?: string | undefined }
+  /** Popup spotkania z głosowaniem i opublikowanymi grami (VIEW-1, VIEW-2), `meeting/<uuid>`. */
+  | { readonly kind: 'meeting'; readonly id: string }
+  /** „Opublikuj gry” (VOTE-5, admin), adres `meeting/<uuid>/publish`. */
+  | { readonly kind: 'publish-games'; readonly id: string }
   /** „Edytuj spotkanie” (PLAN-3, PLAN-4, admin), adres `meeting/<uuid>/edit`. */
   | { readonly kind: 'edit-meeting'; readonly id: string }
   /** Potwierdzenie „Usuń spotkanie” (PLAN-3, PLAN-5, admin), adres `meeting/<uuid>/delete`. */
@@ -102,8 +106,12 @@ export function parseRoute(raw: string): PopupRoute {
     if (args.length === 2 && isIsoDate(args[1] ?? ''))
       return { kind: 'add-meeting', date: args[1] };
   }
+  if (kind === 'meeting' && args.length === 1 && isUuid(args[0] ?? '')) {
+    return { kind: 'meeting', id: (args[0] ?? '').toLowerCase() };
+  }
   if (kind === 'meeting' && args.length === 2 && isUuid(args[0] ?? '')) {
     const id = (args[0] ?? '').toLowerCase();
+    if (args[1] === 'publish') return { kind: 'publish-games', id };
     if (args[1] === 'edit') return { kind: 'edit-meeting', id };
     if (args[1] === 'delete') return { kind: 'delete-meeting', id };
   }
@@ -152,6 +160,10 @@ export function serializeRoute(route: PopupRoute): string {
       return `scorepad/${route.id}/delete`;
     case 'add-meeting':
       return route.date ? `meetings/new/${route.date}` : 'meetings/new';
+    case 'meeting':
+      return `meeting/${route.id}`;
+    case 'publish-games':
+      return `meeting/${route.id}/publish`;
     case 'edit-meeting':
       return `meeting/${route.id}/edit`;
     case 'delete-meeting':

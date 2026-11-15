@@ -13,6 +13,7 @@ import { useClub } from './club';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { dateTile, formatMeetingDate, longMeetingDate } from '../meetings/datetime';
 import { useHubMeeting, type Meeting } from '../meetings/meetings';
+import { useReopenVoting } from '../meetings/voting';
 import {
   Banner,
   Button,
@@ -48,6 +49,7 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
   const members = useMembers(client);
   const data = meeting.data;
   const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
+  const reopen = useReopenVoting(client);
 
   const action =
     isAdmin && data ? (
@@ -68,6 +70,17 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
             icon: 'pencil',
             onSelect: () => open({ kind: 'edit-meeting', id: data.id }),
           },
+          // Ponowne otwarcie głosowania przed rozpoczęciem (VOTE-6, DS §15 „Meeting menus”).
+          ...(data.status === 'planned' && !data.voting_open
+            ? [
+                {
+                  id: 'reopen',
+                  label: t.meetings.menu.reopen,
+                  icon: 'refresh' as const,
+                  onSelect: () => reopen.mutate(data.id),
+                },
+              ]
+            : []),
           ...(data.status === 'planned'
             ? [
                 {
@@ -146,6 +159,7 @@ function MeetingBlock({
   readonly timeZone: string;
   readonly members: readonly Profile[];
 }) {
+  const { open } = usePopups();
   const tile = dateTile(meeting.starts_at, timeZone);
   const people = members.filter((member) => meeting.participants.includes(member.id));
   const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
@@ -166,7 +180,15 @@ function MeetingBlock({
           <span className="meeting-tile__day">{tile.day}</span>
         </span>
         <span className="meeting-widget__text">
-          <h3 className="meeting-widget__title">{meeting.title}</h3>
+          <h3 className="meeting-widget__title">
+            <button
+              type="button"
+              className="meeting-widget__open"
+              onClick={() => open({ kind: 'meeting', id: meeting.id })}
+            >
+              {meeting.title}
+            </button>
+          </h3>
           <span className="meeting-widget__date">
             <span aria-hidden="true">{formatMeetingDate(meeting.starts_at, timeZone)}</span>
             <span className="sr-only">{longMeetingDate(meeting.starts_at, timeZone)}</span>
