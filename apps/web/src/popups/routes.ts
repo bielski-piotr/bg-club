@@ -86,7 +86,8 @@ export type PopupRoute =
   | { readonly kind: 'calendar' }
   /**
    * Pełny ranking z filtrem roku (LB-3, LB-4), adres `leaderboard` albo `leaderboard/<zakładka>`
-   * (`points`, `wins`, `streak`), gdy widżet otwiera go na innej zakładce.
+   * (`points`, `wins`, `streak`): zakładka startowa, z którą otworzył go widżet. Dalsze
+   * przełączanie zakładek i roku jest stanem popupu (bez nowych wpisów historii).
    */
   | { readonly kind: 'leaderboard'; readonly tab?: LeaderboardKind | undefined }
   /** „Edytuj spotkanie” (PLAN-3, PLAN-4, admin), adres `meeting/<uuid>/edit`. */

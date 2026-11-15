@@ -129,6 +129,15 @@ describe('ranking: podium i lista (LB-2, LB-3, LB-6, LB-7)', () => {
     expect(screen.queryByRole('list', { name: 'Kolejne miejsca' })).not.toBeInTheDocument();
   });
 
+  it('przy remisie 1, 1, 3 trzeci stoi na 3. stopniu, a 2. stopień jest pusty', () => {
+    renderBoard([entry(1, 1, 'Ada', 5), entry(2, 1, 'Bea', 5), entry(3, 3, 'Cela', 2)], 'popup');
+    const classes = [...document.querySelectorAll('.podium__step')].map((step) => step.className);
+    expect(classes).toEqual([
+      expect.stringContaining('podium__step--1 podium__step--tied'),
+      expect.stringContaining('podium__step--3'),
+    ]);
+  });
+
   it('jednostki zależą od klasyfikacji', () => {
     renderBoard([entry(1, 1, 'Ada', 5), entry(2, 2, 'Bea', 1)], 'popup', id(1), 'wins');
     expect(screen.getByText('wygranych')).toBeInTheDocument();

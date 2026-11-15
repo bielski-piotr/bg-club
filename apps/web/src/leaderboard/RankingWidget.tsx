@@ -2,35 +2,11 @@ import { useState } from 'react';
 import { t } from '../i18n';
 import { PopupLink } from '../popups/PopupLink';
 import type { Profile } from '../profile/profiles';
-import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner, Tabs } from '../ui';
+import { Card, EmptyState, Icon, Tabs } from '../ui';
+import { BoardError, BoardLoading } from './BoardStatus';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import { kindTabs, useBoardData } from './board';
 import type { LeaderboardKind } from './leaderboard';
-
-export function BoardError({ onRetry }: { readonly onRetry: () => void }) {
-  return (
-    <Banner
-      variant="error"
-      className="leaderboard-error"
-      action={
-        <Button size="sm" variant="secondary" icon="refresh" onClick={onRetry}>
-          {t.hub.retry}
-        </Button>
-      }
-    >
-      {t.hub.loadError}
-    </Banner>
-  );
-}
-
-export function BoardLoading() {
-  return (
-    <div className="leaderboard leaderboard--loading">
-      <Skeleton width={240} height={120} radius={14} />
-      <Spinner label={t.leaderboard.loading} className="sr-only" />
-    </div>
-  );
-}
 
 /**
  * Widżet rankingu (LB-1…LB-3, DS §6): zakładki Punkty / Wygrane / Seria, podium i miejsca 4–7,
@@ -59,8 +35,8 @@ export function RankingWidget({ me }: { readonly me: Profile }) {
       {empty ? (
         <EmptyState
           icon="trophy"
-          title={t.hub.ranking.emptyTitle}
-          helper={t.hub.ranking.emptyHelper}
+          title={t.leaderboard.emptyTitle}
+          helper={t.leaderboard.emptyHelper}
         />
       ) : (
         <Tabs

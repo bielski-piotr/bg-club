@@ -83,9 +83,10 @@ export function filterYear(filter: YearFilter): number | null {
  * Klucze w `profilesKey`: zapis i usunięcie partii odświeżają ranking razem z profilami
  * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
  */
+export const leaderboardRootKey = [...profilesKey, 'leaderboard'] as const;
 export const leaderboardKey = (kind: LeaderboardKind, year: number | null) =>
-  [...profilesKey, 'leaderboard', kind, year ?? 'all'] as const;
-export const leaderboardYearsKey = [...profilesKey, 'leaderboard', 'years'] as const;
+  [...leaderboardRootKey, kind, year ?? 'all'] as const;
+export const leaderboardYearsKey = [...leaderboardRootKey, 'years'] as const;
 
 export function useLeaderboard(
   client: SupabaseClient,
@@ -99,6 +100,9 @@ export function useLeaderboard(
       if (error) throw error;
       return (data ?? []) as LeaderboardEntry[];
     },
+    // Przy zmianie roku w tej samej zakładce poprzedni wynik zostaje do czasu nowego (bez
+    // migania); po zmianie zakładki nie, bo miałby jednostki innej klasyfikacji.
+    placeholderData: (previous, query) => (query?.queryKey[2] === kind ? previous : undefined),
   });
 }
 

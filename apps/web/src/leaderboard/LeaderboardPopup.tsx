@@ -3,7 +3,7 @@ import { useAuth } from '../auth/authContext';
 import { format, plural, t } from '../i18n';
 import { PopupModal } from '../popups/PopupModal';
 import type { Profile } from '../profile/profiles';
-import { EmptyState, Select, Tabs, type SelectOption } from '../ui';
+import { Banner, Button, EmptyState, Select, Tabs, type SelectOption } from '../ui';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import {
   filterYear,
@@ -12,7 +12,7 @@ import {
   type YearFilter,
 } from './leaderboard';
 import { kindTabs, useBoardData } from './board';
-import { BoardError, BoardLoading } from './RankingWidget';
+import { BoardError, BoardLoading } from './BoardStatus';
 
 /**
  * Pełny ranking (LB-3, LB-4, DS §7): te same zakładki i podium co widżet, pełna lista oraz filtr
@@ -56,6 +56,24 @@ export function LeaderboardPopup({
           onChange={setYear}
         />
       </div>
+      {years.isError ? (
+        <Banner
+          variant="error"
+          className="leaderboard-years-error"
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="refresh"
+              onClick={() => void years.refetch()}
+            >
+              {t.hub.retry}
+            </Button>
+          }
+        >
+          {text.yearsError}
+        </Banner>
+      ) : null}
       <div aria-busy={!entries}>
         {failed ? (
           <div className="leaderboard">
@@ -68,9 +86,9 @@ export function LeaderboardPopup({
             <EmptyState
               icon="trophy"
               title={
-                year === 'all' ? t.hub.ranking.emptyTitle : format(text.emptyYearTitle, { year })
+                year === 'all' ? t.leaderboard.emptyTitle : format(text.emptyYearTitle, { year })
               }
-              helper={year === 'all' ? t.hub.ranking.emptyHelper : text.emptyYearHelper}
+              helper={year === 'all' ? t.leaderboard.emptyHelper : text.emptyYearHelper}
             />
           </div>
         ) : (

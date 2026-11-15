@@ -157,7 +157,8 @@ function PodiumColumn({
     <li
       className={cx(
         'podium__step',
-        `podium__step--${index + 1}`,
+        // Stopień według miejsca, nie pozycji: przy remisie 1, 1, 3 trzeci stoi na 3. stopniu.
+        `podium__step--${step.place}`,
         tied && 'podium__step--tied',
         mine && 'podium__step--mine',
       )}

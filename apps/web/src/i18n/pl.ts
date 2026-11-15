@@ -71,11 +71,6 @@ export const pl = {
       noPlays: 'Jeszcze nie zapisano partii.',
       more: { one: 'i {n} kolejna', few: 'i {n} kolejne', many: 'i {n} kolejnych' },
     },
-    ranking: {
-      title: 'Ranking',
-      emptyTitle: 'Ranking pojawi się po pierwszej partii',
-      emptyHelper: 'Punkty, wygrane i serie liczymy z partii zapisanych na spotkaniach.',
-    },
     timeline: {
       title: 'Timeline',
       emptyTitle: 'Brak spotkań',
@@ -173,6 +168,7 @@ export const pl = {
     tabsLabel: 'Klasyfikacja',
     tabs: { points: 'Punkty', wins: 'Wygrane', streak: 'Seria' },
     yearLabel: 'Zakres rankingu',
+    yearsError: 'Nie udało się wczytać listy lat.',
     allTime: 'Cała historia',
     seeMore: 'Zobacz pełny ranking',
     loading: 'Wczytywanie rankingu',
@@ -188,6 +184,8 @@ export const pl = {
       wins: { one: 'wygrana', few: 'wygrane', many: 'wygranych' },
       streak: { one: 'z rzędu', few: 'z rzędu', many: 'z rzędu' },
     },
+    emptyTitle: 'Ranking pojawi się po pierwszej partii',
+    emptyHelper: 'Punkty, wygrane i serie liczymy z partii zapisanych na spotkaniach.',
     emptyYearTitle: 'Brak partii w {year}',
     emptyYearHelper: 'Wybierz inny rok albo całą historię.',
   },
