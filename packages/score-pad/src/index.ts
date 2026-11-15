@@ -114,6 +114,8 @@ export interface ScorePadClubOptions {
   readonly sound?: boolean | undefined;
   /** Notes testowy kreatora (EDT-14): podsumowanie oderwanej kartki mówi, że jej nie zapisano. */
   readonly test?: boolean | undefined;
+  /** `false`: kartki nie da się oderwać (gestem ani `tear()`); domyślnie można. */
+  readonly tear?: boolean | undefined;
 }
 
 /** Wynik po oderwaniu karteczki (`scorepad:save`); pełny wynik z miejscami przyniesie PAD-7. */
@@ -135,6 +137,16 @@ export interface ScorePadEventMap {
   'scorepad:save': CustomEvent<ScorePadSaveDetail>;
   /** Kartka oderwana (także pusta, bez `scorepad:save`); wysyłane przed `scorepad:save`. */
   'scorepad:tear': CustomEvent<null>;
+  /**
+   * Tryb klubowy: zmiana stanu notesu z bieżącymi wpisami wierzchniej kartki (szkic partii,
+   * PAD-4). Także bez zmiany wpisów i po oderwaniu (czysta kolejna kartka).
+   */
+  'scorepad:change': CustomEvent<ScorePadChangeDetail>;
+}
+
+/** Szczegóły `scorepad:change`: wpisy wierzchniej kartki w formacie `sheet` pliku notesu. */
+export interface ScorePadChangeDetail {
+  readonly sheet: ScorePadSheet;
 }
 
 /** Rodzaj kategorii notesu. */

@@ -1,4 +1,5 @@
 import type {
+  ScorePadChangeDetail,
   ScorePadEventMap,
   ScorePadFile,
   ScorePadSaveDetail,
@@ -27,10 +28,14 @@ export interface ScorePadViewProps {
   readonly help?: boolean | undefined;
   /** Notes testowy kreatora (EDT-14): podsumowanie mówi, że karteczki nie zapisano. */
   readonly test?: boolean | undefined;
+  /** `false`: kartki nie da się oderwać (np. partia bez zapisu wyników). */
+  readonly tear?: boolean | undefined;
   readonly onReady?: (() => void) | undefined;
   readonly onSave?: ((detail: ScorePadSaveDetail) => void) | undefined;
   /** Kartka oderwana, także pusta (wtedy bez `onSave`); wywoływane przed `onSave`. */
   readonly onTear?: (() => void) | undefined;
+  /** Zmiana stanu notesu z bieżącymi wpisami kartki (szkic partii, PAD-4). */
+  readonly onChange?: ((detail: ScorePadChangeDetail) => void) | undefined;
   /** Stan ładowania modułu notesu (np. żeby wyłączyć przyciski do czasu wczytania). */
   readonly onLoadState?: ((state: ScorePadLoadState) => void) | undefined;
   readonly className?: string | undefined;
@@ -60,18 +65,20 @@ export function ScorePadView({
   controls,
   help,
   test,
+  tear,
   onReady,
   onSave,
   onTear,
+  onChange,
   onLoadState,
   className,
   ref,
 }: ScorePadViewProps) {
   const { resolved } = useTheme();
-  const handlers = useRef({ onReady, onSave, onTear });
+  const handlers = useRef({ onReady, onSave, onTear, onChange });
 
   useEffect(() => {
-    handlers.current = { onReady, onSave, onTear };
+    handlers.current = { onReady, onSave, onTear, onChange };
   });
 
   const { hostRef, elementRef, state, retry } = useScorePadElement(
@@ -79,15 +86,18 @@ export function ScorePadView({
     resolved,
     () => {
       const element = document.createElement('score-pad');
-      element.options = { club: true, config, templates, template, controls, help, test };
+      element.options = { club: true, config, templates, template, controls, help, test, tear };
       element.addEventListener('scorepad:ready', () => handlers.current.onReady?.());
       element.addEventListener('scorepad:tear', () => handlers.current.onTear?.());
+      element.addEventListener('scorepad:change', (event: ScorePadEventMap['scorepad:change']) =>
+        handlers.current.onChange?.(event.detail),
+      );
       element.addEventListener('scorepad:save', (event: ScorePadEventMap['scorepad:save']) =>
         handlers.current.onSave?.(event.detail),
       );
       return element;
     },
-    [config, templates, template, controls, help, test],
+    [config, templates, template, controls, help, test, tear],
   );
 
   const onLoadStateRef = useRef(onLoadState);

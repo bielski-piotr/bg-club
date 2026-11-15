@@ -9,7 +9,9 @@ import { CalendarPopup } from '../meetings/CalendarPopup';
 import { DeleteMeetingDialog } from '../meetings/DeleteMeetingDialog';
 import { AddMeetingPopup, EditMeetingPopup } from '../meetings/MeetingFormPopup';
 import { MeetingPopup } from '../meetings/MeetingPopup';
+import { DiscardPlayDialog } from '../meetings/DiscardPlayDialog';
 import { NewPlayPopup } from '../meetings/NewPlayPopup';
+import { PlayPopup } from '../meetings/PlayPopup';
 import { PublishGamesPopup } from '../meetings/PublishGamesPopup';
 import { FinishMeetingDialog, StartMeetingDialog } from '../meetings/RunMeetingDialogs';
 import { InvalidPopup } from '../popups/InvalidPopup';
@@ -98,6 +100,12 @@ export function HubPopup({ route, me }: HubPopupProps) {
       // Admin albo prowadzący spotkania w trakcie (RUN-2, PAD-9); popup sprawdza rolę i status,
       // bazę chroni RPC start_play.
       return <NewPlayPopup meetingId={route.meetingId} me={me} />;
+    case 'play':
+      // Notes tylko dla admina i prowadzącego trwającego spotkania, inni widzą „Trwa partia”
+      // (PAD-9); popup sprawdza rolę i status, bazę chroni RPC save_play_draft.
+      return <PlayPopup id={route.id} me={me} />;
+    case 'discard-play':
+      return <DiscardPlayDialog id={route.id} me={me} />;
     case 'invalid':
       return <InvalidPopup />;
   }

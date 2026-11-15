@@ -59,6 +59,21 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
+  it('zna partię w toku i jej porzucenie (PAD-4, PAD-8)', () => {
+    const stack = [
+      { kind: 'meeting', id: ID },
+      { kind: 'play', id: ID },
+      { kind: 'discard-play', id: ID },
+    ] as const;
+    const search = `?p=meeting/${ID}&p=play/${ID}&p=play/${ID}/discard`;
+    expect(parseStack(search)).toEqual(stack);
+    expect(stackSearch('', stack)).toBe(search);
+    expect(parseRoute(`play/${ID.toUpperCase()}`)).toEqual(stack[1]);
+    for (const raw of ['play', 'play/1', `play/${ID}/x`, `play/${ID}/discard/x`]) {
+      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    }
+  });
+
   it('zna planowanie, edycję i usuwanie spotkania (PLAN-1, PLAN-3)', () => {
     expect(parseStack(`?p=meetings/new&p=meeting/${ID}/edit&p=meeting/${ID}/delete`)).toEqual([
       { kind: 'add-meeting' },

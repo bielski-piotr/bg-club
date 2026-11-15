@@ -1,11 +1,12 @@
 import { useAuth } from '../auth/authContext';
 import { GameCover } from '../games/GameCover';
 import { format, t } from '../i18n';
+import { usePopups } from '../popups/popupContext';
 import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { avatarPerson, fullName, useAllProfiles, type Profile } from '../profile/profiles';
-import { AvatarStack, Icon, paletteColor, paletteIndex } from '../ui';
+import { AvatarStack, Button, Icon, paletteColor, paletteIndex } from '../ui';
 import { cx } from '../ui/cx';
 import { localDateTime } from './datetime';
 import { WinnersLine } from './MeetingParts';
@@ -27,18 +28,21 @@ const text = t.meetings.plays;
  * wynikami i punktami do rankingu.
  *
  * `onOpenPlay` podłącza szczegóły partii i powiększenie karteczki z historii (E4); bez niego
- * karta nie jest klikalna.
+ * karta nie jest klikalna. `runner` (admin albo prowadzący) dostaje przy partiach w toku
+ * „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą tylko, że partia trwa (PAD-9).
  */
 export function MeetingPlaysSection({
   meeting,
   timeZone,
   winners,
+  runner = false,
   onOpenPlay,
 }: {
   readonly meeting: Meeting;
   readonly timeZone: string;
   /** Zwycięzcy spotkania (MTG-3) nad listą partii; puste = bez wiersza. */
   readonly winners?: readonly string[] | undefined;
+  readonly runner?: boolean | undefined;
   readonly onOpenPlay?: ((play: MeetingPlay) => void) | undefined;
 }) {
   const { client } = useAuth();
@@ -79,7 +83,12 @@ export function MeetingPlaysSection({
             <ul className="play-list" aria-label={text.liveLabel}>
               {split.drafts.map((play) => (
                 <li key={play.id}>
-                  <LivePlayCard play={play} timeZone={timeZone} profiles={profiles.data} />
+                  <LivePlayCard
+                    play={play}
+                    timeZone={timeZone}
+                    profiles={profiles.data}
+                    canRun={runner && meeting.status === 'in_progress'}
+                  />
                 </li>
               ))}
             </ul>
@@ -218,18 +227,22 @@ function PlayCard({
 }
 
 /**
- * Partia w toku (DS §15 „Live play card”): gra, od kiedy trwa i gracze. Powrót do notesu
- * i porzucenie partii dochodzą razem z notesem partii (RUN-2, E4).
+ * Partia w toku (DS §15 „Live play card”): gra, od kiedy trwa i gracze. Admin i prowadzący
+ * wracają do notesu (także na innym urządzeniu, PAD-4) albo porzucają partię (PAD-8).
  */
 function LivePlayCard({
   play,
   timeZone,
   profiles,
+  canRun,
 }: {
   readonly play: MeetingPlay;
   readonly timeZone: string;
   readonly profiles: ReadonlyMap<string, Profile>;
+  readonly canRun: boolean;
 }) {
+  const { open } = usePopups();
+  const live = t.meetings.play;
   const players = sortedResults(play).flatMap((result) => {
     const person = profiles.get(result.profile_id);
     return person ? [avatarPerson(person)] : [];
@@ -254,6 +267,28 @@ function LivePlayCard({
           <AvatarStack people={players} size={28} max={4} showOverflow />
         ) : null}
       </div>
+      {canRun ? (
+        <div className="play-card__actions">
+          <Button
+            size="sm"
+            icon="pad"
+            className="play-card__resume"
+            aria-label={format(live.backToPadLabel, { title: play.game.title })}
+            onClick={() => open({ kind: 'play', id: play.id })}
+          >
+            {live.backToPad}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="play-card__discard"
+            aria-label={format(live.discardLabel, { title: play.game.title })}
+            onClick={() => open({ kind: 'discard-play', id: play.id })}
+          >
+            {live.discard}
+          </Button>
+        </div>
+      ) : null}
     </article>
   );
 }

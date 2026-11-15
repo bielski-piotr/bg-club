@@ -81,6 +81,7 @@ select results_eq(
         and has_function_privilege('authenticated', p.oid, 'execute')
       order by 1 $$,
   $$ values
+       ('discard_play(uuid)'),
        ('f_unaccent(text)'),
        ('finish_meeting(uuid)'),
        ('is_valid_points(integer[],integer)'),
@@ -93,12 +94,13 @@ select results_eq(
        ('publish_meeting_games(uuid,uuid[])'),
        ('reopen_voting(uuid)'),
        ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid,boolean)'),
+       ('save_play_draft(uuid,jsonb,integer)'),
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
        ('search_text(text)'),
        ('start_meeting(uuid)'),
        ('start_play(uuid,uuid,uuid,uuid[])') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań i rozpoczęcie partii'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic i porzucenie partii'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.

@@ -8,6 +8,10 @@ export interface PopupApi {
   readonly open: (route: PopupRoute) => void;
   /** Zamyka górny popup (jak Wstecz w przeglądarce, Esc i przycisk ←). */
   readonly back: () => void;
+  /** Zamyka `count` popupów z góry stosu (np. dialog i popup pod nim, którego treść zniknęła). */
+  readonly backBy: (count: number) => void;
+  /** Zastępuje górny popup innym bez nowego wpisu historii (np. kreator → jego wynik). */
+  readonly replace: (route: PopupRoute) => void;
   /** Zamyka cały stos i wraca do huba (przycisk ×). */
   readonly closeAll: () => void;
   /** Adres po otwarciu `route` nad bieżącym stosem (dla `<a href>`). */

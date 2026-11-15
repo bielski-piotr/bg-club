@@ -102,11 +102,21 @@ export interface ScorePadOptions {
    * zapisano. Zapisów i historii i tak nie prowadzi aplikacja dla zdarzeń z testu.
    */
   test?: boolean;
+  /**
+   * `false`: kartki nie da się oderwać (ani gestem, ani `tear()`); krawędź nie daje się chwycić.
+   * Domyślnie można.
+   */
+  tear?: boolean;
   /** Motyw otoczenia notesu (stół i winieta); domyślnie ciemny. Nakładki notesu są zawsze ciemne. */
   theme?: PadTheme;
 }
 
 export type PadTheme = 'light' | 'dark';
+
+/** Szczegóły zdarzenia `scorepad:change` (tryb klubowy): bieżące wpisy wierzchniej kartki. */
+export interface PadChangeDetail {
+  sheet: NonNullable<PadConfig['sheet']>;
+}
 
 /** Szczegóły zdarzenia `scorepad:save`: wpis partii i pełne wpisy z oderwanej kartki. */
 export interface PadSaveDetail extends HistoryEntry {
@@ -481,8 +491,8 @@ export class ScorePad {
         <section class="help" aria-label="Jak używać notesu" hidden>
           <ol>
             <li><span><b>Kliknij pole</b> i wpisz punkty z klawiatury. Enter albo Tab przechodzi do następnej kategorii, Shift+Tab cofa. Sumy liczą się same.</span></li>
-            <li><span><b>Chwyć <span data-edge>dolną</span> krawędź</b> i przeciągnij w stronę grzbietu — kartka uniesie się i przewróci pod światło lampy.</span></li>
-            <li><span><b>Szarpnij mocno</b> <span data-pull>w dół albo w bok</span>, a kartka oderwie się i wynik zostanie zapisany.</span></li>
+            <li data-tear><span><b>Chwyć <span data-edge>dolną</span> krawędź</b> i przeciągnij w stronę grzbietu — kartka uniesie się i przewróci pod światło lampy.</span></li>
+            <li data-tear><span><b>Szarpnij mocno</b> <span data-pull>w dół albo w bok</span>, a kartka oderwie się i wynik zostanie zapisany.</span></li>
             <li><span><b>Obróć notes</b> dwoma palcami albo prawym przyciskiem myszy, <b>przybliż</b> szczypaniem albo kółkiem. Klawisz 0 wraca do widoku z góry.</span></li>
           </ol>
           <button type="button" class="help-close" aria-label="Ukryj wskazówki">×</button>
@@ -527,6 +537,10 @@ export class ScorePad {
         </div>
         <div class="loading">Rozkładam notes…</div>
       </div>`;
+    // bez odrywania wskazówki o chwytaniu i szarpaniu kartki wprowadzałyby w błąd
+    if (this.opts.tear === false) {
+      this.root.querySelectorAll('[data-tear]').forEach((node) => node.remove());
+    }
     const q = <T extends HTMLElement>(s: string): T => this.root.querySelector(s) as T;
     this.wrap = q('.sp');
     this.ui = {
@@ -1088,8 +1102,24 @@ export class ScorePad {
   }
 
   private persist(): void {
-    if (this.opts.club) return;
+    if (this.opts.club) {
+      this.emitSheetChange();
+      return;
+    }
     saveState(this.opts.storageKey, this.saved);
+  }
+
+  /**
+   * Tryb klubowy: stan kartki zapisuje aplikacja (szkic partii, PAD-4), więc zamiast zapisu
+   * w `localStorage` notes wysyła wpisy wierzchniej kartki w zdarzeniu `scorepad:change`.
+   * Wysyłane przy każdej zmianie stanu notesu, także bez zmiany wpisów (aplikacja porównuje).
+   */
+  private emitSheetChange(): void {
+    if (!this.t || !this.active || this.switching) return;
+    const detail: PadChangeDetail = { sheet: packSheet(this.active.data) };
+    this.host.dispatchEvent(
+      new CustomEvent('scorepad:change', { detail, bubbles: true, composed: true }),
+    );
   }
 
   private applyTheme(): void {
@@ -1362,11 +1392,13 @@ export class ScorePad {
     const uv = (h.uv as THREE.Vector2).clone();
     const point = h.point.clone();
     const back = !!h.face && this.raycaster.ray.direction.dot(h.face.normal) > 0;
-    if (!a.resting || back) return { kind: 'edge', uv, point };
+    // bez odrywania (`tear: false`) krawędź kartki nie daje się chwycić: dalej trafia w pola
+    const tearable = this.opts.tear !== false;
+    if (!a.resting || back) return tearable ? { kind: 'edge', uv, point } : null;
     const sx = uv.x * s.W;
     const sy = (1 - uv.y) * s.H;
     const edge = area ? area.edgeDist(uv.x, 1 - uv.y) * s.W : Math.min(sx, s.W - sx, s.H - sy);
-    if (edge < this.cfg.tear.edgeGrab) return { kind: 'edge', uv, point };
+    if (tearable && edge < this.cfg.tear.edgeGrab) return { kind: 'edge', uv, point };
     // uv siatki to układ fizyczny; pola leżą we współrzędnych treści
     const c = s.rot ? { u: 1 - uv.y, v: 1 - uv.x } : { u: uv.x, v: 1 - uv.y };
     const sp = hitSpot(t, c.u, c.v);
@@ -3082,7 +3114,7 @@ export class ScorePad {
 
   /** Odrywa wierzchnią kartkę bez gestu (przycisk „Oderwij kartkę” w kreatorze, EDT-14). */
   tear(): void {
-    if (!this.t || this.switching) return;
+    if (!this.t || this.switching || this.opts.tear === false) return;
     this.completeTear();
   }
 

@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(42);
+select plan(43);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
@@ -42,7 +42,8 @@ select columns_are('public', 'meeting_games',
   array['meeting_id', 'game_id', 'position'], 'kolumny meeting_games');
 select columns_are('public', 'plays',
   array['id', 'meeting_id', 'game_id', 'scorepad_version_id', 'status', 'sheet', 'sheet_image_path',
-        'points_snapshot', 'started_by', 'started_at', 'saved_at'], 'kolumny plays');
+        'points_snapshot', 'started_by', 'started_at', 'saved_at', 'draft_version', 'draft_saved_at',
+        'draft_saved_by'], 'kolumny plays');
 select columns_are('public', 'play_results',
   array['play_id', 'meeting_id', 'profile_id', 'seat', 'scores', 'ranking_value', 'place', 'tied',
         'points', 'is_win'], 'kolumny play_results');
@@ -135,7 +136,9 @@ select is_empty(
           'public.finish_meeting(uuid)'::regprocedure,
           'public.publish_meeting_games(uuid,uuid[])'::regprocedure,
           'public.reopen_voting(uuid)'::regprocedure,
-          'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure
+          'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure,
+          'public.save_play_draft(uuid,jsonb,int)'::regprocedure,
+          'public.discard_play(uuid)'::regprocedure
         )
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
@@ -160,6 +163,11 @@ select ok(
   (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(start_play\.meeting_id\);'
      from pg_proc where oid = 'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure),
   'start_play (security definer) zaczyna od strażnika private.require_meeting_runner()'
+);
+select ok(
+  (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(private\.play_meeting\(')
+     from pg_proc where oid in ('public.save_play_draft(uuid,jsonb,int)'::regprocedure, 'public.discard_play(uuid)'::regprocedure)),
+  'save_play_draft i discard_play (security definer) zaczynają od strażnika private.require_meeting_runner()'
 );
 select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);')

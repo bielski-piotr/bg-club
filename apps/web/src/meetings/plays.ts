@@ -80,6 +80,79 @@ export function useMeetingPlays(client: SupabaseClient, meetingId: string, fresh
   });
 }
 
+/** Partia z kartką i szkicem (PAD-4): notes partii w toku i jej wznowienie. */
+export interface PlayDetail {
+  readonly id: string;
+  readonly meeting_id: string;
+  readonly status: 'draft' | 'saved';
+  readonly started_at: string;
+  /** Wpisy kartki (format `sheet` pliku notesu) albo `null` przed pierwszym zapisem szkicu. */
+  readonly sheet: unknown;
+  readonly draft_version: number;
+  readonly draft_saved_at: string | null;
+  readonly draft_saved_by: string | null;
+  readonly scorepad_version_id: string;
+  readonly game: MeetingPlay['game'];
+  /** Nazwa notesu i liczba miejsc wersji, z którą partia się zaczęła (GAME-9). */
+  readonly scorepad: { readonly name: string; readonly slots: number };
+  readonly seats: readonly { readonly profile_id: string; readonly seat: number }[];
+}
+
+interface PlayDetailRow extends Omit<PlayDetail, 'game' | 'scorepad' | 'seats'> {
+  readonly game_id: string;
+  readonly games: MeetingPlay['game'] | null;
+  readonly scorepad_versions: {
+    readonly player_slots: number;
+    readonly scorepads: { readonly name: string } | null;
+  } | null;
+  readonly play_results: PlayDetail['seats'];
+}
+
+const PLAY_DETAIL_COLUMNS =
+  'id, meeting_id, status, started_at, sheet, draft_version, draft_saved_at, draft_saved_by, ' +
+  'scorepad_version_id, game_id, games(id, title, cover_path), ' +
+  'scorepad_versions(player_slots, scorepads!scorepad_versions_scorepad_id_fkey(name)), ' +
+  'play_results!play_results_play_id_meeting_id_fkey(profile_id, seat)';
+
+export const playKey = (id: string) => [...meetingsKey, 'play', id] as const;
+
+export function fromPlayDetailRow(row: PlayDetailRow): PlayDetail {
+  const { games, game_id, scorepad_versions, play_results, ...rest } = row;
+  const seats = [...play_results].sort((a, b) => a.seat - b.seat);
+  return {
+    ...rest,
+    game: games ?? { id: game_id, title: t.meetings.plays.unknownGame, cover_path: null },
+    scorepad: {
+      name: scorepad_versions?.scorepads?.name ?? '',
+      slots: scorepad_versions?.player_slots ?? Math.max(0, ...seats.map((s) => s.seat)),
+    },
+    seats,
+  };
+}
+
+/**
+ * Partia z kartką (PAD-4). `null` = nie ma jej (np. porzucona). Szkic czyta się z bazy przy
+ * każdym otwarciu: na innym urządzeniu mógł się zmienić (wznowienie bez synchronizacji na żywo).
+ */
+export function usePlay(client: SupabaseClient, id: string) {
+  return useQuery({
+    queryKey: playKey(id),
+    refetchOnMount: 'always',
+    // Notes trzyma własny stan; ponowne pobranie przy powrocie do karty niczego by nie zmieniło.
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<PlayDetail | null> => {
+      if (!isUuid(id)) return null;
+      const { data, error } = await client
+        .from('plays')
+        .select(PLAY_DETAIL_COLUMNS)
+        .eq('id', id)
+        .maybeSingle<PlayDetailRow>();
+      if (error) throw error;
+      return data ? fromPlayDetailRow(data) : null;
+    },
+  });
+}
+
 export interface SplitPlays {
   /** Zapisane partie w kolejności rozegrania (`saved_at`, potem `id`, §5.6.6, Q24). */
   readonly saved: readonly MeetingPlay[];

@@ -5,7 +5,7 @@
 import type { ScorePadElement as PadElementImpl } from './core/index';
 import type { PadConfig } from './core/settings';
 import type { LineDef, PadTemplate } from './core/templates';
-import type { PadSaveDetail, ScorePadOptions } from './core/viewer';
+import type { PadChangeDetail, PadSaveDetail, ScorePadOptions } from './core/viewer';
 import type {
   EditorAreaPatch,
   EditorCategoriesAction,
@@ -17,6 +17,7 @@ import type * as TemplateDecl from './template';
 import type * as TemplateImpl from './template-tools';
 import type {
   ScorePadApi,
+  ScorePadChangeDetail,
   ScorePadClubOptions,
   ScorePadEditorAreaPatch,
   ScorePadEditorCategoriesAction,
@@ -40,6 +41,7 @@ export type Contract = [
   Assert<Extends<LineDef, ScorePadLine>>,
   Assert<Extends<PadConfig, ScorePadFile>>,
   Assert<Extends<PadSaveDetail, ScorePadSaveDetail>>,
+  Assert<Extends<PadChangeDetail, ScorePadChangeDetail>>,
   // Szablony i plik notesu z bazy są dla aplikacji danymi; notes sprawdza je w czasie działania
   // (`validateTemplate`, `isConfig`), więc tu porównujemy tylko nazwy i pozostałe opcje.
   Assert<Extends<keyof ScorePadClubOptions, keyof ScorePadOptions>>,

@@ -173,22 +173,55 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
     ask(0);
   }, []);
 
-  const back = useCallback(() => {
+  const backBy = useCallback(
+    (count: number) => {
+      if (navigating.current) return;
+      const current = parseStack(window.location.search);
+      const n = Math.min(Number.isInteger(count) && count > 1 ? count : 1, current.length);
+      if (current.length === 0) return;
+      const levels = current
+        .map((_, level) => level)
+        .slice(-n)
+        .reverse();
+      askGuards(levels, () => {
+        // Stos mógł się zmienić, gdy ochrona czekała na odpowiedź.
+        if (navigating.current || !sameStack(parseStack(window.location.search), current)) return;
+        const depth = currentDepth();
+        if (depth >= n) {
+          navigating.current = true;
+          if (n === 1) window.history.back();
+          else window.history.go(-n);
+          return;
+        }
+        // Część popupów nie ma własnych wpisów historii (link, odświeżenie): cofamy te, które
+        // mają, a resztę zdejmujemy z adresu po powrocie.
+        if (depth > 0) {
+          navigating.current = true;
+          const rest = urlWith(current.slice(0, -n));
+          const onPop = () => {
+            window.history.replaceState({ bgPopupDepth: 0 }, '', rest);
+            setSearch(window.location.search);
+          };
+          window.addEventListener('popstate', onPop, { once: true });
+          window.history.go(-depth);
+          return;
+        }
+        window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith(current.slice(0, -n)));
+        setSearch(window.location.search);
+      });
+    },
+    [askGuards],
+  );
+  const back = useCallback(() => backBy(1), [backBy]);
+
+  const replace = useCallback((route: PopupRoute) => {
     if (navigating.current) return;
     const current = parseStack(window.location.search);
     if (current.length === 0) return;
-    askGuards([current.length - 1], () => {
-      // Stos mógł się zmienić, gdy ochrona czekała na odpowiedź.
-      if (navigating.current || !sameStack(parseStack(window.location.search), current)) return;
-      if (currentDepth() > 0) {
-        navigating.current = true;
-        window.history.back();
-        return;
-      }
-      window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith(current.slice(0, -1)));
-      setSearch(window.location.search);
-    });
-  }, [askGuards]);
+    const state: PopupHistoryState = { bgPopupDepth: currentDepth() };
+    window.history.replaceState(state, '', urlWith([...current.slice(0, -1), route]));
+    setSearch(window.location.search);
+  }, []);
 
   const closeAll = useCallback(() => {
     const current = parseStack(window.location.search);
@@ -214,8 +247,8 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
   );
 
   const api = useMemo<PopupApi>(
-    () => ({ stack, open, back, closeAll, hrefFor }),
-    [stack, open, back, closeAll, hrefFor],
+    () => ({ stack, open, back, backBy, replace, closeAll, hrefFor }),
+    [stack, open, back, backBy, replace, closeAll, hrefFor],
   );
 
   return (

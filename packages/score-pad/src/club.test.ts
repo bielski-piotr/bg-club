@@ -180,6 +180,50 @@ describe('tryb klubowy (PAD-1)', () => {
     poc.destroy();
   });
 
+  it('zmiana kartki wysyła `scorepad:change` z wpisami zamiast zapisu w localStorage (PAD-4)', () => {
+    stubIndexedDb();
+    const host = document.createElement('div');
+    const pad = new ScorePad(host, { club: true });
+    const t = gridTemplate(2);
+    const sheet = { game: 3, names: ['Ada', null], cells: { a: [7, null] } };
+    const data = unpackSheet(sheet, t);
+    const events: unknown[] = [];
+    host.addEventListener('scorepad:change', (event) => {
+      events.push((event as CustomEvent).detail);
+    });
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    // Notes bez WebGL w jsdom: wierzchnia kartka podstawiona tak, jak po wczytaniu szablonu.
+    const inner = pad as unknown as { t: PadTemplate; active: { data: unknown }; persist(): void };
+    inner.persist();
+    expect(events).toEqual([]);
+    inner.t = t;
+    inner.active = { data };
+    inner.persist();
+    expect(events).toEqual([{ sheet: packSheet(data) }]);
+    expect(events[0]).toMatchObject({ sheet: { game: 3, names: ['Ada', null] } });
+    expect(setItem).not.toHaveBeenCalled();
+    pad.destroy();
+  });
+
+  it('bez odrywania (`tear: false`) pomoc nie wspomina o odrywaniu, a `tear()` nic nie robi', () => {
+    stubIndexedDb();
+    const tips = (options: { tear?: boolean }) => {
+      const host = document.createElement('div');
+      const pad = new ScorePad(host, { club: true, ...options });
+      const count = host.shadowRoot?.querySelectorAll('.help li').length ?? 0;
+      const torn = vi.fn();
+      host.addEventListener('scorepad:tear', torn);
+      (pad as unknown as { t: PadTemplate }).t = gridTemplate(2);
+      if (options.tear === false) pad.tear();
+      pad.destroy();
+      return { count, torn };
+    };
+    expect(tips({}).count).toBe(4);
+    const blocked = tips({ tear: false });
+    expect(blocked.count).toBe(2);
+    expect(blocked.torn).not.toHaveBeenCalled();
+  });
+
   it('element <score-pad> przyjmuje opcje obiektem i motyw atrybutem', async () => {
     stubIndexedDb();
     await import('./core/index');

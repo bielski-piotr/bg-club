@@ -122,7 +122,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
   const { client } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { back } = usePopups();
+  const { back, replace } = usePopups();
   const mounted = useMounted();
   // Id partii: to samo przy ponowieniu (błąd sieci nie zdubluje partii), nowe po każdej zmianie
   // wyboru, bo baza zwraca istniejącą partię tylko dla identycznej treści.
@@ -160,7 +160,8 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
     },
     onSuccess: () => {
       toast.show(format(t.meetings.toasts.playStarted, { title: game?.title ?? '' }), 'success');
-      if (mounted.current) back();
+      // Kreator ustępuje notesowi partii (PAD-4); Wstecz wraca do spotkania.
+      if (mounted.current) replace({ kind: 'play', id: playId });
     },
     // Także po błędzie: notes, gra albo spotkanie mogły się zmienić w innej karcie.
     onSettled: (_, error) =>
