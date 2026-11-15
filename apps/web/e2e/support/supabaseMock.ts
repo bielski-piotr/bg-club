@@ -187,6 +187,11 @@ export interface MockOptions {
   gameStats?: (gameId: string) => unknown;
   /** Wiersze `meeting_summary(meeting_id)` (VIEW-4); domyślnie puste podsumowanie. */
   meetingSummary?: (meetingId: string) => readonly unknown[];
+  /**
+   * Wynik `player_stats(profile_id, year)` (STAT-1–STAT-3, migracja
+   * `20261115223700_player_stats.sql`); `year` `null` = cała historia. Domyślnie zero partii.
+   */
+  playerStats?: (profileId: string, year: number | null) => unknown;
 }
 
 /** `game_stats` gry bez zapisanych partii. */
@@ -197,6 +202,21 @@ export const EMPTY_GAME_STATS = {
   record: null,
   winner_average: null,
   ranking: [],
+} as const;
+
+/** `player_stats` gracza bez zapisanych partii. */
+export const EMPTY_PLAYER_STATS = {
+  years: [],
+  meetings: 0,
+  plays: 0,
+  wins: 0,
+  points: 0,
+  streak_record: 0,
+  streak_current: 0,
+  places: { points: null, wins: null, streak: null },
+  favorite_game: null,
+  best_game: null,
+  recent_plays: [],
 } as const;
 
 /** Wiersz `leaderboard(kind, year)` (migracja `20261113001700_leaderboard.sql`). */
@@ -495,6 +515,8 @@ export interface SupabaseMock {
   readonly playDeletes: string[];
   /** Wywołania `leaderboard` (rodzaj i rok). */
   readonly leaderboardCalls: { readonly kind: string; readonly year: number | null }[];
+  /** Wywołania `player_stats` (gracz i rok). */
+  readonly playerStatsCalls: { readonly profileId: string; readonly year: number | null }[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -564,6 +586,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     sheetAttaches: [],
     sheetRemoved: [],
     leaderboardCalls: [],
+    playerStatsCalls: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -1326,6 +1349,16 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     if (url.pathname === '/rest/v1/rpc/game_stats' && request.method() === 'POST') {
       const { game_id } = request.postDataJSON() as { game_id: string };
       return route.fulfill({ json: mock.options.gameStats?.(game_id) ?? EMPTY_GAME_STATS });
+    }
+    if (url.pathname === '/rest/v1/rpc/player_stats' && request.method() === 'POST') {
+      const { profile_id, year } = request.postDataJSON() as {
+        profile_id: string;
+        year: number | null;
+      };
+      mock.playerStatsCalls.push({ profileId: profile_id, year });
+      return route.fulfill({
+        json: mock.options.playerStats?.(profile_id, year) ?? EMPTY_PLAYER_STATS,
+      });
     }
     if (url.pathname === '/rest/v1/rpc/meeting_summary' && request.method() === 'POST') {
       const { meeting_id } = request.postDataJSON() as { meeting_id: string };

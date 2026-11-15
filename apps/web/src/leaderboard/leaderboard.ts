@@ -80,6 +80,19 @@ export function filterYear(filter: YearFilter): number | null {
 }
 
 /**
+ * Opcje filtru roku (LB-4, STAT-3): „Cała historia”, potem lata od najnowszego.
+ * Wybrany rok, który zniknął z listy (np. po usunięciu jego jedynej partii), zostaje na końcu.
+ */
+export function yearFilterValues(
+  years: readonly number[],
+  selected: YearFilter,
+): readonly YearFilter[] {
+  const values: YearFilter[] = ['all', ...years.map((year) => `${year}` as const)];
+  if (!values.includes(selected)) values.push(selected);
+  return values;
+}
+
+/**
  * Klucze w `profilesKey`: zapis i usunięcie partii odświeżają ranking razem z profilami
  * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
  */
