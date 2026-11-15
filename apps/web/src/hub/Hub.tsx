@@ -114,7 +114,7 @@ function Widgets({ me }: { readonly me: Profile }) {
         <MeetingWidget me={me} />
       </div>
       <div className="hub__slot hub__slot--right">
-        <RankingWidget />
+        <RankingWidget me={me} />
       </div>
       <div className="hub__slot hub__slot--left">
         <TimelineWidget />

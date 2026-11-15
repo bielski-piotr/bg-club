@@ -31,6 +31,7 @@ import { ClubLogo } from './ClubLogo';
 import { IMAGE_ACCEPT, ImageScaleError, scaleImage, type ScaledImage } from './image';
 import { browserTimezone, timezoneOptions } from './timezones';
 import './club.css';
+import { leaderboardRootKey } from '../leaderboard/leaderboard';
 
 /**
  * Popup „Dodaj klub” / „Edytuj klub” (CLUB-2, DS §17). Otwiera go administrator z pierwszego
@@ -118,6 +119,8 @@ function ClubForm({ club }: { readonly club: Club | null }) {
       saveClub(client, club, { name, timezone, logo: logoChange }),
     onSuccess: (saved) => {
       queryClient.setQueryData(clubKey, saved);
+      // Strefa klubu wyznacza granice roku w rankingu (NFR-10).
+      void queryClient.invalidateQueries({ queryKey: leaderboardRootKey });
       toast.show(creating ? t.club.toasts.created : t.club.toasts.updated, 'success');
       back();
     },

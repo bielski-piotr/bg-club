@@ -173,6 +173,25 @@ export interface MockOptions {
   orphanSheets?: readonly string[];
   /** Tyle pierwszych usunięć plików z bucketu `sheets` kończy się błędem Storage (500). */
   sheetRemoveFailures?: number;
+  /**
+   * Wynik `leaderboard(kind, year)` (LB-1, LB-4) w kolejności z bazy; `year` `null` = cała
+   * historia. Domyślnie pusty ranking.
+   */
+  leaderboard?: (kind: string, year: number | null) => readonly MockLeaderboardRow[];
+  /** Wynik `leaderboard_years()`; domyślnie brak lat. */
+  leaderboardYears?: readonly number[];
+}
+
+/** Wiersz `leaderboard(kind, year)` (migracja `20261113001700_leaderboard.sql`). */
+export interface MockLeaderboardRow {
+  readonly place: number;
+  readonly profile_id: string;
+  readonly first_name: string;
+  readonly last_name: string;
+  readonly avatar_path: string | null;
+  readonly deleted: boolean;
+  readonly podium: boolean;
+  readonly value: number;
 }
 
 /** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
@@ -457,6 +476,8 @@ export interface SupabaseMock {
   readonly sheetRemoved: string[];
   /** Wywołania `delete_play` (VIEW-6, id partii), także odrzucone. */
   readonly playDeletes: string[];
+  /** Wywołania `leaderboard` (rodzaj i rok). */
+  readonly leaderboardCalls: { readonly kind: string; readonly year: number | null }[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -525,6 +546,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     sheetUploads: [],
     sheetAttaches: [],
     sheetRemoved: [],
+    leaderboardCalls: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -1275,6 +1297,14 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.scorepadSaves.push(body);
       const pad = (mock.options.scorepads ?? []).find((p) => p.id === body.scorepad_id);
       return route.fulfill({ json: { version: (pad?.current.version ?? 0) + 1 } });
+    }
+    if (url.pathname === '/rest/v1/rpc/leaderboard' && request.method() === 'POST') {
+      const { kind, year } = request.postDataJSON() as { kind: string; year: number | null };
+      mock.leaderboardCalls.push({ kind, year });
+      return route.fulfill({ json: mock.options.leaderboard?.(kind, year) ?? [] });
+    }
+    if (url.pathname === '/rest/v1/rpc/leaderboard_years' && request.method() === 'POST') {
+      return route.fulfill({ json: mock.options.leaderboardYears ?? [] });
     }
     if (url.pathname === '/rest/v1/rpc/search_games' && request.method() === 'POST') {
       const { query } = request.postDataJSON() as { query: string };

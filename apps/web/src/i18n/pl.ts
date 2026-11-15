@@ -71,11 +71,6 @@ export const pl = {
       noPlays: 'Jeszcze nie zapisano partii.',
       more: { one: 'i {n} kolejna', few: 'i {n} kolejne', many: 'i {n} kolejnych' },
     },
-    ranking: {
-      title: 'Ranking',
-      emptyTitle: 'Ranking pojawi się po pierwszej partii',
-      emptyHelper: 'Punkty, wygrane i serie liczymy z partii zapisanych na spotkaniach.',
-    },
     timeline: {
       title: 'Timeline',
       emptyTitle: 'Brak spotkań',
@@ -166,6 +161,33 @@ export const pl = {
     loading: 'Wczytywanie',
     loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
+  },
+  /** Ranking: widżet i popup (PRD LB-1…LB-7, DS §6, §8, zadanie [033]). */
+  leaderboard: {
+    title: 'Ranking',
+    tabsLabel: 'Klasyfikacja',
+    tabs: { points: 'Punkty', wins: 'Wygrane', streak: 'Seria' },
+    yearLabel: 'Zakres rankingu',
+    yearsError: 'Nie udało się wczytać listy lat.',
+    allTime: 'Cała historia',
+    seeMore: 'Zobacz pełny ranking',
+    loading: 'Wczytywanie rankingu',
+    podiumLabel: 'Podium',
+    listLabel: 'Kolejne miejsca',
+    count: { one: '{n} gracz', few: '{n} graczy', many: '{n} graczy' },
+    place: '{place}. miejsce',
+    tied: { one: '{n} osoba', few: '{n} osoby', many: '{n} osób' },
+    more: 'i {n} więcej',
+    moreLabel: 'Pozostałe osoby na tym miejscu: {names}',
+    units: {
+      points: { one: 'pkt', few: 'pkt', many: 'pkt' },
+      wins: { one: 'wygrana', few: 'wygrane', many: 'wygranych' },
+      streak: { one: 'z rzędu', few: 'z rzędu', many: 'z rzędu' },
+    },
+    emptyTitle: 'Ranking pojawi się po pierwszej partii',
+    emptyHelper: 'Punkty, wygrane i serie liczymy z partii zapisanych na spotkaniach.',
+    emptyYearTitle: 'Brak partii w {year}',
+    emptyYearHelper: 'Wybierz inny rok albo całą historię.',
   },
   /** Strona pod nieznanym adresem (np. literówka w ścieżce). */
   notFound: {
