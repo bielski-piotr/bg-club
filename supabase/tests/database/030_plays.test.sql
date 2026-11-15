@@ -354,7 +354,7 @@ select throws_like(
 -- ---------------------------------------------------------------------------------------------
 select lives_ok(
   $$ insert into public.achievement_unlocks (profile_id, achievement_id, unlocked_at, meeting_id, play_id)
-     values ('00000000-0000-4000-a000-000000000002', 'win-1', '2026-11-20 18:00+01',
+     values ('00000000-0000-4000-a000-000000000002', 'voter-10', '2026-11-20 18:00+01',
              '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-f000-000000000001') $$,
   'odblokowanie osiągnięcia'
 );
