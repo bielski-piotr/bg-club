@@ -21,6 +21,30 @@ describe('adresy popupów (PRD §4)', () => {
     expect(stackSearch('?x=1&p=members', [])).toBe('?x=1');
   });
 
+  it('zna planowanie, edycję i usuwanie spotkania (PLAN-1, PLAN-3)', () => {
+    expect(parseStack(`?p=meetings/new&p=meeting/${ID}/edit&p=meeting/${ID}/delete`)).toEqual([
+      { kind: 'add-meeting' },
+      { kind: 'edit-meeting', id: ID },
+      { kind: 'delete-meeting', id: ID },
+    ]);
+    expect(parseRoute('meetings/new/2026-11-28')).toEqual({
+      kind: 'add-meeting',
+      date: '2026-11-28',
+    });
+    expect(stackSearch('', [{ kind: 'add-meeting', date: '2026-11-28' }])).toBe(
+      '?p=meetings/new/2026-11-28',
+    );
+    expect(stackSearch('', [{ kind: 'add-meeting' }])).toBe('?p=meetings/new');
+    for (const raw of [
+      'meetings/new/2026-02-30',
+      'meetings/new/jutro',
+      'meeting/1/edit',
+      'meetings',
+    ]) {
+      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    }
+  });
+
   it('zna formularz klubu (CLUB-2)', () => {
     expect(parseStack('?p=club')).toEqual([{ kind: 'club' }]);
     expect(stackSearch('', [{ kind: 'club' }])).toBe('?p=club');

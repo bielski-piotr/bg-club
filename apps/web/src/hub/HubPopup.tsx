@@ -5,6 +5,8 @@ import { AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
 import { AddMemberPopup } from '../members/AddMemberPopup';
 import { DeleteMemberDialog } from '../members/DeleteMemberDialog';
 import { MembersPopup } from '../members/MembersPopup';
+import { DeleteMeetingDialog } from '../meetings/DeleteMeetingDialog';
+import { AddMeetingPopup, EditMeetingPopup } from '../meetings/MeetingFormPopup';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
 import type { OwnProfile } from '../auth/useOwnProfile';
@@ -67,6 +69,13 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <RenameScorepadDialog id={route.id} /> : <InvalidPopup />;
     case 'delete-scorepad':
       return me.role === 'admin' ? <DeleteScorepadDialog id={route.id} /> : <InvalidPopup />;
+    case 'add-meeting':
+      // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
+      return me.role === 'admin' ? <AddMeetingPopup me={me} date={route.date} /> : <InvalidPopup />;
+    case 'edit-meeting':
+      return me.role === 'admin' ? <EditMeetingPopup id={route.id} me={me} /> : <InvalidPopup />;
+    case 'delete-meeting':
+      return me.role === 'admin' ? <DeleteMeetingDialog id={route.id} /> : <InvalidPopup />;
     case 'invalid':
       return <InvalidPopup />;
   }

@@ -238,8 +238,11 @@
     align-items: start;
   }
 
+  /* „dense”: karta prawej kolumny trafia pod poprzednią kartę tej kolumny, a nie poniżej
+     dłuższej karty lewej (rzadkie auto-placement przesuwa kursor wierszy tylko w przód). */
   .hub__grid--masonry {
     grid-auto-rows: 1px;
+    grid-auto-flow: row dense;
     row-gap: 0;
   }
 

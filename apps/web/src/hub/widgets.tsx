@@ -9,23 +9,187 @@ import { visibleMembers } from './members';
 import { GameCover } from '../games/GameCover';
 import { useCollectionWidget } from '../games/games';
 import { playersLabel } from '../games/labels';
-import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner, Tray } from '../ui';
+import { useClub } from './club';
+import { FALLBACK_TIMEZONE } from '../club/timezones';
+import { dateTile, formatMeetingDate, longMeetingDate } from '../meetings/datetime';
+import { useHubMeeting, type Meeting } from '../meetings/meetings';
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Icon,
+  Menu,
+  Skeleton,
+  Spinner,
+  StatusChip,
+  Tray,
+} from '../ui';
+import '../meetings/meetings.css';
 
 /*
- * Widżety huba (PRD §4, DS §6, §17). Spotkanie, Ranking i Timeline mają na razie tylko puste
- * stany (CLUB-4); treść i CTA dla admina dochodzą w zadaniach [014], [023]–[026]. Kolekcja
- * (GAME-1) i Członkowie (MEM-1) pokazują już prawdziwe dane.
+ * Widżety huba (PRD §4, DS §6, §17). Ranking i Timeline mają na razie tylko puste stany
+ * (CLUB-4); ich treść dochodzi w zadaniach [025], [033]. Spotkanie (MTG-1, od [023]),
+ * Kolekcja (GAME-1) i Członkowie (MEM-1) pokazują już prawdziwe dane.
  */
 
-export function MeetingWidget() {
-  return (
-    <Card title={t.hub.meeting.title}>
-      <EmptyState
-        icon="calendar"
-        title={t.hub.meeting.emptyTitle}
-        helper={t.hub.meeting.emptyHelper}
+/**
+ * Widżet spotkania (MTG-1, DS §15 „Widget meeting block”): trwające spotkanie, a gdy go nie
+ * ma, najbliższe zaplanowane, z datą w strefie klubu, uczestnikami i stanem. Administrator ma
+ * menu „Edytuj / Usuń spotkanie”, a w pustym stanie „Zaplanuj spotkanie” (CLUB-4, PLAN-1).
+ * Popup spotkania z głosowaniem, startem i końcem dochodzi w [024]–[026].
+ */
+export function MeetingWidget({ me }: { readonly me: Profile }) {
+  const { client } = useAuth();
+  const { open } = usePopups();
+  const isAdmin = me.role === 'admin';
+  const meeting = useHubMeeting(client);
+  const club = useClub(client);
+  const members = useMembers(client);
+  const data = meeting.data;
+  const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
+
+  const action =
+    isAdmin && data ? (
+      <Menu
+        label={format(t.hub.meeting.actions, { title: data.title })}
+        align="end"
+        items={[
+          // Kolejne spotkanie, zanim powstanie kalendarz ([025]): z menu widżetu (PLAN-1).
+          {
+            id: 'plan',
+            label: t.meetings.menu.plan,
+            icon: 'plus',
+            onSelect: () => open({ kind: 'add-meeting' }),
+          },
+          {
+            id: 'edit',
+            label: t.meetings.menu.edit,
+            icon: 'pencil',
+            onSelect: () => open({ kind: 'edit-meeting', id: data.id }),
+          },
+          ...(data.status === 'planned'
+            ? [
+                {
+                  id: 'delete',
+                  label: t.meetings.menu.delete,
+                  icon: 'trash' as const,
+                  destructive: true,
+                  onSelect: () => open({ kind: 'delete-meeting', id: data.id }),
+                },
+              ]
+            : []),
+        ]}
+        trigger={(props) => (
+          <button
+            type="button"
+            {...props}
+            className="icon-btn icon-btn--32"
+            aria-label={format(t.hub.meeting.actions, { title: data.title })}
+            title={format(t.hub.meeting.actions, { title: data.title })}
+          >
+            <Icon name="more" />
+          </button>
+        )}
       />
+    ) : undefined;
+
+  return (
+    <Card title={t.hub.meeting.title} action={action}>
+      {meeting.isPending || (data && club.isPending) ? (
+        <div className="members-widget__loading">
+          <Skeleton width={240} height={64} radius={18} />
+          <Spinner label={t.hub.meeting.loading} className="sr-only" />
+        </div>
+      ) : meeting.isError ? (
+        <Banner
+          variant="error"
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="refresh"
+              onClick={() => void meeting.refetch()}
+            >
+              {t.hub.retry}
+            </Button>
+          }
+        >
+          {t.hub.loadError}
+        </Banner>
+      ) : !data ? (
+        <EmptyState
+          icon="calendar"
+          title={t.hub.meeting.emptyTitle}
+          helper={isAdmin ? t.hub.meeting.emptyHelperAdmin : t.hub.meeting.emptyHelper}
+          action={
+            isAdmin ? (
+              <Button icon="plus" fullWidth onClick={() => open({ kind: 'add-meeting' })}>
+                {t.hub.meeting.plan}
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <MeetingBlock meeting={data} timeZone={timeZone} members={members.data ?? []} />
+      )}
     </Card>
+  );
+}
+
+function MeetingBlock({
+  meeting,
+  timeZone,
+  members,
+}: {
+  readonly meeting: Meeting;
+  readonly timeZone: string;
+  readonly members: readonly Profile[];
+}) {
+  const tile = dateTile(meeting.starts_at, timeZone);
+  const people = members.filter((member) => meeting.participants.includes(member.id));
+  const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
+  const status = t.meetings.status;
+  const chip =
+    meeting.status === 'in_progress' ? (
+      <StatusChip tone="success">{status.inProgress}</StatusChip>
+    ) : meeting.voting_open ? (
+      <StatusChip tone="accent">{status.votingOpen}</StatusChip>
+    ) : (
+      <StatusChip tone="neutral">{status.gamesChosen}</StatusChip>
+    );
+  return (
+    <div className="meeting-widget">
+      <div className="meeting-widget__head">
+        <span className="meeting-tile" aria-hidden="true">
+          <span className="meeting-tile__month">{tile.month}</span>
+          <span className="meeting-tile__day">{tile.day}</span>
+        </span>
+        <span className="meeting-widget__text">
+          <h3 className="meeting-widget__title">{meeting.title}</h3>
+          <span className="meeting-widget__date">
+            <span aria-hidden="true">{formatMeetingDate(meeting.starts_at, timeZone)}</span>
+            <span className="sr-only">{longMeetingDate(meeting.starts_at, timeZone)}</span>
+          </span>
+        </span>
+      </div>
+      <div className="meeting-widget__row">
+        {people.length > 0 ? (
+          <ul className="meeting-widget__stack" aria-hidden="true">
+            {people.slice(0, 5).map((member) => (
+              <li key={member.id}>
+                <ProfileAvatar profile={member} size={36} ring="white" decorative />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="meeting-widget__people">
+          <strong>{plural(meeting.participants.length, t.hub.meeting.participants)}</strong>
+          {host ? ` · ${format(t.hub.meeting.host, { name: host.first_name })}` : null}
+        </p>
+      </div>
+      <div className="meeting-widget__row">{chip}</div>
+    </div>
   );
 }
 

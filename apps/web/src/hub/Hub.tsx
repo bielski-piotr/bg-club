@@ -111,7 +111,7 @@ function Widgets({ me }: { readonly me: Profile }) {
   return (
     <div ref={grid} className="hub__grid">
       <div className="hub__slot hub__slot--left">
-        <MeetingWidget />
+        <MeetingWidget me={me} />
       </div>
       <div className="hub__slot hub__slot--right">
         <RankingWidget />

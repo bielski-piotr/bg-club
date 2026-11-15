@@ -3,7 +3,8 @@
  * zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10), dodawania członków przez
  * Edge Function `create-member` (MEM-3, AUTH-2, AUTH-4, USR-1) oraz ustawień profilu: zmiany
  * hasła z obecnym hasłem, zdjęcia i motywu (USR-3, USR-5, USR-7, USR-8, AUTH-6) oraz usuwania
- * członka i własnego konta przez `delete-member` i `delete-own-account` (MEM-4…MEM-6, USR-6).
+ * członka i własnego konta przez `delete-member` i `delete-own-account` (MEM-4…MEM-6, USR-6),
+ * a na końcu planowanie i równoczesne rozpoczęcia spotkań przez RPC (PLAN-1, MTG-2, RUN-1, RUN-4).
  *
  * Idą przez prawdziwe API (Auth, PostgREST) z tymi samymi kluczami co aplikacja i skrypt
  * bootstrapu. Startują od pustej instalacji i nie sprzątają po sobie (konta administratora nie
@@ -502,10 +503,17 @@ describe('konta i logowanie na pustej instalacji', () => {
     it('zmiana strefy nie przesuwa zapisanych terminów (NFR-10)', async () => {
       const { client } = clubAdmin;
       if (!client) throw new Error('brak sesji administratora z poprzedniego testu');
-      const startsAt = '2026-11-20T17:00:00+00:00';
+      const { data: session } = await client.auth.getUser();
+      // 18:00 w Warszawie (czas zimowy) = 17:00 UTC; termin liczy baza w strefie klubu.
       const meeting = await client
-        .from('meetings')
-        .insert({ title: 'Listopadowe granie', starts_at: startsAt })
+        .rpc('save_meeting', {
+          meeting_id: crypto.randomUUID(),
+          title: 'Listopadowe granie',
+          local_date: '2026-11-20',
+          local_time: '18:00',
+          participant_ids: [session.user?.id],
+          host_id: null,
+        })
         .select('id')
         .single();
       expect(meeting.error).toBeNull();
@@ -836,15 +844,19 @@ describe('konta i logowanie na pustej instalacji', () => {
     it('usuniętego nie da się dodać do spotkania; ponowienie usunięcia nic nie psuje', async () => {
       const client = session.admin;
       if (!client) throw new Error('brak sesji administratora');
-      const join = await client
-        .from('meeting_participants')
-        .insert({ meeting_id: ids.planned, profile_id: host.id });
-      expect(join.error?.code).toBe('23514');
-      const fresh = await meeting('Nowe spotkanie');
-      const joinFresh = await client
-        .from('meeting_participants')
-        .insert({ meeting_id: fresh, profile_id: host.id });
-      expect(joinFresh.error?.code).toBe('23514');
+      // Uczestników zapisuje tylko save_meeting ([023]); wyzwalacz odrzuca usuniętego.
+      const join = (meetingId: string) =>
+        client.rpc('save_meeting', {
+          meeting_id: meetingId,
+          title: 'Ze zmienionym składem',
+          local_date: '2026-12-01',
+          local_time: '18:00',
+          participant_ids: [ids.admin, host.id],
+          host_id: null,
+        });
+      expect((await join(ids.planned)).error?.code).toBe('23514');
+      expect((await join(await meeting('Nowe spotkanie'))).error?.code).toBe('23514');
+      expect((await join(crypto.randomUUID())).error?.code).toBe('23514');
 
       const { data: before } = await service
         .from('profiles')
@@ -906,6 +918,106 @@ describe('konta i logowanie na pustej instalacji', () => {
         .eq('role', 'admin')
         .is('deleted_at', null);
       expect(data).toEqual([{ hook: admin.hook }]);
+    });
+  });
+
+  describe('planowanie i status spotkań przez RPC (PLAN-1, MTG-2, RUN-1, RUN-4, [023])', () => {
+    const ids = { admin: '', first: '', second: '' };
+    const sessions: SupabaseClient[] = [];
+
+    beforeAll(async () => {
+      // Dwie niezależne sesje administratora (np. telefon i laptop).
+      for (let i = 0; i < 2; i += 1) {
+        const { client, data, error } = await signIn(admin.hook, admin.password);
+        if (error || !data.session) throw error ?? new Error('brak sesji administratora');
+        sessions.push(client);
+        ids.admin = data.session.user.id;
+      }
+      // Spotkanie w trakcie z poprzednich testów kończymy jak serwer (bez szkiców).
+      const { error } = await service
+        .from('meetings')
+        .update({ status: 'finished', finished_at: new Date().toISOString() })
+        .eq('status', 'in_progress');
+      if (error) throw new Error(`meetings: ${error.message}`);
+    });
+
+    async function plan(client: SupabaseClient, title: string): Promise<string> {
+      const id = crypto.randomUUID();
+      const { data, error } = await client
+        .rpc('save_meeting', {
+          meeting_id: id,
+          title,
+          local_date: '2027-02-06',
+          local_time: '18:00',
+          participant_ids: [ids.admin],
+          host_id: null,
+        })
+        .select('id, status, voting_open, starts_at')
+        .single();
+      expect(error).toBeNull();
+      expect(data).toMatchObject({ id, status: 'planned', voting_open: true });
+      return id;
+    }
+
+    it('admin planuje spotkanie; termin liczy baza w strefie klubu (NFR-10)', async () => {
+      const [client] = sessions;
+      if (!client) throw new Error('brak sesji');
+      ids.first = await plan(client, 'Luty pierwszy');
+      ids.second = await plan(client, 'Luty drugi');
+      const { data } = await service
+        .from('meetings')
+        .select('starts_at')
+        .eq('id', ids.first)
+        .single();
+      const { data: club } = await service.from('club').select('timezone').single();
+      const local = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: club?.timezone as string,
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date(data?.starts_at as string));
+      expect(local).toBe('2027-02-06 18:00');
+    });
+
+    it('równoczesne starty dwóch spotkań: trwa dokładnie jedno (MTG-2)', async () => {
+      const [a, b] = sessions;
+      if (!a || !b) throw new Error('brak sesji');
+      const results = await Promise.all([
+        a.rpc('start_meeting', { meeting_id: ids.first }),
+        b.rpc('start_meeting', { meeting_id: ids.second }),
+      ]);
+      const failed = results.filter((result) => result.error);
+      expect(failed).toHaveLength(1);
+      expect(failed[0]?.error).toMatchObject({
+        code: '23505',
+        hint: 'meetings_single_in_progress',
+      });
+      const { data } = await service
+        .from('meetings')
+        .select('id, voting_open')
+        .eq('status', 'in_progress');
+      expect(data).toHaveLength(1);
+      expect(data?.[0]?.voting_open).toBe(false);
+    });
+
+    it('równoczesny drugi start tego samego spotkania jest odrzucony', async () => {
+      const [a, b] = sessions;
+      if (!a || !b) throw new Error('brak sesji');
+      const { data: running } = await service
+        .from('meetings')
+        .select('id')
+        .eq('status', 'in_progress')
+        .single();
+      const finished = await a.rpc('finish_meeting', { meeting_id: running?.id as string });
+      expect(finished.error).toBeNull();
+
+      const other = running?.id === ids.first ? ids.second : ids.first;
+      const results = await Promise.all([
+        a.rpc('start_meeting', { meeting_id: other }),
+        b.rpc('start_meeting', { meeting_id: other }),
+      ]);
+      const failed = results.filter((result) => result.error);
+      expect(failed).toHaveLength(1);
+      expect(failed[0]?.error).toMatchObject({ code: '23514', hint: 'meetings_start_planned' });
     });
   });
 });

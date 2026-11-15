@@ -41,6 +41,9 @@ test.describe('na komputerze', () => {
   test('obrót prawym przyciskiem, zoom kółkiem względem kursora i powrót klawiszem 0', async ({
     page,
   }) => {
+    // Na CI (WebGL programowy) 12 kroków zoomu kółkiem i animacja powrotu przekraczają 30 s,
+    // jak scenariusz z zoomem w score-pad-entry.spec.ts.
+    test.slow();
     const { pad, box } = await openPad(page);
     const home = pad.getByRole('button', { name: 'Widok z góry' });
     await expect(home).toBeDisabled();
