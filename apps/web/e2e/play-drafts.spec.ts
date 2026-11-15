@@ -207,36 +207,33 @@ test('admin wraca do notesu, wpisy zapisują się z opóźnieniem i przetrwają 
   expect(await search(page)).toBe(`?p=meeting/${RUNNING.id}&p=play/${PLAY_ID}`);
   await padReady(page);
 
-  // Pierwsze otwarcie zapisuje graczy z miejsc partii (PAD-2) jako szkic w wersji 1.
-  await expect.poll(() => mock.draftSaves.length).toBe(1);
-  expect(mock.draftSaves[0]).toMatchObject({
-    play_id: PLAY_ID,
-    base_version: 0,
-    sheet: { names: NAMES },
-  });
-  await expect(popup.getByRole('status')).toHaveText('Szkic zapisany');
+  // Notes ma graczy z miejsc partii (PAD-2); samo otwarcie niczego nie zapisuje.
   expect((await padCells(page)).names).toEqual(NAMES);
+  await expect(popup.getByRole('status')).toHaveText('Szkic zapisany');
   await check(page);
+  await page.waitForTimeout(2000);
+  expect(mock.draftSaves).toHaveLength(0);
 
   // Wpis: od razu kopia lokalna, do bazy dopiero po ~1,5 s od ostatniej zmiany.
   await write(page, { a: [12, null, null, null] });
   await write(page, { a: [12, 7, null, null] });
   expect(await localCopy(page)).toMatchObject({ dirty: true, sheet: sheet(12, 7) });
-  expect(mock.draftSaves).toHaveLength(1);
-  await expect.poll(() => mock.draftSaves.length, { timeout: 5000 }).toBe(2);
-  expect(mock.draftSaves[1]).toMatchObject({
-    base_version: 1,
-    sheet: { cells: { a: [12, 7, null, null] } },
+  expect(mock.draftSaves).toHaveLength(0);
+  await expect.poll(() => mock.draftSaves.length, { timeout: 5000 }).toBe(1);
+  expect(mock.draftSaves[0]).toMatchObject({
+    play_id: PLAY_ID,
+    base_version: 0,
+    sheet: { names: NAMES, cells: { a: [12, 7, null, null] } },
   });
   await expect(popup.getByRole('status')).toHaveText('Szkic zapisany');
-  expect(await localCopy(page)).toMatchObject({ dirty: false, baseVersion: 2 });
+  expect(await localCopy(page)).toMatchObject({ dirty: false, baseVersion: 1 });
 
   // Odświeżenie: notes wczytuje szkic z bazy bez ponownego zapisu.
   await page.reload();
   await padReady(page);
   expect((await padCells(page)).cells.a?.slice(0, 2)).toEqual([12, 7]);
   await page.waitForTimeout(2000);
-  expect(mock.draftSaves).toHaveLength(2);
+  expect(mock.draftSaves).toHaveLength(1);
 });
 
 test('inne urządzenie bez kopii lokalnej wczytuje szkic z bazy (PAD-4, bez synchronizacji na żywo)', async ({
@@ -329,7 +326,9 @@ test('nowszy szkic z innego urządzenia: konflikt zamiast nadpisania, wybór wer
 
   await conflict.getByRole('button', { name: 'Wczytaj szkic z bazy' }).click();
   await expect(conflict).toHaveCount(0);
-  expect((await padCells(page)).cells.a?.slice(0, 2)).toEqual([40, 41]);
+  // Notes powstaje od nowa z wpisami z bazy.
+  await padReady(page);
+  await expect.poll(async () => (await padCells(page)).cells.a?.slice(0, 2)).toEqual([40, 41]);
 
   // Kolejny konflikt: tym razem zachowujemy wpisy z tego urządzenia (świadome nadpisanie).
   await expect(popup.getByRole('status')).toHaveText('Szkic zapisany', { timeout: 5000 });

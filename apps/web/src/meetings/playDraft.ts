@@ -121,22 +121,31 @@ export function removeLocalDrafts(storage: DraftStorage | null, playId: string):
   }
 }
 
-/** JSON z kluczami w stałej kolejności: porównanie wpisów niezależne od kolejności pól. */
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (isRecord(value)) {
-    return `{${Object.keys(value)
-      .filter((key) => value[key] !== undefined)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`)
-      .join(',')}}`;
+/**
+ * Treść kartki do porównań: numer partii, imiona (bez pustych na końcu) i tylko wpisane pola
+ * (`linia:miejsce` → wartość). Notes przy wczytaniu dopisuje puste kolumny wszystkich kategorii
+ * i czas rozpoczęcia; to nie są zmiany wpisów i nie powinny wywoływać zapisu.
+ */
+function content(sheet: ScorePadSheet | null): string {
+  if (!sheet) return 'null';
+  const names = [...sheet.names];
+  while (names.length > 0 && !names.at(-1)) names.pop();
+  const entries: string[] = [];
+  for (const [line, column] of Object.entries(sheet.cells)) {
+    column.forEach((value, seat) => {
+      if (value !== null && value !== undefined) entries.push(`${line}:${seat}=${String(value)}`);
+    });
   }
-  return JSON.stringify(value ?? null);
+  for (const [field, value] of Object.entries(sheet.free ?? {})) {
+    if (value !== null && value !== undefined) entries.push(`free:${field}=${String(value)}`);
+  }
+  entries.sort();
+  return JSON.stringify([sheet.game, names.map((name) => name || null), entries]);
 }
 
-/** Te same wpisy kartki (imiona, wartości, numer partii). */
+/** Te same wpisy kartki (numer partii, imiona, wartości i skreślenia). */
 export function sameSheet(a: ScorePadSheet | null, b: ScorePadSheet | null): boolean {
-  return canonical(a) === canonical(b);
+  return content(a) === content(b);
 }
 
 /** Czy na kartce jest jakikolwiek wpis (wartość albo skreślenie). */
@@ -316,7 +325,9 @@ export class DraftSaver {
   private inFlight = false;
   private stopped: DraftSaveState | null = null;
   private status: DraftStatus;
-  private disposed = false;
+  /** Notes zamknięty: bez stanu i timerów; kończy tylko zapis (`dispose(true)`). */
+  private closed = false;
+  private flushOnClose = false;
   private readonly onOnline = () => this.flush();
 
   constructor(options: DraftSaverOptions) {
@@ -326,10 +337,10 @@ export class DraftSaver {
     this.savedSheet = options.dirty ? null : options.sheet;
     this.status = { state: 'saved', version: options.version };
     if (typeof window !== 'undefined') window.addEventListener('online', this.onOnline);
-    if (options.dirty && options.sheet) {
-      this.storeLocal();
-      this.schedule(0);
-    }
+    // Kopia lokalna od razu odpowiada stanowi notesu (także czysta: stara, niezapisana kopia
+    // sprzed wyboru „wczytaj z bazy” nie może wrócić przy kolejnym otwarciu).
+    if (options.sheet) this.storeLocal();
+    if (options.dirty && options.sheet) this.schedule(0);
   }
 
   /** Bieżący stan zapisu. */
@@ -339,7 +350,7 @@ export class DraftSaver {
 
   /** Wpisy notesu po zmianie. Te same wpisy co ostatnio nie zapisują się ponownie. */
   change(sheet: ScorePadSheet): void {
-    if (this.disposed || sameSheet(sheet, this.sheet)) return;
+    if (this.closed || sameSheet(sheet, this.sheet)) return;
     this.sheet = sheet;
     this.storeLocal();
     if (this.stopped) {
@@ -350,9 +361,9 @@ export class DraftSaver {
     this.schedule(this.opts.delayMs ?? DRAFT_SAVE_DELAY_MS);
   }
 
-  /** Zapis od razu (zamknięcie popupu, `online`), bez czekania na opóźnienie. */
+  /** Zapis od razu (`online`, przed porzuceniem), bez czekania na opóźnienie. */
   flush(): void {
-    if (this.disposed || this.stopped) return;
+    if (this.closed || this.stopped) return;
     if (this.isDirty()) this.schedule(0);
   }
 
@@ -361,7 +372,7 @@ export class DraftSaver {
    * `dirty`: wpisy trzeba zapisać (świadome nadpisanie szkicu z bazy).
    */
   reset(version: number, sheet: ScorePadSheet | null, dirty: boolean): void {
-    if (this.disposed) return;
+    if (this.closed) return;
     this.version = version;
     this.sheet = sheet;
     this.savedSheet = dirty ? null : sheet;
@@ -372,17 +383,17 @@ export class DraftSaver {
   }
 
   /**
-   * Koniec pracy (zamknięcie notesu). `flush`: niezapisane wpisy idą do bazy od razu, bez
-   * czekania na opóźnienie (wynik nie zmienia już stanu; kopia lokalna zostaje).
+   * Koniec pracy (zamknięcie notesu): bez stanu, timerów i ponowień po błędzie. `flush`:
+   * niezapisane wpisy idą do bazy od razu, także te zmienione w trakcie trwającego zapisu;
+   * kopia lokalna zapamiętuje wynik, więc kolejne otwarcie nie widzi fałszywego konfliktu.
    */
   dispose(flush = false): void {
-    if (flush && !this.disposed && !this.stopped && !this.inFlight && this.isDirty()) {
-      const sheet = this.sheet as ScorePadSheet;
-      void this.opts.save(sheet, this.version).catch(() => undefined);
-    }
-    this.disposed = true;
+    if (this.closed) return;
+    this.closed = true;
+    this.flushOnClose = flush;
     this.clearTimer();
     if (typeof window !== 'undefined') window.removeEventListener('online', this.onOnline);
+    if (flush) void this.run();
   }
 
   private isDirty(): boolean {
@@ -405,7 +416,7 @@ export class DraftSaver {
 
   private emit(next: Omit<DraftStatus, 'version' | 'localFailed'>): void {
     this.status = { ...next, version: this.version, localFailed: this.status.localFailed };
-    this.opts.onStatus(this.status);
+    if (!this.closed) this.opts.onStatus(this.status);
   }
 
   private clearTimer(): void {
@@ -414,6 +425,7 @@ export class DraftSaver {
   }
 
   private schedule(delay: number): void {
+    if (this.closed) return;
     this.clearTimer();
     this.timer = setTimeout(() => {
       this.timer = null;
@@ -422,28 +434,31 @@ export class DraftSaver {
   }
 
   private async run(): Promise<void> {
-    if (this.disposed || this.stopped || !this.isDirty()) return;
     // Zapis w toku: kolejny ruszy po nim (od nowej wersji).
-    if (this.inFlight) return;
+    if (this.stopped || this.inFlight || !this.isDirty()) return;
+    if (this.closed && !this.flushOnClose) return;
     const sheet = this.sheet as ScorePadSheet;
     this.inFlight = true;
     this.emit({ state: 'saving' });
     try {
       const saved = await this.opts.save(sheet, this.version);
-      if (this.disposed) return;
       this.version = saved.version;
       this.savedSheet = sheet;
-      this.storeLocal();
       this.inFlight = false;
-      if (this.isDirty()) {
+      this.storeLocal();
+      if (!this.isDirty()) {
+        this.emit({ state: 'saved' });
+      } else if (this.closed) {
+        // Zmiany z czasu trwania zapisu, a notes już zamknięty: wysyłamy je od razu.
+        void this.run();
+      } else {
         this.emit({ state: 'pending' });
         this.schedule(this.opts.delayMs ?? DRAFT_SAVE_DELAY_MS);
-      } else {
-        this.emit({ state: 'saved' });
       }
     } catch (error) {
       this.inFlight = false;
-      if (this.disposed) return;
+      // Po zamknięciu wpisy zostają w kopii lokalnej; kolejne otwarcie je wznowi.
+      if (this.closed) return;
       const reason = error instanceof DraftError ? error.reason : 'network';
       if (isRetryable(reason)) {
         this.emit({ state: 'offline', reason });

@@ -109,11 +109,11 @@ select isnt(
 select is(
   public.test_failure($$ select public.save_play_draft('00000000-0000-4000-f000-000000000001',
     '{"game": 1, "cells": {"a": [9, null]}}', 0) $$),
-  '40001/plays_draft_conflict', 'starszy zapis (wersja 0) nie nadpisze nowszego szkicu');
+  'PT409/plays_draft_conflict', 'starszy zapis (wersja 0) nie nadpisze nowszego szkicu');
 select is(
   public.test_failure($$ select public.save_play_draft('00000000-0000-4000-f000-000000000001',
     '{"game": 1}', null) $$),
-  '40001/plays_draft_conflict', 'zapis bez wersji to konflikt, a nie ciche nadpisanie');
+  'PT409/plays_draft_conflict', 'zapis bez wersji to konflikt, a nie ciche nadpisanie');
 select is(
   (select sheet -> 'cells' -> 'a' ->> 0 from public.plays where id = '00000000-0000-4000-f000-000000000001'),
   '3', 'odrzucony zapis nie zmienia szkicu');
@@ -136,7 +136,7 @@ set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002",
 select is(
   public.test_failure($$ select public.save_play_draft('00000000-0000-4000-f000-000000000001',
     '{"game": 1, "cells": {"a": [4, null]}}', 1) $$),
-  '40001/plays_draft_conflict', 'konkurencyjny zapis z pierwszego urządzenia to konflikt');
+  'PT409/plays_draft_conflict', 'konkurencyjny zapis z pierwszego urządzenia to konflikt');
 select is(
   (select draft_version from public.save_play_draft('00000000-0000-4000-f000-000000000001',
      '{"game": 1, "cells": {"a": [4, null]}}', 2)),

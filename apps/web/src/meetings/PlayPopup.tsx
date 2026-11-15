@@ -10,7 +10,7 @@ import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
-import { ScorePadView, type ScorePadHandle } from '../score-pad/ScorePadView';
+import { ScorePadView } from '../score-pad/ScorePadView';
 import { loadVersionTemplate, versionTemplateKey } from '../score-pad/scorepads';
 import { Banner, Button } from '../ui';
 import { cx } from '../ui/cx';
@@ -62,7 +62,9 @@ export function PlayPopup({ id, me }: { readonly id: string; readonly me: OwnPro
       </PopupModal>
     );
   }
-  if (!play.data || !meeting.data || !profiles.data) {
+  // Notes zaczyna od świeżego szkicu z bazy, nie z pamięci podręcznej (inne urządzenie
+  // mogło go w międzyczasie zmienić, PAD-4).
+  if (!play.data || !play.isFetchedAfterMount || !meeting.data || !profiles.data) {
     return (
       <PopupModal title={title}>
         <QueryStatus
@@ -140,15 +142,6 @@ function seatNames(play: PlayDetail, profiles: ReadonlyMap<string, Profile>): (s
   return names;
 }
 
-function serverDraft(play: PlayDetail): ServerDraft {
-  return {
-    version: play.draft_version,
-    sheet: isSheet(play.sheet) ? play.sheet : null,
-    savedAt: play.draft_saved_at,
-    savedBy: play.draft_saved_by,
-  };
-}
-
 interface DraftRow {
   readonly sheet: unknown;
   readonly draft_version: number;
@@ -183,12 +176,11 @@ function PlayPad({
   const { open } = usePopups();
   const names = useMemo(() => seatNames(play, profiles), [play, profiles]);
   const namesRef = useRef(names);
-  const padRef = useRef<ScorePadHandle>(null);
 
   // Start notesu liczony raz, przy otwarciu: wpisy z bazy, niezapisana kopia z tego
   // urządzenia albo konflikt między nimi (wznowienie, PAD-4).
   const [start] = useState(() =>
-    resolveDraftStart(readLocalDraft(draftStorage(), me.id, play.id), serverDraft(play)),
+    resolveDraftStart(readLocalDraft(draftStorage(), me.id, play.id), fromDraftRow(play)),
   );
   const [initial, setInitial] = useState<{
     sheet: ScorePadSheet;
@@ -200,8 +192,10 @@ function PlayPad({
       : {
           sheet: sheetWithPlayers(start.sheet, names),
           version: start.version,
-          // Kopia z tego urządzenia albo kartka bez imion graczy w bazie: do zapisania.
-          dirty: start.kind === 'local' || !start.sheet,
+          // Niezapisana kopia z tego urządzenia idzie do bazy od razu. Pustej kartki nie
+          // zapisujemy (imiona wynikają z miejsc partii), więc dwa urządzenia otwierające
+          // nową partię nie wchodzą sobie w drogę.
+          dirty: start.kind === 'local',
         },
   );
   // Konflikt przy otwarciu (kopia z tego urządzenia i nowszy szkic w bazie).
@@ -220,25 +214,42 @@ function PlayPad({
     namesRef.current = names;
   });
 
-  // Zapis szkicu: jeden na otwarty notes; przy zamknięciu niezapisane wpisy idą od razu.
+  // Zapis szkicu: jeden na otwarte wpisy startowe; przy zamknięciu niezapisane wpisy idą od
+  // razu. Zamknięcie jest odroczone o jedno zadanie: ponowne zamontowanie (StrictMode) używa
+  // tego samego zapisu zamiast wysyłać dwa zapisy od tej samej wersji (fałszywy konflikt).
+  const saverFor = useRef<object | null>(null);
+  const pendingClose = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!initial) return;
-    const saver = new DraftSaver({
-      profileId: me.id,
-      playId: play.id,
-      version: initial.version,
-      sheet: initial.sheet,
-      dirty: initial.dirty,
-      save: (sheet, base) => saveDraft(client, play.id, sheet, base),
-      storage: draftStorage(),
-      onStatus: setStatus,
-    });
-    saverRef.current = saver;
+    if (pendingClose.current !== null) {
+      clearTimeout(pendingClose.current);
+      pendingClose.current = null;
+    }
+    let saver = saverRef.current;
+    if (!saver || saverFor.current !== initial) {
+      saver?.dispose(true);
+      saver = new DraftSaver({
+        profileId: me.id,
+        playId: play.id,
+        version: initial.version,
+        sheet: initial.sheet,
+        dirty: initial.dirty,
+        save: (sheet, base) => saveDraft(client, play.id, sheet, base),
+        storage: draftStorage(),
+        onStatus: setStatus,
+      });
+      saverRef.current = saver;
+      saverFor.current = initial;
+    }
+    const current = saver;
     return () => {
-      saver.dispose(true);
-      saverRef.current = null;
-      // Lista partii i kolejne otwarcie mają czytać szkic z bazy.
-      void queryClient.invalidateQueries({ queryKey: playKey(play.id) });
+      pendingClose.current = setTimeout(() => {
+        pendingClose.current = null;
+        current.dispose(true);
+        if (saverRef.current === current) saverRef.current = null;
+        // Lista partii i kolejne otwarcie mają czytać szkic z bazy.
+        void queryClient.invalidateQueries({ queryKey: playKey(play.id) });
+      }, 0);
     };
   }, [initial, client, me.id, play.id, queryClient]);
 
@@ -285,14 +296,15 @@ function PlayPad({
       startConflict && start.kind === 'conflict' ? start.local.sheet : lastSheet.current;
     const chosen = sheetWithPlayers(keep === 'server' ? server.sheet : local, names);
     lastSheet.current = chosen;
-    if (startConflict) {
-      // Konflikt przy otwarciu: notes powstaje dopiero teraz, z wybranymi wpisami.
-      setStartConflict(null);
-      setInitial({ sheet: chosen, version: server.version, dirty: keep === 'local' });
+    setStartConflict(null);
+    if (keep === 'local' && !startConflict) {
+      // Notes ma już te wpisy: zapis od wersji z bazy (świadome nadpisanie).
+      saverRef.current?.reset(server.version, chosen, true);
       return;
     }
-    saverRef.current?.reset(server.version, chosen, keep === 'local');
-    if (keep === 'server') padRef.current?.setSheet(chosen);
+    // Notes powstaje od nowa z wybranymi wpisami (także numerem kartki z bazy).
+    setStatus({ state: keep === 'local' ? 'pending' : 'saved', version: server.version });
+    setInitial({ sheet: chosen, version: server.version, dirty: keep === 'local' });
   };
 
   const savedBy = conflictServer?.savedBy ? profiles.get(conflictServer.savedBy) : undefined;
@@ -364,7 +376,6 @@ function PlayPad({
             <DraftStatusLine status={status} />
             {config ? (
               <ScorePadView
-                ref={padRef}
                 config={config}
                 controls={false}
                 tear={false}

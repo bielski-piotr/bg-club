@@ -165,7 +165,7 @@ select ok(
   'start_play (security definer) zaczyna od strażnika private.require_meeting_runner()'
 );
 select ok(
-  (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(private\.play_meeting\(')
+  (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+play_meeting_id := private\.play_meeting\(\w+\.play_id\);\s+perform private\.require_meeting_runner\(play_meeting_id\);')
      from pg_proc where oid in ('public.save_play_draft(uuid,jsonb,int)'::regprocedure, 'public.discard_play(uuid)'::regprocedure)),
   'save_play_draft i discard_play (security definer) zaczynają od strażnika private.require_meeting_runner()'
 );

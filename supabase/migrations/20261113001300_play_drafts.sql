@@ -8,7 +8,8 @@
 -- - Numer wersji szkicu (`plays.draft_version`) rośnie o 1 przy każdym zapisie. Zapis podaje
 --   wersję, od której zaczął (`base_version`); inna wersja w bazie oznacza starszy albo
 --   konkurencyjny zapis (drugie urządzenie, druga karta). Funkcja odrzuca go wtedy błędem
---   `plays_draft_conflict` (SQLSTATE 40001), a aplikacja pokazuje konflikt zamiast cicho
+--   `plays_draft_conflict` (SQLSTATE PT409: PostgREST odpowiada 409; nie 40001, który
+--   sterowniki ponawiają same), a aplikacja pokazuje konflikt zamiast cicho
 --   nadpisać wpisy. Świadome nadpisanie to zapis z bieżącą wersją z bazy.
 -- - Szkic może dokończyć admin albo prowadzący na innym urządzeniu (PAD-4): wczytuje wpisy
 --   z bazy, bez synchronizacji na żywo. Uprawnienia jak przy rozpoczęciu partii
@@ -16,7 +17,7 @@
 -- - `discard_play(play_id)` porzuca partię w toku (PAD-8): usuwa szkic razem z graczami.
 --   Szkice nie liczą się do statystyk, więc nie ma czego przeliczać. Zapisanej partii ta
 --   funkcja nie usunie (usuwanie partii: [031]).
--- - Błędy reguł mają SQLSTATE 23514 (brak partii: P0002, konflikt: 40001) i nazwę reguły
+-- - Błędy reguł mają SQLSTATE 23514 (brak partii: P0002, konflikt: PT409) i nazwę reguły
 --   w HINT, jak w migracjach [023], [024] i [027].
 
 alter table public.plays
@@ -43,35 +44,58 @@ return 262144;
 
 revoke execute on function private.play_draft_max_bytes() from public, anon, authenticated;
 
--- Pola szkicu zmienia tylko zapis szkicu; w zapisanej partii są niezmienne, a wersja nie maleje.
-create function public.plays_guard_draft()
+-- Strażnik zmian partii z [003] z polami szkicu: w zapisanej partii są niezmienne (jak kartka),
+-- a wersja szkicu nie maleje. Jedna funkcja pilnuje niezmienności całej partii.
+create or replace function public.plays_before_update()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
-  if old.status = 'saved'
-     and (new.draft_version is distinct from old.draft_version
-          or new.draft_saved_at is distinct from old.draft_saved_at
-          or new.draft_saved_by is distinct from old.draft_saved_by) then
-    raise exception 'draft of a saved play is immutable'
-      using errcode = '23514', constraint = 'plays_saved_immutable';
+  if new.meeting_id is distinct from old.meeting_id
+     or new.game_id is distinct from old.game_id
+     or new.scorepad_version_id is distinct from old.scorepad_version_id
+     or new.points_snapshot is distinct from old.points_snapshot
+     or new.started_by is distinct from old.started_by
+     or new.started_at is distinct from old.started_at then
+    raise exception 'play meeting, game, scorepad version, snapshot and start are immutable'
+      using errcode = '23514', constraint = 'plays_snapshot_immutable';
   end if;
+
   if new.draft_version < old.draft_version then
     raise exception 'draft version cannot decrease'
       using errcode = '23514', constraint = 'plays_draft_version_monotonic';
   end if;
+
+  if old.status = 'saved' then
+    if new.status <> 'saved'
+       or new.saved_at is distinct from old.saved_at
+       or new.sheet is distinct from old.sheet
+       or new.draft_version is distinct from old.draft_version
+       or new.draft_saved_at is distinct from old.draft_saved_at
+       or new.draft_saved_by is distinct from old.draft_saved_by
+       or (old.sheet_image_path is not null and new.sheet_image_path is distinct from old.sheet_image_path) then
+      raise exception 'saved play is immutable'
+        using errcode = '23514', constraint = 'plays_saved_immutable';
+    end if;
+  elsif new.status = 'saved' then
+    if not exists (select 1 from public.meetings where id = new.meeting_id and status = 'in_progress') then
+      raise exception 'plays can be saved only in an in-progress meeting'
+        using errcode = '23514', constraint = 'plays_meeting_in_progress';
+    end if;
+    new.saved_at := now();
+  else
+    new.saved_at := null;
+  end if;
+
   return new;
 end;
 $$;
 
-revoke execute on function public.plays_guard_draft() from public, anon, authenticated;
-
-create trigger plays_guard_draft before update on public.plays
-  for each row execute function public.plays_guard_draft();
-
 -- Spotkanie partii; brak partii to błąd P0002 (`plays_not_found`). Wywołują ją RPC
--- security definer, więc czyta `plays` z prawami właściciela.
+-- security definer przed strażnikiem roli, więc czyta `plays` z prawami właściciela (partie
+-- i tak widzi każdy aktywny członek, RLS `plays_select`).
 create function private.play_meeting(target_play_id uuid)
 returns uuid
 language plpgsql
@@ -104,8 +128,8 @@ declare
   play public.plays;
   saved public.plays;
 begin
-  perform private.require_meeting_runner(private.play_meeting(save_play_draft.play_id));
   play_meeting_id := private.play_meeting(save_play_draft.play_id);
+  perform private.require_meeting_runner(play_meeting_id);
 
   -- Blokada współdzielona: zakończenie spotkania czeka na zapis szkicu.
   select m.status into meeting_status from public.meetings m where m.id = play_meeting_id for share;
@@ -137,7 +161,7 @@ begin
   if save_play_draft.base_version is distinct from play.draft_version then
     raise exception 'draft of play % changed: version % in database, % in request',
         play.id, play.draft_version, save_play_draft.base_version
-      using errcode = '40001', hint = 'plays_draft_conflict';
+      using errcode = 'PT409', hint = 'plays_draft_conflict';
   end if;
 
   update public.plays p
@@ -165,9 +189,11 @@ security definer
 set search_path = ''
 as $$
 declare
+  play_meeting_id uuid;
   play public.plays;
 begin
-  perform private.require_meeting_runner(private.play_meeting(discard_play.play_id));
+  play_meeting_id := private.play_meeting(discard_play.play_id);
+  perform private.require_meeting_runner(play_meeting_id);
 
   select p.* into play from public.plays p where p.id = discard_play.play_id for update;
   if not found then

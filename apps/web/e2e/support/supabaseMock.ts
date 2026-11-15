@@ -888,7 +888,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       const target = meetingById(play.meeting_id);
       if (target?.status !== 'in_progress') return fail(400, '23514', 'plays_meeting_in_progress');
       if ((play.draft_version ?? 0) !== body.base_version) {
-        return fail(409, '40001', 'plays_draft_conflict');
+        return fail(409, 'PT409', 'plays_draft_conflict');
       }
       const saved: MockPlay = {
         ...play,

@@ -107,6 +107,19 @@ describe('wpisy kartki', () => {
     expect(sameSheet(sheet(1), null)).toBe(false);
   });
 
+  it('pomija puste kolumny i czas rozpoczęcia dopisane przez notes przy wczytaniu', () => {
+    const padded = {
+      game: 1,
+      started: '2026-11-12T19:00:00Z',
+      names: ['Ada', 'Bea', null, null],
+      cells: { a: [5, null, null, null], b: [null, null, null, null] },
+    };
+    expect(sameSheet(padded, sheet(5))).toBe(true);
+    expect(sameSheet(padded, { ...sheet(5), game: 2 })).toBe(false);
+    expect(sameSheet({ ...padded, names: ['Ada', 'Celina'] }, sheet(5))).toBe(false);
+    expect(sameSheet({ ...padded, cells: { a: ['x'] } }, sheet(null))).toBe(false);
+  });
+
   it('rozpoznaje pustą kartkę', () => {
     expect(hasEntries(null)).toBe(false);
     expect(hasEntries(sheet(null))).toBe(false);
@@ -167,7 +180,7 @@ describe('wznowienie partii (PAD-4)', () => {
 
 describe('błędy zapisu szkicu', () => {
   it('HINT z migracji [028] → powód', () => {
-    expect(draftFailure({ code: '40001', hint: 'plays_draft_conflict' })).toBe('conflict');
+    expect(draftFailure({ code: 'PT409', hint: 'plays_draft_conflict' })).toBe('conflict');
     expect(draftFailure({ code: 'P0002', hint: 'plays_not_found' })).toBe('gone');
     expect(draftFailure({ code: '23514', hint: 'plays_not_draft' })).toBe('gone');
     expect(draftFailure({ code: '23514', hint: 'plays_meeting_in_progress' })).toBe('closed');
@@ -198,7 +211,7 @@ describe('błędy zapisu szkicu', () => {
   });
 
   it('saveDraft: konflikt jako DraftError', async () => {
-    const { client } = rpcClient({ error: { code: '40001', hint: 'plays_draft_conflict' } });
+    const { client } = rpcClient({ error: { code: 'PT409', hint: 'plays_draft_conflict' } });
     await expect(saveDraft(client, PLAY, sheet(1), 3)).rejects.toEqual(new DraftError('conflict'));
   });
 
@@ -386,6 +399,46 @@ describe('DraftSaver', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(save).toHaveBeenCalledWith(sheet(5), 2);
     expect(last()).toMatchObject({ state: 'saved', version: 3 });
+    saver.dispose();
+  });
+
+  it('zamknięcie w trakcie zapisu dosyła zmiany i zapamiętuje wynik w kopii lokalnej', async () => {
+    let finish: (value: SavedDraft) => void = () => undefined;
+    const { saver, save, statuses } = setup((_, base) =>
+      base === 0
+        ? new Promise((resolve) => (finish = resolve))
+        : Promise.resolve({ version: base + 1, savedAt: null }),
+    );
+    saver.change(sheet(1));
+    await vi.advanceTimersByTimeAsync(1500);
+    saver.change(sheet(2));
+    const shown = statuses.length;
+    saver.dispose(true);
+    finish({ version: 1, savedAt: null });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith(sheet(2), 1);
+    expect(readLocalDraft(localStorage, ME, PLAY)).toMatchObject({
+      dirty: false,
+      baseVersion: 2,
+      sheet: sheet(2),
+    });
+    // Zamknięty notes nie dostaje już stanu.
+    expect(statuses).toHaveLength(shown);
+  });
+
+  it('otwarcie bez zmian zapisuje czystą kopię lokalną (stara niezapisana kopia nie wraca)', () => {
+    writeLocalDraft(localStorage, local({ baseVersion: 1, sheet: sheet(3) }));
+    const { saver, save } = setup(() => Promise.resolve({ version: 1, savedAt: null }), {
+      version: 4,
+      sheet: sheet(7),
+    });
+    expect(readLocalDraft(localStorage, ME, PLAY)).toMatchObject({
+      dirty: false,
+      baseVersion: 4,
+      sheet: sheet(7),
+    });
+    expect(save).not.toHaveBeenCalled();
     saver.dispose();
   });
 
