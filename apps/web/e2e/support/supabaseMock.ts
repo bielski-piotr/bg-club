@@ -152,6 +152,16 @@ export interface MockOptions {
   playResults?: readonly { readonly meeting_id: string; readonly profile_id: string }[];
   /** Błąd PostgREST zwracany przez `save_meeting` (np. reguła z HINT). */
   saveMeetingError?: { readonly code: string; readonly hint?: string; readonly message: string };
+  /** Głosy (`game_votes`, VOTE-2). Głos i cofnięcie z aplikacji zmieniają tę listę. */
+  votes?: MockVote[];
+  /** Opublikowane gry (`meeting_games`, VOTE-5) w kolejności `position`. */
+  meetingGames?: { readonly meeting_id: string; readonly game_id: string }[];
+}
+
+export interface MockVote {
+  readonly meeting_id: string;
+  readonly game_id: string;
+  readonly profile_id: string;
 }
 
 /** Partia spotkania z wynikami (osadzona w wierszu `meetings`, MTG-3). */
@@ -359,6 +369,9 @@ export interface SupabaseMock {
   /** Wywołania `save_meeting` i usunięte spotkania (id). */
   readonly meetingSaves: MeetingSave[];
   readonly meetingDeletes: string[];
+  /** Wywołania `publish_meeting_games` i `reopen_voting` (treść żądania). */
+  readonly publishes: { meeting_id: string; game_ids: string[] }[];
+  readonly reopens: string[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -416,6 +429,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     scorepadSaves: [],
     meetingSaves: [],
     meetingDeletes: [],
+    publishes: [],
+    reopens: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -649,6 +664,122 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         : [...(mock.options.meetings ?? []), saved];
       const { participants, ...row } = saved;
       return route.fulfill({ json: { ...row, participant_count: participants.length } });
+    }
+    // Głosowanie (VOTE-1…VOTE-6): głosy jak RLS i wyzwalacze, publikacja i ponowne otwarcie.
+    const meetingById = (id: string | undefined) =>
+      (mock.options.meetings ?? []).find((row) => row.id === id);
+    const setMeeting = (next: MockMeeting) => {
+      mock.options.meetings = (mock.options.meetings ?? []).map((row) =>
+        row.id === next.id ? next : row,
+      );
+    };
+    if (url.pathname === '/rest/v1/game_votes') {
+      const eq = (name: string) => url.searchParams.get(name)?.replace(/^eq\./, '');
+      const votes = mock.options.votes ?? [];
+      if (request.method() === 'GET') {
+        const meetingId = eq('meeting_id');
+        return route.fulfill({
+          json: votes
+            .filter((v) => v.meeting_id === meetingId)
+            .map(({ game_id, profile_id }) => ({ game_id, profile_id })),
+        });
+      }
+      if (request.method() === 'POST') {
+        const body = request.postDataJSON() as MockVote;
+        const target = meetingById(body.meeting_id);
+        if (!target?.voting_open) {
+          return route.fulfill({
+            status: 400,
+            json: { code: '23514', message: `voting is closed in meeting ${body.meeting_id}` },
+          });
+        }
+        if (!target.participants.includes(body.profile_id)) {
+          return route.fulfill({ status: 409, json: { code: '23503', message: 'fkey' } });
+        }
+        if (
+          votes.some(
+            (v) =>
+              v.meeting_id === body.meeting_id &&
+              v.game_id === body.game_id &&
+              v.profile_id === body.profile_id,
+          )
+        ) {
+          return route.fulfill({ status: 409, json: { code: '23505', message: 'pkey' } });
+        }
+        mock.options.votes = [...votes, body];
+        return route.fulfill({ status: 201, body: '' });
+      }
+      if (request.method() === 'DELETE') {
+        const [meetingId, gameId, profileId] = [eq('meeting_id'), eq('game_id'), eq('profile_id')];
+        if (!meetingById(meetingId)?.voting_open) return route.fulfill({ json: [] });
+        const hit = (v: MockVote) =>
+          v.meeting_id === meetingId && v.game_id === gameId && v.profile_id === profileId;
+        const removed = votes.filter(hit);
+        mock.options.votes = votes.filter((v) => !hit(v));
+        return route.fulfill({ json: removed.map((v) => ({ game_id: v.game_id })) });
+      }
+    }
+    if (url.pathname === '/rest/v1/meeting_games' && request.method() === 'GET') {
+      const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
+      const json = (mock.options.meetingGames ?? [])
+        .filter((row) => row.meeting_id === meetingId)
+        .map((row, position) => {
+          const g = (mock.options.games ?? []).find((x) => x.id === row.game_id);
+          return {
+            position,
+            games: g
+              ? {
+                  id: g.id,
+                  title: g.title,
+                  cover_path: g.cover_path,
+                  min_players: g.min_players,
+                  max_players: g.max_players,
+                }
+              : null,
+          };
+        });
+      return route.fulfill({ json });
+    }
+    if (url.pathname === '/rest/v1/rpc/publish_meeting_games' && request.method() === 'POST') {
+      const body = request.postDataJSON() as { meeting_id: string; game_ids: string[] };
+      mock.publishes.push(body);
+      const target = meetingById(body.meeting_id);
+      if (!target) {
+        return route.fulfill({
+          status: 404,
+          json: { code: 'P0002', hint: 'meetings_not_found', message: 'does not exist' },
+        });
+      }
+      if (target.status !== 'planned') {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'meeting_games_planned', message: 'not planned' },
+        });
+      }
+      mock.options.meetingGames = [
+        ...(mock.options.meetingGames ?? []).filter((row) => row.meeting_id !== target.id),
+        ...body.game_ids.map((game_id) => ({ meeting_id: target.id, game_id })),
+      ];
+      const saved = { ...target, voting_open: false };
+      setMeeting(saved);
+      return route.fulfill({ json: saved });
+    }
+    if (url.pathname === '/rest/v1/rpc/reopen_voting' && request.method() === 'POST') {
+      const { meeting_id } = request.postDataJSON() as { meeting_id: string };
+      mock.reopens.push(meeting_id);
+      const target = meetingById(meeting_id);
+      if (!target || target.status !== 'planned') {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'meetings_reopen_planned', message: 'has started' },
+        });
+      }
+      mock.options.meetingGames = (mock.options.meetingGames ?? []).filter(
+        (row) => row.meeting_id !== meeting_id,
+      );
+      const saved = { ...target, voting_open: true };
+      setMeeting(saved);
+      return route.fulfill({ json: saved });
     }
     if (url.pathname === '/rest/v1/play_results' && request.method() === 'GET') {
       const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');

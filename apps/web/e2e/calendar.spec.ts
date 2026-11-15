@@ -246,8 +246,8 @@ test('kalendarz: miesiące, Dziś, kilka spotkań jednego dnia i kolory statusó
   await expect(meeting).toBeVisible();
   expect(await search(page)).toBe(`?p=calendar&p=meeting/${SATURDAY.id}`);
   await expect(meeting.getByText('Głosowanie otwarte')).toBeVisible();
-  await expect(meeting.getByText('18:00', { exact: true })).toBeVisible();
-  await expect(meeting.getByText('Prowadzi')).toBeVisible();
+  await expect(meeting.getByText('sobota, 14 lis 2026 · 18:00')).toBeVisible();
+  await expect(meeting.getByText('Prowadzi', { exact: true })).toBeVisible();
   await meeting.getByRole('button', { name: 'Akcje spotkania' }).click();
   await expect(page.getByRole('menuitem', { name: 'Edytuj spotkanie' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Usuń spotkanie' })).toBeVisible();
