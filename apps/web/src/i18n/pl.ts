@@ -540,6 +540,26 @@ export const pl = {
       unknownGame: 'Usunięta gra',
       unknownPlayer: 'Usunięty gracz',
       emptyInProgress: 'Jeszcze nie zapisano partii. Rozpoczęte partie pojawią się tutaj.',
+      /** Menu zapisanej partii (admin, DS §15 „Play card”) i jej usunięcie (VIEW-6, §5.6.5). */
+      menu: 'Akcje partii {title}',
+      showSheet: 'Pokaż karteczkę',
+      delete: 'Usuń partię',
+      deleteDialog: {
+        title: 'Usunąć partię?',
+        description:
+          'Partia {title} zostanie trwale usunięta razem z karteczką i wynikami graczy. Rankingi, statystyki, serie i osiągnięcia przeliczą się bez niej. Tej operacji nie można cofnąć.',
+        cancel: 'Anuluj',
+        submit: 'Usuń partię',
+        close: 'Zamknij',
+        retryImage: 'Usuń obraz ponownie',
+        imageFailed:
+          'Partia została usunięta, ale nie udało się usunąć obrazu karteczki. Spróbuj ponownie. Jeśli się nie uda, obraz usunie później automatyczne sprzątanie spotkania.',
+        errors: {
+          forbidden: 'Partie usuwa tylko administrator.',
+          draft: 'Ta partia jeszcze trwa. Partię w toku można porzucić w notesie.',
+          save: 'Nie udało się usunąć partii. Sprawdź połączenie i spróbuj ponownie.',
+        },
+      },
     },
     /** Rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4, DS §15 „Dialog variants”). */
     run: {
@@ -934,6 +954,7 @@ export const pl = {
       playStarted: 'Partia rozpoczęta: {title}',
       playDiscarded: 'Partia porzucona: {title}',
       playSaved: 'Partia zapisana: {title}',
+      playDeleted: 'Usunięto partię: {title}',
       finished: 'Spotkanie zakończone',
     },
   },

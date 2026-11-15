@@ -80,6 +80,10 @@
 }
 
 /* Wiersz „Meeting link” (DS „Kolekcja / Karteczka”): kalendarz w kółku, tytuł i termin. */
+.sheet-view__delete {
+  align-self: flex-start;
+}
+
 .sheet-view__meeting {
   display: flex;
   align-items: center;

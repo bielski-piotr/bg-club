@@ -25,7 +25,14 @@ const text = t.sheets;
  * karteczkę od nowa z zapisanych wpisów i wersji szablonu z chwili rozpoczęcia partii, w notesie
  * tylko do odczytu. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
  */
-export function SheetPopup({ id }: { readonly id: string }) {
+export function SheetPopup({
+  id,
+  isAdmin = false,
+}: {
+  readonly id: string;
+  /** Admin może stąd usunąć partię (VIEW-6, potwierdzenie `play/<uuid>/delete`). */
+  readonly isAdmin?: boolean | undefined;
+}) {
   const { client } = useAuth();
   const sheet = useSavedSheet(client, id);
   const profiles = useAllProfiles(client);
@@ -55,7 +62,7 @@ export function SheetPopup({ id }: { readonly id: string }) {
   const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
   return (
     <PopupModal title={data.game.title} width={880}>
-      <SheetView sheet={data} profiles={profiles.data} timeZone={timeZone} />
+      <SheetView sheet={data} profiles={profiles.data} timeZone={timeZone} isAdmin={isAdmin} />
     </PopupModal>
   );
 }
@@ -64,10 +71,12 @@ function SheetView({
   sheet,
   profiles,
   timeZone,
+  isAdmin,
 }: {
   readonly sheet: SavedSheet;
   readonly profiles: Parameters<typeof PlayResultRows>[0]['profiles'];
   readonly timeZone: string;
+  readonly isAdmin: boolean;
 }) {
   const { open } = usePopups();
   const [view3d, setView3d] = useState(false);
@@ -132,6 +141,17 @@ function SheetView({
           </span>
           <Icon name="chevron-right" className="sheet-view__chevron" />
         </button>
+        {isAdmin ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="trash"
+            className="sheet-view__delete"
+            onClick={() => open({ kind: 'delete-play', id: sheet.id })}
+          >
+            {t.meetings.plays.delete}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

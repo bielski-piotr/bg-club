@@ -649,6 +649,19 @@
   outline-offset: 2px;
 }
 
+.play-card__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.play-card__row > .play-card__head--button {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
 .play-card__chevron {
   flex-shrink: 0;
   color: var(--c-disabled);

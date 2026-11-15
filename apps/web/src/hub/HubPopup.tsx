@@ -10,6 +10,7 @@ import { CalendarPopup } from '../meetings/CalendarPopup';
 import { DeleteMeetingDialog } from '../meetings/DeleteMeetingDialog';
 import { AddMeetingPopup, EditMeetingPopup } from '../meetings/MeetingFormPopup';
 import { MeetingPopup } from '../meetings/MeetingPopup';
+import { DeletePlayDialog } from '../meetings/DeletePlayDialog';
 import { DiscardPlayDialog } from '../meetings/DiscardPlayDialog';
 import { NewPlayPopup } from '../meetings/NewPlayPopup';
 import { PlayPopup } from '../meetings/PlayPopup';
@@ -63,7 +64,7 @@ export function HubPopup({ route, me }: HubPopupProps) {
     case 'game':
       return <GameDetailsPopup id={route.id} />;
     case 'sheet':
-      return <SheetPopup id={route.id} />;
+      return <SheetPopup id={route.id} isAdmin={me.role === 'admin'} />;
     case 'add-game':
       // Gry dodaje, edytuje i usuwa tylko administrator (GAME-3); bazę chroni RLS.
       return me.role === 'admin' ? <AddGamePopup /> : <InvalidPopup />;
@@ -112,6 +113,9 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return <PlayPopup id={route.id} me={me} />;
     case 'discard-play':
       return <DiscardPlayDialog id={route.id} me={me} />;
+    case 'delete-play':
+      // Tylko admin (VIEW-6); dialog sam sprawdza rolę, bazę chroni RPC delete_play.
+      return <DeletePlayDialog id={route.id} me={me} />;
     case 'invalid':
       return <InvalidPopup />;
   }

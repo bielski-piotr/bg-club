@@ -74,6 +74,20 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
+  it('zna usunięcie zapisanej partii (VIEW-6)', () => {
+    const stack = [
+      { kind: 'meeting', id: ID },
+      { kind: 'delete-play', id: ID },
+    ] as const;
+    const search = `?p=meeting/${ID}&p=play/${ID}/delete`;
+    expect(parseStack(search)).toEqual(stack);
+    expect(stackSearch('', stack)).toBe(search);
+    expect(parseRoute(`play/${ID.toUpperCase()}/delete`)).toEqual(stack[1]);
+    for (const raw of ['play/1/delete', `play/${ID}/delete/x`]) {
+      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    }
+  });
+
   it('zna planowanie, edycję i usuwanie spotkania (PLAN-1, PLAN-3)', () => {
     expect(parseStack(`?p=meetings/new&p=meeting/${ID}/edit&p=meeting/${ID}/delete`)).toEqual([
       { kind: 'add-meeting' },

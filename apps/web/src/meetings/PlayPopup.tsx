@@ -43,6 +43,7 @@ import {
   type DraftStatus,
   type ServerDraft,
 } from './playDraft';
+import { invalidatePlayData } from './playDelete';
 import { isMeetingRunner, playKey, usePlay, type PlayDetail } from './plays';
 import { PlaySaveError, playSummary, savePlay, type PlaySummary } from './playSave';
 import { PlaySummaryDialog } from './PlaySummaryDialog';
@@ -428,7 +429,8 @@ function PlayPad({
       removeLocalDrafts(draftStorage(), play.id);
       release();
       toast.show(format(t.meetings.toasts.playSaved, { title: play.game.title }), 'success');
-      void queryClient.invalidateQueries({ queryKey: meetingsKey });
+      // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane” (§5.6.5).
+      void invalidatePlayData(queryClient);
       if (mounted.current) back();
     },
   });
