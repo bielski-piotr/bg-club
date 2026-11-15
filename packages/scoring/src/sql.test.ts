@@ -43,7 +43,7 @@ describe('testy pgTAP ze wspólnych przypadków', () => {
     expectFresh(SAVE_PLAY_SQL_TEST_PATH, renderSavePlaySqlTest(playCases, tsResults));
   });
 
-  it('221_achievement_cases jest aktualny (pnpm --filter @bg-club/scoring gen:sql)', () => {
+  it('231_achievement_cases jest aktualny (pnpm --filter @bg-club/scoring gen:sql)', () => {
     expectFresh(ACHIEVEMENTS_SQL_TEST_PATH, renderAchievementSqlTest(achievementCases));
   });
 

@@ -8,6 +8,7 @@ import { LeaderboardBoard } from './LeaderboardBoard';
 import {
   filterYear,
   useLeaderboardYears,
+  yearFilterValues,
   type LeaderboardKind,
   type YearFilter,
 } from './leaderboard';
@@ -32,14 +33,9 @@ export function LeaderboardPopup({
   const years = useLeaderboardYears(client);
   const { entries, profiles, failed, retry } = useBoardData(kind, filterYear(year));
   const text = t.leaderboard;
-  const options: SelectOption<YearFilter>[] = [
-    { value: 'all', label: text.allTime },
-    ...(years.data ?? []).map((y) => ({ value: `${y}` as const, label: String(y) })),
-  ];
-  // Wybrany rok, który zniknął z listy (np. po usunięciu jego jedynej partii), zostaje widoczny.
-  if (year !== 'all' && !options.some((option) => option.value === year)) {
-    options.push({ value: year, label: year });
-  }
+  const options: SelectOption<YearFilter>[] = yearFilterValues(years.data ?? [], year).map(
+    (value) => ({ value, label: value === 'all' ? text.allTime : value }),
+  );
   const count = entries ? plural(entries.length, text.count) : undefined;
 
   return (

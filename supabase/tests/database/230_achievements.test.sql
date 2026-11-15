@@ -1,7 +1,7 @@
 -- [036] Przeliczanie osiągnięć w przebiegu klubu (PRD ACH-2, §5.10, §5.6.5, Q17, Q18): zapis
 -- partii, ponowienie zapisu, zakończenie spotkania, usunięcie partii, zamknięcie, ponowne
 -- otwarcie i usunięcie głosowania, uprawnienia. Warunki katalogu na wspólnych przypadkach
--- sprawdza generowany test 221_achievement_cases. Dane testowe są fikcyjne.
+-- sprawdza generowany test 231_achievement_cases. Dane testowe są fikcyjne.
 begin;
 
 create extension if not exists pgtap with schema extensions;

@@ -1,7 +1,7 @@
 /**
  * Generatory testów pgTAP ze wspólnych przypadków (PRD §8.3): `110_scoring` (punkty,
  * `public.play_points`), `171_save_play_cases` (pełny zapis partii, `public.save_play`)
- * i `221_achievement_cases` (przeliczenie osiągnięć, `private.recalculate_achievements`).
+ * i `231_achievement_cases` (przeliczenie osiągnięć, `private.recalculate_achievements`).
  * Pliki SQL są wynikiem tych funkcji; `sql.test.ts` pilnuje, że są aktualne,
  * a `pnpm --filter @bg-club/scoring gen:sql` zapisuje je od nowa.
  */
@@ -173,7 +173,7 @@ export function renderSavePlaySqlTest(
 }
 
 /** Test pgTAP przeliczenia osiągnięć (`private.recalculate_achievements`) z wspólnych przypadków. */
-export const ACHIEVEMENTS_SQL_TEST_PATH = 'supabase/tests/database/221_achievement_cases.test.sql';
+export const ACHIEVEMENTS_SQL_TEST_PATH = 'supabase/tests/database/231_achievement_cases.test.sql';
 
 const ts = (iso: string): string => `${literal(iso)}::timestamptz`;
 const uuidLit = (id: string | null): string =>

@@ -4,7 +4,7 @@
 -- - Katalog (29 pozycji, Q16) jest w kodzie: `packages/scoring/src/achievements.ts` (ACH-1).
 --   Baza liczy te same warunki w `private.computed_achievement_unlocks()`; obie implementacje
 --   przechodzą wspólne przypadki (`packages/scoring/src/cases/achievements.ts`, generowany test
---   pgTAP `221_achievement_cases`).
+--   pgTAP `231_achievement_cases`).
 -- - Przeliczenie jest pełne i deterministyczne: odtwarza całą historię w kolejności z §5.6.6
 --   (spotkania po `starts_at`, potem `id`; partie po `saved_at`, potem `id`) i porównuje wynik
 --   z `achievement_unlocks`: dopisuje nowe, usuwa niespełnione i poprawia datę spełnionych
