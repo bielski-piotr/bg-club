@@ -6,7 +6,7 @@ import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { fullName, membersKey, profileKey } from '../profile/profiles';
+import { allProfilesKey, fullName, membersKey, profileKey } from '../profile/profiles';
 import { nameProblem } from '../profile/settings';
 import { Banner, Button, Icon, TextField, useToast } from '../ui';
 import {
@@ -72,6 +72,7 @@ function AddMemberForm({ onCreated }: { readonly onCreated: (created: CreatedMem
     onSuccess: (result) => {
       queryClient.setQueryData(profileKey(result.member.id), result.member);
       void queryClient.invalidateQueries({ queryKey: membersKey });
+      void queryClient.invalidateQueries({ queryKey: allProfilesKey });
       // Potwierdzeniem jest ekran z danymi logowania (bez toastu, który zasłaniałby stopkę).
       onCreated(result);
     },

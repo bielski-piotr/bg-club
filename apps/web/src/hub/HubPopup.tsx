@@ -5,7 +5,9 @@ import { AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
 import { AddMemberPopup } from '../members/AddMemberPopup';
 import { DeleteMemberDialog } from '../members/DeleteMemberDialog';
 import { MembersPopup } from '../members/MembersPopup';
+import { CalendarPopup } from '../meetings/CalendarPopup';
 import { DeleteMeetingDialog } from '../meetings/DeleteMeetingDialog';
+import { MeetingPopup } from '../meetings/MeetingPopup';
 import { AddMeetingPopup, EditMeetingPopup } from '../meetings/MeetingFormPopup';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
@@ -69,6 +71,11 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <RenameScorepadDialog id={route.id} /> : <InvalidPopup />;
     case 'delete-scorepad':
       return me.role === 'admin' ? <DeleteScorepadDialog id={route.id} /> : <InvalidPopup />;
+    case 'meeting':
+      return <MeetingPopup id={route.id} me={me} />;
+    case 'calendar':
+      // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi (DS §15.1).
+      return <CalendarPopup isAdmin={me.role === 'admin'} />;
     case 'add-meeting':
       // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
       return me.role === 'admin' ? <AddMeetingPopup me={me} date={route.date} /> : <InvalidPopup />;

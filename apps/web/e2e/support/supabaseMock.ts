@@ -146,10 +146,24 @@ export interface MockOptions {
   scorepads?: MockScorepad[];
   /** Spotkania (§5.8). Zapis z aplikacji (`save_meeting`, DELETE) zmienia tę listę. */
   meetings?: MockMeeting[];
+  /** Partie spotkań osadzane w timeline i kalendarzu (MTG-3): liczba partii i zwycięzcy. */
+  plays?: readonly MockPlay[];
   /** Gracze z partią w spotkaniu (`play_results`, PLAN-4). */
   playResults?: readonly { readonly meeting_id: string; readonly profile_id: string }[];
   /** Błąd PostgREST zwracany przez `save_meeting` (np. reguła z HINT). */
   saveMeetingError?: { readonly code: string; readonly hint?: string; readonly message: string };
+}
+
+/** Partia spotkania z wynikami (osadzona w wierszu `meetings`, MTG-3). */
+export interface MockPlay {
+  readonly id: string;
+  readonly meeting_id: string;
+  readonly status: 'draft' | 'saved';
+  readonly saved_at: string | null;
+  readonly play_results: readonly {
+    readonly profile_id: string;
+    readonly is_win: boolean | null;
+  }[];
 }
 
 /** Spotkanie z identyfikatorami uczestników (jak wiersz `meetings` z osadzonymi uczestnikami). */
@@ -532,21 +546,53 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       let rows = [...(mock.options.meetings ?? [])];
       const id = url.searchParams.get('id')?.replace(/^eq\./, '');
       if (id) rows = rows.filter((row) => row.id === id);
-      const status = /^in\.\((.*)\)$/.exec(url.searchParams.get('status') ?? '');
+      const statusParam = url.searchParams.get('status') ?? '';
+      const status = /^in\.\((.*)\)$/.exec(statusParam);
       if (status) {
         const allowed = (status[1] ?? '').split(',');
         rows = rows.filter((row) => allowed.includes(row.status));
       }
-      rows.sort(
-        (a, b) =>
-          a.status.localeCompare(b.status) ||
-          a.starts_at.localeCompare(b.starts_at) ||
-          a.id.localeCompare(b.id),
-      );
+      if (statusParam.startsWith('eq.')) {
+        rows = rows.filter((row) => row.status === statusParam.slice(3));
+      }
+      // Zakres terminów kalendarza (`gte` / `lt` na `starts_at`).
+      for (const filter of url.searchParams.getAll('starts_at')) {
+        const [op, value = ''] = filter.split(/\.(.*)/s);
+        const bound = new Date(value).getTime();
+        rows = rows.filter((row) => {
+          const at = new Date(row.starts_at).getTime();
+          return op === 'gte' ? at >= bound : op === 'lt' ? at < bound : true;
+        });
+      }
+      // `order=status.asc,starts_at.desc,id.desc` (kolejność z zapytania, domyślnie rosnąco).
+      const order = (url.searchParams.get('order') ?? 'status,starts_at,id')
+        .split(',')
+        .map((part) => {
+          const [column = '', direction] = part.split('.');
+          return { column: column as 'status' | 'starts_at' | 'id', desc: direction === 'desc' };
+        });
+      rows.sort((a, b) => {
+        for (const { column, desc } of order) {
+          const diff =
+            column === 'starts_at'
+              ? new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+              : a[column].localeCompare(b[column]);
+          if (diff !== 0) return desc ? -diff : diff;
+        }
+        return 0;
+      });
+      const withPlays = (url.searchParams.get('select') ?? '').includes('plays');
       const limit = Number(url.searchParams.get('limit') ?? rows.length);
       const json = rows.slice(0, limit).map(({ participants, ...row }) => ({
         ...row,
         meeting_participants: participants.map((profile_id) => ({ profile_id })),
+        ...(withPlays
+          ? {
+              plays: (mock.options.plays ?? [])
+                .filter((play) => play.meeting_id === row.id)
+                .map(({ meeting_id: _meeting, ...play }) => play),
+            }
+          : {}),
       }));
       const single = (request.headers()['accept'] ?? '').includes('vnd.pgrst.object');
       if (single) {

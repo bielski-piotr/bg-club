@@ -89,3 +89,20 @@ export function useMembers(client: SupabaseClient) {
     },
   });
 }
+
+export const allProfilesKey = ['profiles', 'all'] as const;
+
+/**
+ * Wszystkie profile klubu, także usunięte (MEM-5: usunięty zostaje w historii, np. jako
+ * zwycięzca spotkania w timeline albo uczestnik w kalendarzu), po `id`.
+ */
+export function useAllProfiles(client: SupabaseClient) {
+  return useQuery({
+    queryKey: allProfilesKey,
+    queryFn: async (): Promise<ReadonlyMap<string, Profile>> => {
+      const { data, error } = await client.from('profiles').select(PROFILE_COLUMNS);
+      if (error) throw error;
+      return new Map((data as Profile[]).map((profile) => [profile.id, profile]));
+    },
+  });
+}

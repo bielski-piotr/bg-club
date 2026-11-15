@@ -22,16 +22,16 @@ export interface Meeting {
   readonly participants: readonly string[];
 }
 
-interface MeetingRow extends Omit<Meeting, 'participants'> {
+export interface MeetingRow extends Omit<Meeting, 'participants'> {
   // Jawny klucz obcy: spotkanie ma też klucz (id, host_id) → uczestnicy.
   readonly meeting_participants: readonly { readonly profile_id: string }[];
 }
 
-const MEETING_COLUMNS =
+export const MEETING_COLUMNS =
   'id, title, starts_at, status, voting_open, host_id, started_at, finished_at, ' +
   'meeting_participants!meeting_participants_meeting_id_fkey(profile_id)';
 
-function fromRow(row: MeetingRow): Meeting {
+export function fromRow(row: MeetingRow): Meeting {
   const { meeting_participants: participants, ...rest } = row;
   return { ...rest, participants: participants.map((p) => p.profile_id) };
 }

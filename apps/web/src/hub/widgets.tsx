@@ -4,33 +4,26 @@ import { usePopups } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { ProfileLink } from '../profile/ProfileLink';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { fullName, useMembers, type Profile } from '../profile/profiles';
+import { fullName, useAllProfiles, useMembers, type Profile } from '../profile/profiles';
 import { visibleMembers } from './members';
 import { GameCover } from '../games/GameCover';
 import { useCollectionWidget } from '../games/games';
 import { playersLabel } from '../games/labels';
 import { useClub } from './club';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { dateTile, formatMeetingDate, longMeetingDate } from '../meetings/datetime';
+import { dateTile, formatMeetingDate, longMeetingDate, todayIn } from '../meetings/datetime';
 import { useHubMeeting, type Meeting } from '../meetings/meetings';
-import {
-  Banner,
-  Button,
-  Card,
-  EmptyState,
-  Icon,
-  Menu,
-  Skeleton,
-  Spinner,
-  StatusChip,
-  Tray,
-} from '../ui';
+import { shortDayLabel, weekdayTime } from '../meetings/calendar';
+import { MeetingStatusChip, MiniDateTile, WinnersLine } from '../meetings/MeetingParts';
+import { useTimeline, type MeetingOverview, type Timeline } from '../meetings/overview';
+import { Banner, Button, Card, EmptyState, Icon, Menu, Skeleton, Spinner, Tray } from '../ui';
 import '../meetings/meetings.css';
+import '../meetings/calendar.css';
 
 /*
- * Widżety huba (PRD §4, DS §6, §17). Ranking i Timeline mają na razie tylko puste stany
- * (CLUB-4); ich treść dochodzi w zadaniach [025], [033]. Spotkanie (MTG-1, od [023]),
- * Kolekcja (GAME-1) i Członkowie (MEM-1) pokazują już prawdziwe dane.
+ * Widżety huba (PRD §4, DS §6, §17). Ranking ma na razie tylko pusty stan (CLUB-4); jego treść
+ * dochodzi w zadaniu [033]. Spotkanie (MTG-1, od [023]), Timeline (MTG-3, [025]), Kolekcja
+ * (GAME-1) i Członkowie (MEM-1) pokazują już prawdziwe dane.
  */
 
 /**
@@ -55,7 +48,7 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
         label={format(t.hub.meeting.actions, { title: data.title })}
         align="end"
         items={[
-          // Kolejne spotkanie, zanim powstanie kalendarz ([025]): z menu widżetu (PLAN-1).
+          // Kolejne spotkanie z menu widżetu (PLAN-1); kalendarz ma też własny przycisk (CAL-3).
           {
             id: 'plan',
             label: t.meetings.menu.plan,
@@ -149,15 +142,6 @@ function MeetingBlock({
   const tile = dateTile(meeting.starts_at, timeZone);
   const people = members.filter((member) => meeting.participants.includes(member.id));
   const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
-  const status = t.meetings.status;
-  const chip =
-    meeting.status === 'in_progress' ? (
-      <StatusChip tone="success">{status.inProgress}</StatusChip>
-    ) : meeting.voting_open ? (
-      <StatusChip tone="accent">{status.votingOpen}</StatusChip>
-    ) : (
-      <StatusChip tone="neutral">{status.gamesChosen}</StatusChip>
-    );
   return (
     <div className="meeting-widget">
       <div className="meeting-widget__head">
@@ -188,7 +172,9 @@ function MeetingBlock({
           {host ? ` · ${format(t.hub.meeting.host, { name: host.first_name })}` : null}
         </p>
       </div>
-      <div className="meeting-widget__row">{chip}</div>
+      <div className="meeting-widget__row">
+        <MeetingStatusChip meeting={meeting} short />
+      </div>
     </div>
   );
 }
@@ -205,15 +191,154 @@ export function RankingWidget() {
   );
 }
 
+/**
+ * Timeline (MTG-3, DS §15.1): najwyżej 2 najbliższe nadchodzące spotkania (od dalszego), divider
+ * „Dziś” i najwyżej 4 ostatnie zakończone (od najnowszego), z datami w strefie klubu (NFR-10).
+ * Zakończone mają liczbę partii i zwycięzców. Wiersz otwiera popup spotkania, a „Zobacz więcej”
+ * kalendarz. Bez spotkań: pusty stan bez CTA (planowanie startuje z widżetu Spotkanie).
+ */
 export function TimelineWidget() {
+  const { client } = useAuth();
+  const timeline = useTimeline(client);
+  const club = useClub(client);
+  const profiles = useAllProfiles(client);
+  const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
+  const data = timeline.data;
+  const empty = data !== undefined && data.upcoming.length === 0 && data.finished.length === 0;
+  // Profile są potrzebne do zwycięzców; dane z cache'u mają pierwszeństwo przed błędem odświeżania.
+  const failed = (timeline.isError && !data) || (profiles.isError && !profiles.data);
+  const action =
+    data && !empty ? (
+      <PopupLink
+        to={{ kind: 'calendar' }}
+        className="text-link"
+        aria-label={t.hub.timeline.seeMore}
+      >
+        <span>{t.ui.seeMore}</span>
+        <Icon name="chevron-right" />
+      </PopupLink>
+    ) : undefined;
+
   return (
-    <Card title={t.hub.timeline.title}>
-      <EmptyState
-        icon="clock"
-        title={t.hub.timeline.emptyTitle}
-        helper={t.hub.timeline.emptyHelper}
-      />
+    <Card title={t.hub.timeline.title} action={action}>
+      {failed ? (
+        <Banner
+          variant="error"
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="refresh"
+              onClick={() => {
+                if (timeline.isError) void timeline.refetch();
+                if (profiles.isError) void profiles.refetch();
+              }}
+            >
+              {t.hub.retry}
+            </Button>
+          }
+        >
+          {t.hub.loadError}
+        </Banner>
+      ) : !data || (!empty && (club.isPending || !profiles.data)) ? (
+        <div className="members-widget__loading">
+          <Skeleton width={240} height={48} radius={14} />
+          <Spinner label={t.hub.timeline.loading} className="sr-only" />
+        </div>
+      ) : empty ? (
+        <EmptyState
+          icon="clock"
+          title={t.hub.timeline.emptyTitle}
+          helper={t.hub.timeline.emptyHelper}
+        />
+      ) : (
+        <TimelineList timeline={data} timeZone={timeZone} profiles={profiles.data} />
+      )}
     </Card>
+  );
+}
+
+function TimelineList({
+  timeline,
+  timeZone,
+  profiles,
+}: {
+  readonly timeline: Timeline;
+  readonly timeZone: string;
+  readonly profiles: ReadonlyMap<string, Profile> | undefined;
+}) {
+  const today = todayIn(timeZone);
+  const last = timeline.finished.length === 0 ? 'divider' : timeline.finished.at(-1)?.id;
+  return (
+    <ol className="timeline" aria-label={t.hub.timeline.listLabel}>
+      {timeline.upcoming.map((meeting) => (
+        <TimelineRow key={meeting.id} meeting={meeting} timeZone={timeZone} last={false} />
+      ))}
+      <li className={last === 'divider' ? 'timeline__row timeline__row--last' : 'timeline__row'}>
+        <span className="timeline__rail" aria-hidden="true">
+          <span className="timeline__today-dot" />
+          <span className="timeline__connector" />
+        </span>
+        <span className="timeline__divider">
+          <span className="timeline__divider-label">
+            {format(t.hub.timeline.today, { date: shortDayLabel(today) })}
+          </span>
+          <span className="timeline__hairline" aria-hidden="true" />
+        </span>
+      </li>
+      {timeline.finished.map((meeting) => (
+        <TimelineRow
+          key={meeting.id}
+          meeting={meeting}
+          timeZone={timeZone}
+          last={meeting.id === last}
+          profiles={profiles}
+        />
+      ))}
+    </ol>
+  );
+}
+
+function TimelineRow({
+  meeting,
+  timeZone,
+  last,
+  profiles,
+}: {
+  readonly meeting: MeetingOverview;
+  readonly timeZone: string;
+  readonly last: boolean;
+  readonly profiles?: ReadonlyMap<string, Profile> | undefined;
+}) {
+  const people = plural(meeting.participants.length, t.hub.meeting.participants);
+  const finished = meeting.status === 'finished';
+  const meta = finished
+    ? `${people} · ${plural(meeting.playCount, t.hub.timeline.plays)}`
+    : `${weekdayTime(meeting.starts_at, timeZone)} · ${people}`;
+  return (
+    <li className={last ? 'timeline__row timeline__row--last' : 'timeline__row'}>
+      <PopupLink to={{ kind: 'meeting', id: meeting.id }} className="timeline__link">
+        <span className="timeline__rail">
+          <MiniDateTile meeting={meeting} timeZone={timeZone} />
+          <span className="timeline__connector" aria-hidden="true" />
+        </span>
+        <span className="timeline__content">
+          <span className="timeline__title">{meeting.title}</span>
+          <span className="sr-only">{longMeetingDate(meeting.starts_at, timeZone)}</span>
+          <span className="timeline__meta">{meta}</span>
+          {finished ? (
+            <WinnersLine
+              winners={meeting.winners}
+              profiles={profiles}
+              className="timeline__winners"
+            />
+          ) : null}
+        </span>
+        <span className="timeline__chevron" aria-hidden="true">
+          <Icon name="chevron-right" />
+        </span>
+      </PopupLink>
+    </li>
   );
 }
 
