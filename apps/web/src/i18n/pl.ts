@@ -399,6 +399,7 @@ export const pl = {
       add: 'Dodaj grę',
       addShort: 'Dodaj',
       actions: 'Akcje gry {title}',
+      details: 'Szczegóły gry {title}',
       edit: 'Edytuj',
       scorepads: 'Notesy',
       delete: 'Usuń',
@@ -460,11 +461,49 @@ export const pl = {
         save: 'Nie udało się usunąć gry. Sprawdź połączenie i spróbuj ponownie.',
       },
     },
+    /** Szczegóły gry z galerią karteczek (GAME-10, zadanie [030]). */
+    details: {
+      lastPlayed: 'Ostatnia partia: {date}',
+      neverPlayed: 'Jeszcze nie grana',
+      gallery: 'Karteczki',
+      count: { one: '{n} partia', few: '{n} partie', many: '{n} partii' },
+      galleryEmptyTitle: 'Brak karteczek',
+      galleryLabel: 'Karteczki gry {title}, od najnowszej',
+      galleryEmpty:
+        'Nie ma jeszcze zapisanych partii tej gry. Oderwane karteczki pojawią się tutaj.',
+      sheet: 'Karteczka z {date}',
+      sheetMeeting: '{date} · {meeting}',
+      notFoundTitle: 'Nie znaleziono gry',
+      notFoundBody:
+        'Tej gry nie ma w kolekcji. Mogła zostać usunięta, a jej partie zostają w historii spotkań.',
+    },
     toasts: {
       created: 'Dodano grę {title}',
       updated: 'Zapisano zmiany w grze {title}',
       deleted: 'Usunięto grę {title}',
     },
+  },
+  /** Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”, zadanie [030]). */
+  sheets: {
+    loading: 'Karteczka',
+    image: 'Karteczka partii {title} z {date}',
+    noImage:
+      'Obraz tej karteczki nie został zapisany. Wpisy są w historii, więc możesz ją obejrzeć w 3D.',
+    show3d: 'Pokaż w 3D',
+    showImage: 'Pokaż obraz',
+    readOnly: 'Podgląd tylko do odczytu: obracaj i przybliżaj kartkę.',
+    noSheet: 'Ta partia nie ma zapisanych wpisów kartki, więc nie da się jej pokazać w 3D.',
+    padError: 'Nie udało się wczytać notesu tej partii.',
+    retry: 'Spróbuj ponownie',
+    results: 'Wyniki',
+    resultsLabel: 'Wyniki partii {title}',
+    played: 'Zapisana {date}',
+    scorepad: 'Notes: {name}',
+    meeting: 'Spotkanie',
+    meetingSub: 'Spotkanie · {date}',
+    meetingLabel: 'Otwórz spotkanie {title}',
+    goneTitle: 'Nie znaleziono karteczki',
+    gone: 'Nie ma takiej karteczki. Partia mogła zostać usunięta albo jeszcze trwa.',
   },
   /** Planowanie i edycja spotkań (PRD PLAN-1…PLAN-5, RUN-1, RUN-4, DS §15, zadanie [023]). */
   meetings: {

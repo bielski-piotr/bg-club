@@ -111,7 +111,14 @@ function GameTile({ game, isAdmin }: { readonly game: Game; readonly isAdmin: bo
   return (
     <li className="game-tile">
       <div className="game-tile__cover">
-        <GameCover id={game.id} title={game.title} coverPath={game.cover_path} size="large" />
+        <button
+          type="button"
+          className="game-tile__open"
+          aria-label={format(text.details, { title: game.title })}
+          onClick={() => open({ kind: 'game', id: game.id })}
+        >
+          <GameCover id={game.id} title={game.title} coverPath={game.cover_path} size="large" />
+        </button>
         {isAdmin ? (
           <Menu
             label={format(text.actions, { title: game.title })}

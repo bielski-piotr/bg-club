@@ -167,6 +167,10 @@ export interface MockOptions {
   savePlayLostReplies?: number;
   /** Błąd PostgREST zwracany przez `save_play` (np. reguła z HINT). */
   savePlayError?: { readonly code: string; readonly hint?: string; readonly message: string };
+  /** Upload obrazu karteczki (bucket `sheets`, PAD-6) przerwany jak offline. */
+  sheetUploadOffline?: boolean;
+  /** Osierocone obrazy spotkania zwracane przez `orphan_sheet_images`. */
+  orphanSheets?: readonly string[];
 }
 
 /** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
@@ -226,6 +230,8 @@ export interface MockPlay {
   readonly points_snapshot?: readonly number[];
   /** Treść ostatniego `save_play` (ponowienie z tą samą treścią zwraca zapisaną partię). */
   readonly saved_payload?: string;
+  /** Obraz oderwanej karteczki w buckecie `sheets` (PAD-6). */
+  readonly sheet_image_path?: string | null;
   readonly play_results: readonly {
     readonly profile_id: string;
     readonly is_win: boolean | null;
@@ -398,6 +404,8 @@ const PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
+/** Obraz karteczki w historii (PAD-6): w atrapie ten sam piksel. */
+const SHEET_PNG = PIXEL_PNG;
 
 export interface SupabaseMock {
   readonly options: MockOptions;
@@ -441,6 +449,10 @@ export interface SupabaseMock {
   readonly discards: string[];
   /** Wywołania `save_play` (PAD-5), także ponowienia. */
   readonly playSaves: PlaySave[];
+  /** Obrazy karteczek (PAD-6): wgrane pliki, dołączenia do partii i usunięte pliki. */
+  readonly sheetUploads: { readonly path: string; readonly type: string; readonly size: number }[];
+  readonly sheetAttaches: { readonly play_id: string; readonly image_path: string }[];
+  readonly sheetRemoved: string[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -505,6 +517,9 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     draftSaves: [],
     discards: [],
     playSaves: [],
+    sheetUploads: [],
+    sheetAttaches: [],
+    sheetRemoved: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -890,6 +905,12 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
             draft_saved_at: play.draft_saved_at ?? null,
             draft_saved_by: play.draft_saved_by ?? null,
             points_snapshot: play.points_snapshot ?? [10, 6, 4, 2],
+            saved_at: play.saved_at,
+            sheet_image_path: play.sheet_image_path ?? null,
+            meetings: (() => {
+              const m = meetingById(play.meeting_id);
+              return m ? { id: m.id, title: m.title, starts_at: m.starts_at } : null;
+            })(),
             scorepad_version_id: pad?.current.id ?? '00000000-0000-4000-e000-00000000ffff',
             game_id: gameId,
             games: game ? { id: game.id, title: game.title, cover_path: game.cover_path } : null,
@@ -899,10 +920,57 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
             play_results: play.play_results.map((r, index) => ({
               profile_id: r.profile_id,
               seat: r.seat ?? index + 1,
+              ranking_value: r.ranking_value ?? null,
+              place: r.place ?? null,
+              points: r.points ?? null,
+              is_win: r.is_win,
             })),
           },
         ],
       });
+    }
+    // Galeria karteczek gry (GAME-10): zapisane partie gry od najnowszej.
+    const galleryGame = url.searchParams.get('game_id')?.replace(/^eq\./, '');
+    if (url.pathname === '/rest/v1/plays' && request.method() === 'GET' && galleryGame) {
+      const json = (mock.options.plays ?? [])
+        .filter(
+          (p) =>
+            p.status === 'saved' &&
+            (p.game_id ?? '00000000-0000-4000-b000-000000000001') === galleryGame,
+        )
+        .sort(
+          (a, b) => (b.saved_at ?? '').localeCompare(a.saved_at ?? '') || b.id.localeCompare(a.id),
+        )
+        .map((p) => ({
+          id: p.id,
+          saved_at: p.saved_at,
+          sheet_image_path: p.sheet_image_path ?? null,
+          meetings: { title: meetingById(p.meeting_id)?.title ?? '' },
+          play_results: p.play_results.map((r) => ({ profile_id: r.profile_id, is_win: r.is_win })),
+        }));
+      return route.fulfill({ json });
+    }
+    // Obraz karteczki (PAD-6) jak `attach_play_sheet_image`: tylko zapisana partia, pierwszy
+    // obraz zostaje; `orphan_sheet_images` podaje pliki do sprzątania.
+    if (url.pathname === '/rest/v1/rpc/attach_play_sheet_image' && request.method() === 'POST') {
+      const body = request.postDataJSON() as { play_id: string; image_path: string };
+      mock.sheetAttaches.push(body);
+      const play = (mock.options.plays ?? []).find((p) => p.id === body.play_id);
+      const fail = (code: string, hint: string) =>
+        route.fulfill({ status: 400, json: { code, hint, message: hint } });
+      if (!play) return fail('P0002', 'plays_not_found');
+      if (play.status !== 'saved') return fail('23514', 'plays_sheet_image_not_saved');
+      if (!mock.sheetUploads.some((u) => u.path === body.image_path)) {
+        return fail('23503', 'plays_sheet_image_missing');
+      }
+      const path = play.sheet_image_path ?? body.image_path;
+      mock.options.plays = (mock.options.plays ?? []).map((p) =>
+        p.id === play.id ? { ...p, sheet_image_path: path } : p,
+      );
+      return route.fulfill({ json: { id: play.id, sheet_image_path: path } });
+    }
+    if (url.pathname === '/rest/v1/rpc/orphan_sheet_images' && request.method() === 'POST') {
+      return route.fulfill({ json: mock.options.orphanSheets ?? [] });
     }
     // Szkic kartki (PAD-4) z kontrolą wersji jak `save_play_draft`.
     if (url.pathname === '/rest/v1/rpc/save_play_draft' && request.method() === 'POST') {
@@ -1023,6 +1091,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
             started_at: play.started_at ?? play.saved_at ?? '2026-11-28T17:10:00+00:00',
             saved_at: play.saved_at,
             started_by: ADA.id,
+            sheet_image_path: play.sheet_image_path ?? null,
             game_id: gameId,
             games: game ? { id: game.id, title: game.title, cover_path: game.cover_path } : null,
             play_results: play.play_results.map((r, index) => ({
@@ -1248,6 +1317,42 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return pad
         ? route.fulfill({ contentType: 'image/png', body: pad.image })
         : route.fulfill({ status: 400, json: { statusCode: '404', error: 'not_found' } });
+    }
+    // Bucket `sheets` (PAD-6): obrazy karteczek, podpisane adresy (też hurtem) i usuwanie.
+    if (url.pathname.startsWith(`${objectPrefix}sheets/`) && request.method() === 'POST') {
+      if (mock.options.sheetUploadOffline) return route.abort('internetdisconnected');
+      const path = decodeURIComponent(url.pathname.slice(`${objectPrefix}sheets/`.length));
+      const body = request.postDataBuffer();
+      // supabase-js wysyła Blob jako multipart: typ pliku jest w nagłówku części.
+      const type = /content-type:\s*(image\/[a-z]+)/i.exec(body?.toString('latin1') ?? '')?.[1];
+      mock.sheetUploads.push({
+        path,
+        type: type ?? request.headers()['content-type'] ?? '',
+        size: body?.length ?? 0,
+      });
+      return route.fulfill({ json: { Key: url.pathname.slice(objectPrefix.length) } });
+    }
+    if (url.pathname === `${objectPrefix}sign/sheets` && request.method() === 'POST') {
+      const { paths } = request.postDataJSON() as { paths: string[] };
+      return route.fulfill({
+        json: paths.map((path) => ({
+          path,
+          signedURL: `/object/sign/sheets/${path}?token=e2e`,
+          error: null,
+        })),
+      });
+    }
+    if (url.pathname.startsWith(`${objectPrefix}sign/sheets/`)) {
+      const path = url.pathname.slice(`${objectPrefix}sign/sheets/`.length);
+      if (request.method() === 'GET') {
+        return route.fulfill({ contentType: 'image/png', body: SHEET_PNG });
+      }
+      return route.fulfill({ json: { signedURL: `/object/sign/sheets/${path}?token=e2e` } });
+    }
+    if (url.pathname === `${objectPrefix}sheets` && request.method() === 'DELETE') {
+      const { prefixes } = request.postDataJSON() as { prefixes: string[] };
+      mock.sheetRemoved.push(...prefixes);
+      return route.fulfill({ json: [] });
     }
     // Bucket `avatars` (USR-3): to samo dla zdjęć profilowych.
     if (url.pathname.startsWith(`${objectPrefix}sign/avatars/`)) {

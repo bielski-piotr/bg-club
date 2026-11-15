@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { GameCover } from '../games/GameCover';
 import { format, t } from '../i18n';
@@ -8,6 +9,7 @@ import { ProfileLink } from '../profile/ProfileLink';
 import { avatarPerson, fullName, useAllProfiles, type Profile } from '../profile/profiles';
 import { AvatarStack, Button, Icon, paletteColor, paletteIndex } from '../ui';
 import { cx } from '../ui/cx';
+import { useSheetImageUrl } from '../sheets/sheets';
 import { localDateTime } from './datetime';
 import { WinnersLine } from './MeetingParts';
 import type { Meeting } from './meetings';
@@ -27,25 +29,25 @@ const text = t.meetings.plays;
  * najpierw partie w toku, potem zapisane w kolejności rozegrania, z graczami, miejscami,
  * wynikami i punktami do rankingu.
  *
- * `onOpenPlay` podłącza szczegóły partii i powiększenie karteczki z historii (E4); bez niego
- * karta nie jest klikalna. `runner` (admin albo prowadzący) dostaje przy partiach w toku
- * „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą tylko, że partia trwa (PAD-9).
+ * Miniatura zapisanej partii to obraz oderwanej karteczki (PAD-6); kliknięcie otwiera
+ * karteczkę w powiększeniu z wynikami (`sheet/<uuid>`). `runner` (admin albo prowadzący)
+ * dostaje przy partiach w toku „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą
+ * tylko, że partia trwa (PAD-9).
  */
 export function MeetingPlaysSection({
   meeting,
   timeZone,
   winners,
   runner = false,
-  onOpenPlay,
 }: {
   readonly meeting: Meeting;
   readonly timeZone: string;
   /** Zwycięzcy spotkania (MTG-3) nad listą partii; puste = bez wiersza. */
   readonly winners?: readonly string[] | undefined;
   readonly runner?: boolean | undefined;
-  readonly onOpenPlay?: ((play: MeetingPlay) => void) | undefined;
 }) {
   const { client } = useAuth();
+  const { open } = usePopups();
   const plays = useMeetingPlays(client, meeting.id);
   const profiles = useAllProfiles(client);
   const headingId = `${meeting.id}-plays`;
@@ -102,7 +104,7 @@ export function MeetingPlaysSection({
                     index={index}
                     timeZone={timeZone}
                     profiles={profiles.data}
-                    onOpen={onOpenPlay ? () => onOpenPlay(play) : undefined}
+                    onOpen={() => open({ kind: 'sheet', id: play.id })}
                   />
                 </li>
               ))}
@@ -114,25 +116,118 @@ export function MeetingPlaysSection({
   );
 }
 
-/** Miniatura oderwanej karteczki (DS §15 „Score-sheet thumbnail”) w kolorze gry. */
+/**
+ * Miniatura oderwanej karteczki (DS §15 „Score-sheet thumbnail”): obraz karteczki z pismem
+ * (PAD-6), a bez obrazu (np. przerwany upload) albo przed jego wczytaniem kartka w kolorze gry.
+ */
 export function SheetThumbnail({
   gameId,
+  imagePath = null,
+  imageUrl,
   small = false,
+  className,
 }: {
   readonly gameId: string;
+  readonly imagePath?: string | null | undefined;
+  /** Gotowy podpisany adres (galeria podpisuje wszystkie obrazy jednym żądaniem). */
+  readonly imageUrl?: string | null | undefined;
   readonly small?: boolean;
+  readonly className?: string | undefined;
+}) {
+  const signed = useSheetImageUrl(imageUrl === undefined ? imagePath : null).data;
+  const url = imageUrl === undefined ? signed : (imageUrl ?? undefined);
+  const [failed, setFailed] = useState<string | undefined>(undefined);
+  const showImage = url !== undefined && url !== failed;
+  return (
+    <span
+      className={cx(
+        'play-sheet',
+        small && 'play-sheet--small',
+        showImage && 'play-sheet--image',
+        className,
+      )}
+      aria-hidden="true"
+    >
+      {showImage ? (
+        <img
+          className="play-sheet__img"
+          src={url}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(url)}
+        />
+      ) : (
+        <>
+          <span
+            className="play-sheet__band"
+            style={{ background: paletteColor(paletteIndex(gameId)) }}
+          />
+          <span className="play-sheet__line" />
+          <span className="play-sheet__line" />
+          <span className="play-sheet__line" />
+          <span className="play-sheet__line" />
+        </>
+      )}
+    </span>
+  );
+}
+
+/** Wiersze wyników partii (DS §15 „Play card”): miejsce, awatar, imię, wynik i punkty. */
+export function PlayResultRows({
+  play,
+  profiles,
+  label,
+}: {
+  readonly play: Pick<MeetingPlay, 'results'>;
+  readonly profiles: ReadonlyMap<string, Profile>;
+  readonly label: string;
 }) {
   return (
-    <span className={cx('play-sheet', small && 'play-sheet--small')} aria-hidden="true">
-      <span
-        className="play-sheet__band"
-        style={{ background: paletteColor(paletteIndex(gameId)) }}
-      />
-      <span className="play-sheet__line" />
-      <span className="play-sheet__line" />
-      <span className="play-sheet__line" />
-      <span className="play-sheet__line" />
-    </span>
+    <ol className="play-results" aria-label={label}>
+      {sortedResults(play).map((result) => {
+        const person = profiles.get(result.profile_id);
+        const first = result.place === 1;
+        return (
+          <li key={result.profile_id} className={cx('play-result', first && 'play-result--first')}>
+            <span className="play-result__place">
+              <span aria-hidden="true">
+                {result.place !== null ? format(text.place, { n: result.place }) : ''}
+              </span>
+              {result.place !== null ? (
+                <span className="sr-only">{format(text.placeLabel, { n: result.place })}</span>
+              ) : null}
+            </span>
+            {person ? (
+              <ProfileLink id={person.id} name={fullName(person)}>
+                <ProfileAvatar profile={person} size={24} decorative />
+              </ProfileLink>
+            ) : null}
+            <span className="play-result__name">
+              {person ? fullName(person) : text.unknownPlayer}
+            </span>
+            <span className="play-result__score">
+              <span aria-hidden="true">{result.ranking_value ?? ''}</span>
+              {result.ranking_value !== null ? (
+                <span className="sr-only">{format(text.score, { n: result.ranking_value })}</span>
+              ) : null}
+            </span>
+            <span
+              className={cx(
+                'play-result__points',
+                result.points === 0 && 'play-result__points--zero',
+              )}
+            >
+              <span aria-hidden="true">
+                {result.points !== null ? format(text.points, { n: result.points }) : ''}
+              </span>
+              {result.points !== null ? (
+                <span className="sr-only">{format(text.pointsLabel, { n: result.points })}</span>
+              ) : null}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -147,12 +242,12 @@ function PlayCard({
   readonly index: number;
   readonly timeZone: string;
   readonly profiles: ReadonlyMap<string, Profile>;
-  readonly onOpen: (() => void) | undefined;
+  readonly onOpen: () => void;
 }) {
   const title = play.game.title;
   const head = (
     <>
-      <SheetThumbnail gameId={play.game.id} />
+      <SheetThumbnail gameId={play.game.id} imagePath={play.sheet_image_path} />
       <span className="play-card__text">
         <span className="play-card__title">{title}</span>
         <span className="play-card__sub">{playSubtitle(play, index, timeZone)}</span>
@@ -161,67 +256,20 @@ function PlayCard({
   );
   return (
     <article className="play-card" aria-label={title}>
-      {onOpen ? (
-        <button
-          type="button"
-          className="play-card__head play-card__head--button"
-          aria-label={format(text.sheet, { title })}
-          onClick={onOpen}
-        >
-          {head}
-          <Icon name="chevron-right" className="play-card__chevron" />
-        </button>
-      ) : (
-        <div className="play-card__head">{head}</div>
-      )}
-      <ol className="play-results" aria-label={format(text.resultsLabel, { title })}>
-        {sortedResults(play).map((result) => {
-          const person = profiles.get(result.profile_id);
-          const first = result.place === 1;
-          return (
-            <li
-              key={result.profile_id}
-              className={cx('play-result', first && 'play-result--first')}
-            >
-              <span className="play-result__place">
-                <span aria-hidden="true">
-                  {result.place !== null ? format(text.place, { n: result.place }) : ''}
-                </span>
-                {result.place !== null ? (
-                  <span className="sr-only">{format(text.placeLabel, { n: result.place })}</span>
-                ) : null}
-              </span>
-              {person ? (
-                <ProfileLink id={person.id} name={fullName(person)}>
-                  <ProfileAvatar profile={person} size={24} decorative />
-                </ProfileLink>
-              ) : null}
-              <span className="play-result__name">
-                {person ? fullName(person) : text.unknownPlayer}
-              </span>
-              <span className="play-result__score">
-                <span aria-hidden="true">{result.ranking_value ?? ''}</span>
-                {result.ranking_value !== null ? (
-                  <span className="sr-only">{format(text.score, { n: result.ranking_value })}</span>
-                ) : null}
-              </span>
-              <span
-                className={cx(
-                  'play-result__points',
-                  result.points === 0 && 'play-result__points--zero',
-                )}
-              >
-                <span aria-hidden="true">
-                  {result.points !== null ? format(text.points, { n: result.points }) : ''}
-                </span>
-                {result.points !== null ? (
-                  <span className="sr-only">{format(text.pointsLabel, { n: result.points })}</span>
-                ) : null}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <button
+        type="button"
+        className="play-card__head play-card__head--button"
+        aria-label={format(text.sheet, { title })}
+        onClick={onOpen}
+      >
+        {head}
+        <Icon name="chevron-right" className="play-card__chevron" />
+      </button>
+      <PlayResultRows
+        play={play}
+        profiles={profiles}
+        label={format(text.resultsLabel, { title })}
+      />
     </article>
   );
 }

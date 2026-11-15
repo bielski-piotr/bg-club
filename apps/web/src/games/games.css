@@ -294,3 +294,19 @@
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
 }
+
+/* Okładka otwiera szczegóły gry z galerią karteczek (GAME-10). */
+.game-tile__open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: none;
+  cursor: pointer;
+}
+
+.game-tile__open:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}

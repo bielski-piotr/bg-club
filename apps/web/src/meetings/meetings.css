@@ -707,6 +707,19 @@
   height: 46px;
 }
 
+/* Obraz oderwanej karteczki (PAD-6) w ramce miniatury. */
+.play-sheet--image {
+  background: #fbf7ec;
+}
+
+.play-sheet__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
 .play-sheet__band {
   flex-shrink: 0;
   height: 8px;

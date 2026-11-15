@@ -34,6 +34,7 @@ import {
 import { cx } from '../ui/cx';
 import { formatMeetingDate, longMeetingDate } from './datetime';
 import { MeetingPlaysSection } from './MeetingPlays';
+import { sweepOrphanSheetImages } from '../sheets/sheetImages';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
 import { menuItems } from './meetingMenu';
 import { isMeetingRunner } from './plays';
@@ -106,6 +107,9 @@ export function MeetingPopup({ id, me }: { readonly id: string; readonly me: Own
   );
 }
 
+/** Spotkania, w których ta karta już sprzątała obrazy karteczek. */
+const sweptMeetings = new Set<string>();
+
 interface ViewProps {
   readonly meeting: Meeting;
   readonly me: OwnProfile;
@@ -119,6 +123,15 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
   const isAdmin = me.role === 'admin';
   const runner = isMeetingRunner(meeting, me);
   const profiles = useAllProfiles(client);
+  // Sprzątanie osieroconych obrazów karteczek (PAD-6): po przerwanym zapisie ostatniej partii
+  // nie ma kolejnego zapisu, który by je usunął, więc robi to też otwarcie spotkania przez
+  // admina albo prowadzącego (raz na spotkanie w tej karcie; po zakończeniu tylko admin).
+  const status = meeting.status;
+  useEffect(() => {
+    if (!runner || status === 'planned' || sweptMeetings.has(meeting.id)) return;
+    sweptMeetings.add(meeting.id);
+    void sweepOrphanSheetImages(client, meeting.id);
+  }, [client, meeting.id, runner, status]);
   // Uczestnicy także usunięci w międzyczasie (MEM-5: zostają w historii spotkania).
   const people = meeting.participants
     .map((id) => profiles.data?.get(id) ?? members.find((member) => member.id === id))
@@ -126,16 +139,16 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
     .sort(compareProfiles);
   const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
   const planned = meeting.status === 'planned';
-  const status = t.meetings.status;
+  const labels = t.meetings.status;
   const chip =
     meeting.status === 'in_progress' ? (
-      <StatusChip tone="success">{status.inProgress}</StatusChip>
+      <StatusChip tone="success">{labels.inProgress}</StatusChip>
     ) : meeting.status === 'finished' ? (
-      <StatusChip tone="neutral">{status.finished}</StatusChip>
+      <StatusChip tone="neutral">{labels.finished}</StatusChip>
     ) : meeting.voting_open ? (
-      <StatusChip tone="accent">{status.votingOpen}</StatusChip>
+      <StatusChip tone="accent">{labels.votingOpen}</StatusChip>
     ) : (
-      <StatusChip tone="neutral">{status.gamesChosen}</StatusChip>
+      <StatusChip tone="neutral">{labels.gamesChosen}</StatusChip>
     );
 
   return (

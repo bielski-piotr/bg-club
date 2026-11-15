@@ -210,6 +210,7 @@ vi.mock('./ScorePadView', () => ({
           winners: [],
           sheet: padFake.sheet as never,
           results: [],
+          image: () => Promise.resolve(null),
         });
       },
       resetView: () => padFake.resetView(),

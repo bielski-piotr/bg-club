@@ -1,6 +1,7 @@
 import { ClubPopup } from '../club/ClubPopup';
 import { CollectionPopup } from '../games/CollectionPopup';
 import { DeleteGameDialog } from '../games/DeleteGameDialog';
+import { GameDetailsPopup } from '../games/GameDetailsPopup';
 import { AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
 import { AddMemberPopup } from '../members/AddMemberPopup';
 import { DeleteMemberDialog } from '../members/DeleteMemberDialog';
@@ -21,6 +22,7 @@ import { DeleteAccountDialog } from '../profile/DeleteAccountDialog';
 import { PasswordPopup } from '../profile/PasswordPopup';
 import { ProfilePopup } from '../profile/ProfilePopup';
 import { SettingsPopup } from '../profile/SettingsPopup';
+import { SheetPopup } from '../sheets/SheetPopup';
 import { DeleteScorepadDialog, RenameScorepadDialog } from '../score-pad/ScorepadDialogs';
 import { AddScorepadPopup, EditScorepadPopup } from '../score-pad/ScorepadEditorPopup';
 import { ScorepadsPopup } from '../score-pad/ScorepadsPopup';
@@ -58,6 +60,10 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <ClubPopup /> : <InvalidPopup />;
     case 'games':
       return <CollectionPopup isAdmin={me.role === 'admin'} />;
+    case 'game':
+      return <GameDetailsPopup id={route.id} />;
+    case 'sheet':
+      return <SheetPopup id={route.id} />;
     case 'add-game':
       // Gry dodaje, edytuje i usuwa tylko administrator (GAME-3); bazę chroni RLS.
       return me.role === 'admin' ? <AddGamePopup /> : <InvalidPopup />;
