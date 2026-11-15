@@ -1,4 +1,3 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/authContext';
 import { format, plural, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
@@ -13,8 +12,8 @@ import { playersLabel } from '../games/labels';
 import { useClub } from './club';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { dateTile, formatMeetingDate, longMeetingDate } from '../meetings/datetime';
-import { meetingsKey, useHubMeeting, type Meeting } from '../meetings/meetings';
-import { reopenVoting, VotingError } from '../meetings/voting';
+import { useHubMeeting, type Meeting } from '../meetings/meetings';
+import { useReopenVoting } from '../meetings/voting';
 import {
   Banner,
   Button,
@@ -26,7 +25,6 @@ import {
   Spinner,
   StatusChip,
   Tray,
-  useToast,
 } from '../ui';
 import '../meetings/meetings.css';
 
@@ -51,18 +49,7 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
   const members = useMembers(client);
   const data = meeting.data;
   const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const reopen = useMutation({
-    mutationFn: (id: string) => reopenVoting(client, id),
-    onSuccess: () => toast.show(t.meetings.toasts.reopened, 'success'),
-    onError: (error) =>
-      toast.show(
-        t.meetings.voting.errors[error instanceof VotingError ? error.reason : 'save'],
-        'error',
-      ),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: meetingsKey }),
-  });
+  const reopen = useReopenVoting(client);
 
   const action =
     isAdmin && data ? (

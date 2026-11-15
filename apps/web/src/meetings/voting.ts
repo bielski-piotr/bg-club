@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Game } from '../games/games';
 import { format, plural, t, type PluralForms } from '../i18n';
-import { normalizeSearch } from '../ui';
+import { normalizeSearch, useToast } from '../ui';
 import { meetingsKey } from './meetings';
 
 /*
@@ -254,4 +254,23 @@ export async function publishGames(
 export async function reopenVoting(client: SupabaseClient, meetingId: string): Promise<void> {
   const { error } = await client.rpc('reopen_voting', { meeting_id: meetingId });
   if (error) throw new VotingError(votingFailure(error));
+}
+
+/**
+ * „Otwórz głosowanie ponownie” (VOTE-6) z popupu i z menu widżetu: toast sukcesu albo błędu
+ * i odświeżenie spotkań (także po błędzie, bo stan mógł się zmienić gdzie indziej).
+ */
+export function useReopenVoting(client: SupabaseClient) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (meetingId: string) => reopenVoting(client, meetingId),
+    onSuccess: () => toast.show(t.meetings.toasts.reopened, 'success'),
+    onError: (error) =>
+      toast.show(
+        t.meetings.voting.errors[error instanceof VotingError ? error.reason : 'save'],
+        'error',
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
+  });
 }

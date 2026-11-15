@@ -3,13 +3,23 @@ import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { GameCover } from '../games/GameCover';
-import { gamesKey, useGameSearch } from '../games/games';
+import { useGameSearch } from '../games/games';
 import { format, plural, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { useMounted } from '../popups/useMounted';
-import { Badge, Banner, Button, Checkbox, EmptyState, SearchField, Tray, useToast } from '../ui';
+import {
+  Badge,
+  Banner,
+  Button,
+  Checkbox,
+  EmptyState,
+  normalizeSearch,
+  SearchField,
+  Tray,
+  useToast,
+} from '../ui';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
 import {
   countLabel,
@@ -39,7 +49,7 @@ export function PublishGamesPopup({ id, me }: { readonly id: string; readonly me
   const votes = useMeetingVotes(client, id);
   const published = usePublishedGames(client, id);
   const queries = [meeting, games, votes, published] as const;
-  if (!queries.every((query) => query.isSuccess)) {
+  if (!meeting.isSuccess || !games.isSuccess || !votes.isSuccess || !published.isSuccess) {
     return (
       <PopupModal title={text.title}>
         <QueryStatus
@@ -63,9 +73,9 @@ export function PublishGamesPopup({ id, me }: { readonly id: string; readonly me
     <PublishForm
       meeting={current}
       me={me}
-      games={games.data ?? []}
-      votes={votes.data ?? []}
-      published={published.data ?? []}
+      games={games.data}
+      votes={votes.data}
+      published={published.data}
     />
   );
 }
@@ -89,15 +99,17 @@ function PublishForm({ meeting, me, games, votes, published }: FormProps) {
     published.map((game) => game.id),
   );
   const [query, setQuery] = useState('');
-  const rows = voteRows(games, votes, {
+  // Kolejność listy „Gramy w:” jak na liście głosowania (najwięcej głosów pierwsze).
+  const allRows = voteRows(games, votes, {
     me: me.id,
     participants: meeting.participants.length,
-    query,
   });
-  // Kolejność listy „Gramy w:” jak na liście głosowania (najwięcej głosów pierwsze).
-  const ordered = voteRows(games, votes, { me: me.id, participants: meeting.participants.length })
-    .map((row) => row.game.id)
-    .filter((gameId) => selected.includes(gameId));
+  const normalized = normalizeSearch(query);
+  const rows =
+    normalized === ''
+      ? allRows
+      : allRows.filter((row) => normalizeSearch(row.game.title).includes(normalized));
+  const ordered = allRows.map((row) => row.game.id).filter((gameId) => selected.includes(gameId));
 
   const publish = useMutation({
     mutationFn: () => publishGames(client, meeting.id, ordered),
@@ -105,10 +117,7 @@ function PublishForm({ meeting, me, games, votes, published }: FormProps) {
       toast.show(t.meetings.toasts.published, 'success');
       if (mounted.current) back();
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: meetingsKey });
-      void queryClient.invalidateQueries({ queryKey: gamesKey });
-    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
   });
   const failure =
     publish.error instanceof VotingError ? voting.errors[publish.error.reason] : voting.errors.save;

@@ -15,7 +15,6 @@ import { avatarPerson, fullName, useMembers, type Profile } from '../profile/pro
 import {
   AvatarStack,
   Badge,
-  Banner,
   Button,
   EmptyState,
   Icon,
@@ -32,7 +31,7 @@ import {
   fitsPlayers,
   mismatchLabel,
   myVoteCount,
-  reopenVoting,
+  meetingVotesKey,
   useMeetingVotes,
   usePublishedGames,
   voteRows,
@@ -42,6 +41,7 @@ import {
   type PublishedGame,
   type Vote,
   type VoteRow,
+  useReopenVoting,
 } from './voting';
 import './meetings.css';
 
@@ -181,22 +181,13 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
  */
 function AdminBox({ meeting }: { readonly meeting: Meeting }) {
   const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
   const { open } = usePopups();
-  const reopen = useMutation({
-    mutationFn: () => reopenVoting(client, meeting.id),
-    onSuccess: () => toast.show(t.meetings.toasts.reopened, 'success'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: meetingsKey }),
-  });
-  const failure =
-    reopen.error instanceof VotingError ? text.errors[reopen.error.reason] : text.errors.save;
+  const reopen = useReopenVoting(client);
   return (
     <div className="meeting-admin">
       <p className="meeting-admin__text">
         {meeting.voting_open ? text.adminOpen : text.adminClosed}
       </p>
-      {reopen.isError ? <Banner variant="error">{failure}</Banner> : null}
       {meeting.voting_open ? (
         <Button fullWidth onClick={() => open({ kind: 'publish-games', id: meeting.id })}>
           {text.publish}
@@ -216,7 +207,7 @@ function AdminBox({ meeting }: { readonly meeting: Meeting }) {
             variant="secondary"
             icon="refresh"
             loading={reopen.isPending}
-            onClick={() => reopen.mutate()}
+            onClick={() => reopen.mutate(meeting.id)}
           >
             {text.reopen}
           </Button>
@@ -349,12 +340,13 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
       const reason = error instanceof VotingError ? error.reason : 'save';
       toast.show(text.errors[reason], 'error');
     },
-    onSettled: (_, error) => {
-      // Błąd mógł wynikać ze zmiany spotkania (zamknięte, usunięte): odświeżamy też spotkanie.
-      void queryClient.invalidateQueries({
-        queryKey: error ? meetingsKey : [...meetingsKey, 'votes', meeting.id],
-      });
-    },
+    // Zwrócona obietnica trzyma mutację w toku do odświeżenia głosów: przełącznik nie wraca
+    // na chwilę do starego stanu i nie da się kliknąć go drugi raz z nieaktualną wartością.
+    // Błąd mógł wynikać ze zmiany spotkania (zamknięte, usunięte): odświeżamy też spotkanie.
+    onSettled: (_, error) =>
+      queryClient.invalidateQueries({
+        queryKey: error ? meetingsKey : meetingVotesKey(meeting.id),
+      }),
   });
   const mine = toggle.isPending ? toggle.variables : row.mine;
   const mismatch = !row.fits;
