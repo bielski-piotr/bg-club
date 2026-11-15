@@ -206,7 +206,7 @@ export const pl = {
     /** Akcja administratora w cudzym profilu (MEM-4). */
     deleteMember: 'Usuń członka',
     deleteMemberShort: 'Usuń',
-    /** Statystyki gracza (PRD §5.9, STAT-1–STAT-3); gablota (§5.10) dochodzi w etapie E6. */
+    /** Statystyki gracza (PRD §5.9, STAT-1–STAT-3). */
     stats: {
       title: 'Statystyki',
       pendingTitle: 'Statystyki pojawią się po pierwszej partii',
@@ -239,10 +239,27 @@ export const pl = {
       meetingLink: 'Otwórz spotkanie: {title}, {date}',
       pointsUnit: 'pkt',
     },
+    /** Gablota osiągnięć (PRD ACH-3, §5.10) i szczegóły odznaki. */
     achievements: {
       title: 'Gablota osiągnięć',
-      pendingTitle: 'Gablota jest jeszcze pusta',
-      pendingHelper: 'Osiągnięcia za spotkania i partie pojawią się tutaj razem z postępem.',
+      count: '{n} z {total}',
+      countLabel: 'Odblokowane: {n} z {total}',
+      emptyTitle: 'Gablota jest jeszcze pusta',
+      emptyHelper:
+        'Osiągnięcia za spotkania, partie i głosowania pojawią się tutaj po odblokowaniu.',
+      groupLabel: 'Osiągnięcia: {group}',
+      unlockedOn: 'Odblokowane {date}',
+      locked: 'Do odblokowania',
+      progress: '{value}/{goal}',
+      progressLabel: 'Postęp: {value} z {goal}',
+      details: '{name}, {state}. Pokaż szczegóły',
+      detailsTitle: 'Osiągnięcie',
+      conditionLabel: 'Warunek',
+      unlockedAt: 'Odblokowane {date} na spotkaniu',
+      meetingLink: 'Otwórz spotkanie: {title}, {date}',
+      lockedNote: 'Jeszcze nie odblokowane.',
+      lockedByRemoved: 'Ten członek został usunięty z klubu, więc odznaki już nie odblokuje.',
+      close: 'Zamknij',
     },
   },
   /** Menu awatara w nagłówku (PRD CLUB-1, DS §7, §17). */
@@ -609,6 +626,13 @@ export const pl = {
       streakUp: '+1 → seria {n}',
       streakBroken: 'seria przerwana',
       streakSame: 'seria bez zmian',
+    },
+    /** Osiągnięcia odblokowane na spotkaniu (VIEW-5, DS §15 „Achievement row”). */
+    achievements: {
+      title: 'Osiągnięcia',
+      label: 'Osiągnięcia odblokowane na tym spotkaniu',
+      eyebrow: 'Nowe osiągnięcie',
+      row: '{name} odblokowuje: {achievement}. Pokaż szczegóły',
     },
     /** Partie spotkania (VIEW-3, DS §15 „Play card”, „Live play card”, zadanie [026]). */
     plays: {

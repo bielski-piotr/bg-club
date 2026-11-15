@@ -192,6 +192,13 @@ export interface MockOptions {
    * `20261115223700_player_stats.sql`); `year` `null` = cała historia. Domyślnie zero partii.
    */
   playerStats?: (profileId: string, year: number | null) => unknown;
+  /**
+   * Wynik `player_achievements(profile_id)` (ACH-3, migracja
+   * `20261116000000_achievement_showcase.sql`); domyślnie pusta gablota.
+   */
+  playerAchievements?: (profileId: string) => unknown;
+  /** Wiersze `meeting_achievements(meeting_id)` (VIEW-5); domyślnie brak odblokowań. */
+  meetingAchievements?: (meetingId: string) => readonly unknown[];
 }
 
 /** `game_stats` gry bez zapisanych partii. */
@@ -217,6 +224,23 @@ export const EMPTY_PLAYER_STATS = {
   favorite_game: null,
   best_game: null,
   recent_plays: [],
+} as const;
+
+/** `player_achievements` gracza bez odblokowań i bez historii. */
+export const EMPTY_PLAYER_ACHIEVEMENTS = {
+  unlocks: [],
+  progress: {
+    meetings: 0,
+    plays: 0,
+    wins: 0,
+    points: 0,
+    streak: 0,
+    games: 0,
+    won_games: 0,
+    game_wins: 0,
+    last_places: 0,
+    votes: 0,
+  },
 } as const;
 
 /** Wiersz `leaderboard(kind, year)` (migracja `20261113001700_leaderboard.sql`). */
@@ -1359,6 +1383,16 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return route.fulfill({
         json: mock.options.playerStats?.(profile_id, year) ?? EMPTY_PLAYER_STATS,
       });
+    }
+    if (url.pathname === '/rest/v1/rpc/player_achievements' && request.method() === 'POST') {
+      const { profile_id } = request.postDataJSON() as { profile_id: string };
+      return route.fulfill({
+        json: mock.options.playerAchievements?.(profile_id) ?? EMPTY_PLAYER_ACHIEVEMENTS,
+      });
+    }
+    if (url.pathname === '/rest/v1/rpc/meeting_achievements' && request.method() === 'POST') {
+      const { meeting_id } = request.postDataJSON() as { meeting_id: string };
+      return route.fulfill({ json: mock.options.meetingAchievements?.(meeting_id) ?? [] });
     }
     if (url.pathname === '/rest/v1/rpc/meeting_summary' && request.method() === 'POST') {
       const { meeting_id } = request.postDataJSON() as { meeting_id: string };

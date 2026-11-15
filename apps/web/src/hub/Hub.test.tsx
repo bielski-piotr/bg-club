@@ -63,6 +63,23 @@ const EMPTY_PLAYER_STATS = {
   recent_plays: [],
 };
 
+/** `player_achievements` gracza bez odblokowań (pusta gablota, ACH-3). */
+const EMPTY_PLAYER_ACHIEVEMENTS = {
+  unlocks: [],
+  progress: {
+    meetings: 0,
+    plays: 0,
+    wins: 0,
+    points: 0,
+    streak: 0,
+    games: 0,
+    won_games: 0,
+    game_wins: 0,
+    last_places: 0,
+    votes: 0,
+  },
+};
+
 /**
  * Atrapa PostgREST: `eq('id', …)` filtruje, `is('deleted_at', null)` pomija usuniętych. Tabela
  * `club` przyjmuje `insert` i `update` (jak RLS dla admina) i zapamiętuje wiersz.
@@ -153,7 +170,12 @@ function fakeClient(members: Profile[], options: FakeOptions = {}) {
       storage,
       functions: { invoke },
       rpc: vi.fn(async (name: string) => ({
-        data: name === 'player_stats' ? EMPTY_PLAYER_STATS : [],
+        data:
+          name === 'player_stats'
+            ? EMPTY_PLAYER_STATS
+            : name === 'player_achievements'
+              ? EMPTY_PLAYER_ACHIEVEMENTS
+              : [],
         error: null,
       })),
     } as unknown as SupabaseClient,
@@ -283,7 +305,7 @@ describe('popupy huba', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Mój profil' }));
     const profile = await screen.findByRole('dialog', { name: 'Profil' });
     expect(window.location.search).toBe(`?p=profile/${ADA.id}`);
-    // Właściciel ma Ustawienia; statystyki i gablota czekają na etapy E5 i E6.
+    // Właściciel ma Ustawienia; bez partii statystyki i gablota mają puste stany.
     expect(
       await within(profile).findByText('Statystyki pojawią się po pierwszej partii'),
     ).toBeInTheDocument();

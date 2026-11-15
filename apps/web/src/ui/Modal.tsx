@@ -132,6 +132,8 @@ export interface DialogProps {
    */
   readonly icon?: IconName | undefined;
   readonly tone?: 'accent' | 'danger' | 'warning' | undefined;
+  /** Własny element nad tytułem zamiast ikony (np. odznaka osiągnięcia); dekoracyjny. */
+  readonly media?: ReactNode | undefined;
   /** Kliknięcie tła poza oknem. Esc obsługuje `PopupHost`. */
   readonly onScrimClick?: (() => void) | undefined;
   readonly covered?: boolean | undefined;
@@ -152,6 +154,7 @@ export function Dialog({
   description,
   icon,
   tone = 'accent',
+  media,
   onScrimClick,
   covered = false,
   level,
@@ -176,7 +179,11 @@ export function Dialog({
         className="dialog"
         onKeyDown={trapFocus}
       >
-        {icon ? (
+        {media ? (
+          <span className="dialog__media" aria-hidden="true">
+            {media}
+          </span>
+        ) : icon ? (
           <span className={cx('dialog__icon', `dialog__icon--${tone}`)} aria-hidden="true">
             <Icon name={icon} size={20} />
           </span>

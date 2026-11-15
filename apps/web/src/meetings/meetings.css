@@ -1531,3 +1531,56 @@
 .summary-row--muted .summary-row__points {
   color: var(--c-muted);
 }
+
+/* Osiągnięcia spotkania (VIEW-5, DS §15 „Achievement row”). */
+.meeting-achievements {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.achievement-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px 12px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 20px;
+  background: var(--c-surface);
+  color: var(--c-ink);
+  text-decoration: none;
+}
+
+.achievement-row:hover {
+  background: var(--c-tint);
+}
+
+.achievement-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.achievement-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.achievement-row__eyebrow {
+  font: 600 12px/16px var(--font-ui);
+  color: var(--c-muted);
+  overflow-wrap: anywhere;
+}
+
+.achievement-row__title {
+  font: 700 16px/20px var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+.achievement-row--muted .achievement-row__title {
+  color: var(--c-muted);
+}
