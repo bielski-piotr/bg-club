@@ -34,6 +34,7 @@ import {
 import { cx } from '../ui/cx';
 import { formatMeetingDate, longMeetingDate } from './datetime';
 import { MeetingPlaysSection } from './MeetingPlays';
+import { MeetingSummarySection } from './MeetingSummary';
 import { claimOrphanSweep, sweepOrphanSheetImages } from '../sheets/sheetImages';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
 import { menuItems } from './meetingMenu';
@@ -199,6 +200,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
             admin={isAdmin}
           />
         ) : null}
+        {!planned ? <MeetingSummarySection meetingId={meeting.id} /> : null}
 
         <section className="meeting-view__section" aria-labelledby={`${meeting.id}-people`}>
           <h3 id={`${meeting.id}-people`} className="meeting-view__head">

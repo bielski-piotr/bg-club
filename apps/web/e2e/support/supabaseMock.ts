@@ -180,7 +180,24 @@ export interface MockOptions {
   leaderboard?: (kind: string, year: number | null) => readonly MockLeaderboardRow[];
   /** Wynik `leaderboard_years()`; domyślnie brak lat. */
   leaderboardYears?: readonly number[];
+  /**
+   * Wynik `game_stats(game_id)` (GAME-11, migracja `20261113001800_game_stats.sql`); domyślnie
+   * statystyki bez partii.
+   */
+  gameStats?: (gameId: string) => unknown;
+  /** Wiersze `meeting_summary(meeting_id)` (VIEW-4); domyślnie puste podsumowanie. */
+  meetingSummary?: (meetingId: string) => readonly unknown[];
 }
+
+/** `game_stats` gry bez zapisanych partii. */
+export const EMPTY_GAME_STATS = {
+  play_count: 0,
+  last_played_at: null,
+  top_winners: [],
+  record: null,
+  winner_average: null,
+  ranking: [],
+} as const;
 
 /** Wiersz `leaderboard(kind, year)` (migracja `20261113001700_leaderboard.sql`). */
 export interface MockLeaderboardRow {
@@ -1305,6 +1322,14 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     }
     if (url.pathname === '/rest/v1/rpc/leaderboard_years' && request.method() === 'POST') {
       return route.fulfill({ json: mock.options.leaderboardYears ?? [] });
+    }
+    if (url.pathname === '/rest/v1/rpc/game_stats' && request.method() === 'POST') {
+      const { game_id } = request.postDataJSON() as { game_id: string };
+      return route.fulfill({ json: mock.options.gameStats?.(game_id) ?? EMPTY_GAME_STATS });
+    }
+    if (url.pathname === '/rest/v1/rpc/meeting_summary' && request.method() === 'POST') {
+      const { meeting_id } = request.postDataJSON() as { meeting_id: string };
+      return route.fulfill({ json: mock.options.meetingSummary?.(meeting_id) ?? [] });
     }
     if (url.pathname === '/rest/v1/rpc/search_games' && request.method() === 'POST') {
       const { query } = request.postDataJSON() as { query: string };

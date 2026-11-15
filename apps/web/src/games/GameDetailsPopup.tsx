@@ -10,6 +10,7 @@ import { QueryStatus } from '../popups/QueryStatus';
 import { useGameSheets, type GallerySheet } from '../sheets/sheets';
 import { EmptyState } from '../ui';
 import { GameCover } from './GameCover';
+import { GameStatsSection } from './GameStats';
 import { useGame } from './games';
 import { playersLabel } from './labels';
 import '../sheets/sheets.css';
@@ -19,8 +20,8 @@ const text = t.games.details;
 /**
  * Szczegóły gry (GAME-10, DS „Kolekcja / Szczegóły gry”): okładka, dane gry i galeria
  * wszystkich oderwanych karteczek tej gry od najnowszej. Kliknięcie karteczki otwiera ją
- * w powiększeniu z wynikami i linkiem do spotkania (`sheet/<uuid>`). Statystyki gry dochodzą
- * w zadaniu [035].
+ * w powiększeniu z wynikami i linkiem do spotkania (`sheet/<uuid>`). Statystyki gry (GAME-11)
+ * są między danymi gry a galerią.
  */
 export function GameDetailsPopup({ id }: { readonly id: string }) {
   const { client } = useAuth();
@@ -67,6 +68,7 @@ export function GameDetailsPopup({ id }: { readonly id: string }) {
             </p>
           </div>
         </div>
+        <GameStatsSection gameId={data.id} title={data.title} timeZone={timeZone} />
         <section className="meeting-view__section" aria-labelledby={headingId}>
           <div className="meeting-view__head-row">
             <h3 id={headingId} className="meeting-view__head">
