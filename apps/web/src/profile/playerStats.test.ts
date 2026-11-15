@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLAY_DEPENDENT_KEYS } from '../meetings/playDelete';
-import { playerStatsKey, winRate, yearFilterValues } from './playerStats';
+import { yearFilterValues } from '../leaderboard/leaderboard';
+import { playerStatsKey, winRate } from './playerStats';
 import { isOwnProfileKey, profilesKey } from './profiles';
 
 describe('winRate (STAT-1)', () => {

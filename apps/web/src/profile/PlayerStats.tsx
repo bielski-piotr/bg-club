@@ -3,7 +3,7 @@ import { useAuth } from '../auth/authContext';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useClub } from '../hub/club';
 import { format, plural, t } from '../i18n';
-import { filterYear, type YearFilter } from '../leaderboard/leaderboard';
+import { filterYear, yearFilterValues, type YearFilter } from '../leaderboard/leaderboard';
 import { shortMeetingDate } from '../meetings/datetime';
 import { PopupLink } from '../popups/PopupLink';
 import { QueryStatus } from '../popups/QueryStatus';
@@ -12,7 +12,6 @@ import {
   BEST_GAME_MIN_PLAYS,
   usePlayerStats,
   winRate,
-  yearFilterValues,
   type PlayerGame,
   type PlayerStats,
 } from './playerStats';
@@ -34,9 +33,12 @@ export function PlayerStatsSection({ profileId }: { readonly profileId: string }
   const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
   const headingId = `${profileId}-stats`;
   const data = stats.data;
-  const years = data?.years ?? [];
+  // Ostatnia znana lista lat: filtr zostaje widoczny także podczas wczytywania albo po błędzie
+  // nowego roku, więc zawsze można wrócić do całej historii.
+  const [years, setYears] = useState<readonly number[]>([]);
+  if (data && data.years !== years) setYears(data.years);
   // Bez żadnej partii w historii filtr nie ma sensu: zostaje stan oczekiwania.
-  const showFilter = data != null && (years.length > 0 || year !== 'all');
+  const showFilter = years.length > 0 || year !== 'all';
   const options: SelectOption<YearFilter>[] = yearFilterValues(years, year).map((value) => ({
     value,
     label: value === 'all' ? t.leaderboard.allTime : value,

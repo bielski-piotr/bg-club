@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
-import type { YearFilter } from '../leaderboard/leaderboard';
 import { isUuid } from '../popups/routes';
 import { profilesKey } from './profiles';
 
@@ -77,24 +76,11 @@ export function usePlayerStats(client: SupabaseClient, id: string, year: number 
       return (data ?? null) as PlayerStats | null;
     },
     // Przy zmianie roku poprzedni wynik zostaje do czasu nowego (bez migania), jak w rankingu.
-    placeholderData: (previous, query) => (query?.queryKey[3] === id ? previous : undefined),
+    placeholderData: (previous, query) => (query?.queryKey[2] === id ? previous : undefined),
   });
 }
 
 /** Procent wygranych zaokrąglony do całości; `null` bez partii. */
 export function winRate(wins: number, plays: number): number | null {
   return plays > 0 ? Math.round((wins * 100) / plays) : null;
-}
-
-/**
- * Opcje filtru roku (STAT-3, jak w rankingu): „Cała historia”, potem lata gracza od najnowszego.
- * Wybrany rok, który zniknął z listy (np. po usunięciu jego jedynej partii), zostaje na końcu.
- */
-export function yearFilterValues(
-  years: readonly number[],
-  selected: YearFilter,
-): readonly YearFilter[] {
-  const values: YearFilter[] = ['all', ...years.map((year) => `${year}` as const)];
-  if (!values.includes(selected)) values.push(selected);
-  return values;
 }

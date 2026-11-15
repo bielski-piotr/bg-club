@@ -48,11 +48,6 @@ interface FakeOptions {
 
 const PLANSZOWKI: FakeClub = { name: 'Planszówki', logo_path: null, timezone: 'Europe/Warsaw' };
 
-/**
- * Atrapa PostgREST: `eq('id', …)` filtruje, `is('deleted_at', null)` pomija usuniętych. Tabela
- * `club` przyjmuje `insert` i `update` (jak RLS dla admina) i zapamiętuje wiersz.
- */
-
 /** `player_stats` gracza bez zapisanych partii. */
 const EMPTY_PLAYER_STATS = {
   years: [],
@@ -67,6 +62,11 @@ const EMPTY_PLAYER_STATS = {
   best_game: null,
   recent_plays: [],
 };
+
+/**
+ * Atrapa PostgREST: `eq('id', …)` filtruje, `is('deleted_at', null)` pomija usuniętych. Tabela
+ * `club` przyjmuje `insert` i `update` (jak RLS dla admina) i zapamiętuje wiersz.
+ */
 
 function fakeClient(members: Profile[], options: FakeOptions = {}) {
   const db = { club: options.club === undefined ? PLANSZOWKI : options.club };

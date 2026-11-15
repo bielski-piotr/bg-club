@@ -93,12 +93,14 @@ begin
       join public.games g on g.id = r.game_id
      group by r.game_id, g.title
   ),
+  -- Miejsca bierzemy z `leaderboard`, więc zawsze zgadzają się z rankingiem. Ranking liczymy
+  -- tylko dla aktywnego gracza z partiami w zakresie: inaczej miejsca i tak nie ma (LB-5, LB-7).
   places as (
     select k.kind,
            (select lb.place from public.leaderboard(k.kind, player_stats.year) lb
-             where lb.profile_id = player_stats.profile_id and not lb.deleted) as place
+             where lb.profile_id = player_stats.profile_id) as place
       from unnest(array['points', 'wins', 'streak']) as k(kind)
-     where not removed
+     where not removed and exists (select 1 from results)
   )
   select jsonb_build_object(
     'years', coalesce((
