@@ -4,7 +4,8 @@
  * Edge Function `create-member` (MEM-3, AUTH-2, AUTH-4, USR-1) oraz ustawień profilu: zmiany
  * hasła z obecnym hasłem, zdjęcia i motywu (USR-3, USR-5, USR-7, USR-8, AUTH-6) oraz usuwania
  * członka i własnego konta przez `delete-member` i `delete-own-account` (MEM-4…MEM-6, USR-6),
- * a na końcu planowanie i równoczesne rozpoczęcia spotkań przez RPC (PLAN-1, MTG-2, RUN-1, RUN-4).
+ * planowanie i równoczesne rozpoczęcia spotkań przez RPC (PLAN-1, MTG-2, RUN-1, RUN-4), a na końcu
+ * równoległe zapisy i ponowienia zapisu wyników partii (`save_play`, PAD-5, §5.6).
  *
  * Idą przez prawdziwe API (Auth, PostgREST) z tymi samymi kluczami co aplikacja i skrypt
  * bootstrapu. Startują od pustej instalacji i nie sprzątają po sobie (konta administratora nie
@@ -1018,6 +1019,159 @@ describe('konta i logowanie na pustej instalacji', () => {
       const failed = results.filter((result) => result.error);
       expect(failed).toHaveLength(1);
       expect(failed[0]?.error).toMatchObject({ code: '23514', hint: 'meetings_start_planned' });
+    });
+  });
+
+  describe('zapis wyników partii przez RPC (PAD-5, §5.6, [029])', () => {
+    const ids = { admin: '', player: '', meeting: '', version: '', play: '' };
+    const sessions: SupabaseClient[] = [];
+    const sheet = { game: 1, names: ['Ada', 'Gracz'], cells: { a: [9, 3] } };
+    const results = () => [
+      { profile_id: ids.admin, seat: 1, place: 1, scores: { a: 9 }, ranking_value: 9 },
+      { profile_id: ids.player, seat: 2, place: 2, scores: { a: 3 }, ranking_value: 3 },
+    ];
+
+    beforeAll(async () => {
+      // Dwie niezależne sesje administratora: dwie karty albo ponowienie z drugiego urządzenia.
+      for (let i = 0; i < 2; i += 1) {
+        const { client, data, error } = await signIn(admin.hook, admin.password);
+        if (error || !data.session) throw error ?? new Error('brak sesji administratora');
+        sessions.push(client);
+        ids.admin = data.session.user.id;
+      }
+      const { data: running, error: meetingError } = await service
+        .from('meetings')
+        .select('id')
+        .eq('status', 'in_progress')
+        .single();
+      if (meetingError || !running) throw meetingError ?? new Error('brak spotkania w trakcie');
+      ids.meeting = running.id as string;
+      const { data: player, error: playerError } = await service
+        .from('profiles')
+        .select('id')
+        .eq('role', 'player')
+        .is('deleted_at', null)
+        .limit(1)
+        .single();
+      if (playerError || !player) throw playerError ?? new Error('brak aktywnego gracza');
+      ids.player = player.id as string;
+      const participants = await service.from('meeting_participants').upsert([
+        { meeting_id: ids.meeting, profile_id: ids.admin },
+        { meeting_id: ids.meeting, profile_id: ids.player },
+      ]);
+      if (participants.error) throw new Error(`participants: ${participants.error.message}`);
+
+      const game = await service
+        .from('games')
+        .insert({
+          title: 'Partia z zapisem',
+          min_players: 2,
+          max_players: 4,
+          placement_points: [10, 6, 4, 2],
+        })
+        .select('id')
+        .single();
+      if (game.error) throw new Error(`games: ${game.error.message}`);
+      const pad = await service
+        .from('scorepads')
+        .insert({ game_id: game.data.id, name: 'Notes testowy' })
+        .select('id')
+        .single();
+      if (pad.error) throw new Error(`scorepads: ${pad.error.message}`);
+      const version = await service
+        .from('scorepad_versions')
+        .insert({
+          scorepad_id: pad.data.id,
+          player_slots: 4,
+          template: {
+            v: 2,
+            lines: [
+              { id: 'a', kind: 'input' },
+              { id: 'total', kind: 'total' },
+            ],
+          },
+        })
+        .select('id')
+        .single();
+      if (version.error) throw new Error(`scorepad_versions: ${version.error.message}`);
+      ids.version = version.data.id as string;
+      const current = await service
+        .from('scorepads')
+        .update({ current_version_id: ids.version })
+        .eq('id', pad.data.id);
+      if (current.error) throw new Error(`scorepads: ${current.error.message}`);
+
+      const [client] = sessions;
+      if (!client) throw new Error('brak sesji');
+      ids.play = crypto.randomUUID();
+      const started = await client.rpc('start_play', {
+        play_id: ids.play,
+        meeting_id: ids.meeting,
+        scorepad_id: pad.data.id,
+        player_ids: [ids.admin, ids.player],
+      });
+      if (started.error) throw new Error(`start_play: ${started.error.message}`);
+    });
+
+    const save = (client: SupabaseClient, body: { sheet?: unknown; results?: unknown } = {}) =>
+      client
+        .rpc('save_play', {
+          play_id: ids.play,
+          scorepad_version_id: ids.version,
+          sheet: body.sheet ?? sheet,
+          results: body.results ?? results(),
+        })
+        .select('id, status, saved_at')
+        .single<{ id: string; status: string; saved_at: string }>();
+
+    it('klient nie przyśle własnych punktów', async () => {
+      const [client] = sessions;
+      if (!client) throw new Error('brak sesji');
+      const { error } = await save(client, {
+        results: results().map((r) => ({ ...r, points: 100 })),
+      });
+      expect(error).toMatchObject({ code: '23514', hint: 'plays_results_invalid' });
+    });
+
+    it('równoległe zapisy i ponowienia z dwóch sesji zapisują partię dokładnie raz', async () => {
+      const [a, b] = sessions;
+      if (!a || !b) throw new Error('brak sesji');
+      const replies = await Promise.all([save(a), save(b), save(a), save(b)]);
+      for (const reply of replies) expect(reply.error).toBeNull();
+      const savedAt = new Set(replies.map((reply) => reply.data?.saved_at));
+      expect(savedAt.size).toBe(1);
+      expect(replies[0]?.data).toMatchObject({ id: ids.play, status: 'saved' });
+
+      const { data } = await service
+        .from('play_results')
+        .select('profile_id, place, tied, points, is_win')
+        .eq('play_id', ids.play)
+        .order('seat');
+      expect(data).toEqual([
+        { profile_id: ids.admin, place: 1, tied: false, points: 10, is_win: true },
+        { profile_id: ids.player, place: 2, tied: false, points: 6, is_win: false },
+      ]);
+    });
+
+    it('ponowienie po przekroczeniu czasu zwraca zapisaną partię; inna treść jest odrzucona', async () => {
+      const [a, b] = sessions;
+      if (!a || !b) throw new Error('brak sesji');
+      const { data: before } = await service
+        .from('plays')
+        .select('saved_at')
+        .eq('id', ids.play)
+        .single();
+      const retry = await save(b);
+      expect(retry.error).toBeNull();
+      expect(retry.data?.saved_at).toBe(before?.saved_at);
+
+      const other = await save(a, { sheet: { ...sheet, cells: { a: [10, 3] } } });
+      expect(other.error).toMatchObject({ code: '23514', hint: 'plays_already_saved' });
+      const { count } = await service
+        .from('play_results')
+        .select('*', { count: 'exact', head: true })
+        .eq('play_id', ids.play);
+      expect(count).toBe(2);
     });
   });
 });

@@ -1,21 +1,28 @@
-import type { ScorePadFile, ScorePadSheet, ScorePadTemplate } from '@bg-club/score-pad';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  ScorePadFile,
+  ScorePadSaveDetail,
+  ScorePadSheet,
+  ScorePadTemplate,
+} from '@bg-club/score-pad';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useClub } from '../hub/club';
 import { format, t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
+import { usePopups, type LeaveGuard } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
+import { useLeaveGuard } from '../popups/useLeaveGuard';
+import { useMounted } from '../popups/useMounted';
 import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
-import { ScorePadView } from '../score-pad/ScorePadView';
+import { ScorePadView, type ScorePadHandle } from '../score-pad/ScorePadView';
 import { loadVersionTemplate, versionTemplateKey } from '../score-pad/scorepads';
-import { Banner, Button } from '../ui';
+import { Banner, Button, useToast } from '../ui';
 import { cx } from '../ui/cx';
 import { localDateTime } from './datetime';
-import { useMeeting, type Meeting } from './meetings';
+import { meetingsKey, useMeeting, type Meeting } from './meetings';
 import {
   DraftSaver,
   draftStorage,
@@ -29,6 +36,8 @@ import {
   type ServerDraft,
 } from './playDraft';
 import { isMeetingRunner, playKey, usePlay, type PlayDetail } from './plays';
+import { PlaySaveError, playSummary, savePlay, type PlaySummary } from './playSave';
+import { PlaySummaryDialog } from './PlaySummaryDialog';
 
 const text = t.meetings.play;
 
@@ -38,6 +47,10 @@ const text = t.meetings.play;
  * i w `localStorage`, więc odświeżenie, awaria i utrata sieci ich nie gubią, a admin albo
  * prowadzący może dokończyć partię na innym urządzeniu. Nowszy szkic z innego urządzenia daje
  * konflikt do rozstrzygnięcia zamiast cichego nadpisania.
+ *
+ * Oderwanie karteczki kończy partię (PAD-5): podsumowanie z miejscami i punktami, po
+ * potwierdzeniu zapis kartki i wyników w jednej transakcji (`save_play`), a „Wróć do kartki”
+ * kładzie kartkę z powrotem na notes.
  *
  * Notes widzi tylko admin i prowadzący trwającego spotkania; pozostali dostają „Trwa partia”.
  */
@@ -50,9 +63,10 @@ export function PlayPopup({ id, me }: { readonly id: string; readonly me: OwnPro
 
   // Partii nie ma (porzucona, zły link): kopie szkicu na tym urządzeniu nic już nie znaczą.
   const gone = play.isSuccess && play.data === null;
+  const saved = play.data?.status === 'saved';
   useEffect(() => {
-    if (gone) removeLocalDrafts(draftStorage(), id);
-  }, [gone, id]);
+    if (gone || saved) removeLocalDrafts(draftStorage(), id);
+  }, [gone, saved, id]);
 
   const title = play.data?.game.title ?? text.loading;
   if (gone || (play.data && meeting.isSuccess && !meeting.data)) {
@@ -173,7 +187,10 @@ function PlayPad({
 }) {
   const { client } = useAuth();
   const queryClient = useQueryClient();
-  const { open } = usePopups();
+  const toast = useToast();
+  const mounted = useMounted();
+  const { open, back } = usePopups();
+  const padRef = useRef<ScorePadHandle>(null);
   const names = useMemo(() => seatNames(play, profiles), [play, profiles]);
   const namesRef = useRef(names);
 
@@ -307,97 +324,208 @@ function PlayPad({
     setInitial({ sheet: chosen, version: server.version, dirty: keep === 'local' });
   };
 
+  // Oderwana kartka czeka na decyzję (PAD-5): podsumowanie albo powrót na notes. Notes po
+  // oderwaniu kładzie na wierzch czystą kartkę; jej wpisów nie zapisujemy jako szkicu.
+  const tearing = useRef(false);
+  const tornRef = useRef(false);
+  const [torn, setTorn] = useState<{
+    readonly sheet: ScorePadSheet;
+    readonly summary: PlaySummary | null;
+  } | null>(null);
+  const [tearNotice, setTearNotice] = useState<'empty' | 'conflict' | null>(null);
+
+  /** Kładzie kartkę z powrotem na notes; jej wpisy znów idą do szkicu. */
+  const restore = useCallback((sheet: ScorePadSheet) => {
+    tearing.current = false;
+    lastSheet.current = sheet;
+    padRef.current?.restoreSheet(sheet);
+  }, []);
+
+  const onTear = () => {
+    tearing.current = true;
+    setTearNotice(null);
+    const before = lastSheet.current;
+    // `scorepad:save` przychodzi w tym samym zadaniu co `scorepad:tear`; bez niego kartka była
+    // pusta i wraca na notes.
+    queueMicrotask(() => {
+      if (!tearing.current || tornRef.current) return;
+      if (before) restore(before);
+      else tearing.current = false;
+      setTearNotice('empty');
+    });
+  };
+  const onSave = (detail: ScorePadSaveDetail) => {
+    const sheet = sheetWithPlayers(detail.sheet, namesRef.current);
+    if (showConflict) {
+      // Nowszy szkic z innego urządzenia: najpierw decyzja, potem koniec partii.
+      restore(sheet);
+      setTearNotice('conflict');
+      return;
+    }
+    tornRef.current = true;
+    saveFinal.reset();
+    setTorn({ sheet, summary: playSummary(play, sheet, detail.results) });
+  };
+
+  const cancelTear = useCallback(() => {
+    if (!torn) return;
+    tornRef.current = false;
+    setTorn(null);
+    restore(torn.sheet);
+  }, [torn, restore]);
+
+  // Wstecz, Esc i × przy otwartym podsumowaniu wracają do kartki zamiast zamykać notes.
+  const tearGuard = useCallback<LeaveGuard>(() => cancelTear(), [cancelTear]);
+  const { release } = useLeaveGuard(torn ? tearGuard : null);
+
+  const saveFinal = useMutation({
+    mutationFn: (summary: PlaySummary) => savePlay(client, play, summary),
+    onSuccess: () => {
+      // Partia zakończona: szkic i jego kopie lokalne nic już nie znaczą.
+      saverRef.current?.dispose(false);
+      saverRef.current = null;
+      removeLocalDrafts(draftStorage(), play.id);
+      release();
+      toast.show(format(t.meetings.toasts.playSaved, { title: play.game.title }), 'success');
+      void queryClient.invalidateQueries({ queryKey: meetingsKey });
+      if (mounted.current) back();
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: playKey(play.id) }),
+  });
+  const saveFailure = saveFinal.error
+    ? saveFinal.error instanceof PlaySaveError
+      ? saveFinal.error.reason
+      : 'server'
+    : null;
+
   const savedBy = conflictServer?.savedBy ? profiles.get(conflictServer.savedBy) : undefined;
   const savedAt = conflictServer?.savedAt
     ? localDateTime(conflictServer.savedAt, timeZone).time
     : null;
 
   return (
-    <PopupModal
-      title={play.game.title}
-      width={1120}
-      className="play-pad"
-      actions={
-        <Button
-          variant="secondary"
-          size="sm"
-          icon="trash"
-          aria-label={format(text.discardLabel, { title: play.game.title })}
-          onClick={() => {
-            saverRef.current?.flush();
-            open({ kind: 'discard-play', id: play.id });
-          }}
-        >
-          {text.discard}
-        </Button>
-      }
-    >
-      <div className="play-pad__body">
-        {showConflict ? (
-          <section
-            className="play-pad__conflict"
-            role="alert"
-            aria-labelledby={`${play.id}-conflict`}
+    <>
+      <PopupModal
+        title={play.game.title}
+        width={1120}
+        className="play-pad"
+        blocked={torn !== null}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            icon="trash"
+            aria-label={format(text.discardLabel, { title: play.game.title })}
+            onClick={() => {
+              saverRef.current?.flush();
+              open({ kind: 'discard-play', id: play.id });
+            }}
           >
-            <h3 id={`${play.id}-conflict`} className="play-pad__conflict-title">
-              {text.conflict.title}
-            </h3>
-            <p>{text.conflict.text}</p>
-            {savedAt ? (
-              <p>
-                {savedBy
-                  ? format(text.conflict.by, { name: fullName(savedBy), time: savedAt })
-                  : format(text.conflict.byUnknown, { time: savedAt })}
-              </p>
-            ) : null}
-            {conflictError ? <Banner variant="error">{text.conflict.loadError}</Banner> : null}
-            <p className="play-pad__note">{text.conflict.keepLocalNote}</p>
-            <div className="play-pad__conflict-actions">
-              {conflictError ? (
-                <Button variant="secondary" onClick={() => void latest.refetch()}>
-                  {text.conflict.retry}
-                </Button>
+            {text.discard}
+          </Button>
+        }
+      >
+        <div className="play-pad__body">
+          {showConflict ? (
+            <section
+              className="play-pad__conflict"
+              role="alert"
+              aria-labelledby={`${play.id}-conflict`}
+            >
+              <h3 id={`${play.id}-conflict`} className="play-pad__conflict-title">
+                {text.conflict.title}
+              </h3>
+              <p>{text.conflict.text}</p>
+              {savedAt ? (
+                <p>
+                  {savedBy
+                    ? format(text.conflict.by, { name: fullName(savedBy), time: savedAt })
+                    : format(text.conflict.byUnknown, { time: savedAt })}
+                </p>
               ) : null}
-              <Button
-                variant="secondary"
-                disabled={!conflictServer}
-                onClick={() => resolve('local')}
-              >
-                {text.conflict.keepLocal}
-              </Button>
-              <Button disabled={!conflictServer} onClick={() => resolve('server')}>
-                {text.conflict.useServer}
-              </Button>
-            </div>
-          </section>
-        ) : null}
-        {initial ? (
-          <>
-            <DraftStatusLine status={status} />
-            {config ? (
-              <ScorePadView
-                config={config}
-                controls={false}
-                tear={false}
-                className="play-pad__pad"
-                onChange={({ sheet }) => {
-                  // Imiona graczy wynikają z miejsc partii (PAD-2), nie z klawiatury.
-                  const next = sheetWithPlayers(sheet, namesRef.current);
-                  lastSheet.current = next;
-                  saverRef.current?.change(next);
-                }}
-              />
-            ) : (
-              <QueryStatus isError={template.isError} onRetry={() => void template.refetch()} />
-            )}
-            <p className="play-pad__note">{text.noTear}</p>
-          </>
-        ) : null}
-        {meeting.status !== 'in_progress' ? (
-          <Banner variant="warning">{text.notInProgress}</Banner>
-        ) : null}
-      </div>
-    </PopupModal>
+              {conflictError ? <Banner variant="error">{text.conflict.loadError}</Banner> : null}
+              <p className="play-pad__note">{text.conflict.keepLocalNote}</p>
+              <div className="play-pad__conflict-actions">
+                {conflictError ? (
+                  <Button variant="secondary" onClick={() => void latest.refetch()}>
+                    {text.conflict.retry}
+                  </Button>
+                ) : null}
+                <Button
+                  variant="secondary"
+                  disabled={!conflictServer}
+                  onClick={() => resolve('local')}
+                >
+                  {text.conflict.keepLocal}
+                </Button>
+                <Button disabled={!conflictServer} onClick={() => resolve('server')}>
+                  {text.conflict.useServer}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+          {initial ? (
+            <>
+              <DraftStatusLine status={status} />
+              {tearNotice ? (
+                <Banner variant="warning">
+                  {tearNotice === 'empty' ? text.emptySheet : text.tearConflict}
+                </Banner>
+              ) : null}
+              {config ? (
+                <ScorePadView
+                  ref={padRef}
+                  config={config}
+                  controls={false}
+                  summary={false}
+                  className="play-pad__pad"
+                  onTear={onTear}
+                  onSave={onSave}
+                  onChange={({ sheet }) => {
+                    // Po oderwaniu na wierzchu jest czysta kartka: to nie są wpisy partii.
+                    if (tearing.current) return;
+                    // Imiona graczy wynikają z miejsc partii (PAD-2), nie z klawiatury.
+                    const next = sheetWithPlayers(sheet, namesRef.current);
+                    lastSheet.current = next;
+                    saverRef.current?.change(next);
+                  }}
+                />
+              ) : (
+                <QueryStatus isError={template.isError} onRetry={() => void template.refetch()} />
+              )}
+              <div className="play-pad__footer">
+                <p className="play-pad__note">{text.tearHint}</p>
+                <Button
+                  variant="secondary"
+                  icon="tear-off"
+                  disabled={!config || torn !== null}
+                  aria-label={format(text.tearLabel, { title: play.game.title })}
+                  onClick={() => padRef.current?.tear()}
+                >
+                  {text.tear}
+                </Button>
+              </div>
+            </>
+          ) : null}
+          {meeting.status !== 'in_progress' ? (
+            <Banner variant="warning">{text.notInProgress}</Banner>
+          ) : null}
+        </div>
+      </PopupModal>
+      {torn ? (
+        <PlaySummaryDialog
+          title={play.game.title}
+          summary={torn.summary}
+          profiles={profiles}
+          saving={saveFinal.isPending || saveFinal.isSuccess}
+          failure={saveFailure}
+          onCancel={cancelTear}
+          onConfirm={() => {
+            if (torn.summary) saveFinal.mutate(torn.summary);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

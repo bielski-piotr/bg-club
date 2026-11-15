@@ -91,6 +91,8 @@ export interface PlayDetail {
   readonly draft_version: number;
   readonly draft_saved_at: string | null;
   readonly draft_saved_by: string | null;
+  /** Punktacja miejsc z chwili rozpoczęcia partii (GAME-9): podgląd punktów w podsumowaniu. */
+  readonly points_snapshot: readonly number[];
   readonly scorepad_version_id: string;
   readonly game: MeetingPlay['game'];
   /** Nazwa notesu i liczba miejsc wersji, z którą partia się zaczęła (GAME-9). */
@@ -109,7 +111,7 @@ interface PlayDetailRow extends Omit<PlayDetail, 'game' | 'scorepad' | 'seats'> 
 }
 
 const PLAY_DETAIL_COLUMNS =
-  'id, meeting_id, status, started_at, sheet, draft_version, draft_saved_at, draft_saved_by, ' +
+  'id, meeting_id, status, started_at, sheet, draft_version, draft_saved_at, draft_saved_by, points_snapshot, ' +
   'scorepad_version_id, game_id, games(id, title, cover_path), ' +
   'scorepad_versions(player_slots, scorepads!scorepad_versions_scorepad_id_fkey(name)), ' +
   'play_results!play_results_play_id_meeting_id_fkey(profile_id, seat)';

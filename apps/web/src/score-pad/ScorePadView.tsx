@@ -30,6 +30,8 @@ export interface ScorePadViewProps {
   readonly test?: boolean | undefined;
   /** `false`: kartki nie da się oderwać (np. partia bez zapisu wyników). */
   readonly tear?: boolean | undefined;
+  /** `false`: po oderwaniu bez karteczki z wynikiem notesu (podsumowanie pokazuje aplikacja). */
+  readonly summary?: boolean | undefined;
   readonly onReady?: (() => void) | undefined;
   readonly onSave?: ((detail: ScorePadSaveDetail) => void) | undefined;
   /** Kartka oderwana, także pusta (wtedy bez `onSave`); wywoływane przed `onSave`. */
@@ -48,6 +50,8 @@ export interface ScorePadHandle {
   setSheet(sheet: ScorePadSheet | null): void;
   /** Odrywa wierzchnią kartkę (wynik w `onSave`). */
   tear(): void;
+  /** Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania, PAD-5). */
+  restoreSheet(sheet: ScorePadSheet): void;
   /** Płynnie wraca do widoku z góry (PAD-12). */
   resetView(): void;
 }
@@ -66,6 +70,7 @@ export function ScorePadView({
   help,
   test,
   tear,
+  summary,
   onReady,
   onSave,
   onTear,
@@ -86,7 +91,17 @@ export function ScorePadView({
     resolved,
     () => {
       const element = document.createElement('score-pad');
-      element.options = { club: true, config, templates, template, controls, help, test, tear };
+      element.options = {
+        club: true,
+        config,
+        templates,
+        template,
+        controls,
+        help,
+        test,
+        tear,
+        summary,
+      };
       element.addEventListener('scorepad:ready', () => handlers.current.onReady?.());
       element.addEventListener('scorepad:tear', () => handlers.current.onTear?.());
       element.addEventListener('scorepad:change', (event: ScorePadEventMap['scorepad:change']) =>
@@ -97,7 +112,7 @@ export function ScorePadView({
       );
       return element;
     },
-    [config, templates, template, controls, help, test, tear],
+    [config, templates, template, controls, help, test, tear, summary],
   );
 
   const onLoadStateRef = useRef(onLoadState);
@@ -111,6 +126,7 @@ export function ScorePadView({
     () => ({
       setSheet: (sheet) => elementRef.current?.pad?.setSheet(sheet),
       tear: () => elementRef.current?.pad?.tear(),
+      restoreSheet: (sheet) => elementRef.current?.pad?.restoreSheet(sheet),
       resetView: () => elementRef.current?.pad?.resetView(),
     }),
     [elementRef],

@@ -6,7 +6,8 @@
  * - `totals.ts`: sumy bez cykli (EDT-13),
  * - `ranking.ts`: miejsca z kierunkami i remisami hierarchicznymi (EDT-2…EDT-4, §5.6.1),
  * - `points.ts`: punkty leaderboardu z `floor` i wygrane (§5.6.2, §5.6.3),
- * - `validate.ts`: walidacja referencji, cykli i zakresów.
+ * - `validate.ts`: walidacja referencji, cykli i zakresów,
+ * - `save.ts`: wyniki partii dla RPC `save_play` (bez punktów, które liczy baza).
  *
  * Punkty liczy też baza (`public.play_points`). Obie implementacje przechodzą ten sam zestaw
  * przypadków `cases/play-cases.json`; test pgTAP jest z niego generowany (`sql.ts`).
@@ -17,3 +18,4 @@ export * from './totals';
 export * from './ranking';
 export * from './points';
 export * from './validate';
+export * from './save';

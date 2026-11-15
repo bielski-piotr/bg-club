@@ -107,6 +107,11 @@ export interface ScorePadOptions {
    * Domyślnie można.
    */
   tear?: boolean;
+  /**
+   * `false`: po oderwaniu notes nie pokazuje własnej karteczki z wynikiem, bo podsumowanie
+   * z potwierdzeniem pokazuje aplikacja (partia, PAD-5). Domyślnie pokazuje.
+   */
+  summary?: boolean;
   /** Motyw otoczenia notesu (stół i winieta); domyślnie ciemny. Nakładki notesu są zawsze ciemne. */
   theme?: PadTheme;
 }
@@ -118,9 +123,27 @@ export interface PadChangeDetail {
   sheet: NonNullable<PadConfig['sheet']>;
 }
 
-/** Szczegóły zdarzenia `scorepad:save`: wpis partii i pełne wpisy z oderwanej kartki. */
+/**
+ * Pełny wynik gracza z oderwanej kartki (PAD-7): miejsce na kartce (od 0), wartości punktacji,
+ * sumy i miejsce według reguły notesu. Identyfikator gracza dopisuje aplikacja (miejsce → gracz).
+ */
+export interface PadSaveResult {
+  seat: number;
+  values: Record<string, number | null>;
+  totals: Record<string, number | null>;
+  /** Wartość kategorii decydującej (pusta, gdy gracz jej nie ma). */
+  rankingValue: number | null;
+  place: number;
+  tied: boolean;
+  /** Pozostali gracze na tym samym miejscu (miejsca na kartce). */
+  tiedWith: number[];
+}
+
+/** Szczegóły zdarzenia `scorepad:save`: wpis partii, pełne wpisy kartki i wyniki (PAD-7). */
 export interface PadSaveDetail extends HistoryEntry {
   sheet: NonNullable<PadConfig['sheet']>;
+  /** Wyniki graczy w kolejności miejsc. */
+  results: PadSaveResult[];
 }
 
 /** Kolor stołu (tło sceny i mgła) w motywie jasnym i ciemnym. */
@@ -265,6 +288,8 @@ export class ScorePad {
   private pickerOpen = false;
   private pickerShownAt = 0;
   private annotTimer = 0;
+  /** Stan sprzed ostatniego oderwania (liczba kartek), dla `restoreSheet` (anulowanie, PAD-5). */
+  private lastTear: { tpl: string; left: number } | null = null;
   private rafId = 0;
   private last = 0;
   private acc = 0;
@@ -1939,6 +1964,7 @@ export class ScorePad {
       this.saved.history = this.saved.history.slice(0, 40);
     }
     const st = this.saved.sheets[t.id];
+    this.lastTear = { tpl: t.id, left: st.left };
     st.left = st.left > 1 ? st.left - 1 : this.cfg.view.sheets;
     this.pad.setLeft(st.left);
     st.data = blankSheet(t, sheet.data.game + 1);
@@ -1950,13 +1976,34 @@ export class ScorePad {
     this.persist();
     this.sfx.whoosh();
     const data = sheet.data;
-    window.setTimeout(() => this.showSaved(entry, data, t), 700);
+    // Partia: podsumowanie z potwierdzeniem pokazuje aplikacja (PAD-5).
+    if (this.opts.summary !== false) window.setTimeout(() => this.showSaved(entry, data, t), 700);
     if (entry) {
-      const detail: PadSaveDetail = { ...entry, sheet: packSheet(data) };
+      const detail: PadSaveDetail = {
+        ...entry,
+        sheet: packSheet(data),
+        results: this.sheetResults(data, t),
+      };
       this.host.dispatchEvent(
         new CustomEvent('scorepad:save', { detail, bubbles: true, composed: true }),
       );
     }
+  }
+
+  /** Wyniki graczy kartki (PAD-7): gracze z imieniem albo wpisem, w kolejności miejsc. */
+  private sheetResults(d: SheetData, t: PadTemplate): PadSaveResult[] {
+    const seats: { seat: number; values: Record<string, number | null> }[] = [];
+    for (let p = 0; p < playerCount(t); p++)
+      if (playerActive(t, d, p)) seats.push({ seat: p, values: valuesOf(t, d, p) });
+    return rankSheet(t, seats).map((r) => ({
+      seat: r.seat,
+      values: { ...(r.values as Record<string, number | null>) },
+      totals: { ...r.totals },
+      rankingValue: r.rankingValue,
+      place: r.place,
+      tied: r.tied,
+      tiedWith: [...r.tiedWith],
+    }));
   }
 
   private recordSheet(d: SheetData, t: PadTemplate): HistoryEntry | null {
@@ -2841,6 +2888,34 @@ export class ScorePad {
     }
     this.active = this.makeSheet(st.data);
     this.scene.add(this.active.mesh);
+    this.persist();
+  }
+
+  /**
+   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania partii, PAD-5):
+   * wpisy i numer partii z `sheet`, liczba kartek w bloku sprzed oderwania.
+   */
+  restoreSheet(sheet: ScorePadSheet): void {
+    if (!this.t || this.switching || !this.pad) return;
+    this.closeEntry(false);
+    this.closeNamePicker();
+    window.clearTimeout(this.annotTimer);
+    this.ui.annot.hidden = true;
+    const st = this.saved.sheets[this.t.id];
+    if (this.lastTear?.tpl === this.t.id) {
+      st.left = this.lastTear.left;
+      this.pad.setLeft(st.left);
+    }
+    this.lastTear = null;
+    // `unpackSheet` tylko czyta wpisy.
+    st.data = unpackSheet(sheet as PadConfig['sheet'], this.t);
+    if (this.active) {
+      this.scene.remove(this.active.mesh);
+      this.active.dispose();
+    }
+    this.active = this.makeSheet(st.data);
+    this.scene.add(this.active.mesh);
+    this.updatePadInfo();
     this.persist();
   }
 

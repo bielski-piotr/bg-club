@@ -205,6 +205,49 @@ describe('tryb klubowy (PAD-1)', () => {
     pad.destroy();
   });
 
+  it('wyniki oderwanej kartki mają miejsca, remisy i wartości (PAD-7)', () => {
+    stubIndexedDb();
+    const pad = new ScorePad(document.createElement('div'), { club: true, summary: false });
+    const t = gridTemplate(3);
+    const data = unpackSheet(
+      { game: 2, names: ['Ada', 'Bartek', 'Celina'], cells: { a: [7, 9, 4], b: [3, 1, 1] } },
+      t,
+    );
+    const results = (
+      pad as unknown as { sheetResults(d: unknown, t: PadTemplate): unknown[] }
+    ).sheetResults(data, t);
+    expect(results).toEqual([
+      {
+        seat: 0,
+        values: { a: 7, b: 3 },
+        totals: { sum: 10, __total: 10 },
+        rankingValue: 10,
+        place: 1,
+        tied: true,
+        tiedWith: [1],
+      },
+      {
+        seat: 1,
+        values: { a: 9, b: 1 },
+        totals: { sum: 10, __total: 10 },
+        rankingValue: 10,
+        place: 1,
+        tied: true,
+        tiedWith: [0],
+      },
+      {
+        seat: 2,
+        values: { a: 4, b: 1 },
+        totals: { sum: 5, __total: 5 },
+        rankingValue: 5,
+        place: 3,
+        tied: false,
+        tiedWith: [],
+      },
+    ]);
+    pad.destroy();
+  });
+
   it('bez odrywania (`tear: false`) pomoc nie wspomina o odrywaniu, a `tear()` nic nie robi', () => {
     stubIndexedDb();
     const tips = (options: { tear?: boolean }) => {

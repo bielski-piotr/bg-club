@@ -94,13 +94,14 @@ select results_eq(
        ('publish_meeting_games(uuid,uuid[])'),
        ('reopen_voting(uuid)'),
        ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid,boolean)'),
+       ('save_play(uuid,uuid,jsonb,jsonb)'),
        ('save_play_draft(uuid,jsonb,integer)'),
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
        ('search_text(text)'),
        ('start_meeting(uuid)'),
        ('start_play(uuid,uuid,uuid,uuid[])') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic i porzucenie partii'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie i zapis partii'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.

@@ -47,6 +47,9 @@ importers:
       '@bg-club/score-pad':
         specifier: workspace:*
         version: link:../../packages/score-pad
+      '@bg-club/scoring':
+        specifier: workspace:*
+        version: link:../../packages/scoring
       '@fontsource-variable/bricolage-grotesque':
         specifier: ^5.3.0
         version: 5.3.0

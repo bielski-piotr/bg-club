@@ -116,9 +116,32 @@ export interface ScorePadClubOptions {
   readonly test?: boolean | undefined;
   /** `false`: kartki nie da się oderwać (gestem ani `tear()`); domyślnie można. */
   readonly tear?: boolean | undefined;
+  /**
+   * `false`: po oderwaniu notes nie pokazuje własnej karteczki z wynikiem; podsumowanie
+   * z potwierdzeniem pokazuje aplikacja (partia, PAD-5). Domyślnie pokazuje.
+   */
+  readonly summary?: boolean | undefined;
 }
 
-/** Wynik po oderwaniu karteczki (`scorepad:save`); pełny wynik z miejscami przyniesie PAD-7. */
+/**
+ * Pełny wynik gracza z oderwanej kartki (PAD-7). `seat` to miejsce na kartce od 0;
+ * identyfikator gracza dopisuje aplikacja z miejsc partii.
+ */
+export interface ScorePadSaveResult {
+  readonly seat: number;
+  /** Wartości punktacji (kategoria → liczba albo puste pole). */
+  readonly values: Readonly<Record<string, number | null>>;
+  /** Sumy, premie i wynik końcowy (`FINAL_TOTAL`). */
+  readonly totals: Readonly<Record<string, number | null>>;
+  /** Wartość kategorii decydującej (`play_results.ranking_value`). */
+  readonly rankingValue: number | null;
+  readonly place: number;
+  readonly tied: boolean;
+  /** Pozostali gracze na tym samym miejscu (miejsca na kartce). */
+  readonly tiedWith: readonly number[];
+}
+
+/** Wynik po oderwaniu karteczki (`scorepad:save`), z pełnym wynikiem graczy (PAD-7). */
 export interface ScorePadSaveDetail {
   readonly id: string;
   readonly tpl: string;
@@ -128,6 +151,8 @@ export interface ScorePadSaveDetail {
   readonly players: readonly { readonly name: string; readonly total: number }[];
   readonly winners: readonly string[];
   readonly sheet: ScorePadSheet;
+  /** Wyniki graczy (z imieniem albo wpisem) w kolejności miejsc. */
+  readonly results: readonly ScorePadSaveResult[];
 }
 
 /** Zdarzenia `<score-pad>` (bąbelkują i przechodzą przez shadow DOM). */
@@ -360,6 +385,11 @@ export interface ScorePadApi {
   setSheet(sheet: ScorePadSheet | null): void;
   /** Odrywa wierzchnią kartkę bez gestu (wynik w `scorepad:save`). */
   tear(): void;
+  /**
+   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania, PAD-5): wpisy
+   * i numer partii z `sheet`, liczba kartek sprzed oderwania.
+   */
+  restoreSheet(sheet: ScorePadSheet): void;
   destroy(): void;
 }
 

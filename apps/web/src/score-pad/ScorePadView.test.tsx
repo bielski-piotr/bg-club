@@ -90,13 +90,21 @@ describe('ScorePadView', () => {
     expect(onLoadState).toHaveBeenLastCalledWith('ready');
 
     // jsdom nie ma WebGL, więc metody notesu podmieniamy, żeby sprawdzić tylko przekazanie.
-    const api = { setSheet: vi.fn(), tear: vi.fn(), resetView: vi.fn(), destroy: vi.fn() };
+    const api = {
+      setSheet: vi.fn(),
+      tear: vi.fn(),
+      resetView: vi.fn(),
+      restoreSheet: vi.fn(),
+      destroy: vi.fn(),
+    };
     Object.defineProperty(element, 'pad', { value: api, configurable: true });
     const sheet = { game: 1, names: ['Gracz 1'], cells: {} };
     ref.current?.setSheet(sheet);
     ref.current?.tear();
     ref.current?.resetView();
+    ref.current?.restoreSheet(sheet);
     expect(api.setSheet).toHaveBeenCalledWith(sheet);
+    expect(api.restoreSheet).toHaveBeenCalledWith(sheet);
     expect(api.tear).toHaveBeenCalled();
     expect(api.resetView).toHaveBeenCalled();
   });

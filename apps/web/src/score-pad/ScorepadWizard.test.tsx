@@ -196,6 +196,7 @@ vi.mock('./ScorePadView', () => ({
         padFake.setSheet(sheet);
         padFake.sheet = sheet;
       },
+      restoreSheet: () => undefined,
       tear: () => {
         padFake.tear();
         padFake.props?.onTear?.();
@@ -208,6 +209,7 @@ vi.mock('./ScorePadView', () => ({
           players: [],
           winners: [],
           sheet: padFake.sheet as never,
+          results: [],
         });
       },
       resetView: () => padFake.resetView(),
