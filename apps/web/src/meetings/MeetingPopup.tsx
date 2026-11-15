@@ -13,6 +13,7 @@ import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import {
   avatarPerson,
+  compareProfiles,
   fullName,
   useAllProfiles,
   useMembers,
@@ -122,7 +123,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
   const people = meeting.participants
     .map((id) => profiles.data?.get(id) ?? members.find((member) => member.id === id))
     .filter((person): person is Profile => person !== undefined)
-    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'pl') || a.id.localeCompare(b.id));
+    .sort(compareProfiles);
   const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
   const planned = meeting.status === 'planned';
   const status = t.meetings.status;
@@ -221,7 +222,8 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
  * Pole akcji (DS §15 „Admin action box”). Zaplanowane: administrator publikuje gry (VOTE-5)
  * albo zmienia listę i otwiera głosowanie ponownie (VOTE-6); administrator i prowadzący
  * rozpoczynają spotkanie (RUN-1). W trakcie: „Zakończ spotkanie” (RUN-4). Obie zmiany statusu
- * mają potwierdzenie w osobnym dialogu.
+ * mają potwierdzenie w osobnym dialogu. W trakcie także „Nowa partia” (RUN-2, RUN-3): kreator
+ * gry, notesu i graczy; kilka partii może trwać naraz.
  */
 function RunnerBox({ meeting, isAdmin }: { readonly meeting: Meeting; readonly isAdmin: boolean }) {
   const { client } = useAuth();
@@ -232,6 +234,13 @@ function RunnerBox({ meeting, isAdmin }: { readonly meeting: Meeting; readonly i
     return (
       <div className="meeting-admin">
         <p className="meeting-admin__text">{run.inProgressRunner}</p>
+        <Button
+          fullWidth
+          icon="plus"
+          onClick={() => open({ kind: 'new-play', meetingId: meeting.id })}
+        >
+          {run.newPlay}
+        </Button>
         <Button
           fullWidth
           variant="secondary"

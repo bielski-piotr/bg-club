@@ -843,3 +843,344 @@
 .play-winners {
   margin-bottom: 12px;
 }
+
+/* Nowa partia (RUN-2, DS §15 „Step pills”, „Game / notes pick row”, „Seat row”). */
+.new-play__group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.new-play__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.step-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font: inherit;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.step-pill--current {
+  background: var(--c-inverse);
+  color: var(--c-on-inverse);
+}
+
+.step-pill--done {
+  padding-left: 12px;
+  background: var(--c-accent-tint);
+  color: var(--c-accent-text);
+  cursor: pointer;
+}
+
+.step-pill--done:hover:not(:disabled) {
+  border-color: var(--c-accent);
+}
+
+.step-pill--done:disabled {
+  cursor: default;
+}
+
+.step-pill--done:focus-visible {
+  outline: 2px solid var(--c-accent-text);
+  outline-offset: 2px;
+}
+
+.step-pill--upcoming {
+  border-color: var(--c-border);
+  color: var(--c-muted);
+}
+
+.pick-row {
+  display: flex;
+  padding-block: 8px;
+}
+
+.pick-row--tall {
+  min-height: 72px;
+}
+
+.pick-row .choice__label,
+.pick-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pick-row__thumb {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.pick-row--tall .pick-row__thumb {
+  padding-inline: 4px;
+}
+
+.pick-row--disabled .pick-row__thumb {
+  opacity: 0.45;
+}
+
+.pick-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+.pick-row--disabled .pick-row__name {
+  color: var(--c-muted);
+}
+
+.pick-row__sub,
+.pick-row__reason {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.pick-row__reason {
+  color: var(--c-warning-text);
+}
+
+.seat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.seat__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.seat__number {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--c-tint);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-muted);
+}
+
+.seat__field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--c-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.seat__field--filled {
+  padding-left: 8px;
+  border: 1px solid var(--c-border);
+  color: var(--c-ink);
+}
+
+.seat__field--empty {
+  border: 1.5px dashed var(--c-disabled);
+  color: var(--c-muted);
+}
+
+.seat__field:hover:not(:disabled) {
+  border-color: var(--c-accent);
+}
+
+.seat__field:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.seat__field:focus-visible,
+.seat-picker__option:focus-visible,
+.seat-pill:focus-visible {
+  outline: 2px solid var(--c-accent-text);
+  outline-offset: 2px;
+}
+
+.seat__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.seat__chevron {
+  flex-shrink: 0;
+  color: var(--c-muted);
+}
+
+.seat__field--empty .seat__chevron {
+  order: -1;
+}
+
+/* Lista uczestników pod polem miejsca: taca jak w DS §15 „Member selection row”. */
+.seat-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 0 40px;
+  padding: 6px;
+  list-style: none;
+  border-radius: 18px;
+  background: var(--c-tint);
+}
+
+.seat-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px 0 8px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--c-surface);
+  font: inherit;
+  color: var(--c-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.seat-picker__option:hover:not(:disabled) {
+  background: var(--c-accent-tint);
+}
+
+.seat-picker__option:disabled {
+  cursor: default;
+  color: var(--c-muted);
+  opacity: 0.6;
+}
+
+.seat-picker__option--current {
+  background: var(--c-accent-tint);
+  color: var(--c-accent-text);
+}
+
+.seat-picker__option--clear {
+  padding-left: 14px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--c-danger-text);
+}
+
+.seat-picker__check {
+  flex-shrink: 0;
+  color: var(--c-accent-text);
+}
+
+.seat-picker__seat {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.seat-outside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.seat-outside__label,
+.seat-outside__none {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.seat-outside__list {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 0 10px 0 4px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: var(--c-tint);
+  font: inherit;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-ink);
+  cursor: pointer;
+}
+
+.seat-pill:hover:not(:disabled) {
+  border-color: var(--c-accent);
+}
+
+.seat-pill:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

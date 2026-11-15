@@ -84,6 +84,27 @@ export function useGameScorepads(client: SupabaseClient, gameId: string) {
   });
 }
 
+/**
+ * Aktywne notesy wszystkich gier w kolejności dodania: kreator nowej partii (RUN-2) pokazuje
+ * przy każdej grze liczbę notesów i wyłącza gry bez pasującego notesu.
+ */
+export function useActiveScorepads(client: SupabaseClient) {
+  return useQuery({
+    queryKey: [...scorepadsKey, 'active'] as const,
+    queryFn: async (): Promise<Scorepad[]> => {
+      const { data, error } = await client
+        .from('scorepads')
+        .select(SCOREPAD_COLUMNS)
+        .is('deleted_at', null)
+        .order('created_at')
+        .order('id')
+        .returns<Scorepad[]>();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 /** Aktywny notes; `null` = nie ma go albo został usunięty. */
 export function useScorepad(client: SupabaseClient, id: string) {
   return useQuery({

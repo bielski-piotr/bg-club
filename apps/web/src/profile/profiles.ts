@@ -29,6 +29,14 @@ export function fullName(profile: Pick<Profile, 'first_name' | 'last_name'>): st
   return `${profile.first_name} ${profile.last_name}`;
 }
 
+/** Kolejność osób na listach: imię i nazwisko po polsku, remis rozstrzyga `id`. */
+export function compareProfiles(
+  a: Pick<Profile, 'id' | 'first_name' | 'last_name'>,
+  b: Pick<Profile, 'id' | 'first_name' | 'last_name'>,
+): number {
+  return fullName(a).localeCompare(fullName(b), 'pl') || a.id.localeCompare(b.id);
+}
+
 /**
  * Dane awatara (DS §8). Kolor monogramu wynika deterministycznie z hooka (USR-2): hook jest
  * niezmienny, więc kolor nie zmienia się po zmianie imienia i jest ten sam na każdym urządzeniu.
