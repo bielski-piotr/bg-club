@@ -87,6 +87,54 @@ $$;
 
 revoke execute on function private.play_results_input(jsonb) from public, anon, authenticated;
 
+-- Reguła miejsc notesu tak, jak stosuje ją notes (`padRanking` → `parseRanking` w
+-- `@bg-club/scoring`): `template.ranking` tylko wtedy, gdy jest w pełni poprawna (kategoria
+-- decydująca i kategorie reguł remisu to istniejące kategorie liczbowe, kierunki `asc`/`desc`,
+-- reguły `line`, `shared` albo `manual`); inaczej domyślna: suma końcowa, „więcej = lepiej”,
+-- bez reguł remisu. `tiebreak`: czy pierwsza reguła remisu rozdziela graczy (typ `line`).
+create function private.scorepad_ranking(template jsonb, out dir text, out tiebreak boolean)
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  ranking jsonb := template -> 'ranking';
+  numeric_lines text[];
+  valid boolean;
+begin
+  dir := 'desc';
+  tiebreak := false;
+  if jsonb_typeof(ranking) is distinct from 'object' or jsonb_typeof(template -> 'lines') is distinct from 'array' then
+    return;
+  end if;
+  numeric_lines := array(
+    select l ->> 'id' from jsonb_array_elements(template -> 'lines') l
+     where jsonb_typeof(l) = 'object' and l ->> 'kind' in ('input', 'sum', 'bonus', 'total')
+  );
+  valid := jsonb_typeof(ranking -> 'line') = 'string'
+    and (ranking ->> 'line') = any (numeric_lines)
+    and jsonb_typeof(ranking -> 'dir') = 'string'
+    and (ranking ->> 'dir') in ('asc', 'desc')
+    and jsonb_typeof(ranking -> 'tiebreak') = 'array'
+    and not exists (
+      select 1 from jsonb_array_elements(ranking -> 'tiebreak') r
+       where jsonb_typeof(r) is distinct from 'object'
+          or not (
+            (r ->> 'type') in ('shared', 'manual')
+            or ((r ->> 'type') = 'line'
+                and jsonb_typeof(r -> 'line') = 'string' and (r ->> 'line') = any (numeric_lines)
+                and jsonb_typeof(r -> 'dir') = 'string' and (r ->> 'dir') in ('asc', 'desc'))
+          )
+    );
+  if valid then
+    dir := ranking ->> 'dir';
+    tiebreak := (ranking -> 'tiebreak' -> 0 ->> 'type') is not distinct from 'line';
+  end if;
+end;
+$$;
+
+revoke execute on function private.scorepad_ranking(jsonb) from public, anon, authenticated;
+
 create function public.save_play(play_id uuid, scorepad_version_id uuid, sheet jsonb, results jsonb)
 returns public.plays
 language plpgsql
@@ -128,6 +176,7 @@ begin
     if play.sheet is not distinct from save_play.sheet
        and play.scorepad_version_id is not distinct from save_play.scorepad_version_id
        and cardinality(input) = (select count(*) from public.play_results r where r.play_id = play.id)
+       and cardinality(input) = (select count(distinct i.profile_id) from unnest(input) i)
        and not exists (
          select i.profile_id, i.seat, i.place, i.scores, i.ranking_value from unnest(input) i
          except
@@ -202,19 +251,9 @@ begin
   -- Miejsca zgodne z kategorią decydującą (EDT-2, EDT-3): lepsze miejsce nie ma gorszej
   -- wartości, wspólne miejsce ma tę samą. Reguły remisów rozdzielają tylko równe wartości;
   -- tego, jak je rozdzieliły, baza nie sprawdza (sumy i reguły liczy notes, §8.3).
-  -- Notes stosuje tylko poprawną regułę (kategoria z szablonu), inaczej „więcej = lepiej”
-  -- bez reguł remisu. Reguły po pierwszym „wspólnym miejscu” nie działają.
-  select case when r.valid and r.ranking ->> 'dir' = 'asc' then 'asc' else 'desc' end,
-         coalesce(r.valid and r.ranking -> 'tiebreak' -> 0 ->> 'type' = 'line', false)
-    into dir, tiebreak
+  select r.dir, r.tiebreak into dir, tiebreak
     from public.scorepad_versions v
-   cross join lateral (
-     select v.template -> 'ranking' as ranking,
-            coalesce(jsonb_typeof(v.template -> 'lines') = 'array' and exists (
-              select 1 from jsonb_array_elements(v.template -> 'lines') l
-               where l ->> 'id' = v.template -> 'ranking' ->> 'line'
-            ), false) as valid
-   ) r
+   cross join lateral private.scorepad_ranking(v.template) r
    where v.id = play.scorepad_version_id;
   if exists (
     select 1

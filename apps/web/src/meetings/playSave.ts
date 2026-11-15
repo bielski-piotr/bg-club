@@ -51,16 +51,15 @@ export function playSummary(
   ranked: readonly ScorePadSaveResult[],
 ): PlaySummary | null {
   const players = new Map(play.seats.map((s) => [s.seat, s.profile_id]));
-  // Notes liczy wyniki graczy z imieniem albo wpisem; imiona są tylko na miejscach partii.
-  const own = ranked.filter((r) => players.has(r.seat + 1));
-  if (own.length !== ranked.length || own.length !== players.size) return null;
-  if (!own.some((r) => r.rankingValue !== null)) return null;
+  if (!ranked.some((r) => r.rankingValue !== null)) return null;
+  // Notes liczy wyniki graczy z imieniem albo wpisem; każdy musi być graczem partii i odwrotnie.
   let results: SavePlayResult[];
   try {
-    results = savePlayResults(own, players);
+    results = savePlayResults(ranked, players);
   } catch {
     return null;
   }
+  const tied = new Map(ranked.map((r) => [r.seat + 1, r.tied]));
   let points: number[] | null = null;
   try {
     points = placementPoints(
@@ -75,7 +74,7 @@ export function playSummary(
       seat: r.seat,
       profileId: r.profile_id,
       place: r.place,
-      tied: results.filter((o) => o.place === r.place).length > 1,
+      tied: tied.get(r.seat) ?? false,
       value: r.ranking_value,
       points: points?.[i] ?? null,
       win: r.place === 1,
@@ -126,12 +125,17 @@ const HINTS: Readonly<Record<string, PlaySaveFailure>> = {
   plays_points_snapshot: 'invalid',
 };
 
-/** Błąd PostgREST → powód (HINT z migracji [029]); bez kodu to błąd sieci. */
+/**
+ * Błąd PostgREST → powód (HINT z migracji [029]); bez kodu to błąd sieci. Naruszenie reguły
+ * bez znanego HINT (np. z wyzwalacza: SQLSTATE 22…, 23…, P0…) też jest ostateczne: ponowienie
+ * tej samej treści nic nie zmieni.
+ */
 export function playSaveFailure(error: PostgrestLikeError): PlaySaveFailure {
   const byHint = error.hint ? HINTS[error.hint] : undefined;
   if (byHint) return byHint;
   if (error.code === '42501') return 'forbidden';
   if (!error.code) return 'network';
+  if (/^(22|23|P0)/.test(error.code)) return 'invalid';
   return 'server';
 }
 
@@ -151,6 +155,14 @@ export interface SavePlayOptions {
 }
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Sygnał przerwania po `ms` (`AbortSignal.timeout` nie ma np. Safari przed 16). */
+function timeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new DOMException('timeout', 'TimeoutError')), ms);
+  return controller.signal;
+}
 
 /**
  * `save_play` z automatycznym ponowieniem po błędzie sieci albo przekroczeniu czasu. Każda
@@ -174,7 +186,7 @@ export async function savePlay(
           sheet: summary.sheet,
           results: summary.results,
         })
-        .abortSignal(AbortSignal.timeout(options.timeoutMs ?? SAVE_TIMEOUT_MS))
+        .abortSignal(timeoutSignal(options.timeoutMs ?? SAVE_TIMEOUT_MS))
         .select('id')
         .single();
       if (!error) return;

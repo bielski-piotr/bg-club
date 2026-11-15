@@ -50,8 +50,11 @@ export interface ScorePadHandle {
   setSheet(sheet: ScorePadSheet | null): void;
   /** Odrywa wierzchnią kartkę (wynik w `onSave`). */
   tear(): void;
-  /** Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania, PAD-5). */
-  restoreSheet(sheet: ScorePadSheet): void;
+  /**
+   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania, PAD-5); `false`,
+   * gdy notesu nie ma albo nie jest gotowy.
+   */
+  restoreSheet(sheet: ScorePadSheet): boolean;
   /** Płynnie wraca do widoku z góry (PAD-12). */
   resetView(): void;
 }
@@ -126,7 +129,7 @@ export function ScorePadView({
     () => ({
       setSheet: (sheet) => elementRef.current?.pad?.setSheet(sheet),
       tear: () => elementRef.current?.pad?.tear(),
-      restoreSheet: (sheet) => elementRef.current?.pad?.restoreSheet(sheet),
+      restoreSheet: (sheet) => elementRef.current?.pad?.restoreSheet(sheet) ?? false,
       resetView: () => elementRef.current?.pad?.resetView(),
     }),
     [elementRef],

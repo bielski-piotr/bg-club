@@ -19,20 +19,24 @@ const result = (
   seat: number,
   rankingValue: number | null,
   place: number,
-  values: Record<string, number | null> = { a: rankingValue },
+  tied = false,
 ): ScorePadSaveResult => ({
   seat,
-  values,
+  values: { a: rankingValue },
   totals: {},
   rankingValue,
   place,
-  tied: false,
+  tied,
   tiedWith: [],
 });
 
 describe('podsumowanie oderwanej kartki (PAD-5)', () => {
   it('wiersze w kolejności miejsc z podglądem punktów floor i ładunek bez punktów', () => {
-    const summary = playSummary(play, sheet, [result(0, 9, 1), result(1, 9, 1), result(3, 4, 3)]);
+    const summary = playSummary(play, sheet, [
+      result(0, 9, 1, true),
+      result(1, 9, 1, true),
+      result(3, 4, 3),
+    ]);
     expect(summary?.rows).toEqual([
       { seat: 1, profileId: 'ada', place: 1, tied: true, value: 9, points: 8, win: true },
       { seat: 2, profileId: 'bea', place: 1, tied: true, value: 9, points: 8, win: true },
@@ -66,7 +70,9 @@ describe('błędy zapisu partii', () => {
     [{ code: '23514', hint: 'plays_scorepad_version_mismatch' }, 'invalid'],
     [{ code: '42501', hint: null }, 'forbidden'],
     [{ code: '', hint: '' }, 'network'],
-    [{ code: '500', hint: null }, 'server'],
+    [{ code: '23514', hint: null }, 'invalid'],
+    [{ code: 'PGRST301', hint: null }, 'server'],
+    [{ code: '40P01', hint: null }, 'server'],
   ] as const)('%o → %s', (error, reason) => {
     expect(playSaveFailure(error)).toBe(reason);
   });

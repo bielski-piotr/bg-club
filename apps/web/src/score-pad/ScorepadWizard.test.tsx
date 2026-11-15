@@ -196,7 +196,7 @@ vi.mock('./ScorePadView', () => ({
         padFake.setSheet(sheet);
         padFake.sheet = sheet;
       },
-      restoreSheet: () => undefined,
+      restoreSheet: () => false,
       tear: () => {
         padFake.tear();
         padFake.props?.onTear?.();

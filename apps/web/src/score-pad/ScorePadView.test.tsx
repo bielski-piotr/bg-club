@@ -94,7 +94,7 @@ describe('ScorePadView', () => {
       setSheet: vi.fn(),
       tear: vi.fn(),
       resetView: vi.fn(),
-      restoreSheet: vi.fn(),
+      restoreSheet: vi.fn(() => true),
       destroy: vi.fn(),
     };
     Object.defineProperty(element, 'pad', { value: api, configurable: true });
@@ -102,7 +102,7 @@ describe('ScorePadView', () => {
     ref.current?.setSheet(sheet);
     ref.current?.tear();
     ref.current?.resetView();
-    ref.current?.restoreSheet(sheet);
+    expect(ref.current?.restoreSheet(sheet)).toBe(true);
     expect(api.setSheet).toHaveBeenCalledWith(sheet);
     expect(api.restoreSheet).toHaveBeenCalledWith(sheet);
     expect(api.tear).toHaveBeenCalled();

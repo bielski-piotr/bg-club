@@ -624,6 +624,8 @@ export const pl = {
       tearLabel: 'Oderwij kartkę i zakończ partię {title}',
       emptySheet: 'Kartka nie ma jeszcze wyników. Wpisz je, a potem oderwij karteczkę.',
       tearConflict: 'Najpierw rozstrzygnij konflikt szkicu, a potem oderwij karteczkę.',
+      restoreFailed:
+        'Nie udało się położyć kartki z powrotem na notesie. Zamknij notes i otwórz go ponownie: wpisy są zapisane w szkicu partii.',
       summary: {
         title: 'Podsumowanie partii',
         description:

@@ -332,34 +332,37 @@ function PlayPad({
     readonly sheet: ScorePadSheet;
     readonly summary: PlaySummary | null;
   } | null>(null);
-  const [tearNotice, setTearNotice] = useState<'empty' | 'conflict' | null>(null);
+  const [tearNotice, setTearNotice] = useState<'empty' | 'conflict' | 'restoreFailed' | null>(null);
 
   /** Kładzie kartkę z powrotem na notes; jej wpisy znów idą do szkicu. */
   const restore = useCallback((sheet: ScorePadSheet) => {
-    tearing.current = false;
     lastSheet.current = sheet;
-    padRef.current?.restoreSheet(sheet);
+    if (padRef.current?.restoreSheet(sheet)) {
+      tearing.current = false;
+      return true;
+    }
+    // Notes nie położył kartki: wpisy czystej kartki nadal nie trafiają do szkicu, a szkic
+    // z wpisami partii czeka w bazie i w kopii lokalnej na ponowne otwarcie notesu.
+    setTearNotice('restoreFailed');
+    return false;
   }, []);
 
   const onTear = () => {
     tearing.current = true;
     setTearNotice(null);
-    const before = lastSheet.current;
+    const before = lastSheet.current ?? sheetWithPlayers(null, namesRef.current);
     // `scorepad:save` przychodzi w tym samym zadaniu co `scorepad:tear`; bez niego kartka była
     // pusta i wraca na notes.
     queueMicrotask(() => {
       if (!tearing.current || tornRef.current) return;
-      if (before) restore(before);
-      else tearing.current = false;
-      setTearNotice('empty');
+      if (restore(before)) setTearNotice('empty');
     });
   };
   const onSave = (detail: ScorePadSaveDetail) => {
     const sheet = sheetWithPlayers(detail.sheet, namesRef.current);
     if (showConflict) {
       // Nowszy szkic z innego urządzenia: najpierw decyzja, potem koniec partii.
-      restore(sheet);
-      setTearNotice('conflict');
+      if (restore(sheet)) setTearNotice('conflict');
       return;
     }
     tornRef.current = true;
@@ -375,11 +378,23 @@ function PlayPad({
   }, [torn, restore]);
 
   // Wstecz, Esc i × przy otwartym podsumowaniu wracają do kartki zamiast zamykać notes.
-  const tearGuard = useCallback<LeaveGuard>(() => cancelTear(), [cancelTear]);
+  // W trakcie zapisu (i po nim) nic nie zamyka podsumowania: wynik zapisu zamknie notes albo
+  // pokaże błąd w podsumowaniu.
+  const savingRef = useRef(false);
+  const tearGuard = useCallback<LeaveGuard>(() => {
+    if (!savingRef.current) cancelTear();
+  }, [cancelTear]);
   const { release } = useLeaveGuard(torn ? tearGuard : null);
 
   const saveFinal = useMutation({
     mutationFn: (summary: PlaySummary) => savePlay(client, play, summary),
+    onMutate: () => {
+      savingRef.current = true;
+    },
+    onError: () => {
+      savingRef.current = false;
+      void queryClient.invalidateQueries({ queryKey: playKey(play.id) });
+    },
     onSuccess: () => {
       // Partia zakończona: szkic i jego kopie lokalne nic już nie znaczą.
       saverRef.current?.dispose(false);
@@ -390,7 +405,6 @@ function PlayPad({
       void queryClient.invalidateQueries({ queryKey: meetingsKey });
       if (mounted.current) back();
     },
-    onError: () => void queryClient.invalidateQueries({ queryKey: playKey(play.id) }),
   });
   const saveFailure = saveFinal.error
     ? saveFinal.error instanceof PlaySaveError
@@ -469,7 +483,11 @@ function PlayPad({
               <DraftStatusLine status={status} />
               {tearNotice ? (
                 <Banner variant="warning">
-                  {tearNotice === 'empty' ? text.emptySheet : text.tearConflict}
+                  {tearNotice === 'empty'
+                    ? text.emptySheet
+                    : tearNotice === 'conflict'
+                      ? text.tearConflict
+                      : text.restoreFailed}
                 </Banner>
               ) : null}
               {config ? (

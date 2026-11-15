@@ -387,9 +387,9 @@ export interface ScorePadApi {
   tear(): void;
   /**
    * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania, PAD-5): wpisy
-   * i numer partii z `sheet`, liczba kartek sprzed oderwania.
+   * i numer partii z `sheet`, liczba kartek sprzed oderwania. `false`: notes nie był gotowy.
    */
-  restoreSheet(sheet: ScorePadSheet): void;
+  restoreSheet(sheet: ScorePadSheet): boolean;
   destroy(): void;
 }
 

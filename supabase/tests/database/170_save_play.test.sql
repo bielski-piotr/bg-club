@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(41);
+select plan(48);
 
 -- a001 Ada: admin; a002 Bartek: prowadzący; a003 Celina, a004 Dawid: gracze.
 insert into public.profiles (id, hook, first_name, last_name, role) values
@@ -39,6 +39,33 @@ insert into public.meetings (id, title, starts_at, created_by, host_id) values
 insert into public.meeting_participants (meeting_id, profile_id)
 select '00000000-0000-4000-c000-000000000001', p.id from public.profiles p;
 update public.meetings set status = 'in_progress', voting_open = false, started_at = now();
+
+-- Reguła miejsc jak w notesie (parseRanking): błędna reguła to domyślne „więcej = lepiej”.
+create temporary table lines on commit drop as select
+  '[{"id": "n", "kind": "names"}, {"id": "a", "kind": "input"}, {"id": "s", "kind": "total"}]'::jsonb as v;
+select is(
+  (select row(r.dir, r.tiebreak)::text from lines, private.scorepad_ranking(jsonb_build_object('lines', lines.v,
+     'ranking', '{"line": "s", "dir": "asc", "tiebreak": [{"type": "line", "line": "a", "dir": "desc"}]}'::jsonb)) r),
+  '(asc,t)', 'poprawna reguła: kierunek i reguła remisu');
+select is(
+  (select row(r.dir, r.tiebreak)::text from lines, private.scorepad_ranking(jsonb_build_object('lines', lines.v,
+     'ranking', '{"line": "s", "dir": "asc", "tiebreak": [{"type": "shared"}, {"type": "line", "line": "a", "dir": "asc"}]}'::jsonb)) r),
+  '(asc,f)', 'reguły po „wspólnym miejscu” nie działają');
+select is(
+  (select row(r.dir, r.tiebreak)::text from lines, private.scorepad_ranking(jsonb_build_object('lines', lines.v,
+     'ranking', '{"line": "s", "dir": "asc", "tiebreak": "oops"}'::jsonb)) r),
+  '(desc,f)', 'zniekształcone reguły remisu: reguła domyślna');
+select is(
+  (select row(r.dir, r.tiebreak)::text from lines, private.scorepad_ranking(jsonb_build_object('lines', lines.v,
+     'ranking', '{"line": "n", "dir": "asc", "tiebreak": []}'::jsonb)) r),
+  '(desc,f)', 'kategoria bez wartości liczbowej nie decyduje: reguła domyślna');
+select is(
+  (select row(r.dir, r.tiebreak)::text from lines, private.scorepad_ranking(jsonb_build_object('lines', lines.v,
+     'ranking', '{"line": "s", "dir": "asc", "tiebreak": [{"type": "line", "line": "x", "dir": "asc"}]}'::jsonb)) r),
+  '(desc,f)', 'reguła remisu z nieznaną kategorią unieważnia regułę (jak w notesie)');
+select is(
+  (select row(r.dir, r.tiebreak)::text from lines, private.scorepad_ranking(jsonb_build_object('lines', lines.v)) r),
+  '(desc,f)', 'starszy notes bez reguły: więcej = lepiej, bez reguł remisu');
 
 create function public.test_failure(statement text)
 returns text
@@ -242,6 +269,11 @@ select is(public.test_save(1, 1, replace((select sheet from good), '"game": 4', 
 select is(public.test_save(1, 1, (select sheet from good), replace((select results from good),
     '"scores": {"a": 12}', '"scores": {"a": 13}')),
   '23514/plays_already_saved', 'inne wyniki dla zapisanej partii');
+select is(public.test_save(1, 1, (select sheet from good),
+    '[{"profile_id": "00000000-0000-4000-a000-000000000002", "seat": 1, "place": 1, "scores": {"a": 12}, "ranking_value": 12},
+      {"profile_id": "00000000-0000-4000-a000-000000000002", "seat": 1, "place": 1, "scores": {"a": 12}, "ranking_value": 12},
+      {"profile_id": "00000000-0000-4000-a000-000000000002", "seat": 1, "place": 1, "scores": {"a": 12}, "ranking_value": 12}]'),
+  '23514/plays_already_saved', 'powtórzony wiersz jednego gracza nie udaje ponowienia');
 select is(public.test_failure($$ select public.save_play_draft('00000000-0000-4000-f000-000000000001', '{}', 0) $$),
   '23514/plays_not_draft', 'zapisana partia nie przyjmie szkicu');
 select is(public.test_failure($$ select public.discard_play('00000000-0000-4000-f000-000000000001') $$),

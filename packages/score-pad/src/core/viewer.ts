@@ -2893,10 +2893,11 @@ export class ScorePad {
 
   /**
    * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania partii, PAD-5):
-   * wpisy i numer partii z `sheet`, liczba kartek w bloku sprzed oderwania.
+   * wpisy i numer partii z `sheet`, liczba kartek w bloku sprzed oderwania. `false`, gdy notes
+   * nie jest gotowy (np. w trakcie zmiany szablonu) i kartki nie położył.
    */
-  restoreSheet(sheet: ScorePadSheet): void {
-    if (!this.t || this.switching || !this.pad) return;
+  restoreSheet(sheet: ScorePadSheet): boolean {
+    if (!this.t || this.switching || !this.pad) return false;
     this.closeEntry(false);
     this.closeNamePicker();
     window.clearTimeout(this.annotTimer);
@@ -2917,6 +2918,7 @@ export class ScorePad {
     this.scene.add(this.active.mesh);
     this.updatePadInfo();
     this.persist();
+    return true;
   }
 
   private emit(type: HostEvent, ...args: unknown[]): void {
