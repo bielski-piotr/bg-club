@@ -112,6 +112,11 @@ export interface ScorePadOptions {
    * z potwierdzeniem pokazuje aplikacja (partia, PAD-5). Domyślnie pokazuje.
    */
   summary?: boolean;
+  /**
+   * Podgląd zapisanej karteczki (PAD-6): kartki nie da się oderwać ani zmienić (pola nie
+   * przyjmują wpisów, notes nie wysyła `scorepad:change`); obrót, zoom i widok z góry działają.
+   */
+  readOnly?: boolean;
   /** Motyw otoczenia notesu (stół i winieta); domyślnie ciemny. Nakładki notesu są zawsze ciemne. */
   theme?: PadTheme;
 }
@@ -144,6 +149,63 @@ export interface PadSaveDetail extends HistoryEntry {
   sheet: NonNullable<PadConfig['sheet']>;
   /** Wyniki graczy w kolejności miejsc. */
   results: PadSaveResult[];
+  /**
+   * Obraz oderwanej kartki z pismem (PAD-6), zrobiony w chwili oderwania: WebP (PNG, gdy
+   * przeglądarka nie koduje WebP), dłuższy bok najwyżej `maxSide` px (domyślnie 1200),
+   * jakość obniżana, aż plik zmieści się w `maxBytes` (domyślnie 150 KB). `null`, gdy
+   * przeglądarka nie potrafi zakodować obrazu.
+   */
+  image(options?: { maxSide?: number; maxBytes?: number }): Promise<Blob | null>;
+}
+
+/** Dłuższy bok obrazu karteczki zrobionego przy oderwaniu (PAD-6). */
+const SHEET_IMAGE_MAX_SIDE = 1600;
+
+function canvasBlob(c: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    try {
+      c.toBlob((b) => resolve(b), type, quality);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Obraz karteczki do historii (PAD-6, NFR-7 ≈ 150 KB): WebP o malejącej jakości, a gdy nadal
+ * za duży, mniejszy wymiar. Przeglądarka bez WebP daje PNG (bez limitu rozmiaru, z wymiarem).
+ */
+export async function encodeSheetImage(
+  src: HTMLCanvasElement,
+  options: { maxSide?: number; maxBytes?: number } = {},
+): Promise<Blob | null> {
+  const maxBytes = options.maxBytes ?? 150 * 1024;
+  let side = Math.min(options.maxSide ?? 1200, Math.max(src.width, src.height));
+  let last: Blob | null = null;
+  for (let round = 0; round < 6; round++) {
+    const k = side / Math.max(src.width, src.height);
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(src.width * k));
+    c.height = Math.max(1, Math.round(src.height * k));
+    const g = c.getContext('2d');
+    if (!g) return last;
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(src, 0, 0, c.width, c.height);
+    for (const q of [0.86, 0.78, 0.68, 0.56]) {
+      const b = await canvasBlob(c, 'image/webp', q);
+      if (!b) return last;
+      last = b;
+      if (b.size <= maxBytes) return b;
+      // bez kodera WebP przeglądarka daje PNG: jakość nic nie zmienia, zostaje mniejszy wymiar
+      if (b.type !== 'image/webp') {
+        if (b.size <= maxBytes * 4) return b;
+        break;
+      }
+    }
+    side = Math.round(side * 0.8);
+  }
+  return last;
 }
 
 /** Kolor stołu (tło sceny i mgła) w motywie jasnym i ciemnym. */
@@ -563,7 +625,7 @@ export class ScorePad {
         <div class="loading">Rozkładam notes…</div>
       </div>`;
     // bez odrywania wskazówki o chwytaniu i szarpaniu kartki wprowadzałyby w błąd
-    if (this.opts.tear === false) {
+    if (this.opts.tear === false || this.opts.readOnly) {
       this.root.querySelectorAll('[data-tear]').forEach((node) => node.remove());
     }
     const q = <T extends HTMLElement>(s: string): T => this.root.querySelector(s) as T;
@@ -1140,7 +1202,7 @@ export class ScorePad {
    * Wysyłane przy każdej zmianie stanu notesu, także bez zmiany wpisów (aplikacja porównuje).
    */
   private emitSheetChange(): void {
-    if (!this.t || !this.active || this.switching) return;
+    if (!this.t || !this.active || this.switching || this.opts.readOnly) return;
     const detail: PadChangeDetail = { sheet: packSheet(this.active.data) };
     this.host.dispatchEvent(
       new CustomEvent('scorepad:change', { detail, bubbles: true, composed: true }),
@@ -1418,7 +1480,7 @@ export class ScorePad {
     const point = h.point.clone();
     const back = !!h.face && this.raycaster.ray.direction.dot(h.face.normal) > 0;
     // bez odrywania (`tear: false`) krawędź kartki nie daje się chwycić: dalej trafia w pola
-    const tearable = this.opts.tear !== false;
+    const tearable = this.opts.tear !== false && !this.opts.readOnly;
     if (!a.resting || back) return tearable ? { kind: 'edge', uv, point } : null;
     const sx = uv.x * s.W;
     const sy = (1 - uv.y) * s.H;
@@ -1427,6 +1489,8 @@ export class ScorePad {
     // uv siatki to układ fizyczny; pola leżą we współrzędnych treści
     const c = s.rot ? { u: 1 - uv.y, v: 1 - uv.x } : { u: uv.x, v: 1 - uv.y };
     const sp = hitSpot(t, c.u, c.v);
+    // podgląd zapisanej karteczki: pola nie przyjmują wpisów, lewy przycisk obraca
+    if (this.opts.readOnly) return null;
     if (sp) {
       const kind = t.lines[sp.li].kind;
       if (kind === 'input') return { kind: 'cell', uv, point, spot: sp };
@@ -1976,6 +2040,8 @@ export class ScorePad {
     this.persist();
     this.sfx.whoosh();
     const data = sheet.data;
+    // obraz karteczki teraz: lecąca kartka jest potem usuwana razem z teksturą (PAD-6)
+    const shot = entry ? sheet.snapshot(SHEET_IMAGE_MAX_SIDE) : null;
     // Partia: podsumowanie z potwierdzeniem pokazuje aplikacja (PAD-5).
     if (this.opts.summary !== false) window.setTimeout(() => this.showSaved(entry, data, t), 700);
     if (entry) {
@@ -1983,6 +2049,7 @@ export class ScorePad {
         ...entry,
         sheet: packSheet(data),
         results: this.sheetResults(data, t),
+        image: (options) => encodeSheetImage(shot as HTMLCanvasElement, options),
       };
       this.host.dispatchEvent(
         new CustomEvent('scorepad:save', { detail, bubbles: true, composed: true }),
@@ -3191,7 +3258,7 @@ export class ScorePad {
 
   /** Odrywa wierzchnią kartkę bez gestu (przycisk „Oderwij kartkę” w kreatorze, EDT-14). */
   tear(): void {
-    if (!this.t || this.switching || this.opts.tear === false) return;
+    if (!this.t || this.switching || this.opts.tear === false || this.opts.readOnly) return;
     this.completeTear();
   }
 

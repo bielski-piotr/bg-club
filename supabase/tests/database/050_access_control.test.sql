@@ -79,13 +79,15 @@ select results_eq(
   $$ select p.oid::regprocedure::text from pg_proc p
       where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
         and has_function_privilege('authenticated', p.oid, 'execute')
-      order by 1 $$,
+      order by 1 collate "C" $$,
   $$ values
+       ('attach_play_sheet_image(uuid,text)'),
        ('discard_play(uuid)'),
        ('f_unaccent(text)'),
        ('finish_meeting(uuid)'),
        ('is_valid_points(integer[],integer)'),
        ('is_valid_timezone(text)'),
+       ('orphan_sheet_images(uuid)'),
        ('private.is_active_member()'),
        ('private.is_admin()'),
        ('private.is_meeting_runner(uuid)'),
@@ -101,7 +103,7 @@ select results_eq(
        ('search_text(text)'),
        ('start_meeting(uuid)'),
        ('start_play(uuid,uuid,uuid,uuid[])') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie i zapis partii'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie i zapis partii, obrazy karteczek'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.
@@ -209,7 +211,7 @@ select results_eq(
              'bg_club_admin_assets_update:UPDATE,bg_club_avatars_delete_own:DELETE,'
              'bg_club_avatars_insert_own:INSERT,bg_club_avatars_update_own:UPDATE,'
              'bg_club_objects_select:SELECT,bg_club_sheets_delete_admin:DELETE,'
-             'bg_club_sheets_insert_runner:INSERT') $$,
+             'bg_club_sheets_delete_unused:DELETE,bg_club_sheets_insert_runner:INSERT') $$,
   'polityki Storage: odczyt aktywni, zapis według bucketu'
 );
 

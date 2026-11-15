@@ -147,8 +147,20 @@ describe('adresy popupów (PRD §4)', () => {
     );
     expect(stackSearch('', [{ kind: 'delete-game', id: ID }])).toBe(`?p=game/${ID}/delete`);
     expect(stackSearch('', [{ kind: 'add-game' }])).toBe('?p=games/new');
-    // Szczegóły gry (GAME-10) dochodzą w kolejnym zadaniu; do tego czasu adres jest nieznany.
-    expect(parseRoute(`game/${ID}`)).toEqual({ kind: 'invalid', raw: `game/${ID}` });
+    // Szczegóły gry z galerią karteczek i karteczka partii (GAME-10, PAD-6, VIEW-3).
+    expect(parseStack(`?p=games&p=game/${ID.toUpperCase()}&p=sheet/${ID}`)).toEqual([
+      { kind: 'games' },
+      { kind: 'game', id: ID },
+      { kind: 'sheet', id: ID },
+    ]);
+    expect(
+      stackSearch('', [
+        { kind: 'game', id: ID },
+        { kind: 'sheet', id: ID },
+      ]),
+    ).toBe(`?p=game/${ID}&p=sheet/${ID}`);
+    expect(parseRoute('sheet/1')).toEqual({ kind: 'invalid', raw: 'sheet/1' });
+    expect(parseRoute(`sheet/${ID}/3d`)).toEqual({ kind: 'invalid', raw: `sheet/${ID}/3d` });
     expect(parseRoute('game/1/edit')).toEqual({ kind: 'invalid', raw: 'game/1/edit' });
     expect(parseRoute(`game/${ID}/rename`)).toEqual({ kind: 'invalid', raw: `game/${ID}/rename` });
     expect(parseRoute('games/edit')).toEqual({ kind: 'invalid', raw: 'games/edit' });

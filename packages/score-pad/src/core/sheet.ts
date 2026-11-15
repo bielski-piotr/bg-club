@@ -574,6 +574,35 @@ export class PaperSheet {
     this.dirty = false;
   }
 
+  /**
+   * Obraz kartki z pismem (PAD-6): tekstura kartki z ukończonym pismem (bez zaznaczenia pola
+   * i niezatwierdzonego wpisu), zmniejszona tak, by dłuższy bok miał najwyżej `maxSide` px.
+   * Kartka o niestandardowym kształcie ma przezroczyste wycięcia.
+   */
+  snapshot(maxSide: number): HTMLCanvasElement {
+    this.focus = null;
+    this.draft = null;
+    // pismo dorysowane do końca (animacja liczy się od `ink.t`)
+    this.painter.paint(this, performance.now() + 1e7);
+    this.dirty = true;
+    const { CW, CH } = this.ps;
+    const k = Math.min(1, maxSide / Math.max(CW, CH));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(CW * k));
+    c.height = Math.max(1, Math.round(CH * k));
+    const g = c.getContext('2d');
+    if (!g) return c;
+    if (this.t.shape) {
+      g.beginPath();
+      shapePath(g, this.t.shape, c.width, c.height);
+      g.clip('evenodd');
+    }
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(this.painter.main, 0, 0, c.width, c.height);
+    return c;
+  }
+
   dispose(): void {
     this.geo.dispose();
     this.mat.dispose();

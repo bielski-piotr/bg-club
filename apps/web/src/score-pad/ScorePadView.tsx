@@ -32,6 +32,8 @@ export interface ScorePadViewProps {
   readonly tear?: boolean | undefined;
   /** `false`: po oderwaniu bez karteczki z wynikiem notesu (podsumowanie pokazuje aplikacja). */
   readonly summary?: boolean | undefined;
+  /** Podgląd zapisanej karteczki (PAD-6): bez wpisów i odrywania; obrót i zoom działają. */
+  readonly readOnly?: boolean | undefined;
   readonly onReady?: (() => void) | undefined;
   readonly onSave?: ((detail: ScorePadSaveDetail) => void) | undefined;
   /** Kartka oderwana, także pusta (wtedy bez `onSave`); wywoływane przed `onSave`. */
@@ -74,6 +76,7 @@ export function ScorePadView({
   test,
   tear,
   summary,
+  readOnly,
   onReady,
   onSave,
   onTear,
@@ -104,6 +107,7 @@ export function ScorePadView({
         test,
         tear,
         summary,
+        readOnly,
       };
       element.addEventListener('scorepad:ready', () => handlers.current.onReady?.());
       element.addEventListener('scorepad:tear', () => handlers.current.onTear?.());
@@ -115,7 +119,7 @@ export function ScorePadView({
       );
       return element;
     },
-    [config, templates, template, controls, help, test, tear, summary],
+    [config, templates, template, controls, help, test, tear, summary, readOnly],
   );
 
   const onLoadStateRef = useRef(onLoadState);

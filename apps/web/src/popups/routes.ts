@@ -27,6 +27,15 @@ export type PopupRoute =
   | { readonly kind: 'games' }
   /** Formularz „Dodaj grę” (GAME-3, admin), adres `games/new`. */
   | { readonly kind: 'add-game' }
+  /**
+   * Szczegóły gry z galerią oderwanych karteczek od najnowszej (GAME-10), adres `game/<uuid>`.
+   */
+  | { readonly kind: 'game'; readonly id: string }
+  /**
+   * Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3): powiększenie, wyniki, link do spotkania
+   * i podgląd 3D tylko do odczytu, adres `sheet/<uuid partii>`.
+   */
+  | { readonly kind: 'sheet'; readonly id: string }
   /** Formularz „Edytuj grę” (GAME-3, admin), adres `game/<uuid>/edit`. */
   | { readonly kind: 'edit-game'; readonly id: string }
   /** Potwierdzenie „Usuń grę” (GAME-8, admin), adres `game/<uuid>/delete`. */
@@ -105,6 +114,12 @@ export function parseRoute(raw: string): PopupRoute {
   if (kind === 'club' && args.length === 0) return { kind: 'club' };
   if (kind === 'games' && args.length === 0) return { kind: 'games' };
   if (kind === 'games' && args.length === 1 && args[0] === 'new') return { kind: 'add-game' };
+  if (kind === 'game' && args.length === 1 && isUuid(args[0] ?? '')) {
+    return { kind: 'game', id: (args[0] ?? '').toLowerCase() };
+  }
+  if (kind === 'sheet' && args.length === 1 && isUuid(args[0] ?? '')) {
+    return { kind: 'sheet', id: (args[0] ?? '').toLowerCase() };
+  }
   if (kind === 'game' && args.length === 2 && isUuid(args[0] ?? '')) {
     const id = (args[0] ?? '').toLowerCase();
     if (args[1] === 'edit') return { kind: 'edit-game', id };
@@ -179,6 +194,10 @@ export function serializeRoute(route: PopupRoute): string {
       return 'games';
     case 'add-game':
       return 'games/new';
+    case 'game':
+      return `game/${route.id}`;
+    case 'sheet':
+      return `sheet/${route.id}`;
     case 'edit-game':
       return `game/${route.id}/edit`;
     case 'delete-game':

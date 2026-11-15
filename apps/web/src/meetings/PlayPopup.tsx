@@ -18,6 +18,14 @@ import { useLeaveGuard } from '../popups/useLeaveGuard';
 import { useMounted } from '../popups/useMounted';
 import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
 import { ScorePadView, type ScorePadHandle } from '../score-pad/ScorePadView';
+import {
+  discardSheetImage,
+  finishSheetImage,
+  SHEET_IMAGE_MAX_BYTES,
+  SHEET_IMAGE_MAX_SIDE,
+  uploadSheetImage,
+  type PendingSheetImage,
+} from '../sheets/sheetImages';
 import { loadVersionTemplate, versionTemplateKey } from '../score-pad/scorepads';
 import { Banner, Button, useToast } from '../ui';
 import { cx } from '../ui/cx';
@@ -331,6 +339,8 @@ function PlayPad({
   const [torn, setTorn] = useState<{
     readonly sheet: ScorePadSheet;
     readonly summary: PlaySummary | null;
+    /** Obraz karteczki wgrywany w tle, zanim użytkownik potwierdzi zapis (PAD-6). */
+    readonly image: PendingSheetImage;
   } | null>(null);
   const [tearNotice, setTearNotice] = useState<'empty' | 'conflict' | 'restoreFailed' | null>(null);
 
@@ -367,15 +377,25 @@ function PlayPad({
     }
     tornRef.current = true;
     saveFinal.reset();
-    setTorn({ sheet, summary: playSummary(play, sheet, detail.results) });
+    const summary = playSummary(play, sheet, detail.results);
+    // Kartki bez wyniku nie da się zapisać, więc jej obrazu nie wysyłamy.
+    const image: PendingSheetImage = summary
+      ? detail
+          .image({ maxSide: SHEET_IMAGE_MAX_SIDE, maxBytes: SHEET_IMAGE_MAX_BYTES })
+          .catch(() => null)
+          .then((blob) => uploadSheetImage(client, play, blob))
+      : Promise.resolve(null);
+    setTorn({ sheet, summary, image });
   };
 
   const cancelTear = useCallback(() => {
     if (!torn) return;
     tornRef.current = false;
     setTorn(null);
+    // Kartka wraca na notes: obraz z tego oderwania nie trafi do historii.
+    void discardSheetImage(client, torn.image);
     restore(torn.sheet);
-  }, [torn, restore]);
+  }, [torn, restore, client]);
 
   // Wstecz, Esc i × przy otwartym podsumowaniu wracają do kartki zamiast zamykać notes.
   // W trakcie zapisu (i po nim) nic nie zamyka podsumowania: wynik zapisu zamknie notes albo
@@ -387,7 +407,11 @@ function PlayPad({
   const { release } = useLeaveGuard(torn ? tearGuard : null);
 
   const saveFinal = useMutation({
-    mutationFn: (summary: PlaySummary) => savePlay(client, play, summary),
+    mutationFn: async ({ summary, image }: { summary: PlaySummary; image: PendingSheetImage }) => {
+      await savePlay(client, play, summary);
+      // Partia zapisana: obraz karteczki dołączamy potem; jego brak nie psuje historii (PAD-6).
+      await finishSheetImage(client, play, image);
+    },
     onMutate: () => {
       savingRef.current = true;
     },
@@ -539,7 +563,7 @@ function PlayPad({
           failure={saveFailure}
           onCancel={cancelTear}
           onConfirm={() => {
-            if (torn.summary) saveFinal.mutate(torn.summary);
+            if (torn.summary) saveFinal.mutate({ summary: torn.summary, image: torn.image });
           }}
         />
       ) : null}

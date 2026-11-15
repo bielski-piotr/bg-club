@@ -121,6 +121,11 @@ export interface ScorePadClubOptions {
    * z potwierdzeniem pokazuje aplikacja (partia, PAD-5). Domyślnie pokazuje.
    */
   readonly summary?: boolean | undefined;
+  /**
+   * Podgląd zapisanej karteczki w 3D (PAD-6): bez wpisów i odrywania, bez `scorepad:change`;
+   * obrót, zoom i widok z góry działają.
+   */
+  readonly readOnly?: boolean | undefined;
 }
 
 /**
@@ -153,6 +158,15 @@ export interface ScorePadSaveDetail {
   readonly sheet: ScorePadSheet;
   /** Wyniki graczy (z imieniem albo wpisem) w kolejności miejsc. */
   readonly results: readonly ScorePadSaveResult[];
+  /**
+   * Obraz oderwanej kartki z pismem (PAD-6), zrobiony w chwili oderwania: WebP (PNG bez
+   * kodera WebP), dłuższy bok do `maxSide` (domyślnie 1200 px), plik do `maxBytes`
+   * (domyślnie 150 KB). `null`, gdy przeglądarka nie zakoduje obrazu.
+   */
+  image(options?: {
+    readonly maxSide?: number | undefined;
+    readonly maxBytes?: number | undefined;
+  }): Promise<Blob | null>;
 }
 
 /** Zdarzenia `<score-pad>` (bąbelkują i przechodzą przez shadow DOM). */

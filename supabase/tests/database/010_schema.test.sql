@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(43);
+select plan(44);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
@@ -139,7 +139,9 @@ select is_empty(
           'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure,
           'public.save_play_draft(uuid,jsonb,int)'::regprocedure,
           'public.discard_play(uuid)'::regprocedure,
-          'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure
+          'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
+          'public.attach_play_sheet_image(uuid,text)'::regprocedure,
+          'public.orphan_sheet_images(uuid)'::regprocedure
         )
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
@@ -168,8 +170,14 @@ select ok(
 select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+play_meeting_id := private\.play_meeting\(\w+\.play_id\);\s+perform private\.require_meeting_runner\(play_meeting_id\);')
      from pg_proc where oid in ('public.save_play_draft(uuid,jsonb,int)'::regprocedure, 'public.discard_play(uuid)'::regprocedure,
-                                'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure)),
-  'save_play_draft, discard_play i save_play (security definer) zaczynają od strażnika private.require_meeting_runner()'
+                                'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
+                                'public.attach_play_sheet_image(uuid,text)'::regprocedure)),
+  'save_play_draft, discard_play, save_play i attach_play_sheet_image (security definer) zaczynają od strażnika private.require_meeting_runner()'
+);
+select ok(
+  (select prosrc ~ '^\s*begin\s+perform private\.require_meeting_runner\(orphan_sheet_images\.meeting_id\);'
+     from pg_proc where oid = 'public.orphan_sheet_images(uuid)'::regprocedure),
+  'orphan_sheet_images (security definer) zaczyna od strażnika private.require_meeting_runner()'
 );
 select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);')

@@ -29,6 +29,8 @@ export interface MeetingPlay {
   readonly started_at: string;
   readonly saved_at: string | null;
   readonly started_by: string;
+  /** Obraz oderwanej karteczki w buckecie `sheets` (PAD-6); `null` = brak (podgląd zastępczy). */
+  readonly sheet_image_path: string | null;
   /** Gra partii; usunięta z kolekcji zostaje w historii (GAME-8). */
   readonly game: {
     readonly id: string;
@@ -45,7 +47,7 @@ interface PlayRow extends Omit<MeetingPlay, 'game' | 'results'> {
 }
 
 const PLAY_COLUMNS =
-  'id, status, started_at, saved_at, started_by, game_id, games(id, title, cover_path), ' +
+  'id, status, started_at, saved_at, started_by, sheet_image_path, game_id, games(id, title, cover_path), ' +
   'play_results!play_results_play_id_meeting_id_fkey(profile_id, seat, ranking_value, place, points, is_win)';
 
 export const meetingPlaysKey = (id: string) => [...meetingsKey, 'plays', id] as const;
@@ -178,7 +180,7 @@ export function splitPlays(plays: readonly MeetingPlay[]): SplitPlays {
  * Wyniki zapisanej partii od najlepszego miejsca (remis: ta sama liczba, potem miejsce
  * w notesie). Szkic nie ma miejsc, więc zostaje kolejność miejsc w notesie.
  */
-export function sortedResults(play: MeetingPlay): PlayResult[] {
+export function sortedResults(play: Pick<MeetingPlay, 'results'>): PlayResult[] {
   return [...play.results].sort(
     (a, b) => (a.place ?? Infinity) - (b.place ?? Infinity) || a.seat - b.seat,
   );
