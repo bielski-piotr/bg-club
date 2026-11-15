@@ -427,6 +427,25 @@ describe('DraftSaver', () => {
     expect(statuses).toHaveLength(shown);
   });
 
+  it('obietnica zamknięcia spełnia się dopiero po zapisie w bazie albo błędzie (NFR-3)', async () => {
+    let finish: (value: SavedDraft) => void = () => undefined;
+    const { saver } = setup(() => new Promise((resolve) => (finish = resolve)));
+    saver.change(sheet(1));
+    let settled = false;
+    void saver.dispose(true).then(() => (settled = true));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(false);
+    finish({ version: 1, savedAt: null });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(true);
+
+    const failing = setup(() => Promise.reject(new DraftError('network')));
+    failing.saver.change(sheet(2));
+    await expect(failing.saver.dispose(true)).resolves.toBeUndefined();
+    const clean = setup(() => Promise.resolve({ version: 1, savedAt: null }));
+    await expect(clean.saver.dispose(true)).resolves.toBeUndefined();
+  });
+
   it('otwarcie bez zmian zapisuje czystą kopię lokalną (stara niezapisana kopia nie wraca)', () => {
     writeLocalDraft(localStorage, local({ baseVersion: 1, sheet: sheet(3) }));
     const { saver, save } = setup(() => Promise.resolve({ version: 1, savedAt: null }), {

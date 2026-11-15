@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Plugin } from 'vite';
 
 /** Pliki z `public/` należące do powłoki (manifest i ikony, NFR-3). */
@@ -27,11 +28,11 @@ export interface ShellAsset {
 }
 
 /**
- * Pliki powłoki do wstępnego cache: wejście aplikacji z importami statycznymi i ich CSS.
+ * Pliki powłoki do wstępnego cache: strona `/` (hosting przekierowuje `/index.html` na `/`), wejście aplikacji z importami statycznymi i ich CSS.
  * Leniwe części (galeria komponentów, notes) i fonty trafiają do cache przy pierwszym użyciu.
  */
 export function shellFiles(bundle: Readonly<Record<string, ShellChunk | ShellAsset>>): string[] {
-  const files = new Set<string>(['/index.html', ...PUBLIC_SHELL]);
+  const files = new Set<string>(['/', ...PUBLIC_SHELL]);
   const seen = new Set<string>();
   const visit = (name: string) => {
     if (seen.has(name)) return;
@@ -64,19 +65,30 @@ export function renderServiceWorker(template: string, files: readonly string[], 
 
 /**
  * Generuje `dist/sw.js` przy buildzie (PRD NFR-3). Wersja zależy od listy plików (nazwy
- * z hashem treści) i treści `index.html`, więc każde wdrożenie ze zmianą daje nową wersję.
+ * z hashem treści), treści `index.html`, manifestu i ikon oraz szablonu workera, więc każde
+ * wdrożenie ze zmianą daje nową wersję.
  */
 export function pwaPlugin(templatePath: string): Plugin {
+  let publicDir = '';
   return {
     name: 'bg-club-pwa',
     apply: 'build',
     enforce: 'post',
+    configResolved(config) {
+      publicDir = config.publicDir;
+    },
     generateBundle(_options, bundle) {
       const files = shellFiles(bundle as unknown as Record<string, ShellChunk | ShellAsset>);
       const html = bundle['index.html'];
-      const seed = html?.type === 'asset' ? String(html.source) : '';
-      if (!seed) throw new Error('pwa: brak index.html');
-      const { source } = renderServiceWorker(readFileSync(templatePath, 'utf8'), files, seed);
+      if (html?.type !== 'asset') throw new Error('pwa: brak index.html');
+      // Pliki z `public/` nie mają hasha w nazwie: wersja zależy też od ich treści.
+      const seed = createHash('sha256').update(String(html.source));
+      for (const path of PUBLIC_SHELL) seed.update(readFileSync(join(publicDir, path)));
+      const { source } = renderServiceWorker(
+        readFileSync(templatePath, 'utf8'),
+        files,
+        seed.digest('hex'),
+      );
       this.emitFile({ type: 'asset', fileName: 'sw.js', source });
     },
   };

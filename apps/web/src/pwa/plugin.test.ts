@@ -22,13 +22,7 @@ describe('shellFiles (NFR-3)', () => {
       'assets/index.js.map': { type: 'asset', fileName: 'assets/index.js.map' },
     });
     expect(files).toEqual(
-      [
-        '/assets/index.css',
-        '/assets/index.js',
-        '/assets/vendor.js',
-        '/index.html',
-        ...PUBLIC_SHELL,
-      ].sort(),
+      ['/assets/index.css', '/assets/index.js', '/assets/vendor.js', '/', ...PUBLIC_SHELL].sort(),
     );
   });
 });

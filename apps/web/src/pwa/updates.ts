@@ -58,8 +58,19 @@ export class PwaStore {
 
   /** Nowa wersja zainstalowana i czeka (`registration.waiting`). */
   setWaiting(worker: ServiceWorker): void {
+    if (this.waiting === worker) return;
     this.waiting = worker;
     if (this.snapshot.update === 'none') this.set({ update: 'available' });
+    // Nowsza wersja zastąpiła tę, którą użytkownik już zatwierdził: aktywujemy nowszą.
+    else if (this.snapshot.update === 'applying') worker.postMessage({ type: 'SKIP_WAITING' });
+  }
+
+  /** Czekająca wersja przepadła (`redundant`, np. nieudana aktywacja) bez nowszej. */
+  workerGone(worker: ServiceWorker): void {
+    if (this.waiting !== worker) return;
+    this.waiting = null;
+    const { update } = this.snapshot;
+    if (update === 'available' || update === 'applying') this.set({ update: 'none' });
   }
 
   /**
@@ -130,11 +141,12 @@ export async function registerServiceWorker(
     if (!worker) return;
     const check = () => {
       if (worker.state === 'installed' && container.controller) store.setWaiting(worker);
+      if (worker.state === 'redundant') store.workerGone(worker);
     };
     check();
     worker.addEventListener('statechange', check);
   };
-  if (registration.waiting && container.controller) store.setWaiting(registration.waiting);
+  if (registration.waiting && container.controller) track(registration.waiting);
   track(registration.installing);
   registration.addEventListener('updatefound', () => track(registration.installing));
 

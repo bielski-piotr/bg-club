@@ -73,6 +73,19 @@
   pointer-events: none;
 }
 
+.toast-region__toasts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.toast-region__toasts:empty,
+.toast-region__toasts:not(:has(.toast)) {
+  display: none;
+}
+
 .toast-region__list {
   display: flex;
   flex-direction: column;

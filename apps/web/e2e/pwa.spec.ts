@@ -230,12 +230,12 @@ test('bez sieci startuje powłoka z jasnym komunikatem; cache nie ma danych kont
     expect(url.startsWith(SUPABASE_URL), url).toBe(false);
     expect(new URL(url).origin).toBe(origin);
     expect(new URL(url).pathname).toMatch(
-      /^\/(index\.html|manifest\.webmanifest|favicon\.svg|icons\/.+\.png|assets\/.+)$/,
+      /^\/(|manifest\.webmanifest|favicon\.svg|icons\/.+\.png|assets\/.+)$/,
     );
   }
   // Powłoka nie zawiera danych klubu ani konta.
   const shell = await page.evaluate(async () => {
-    const response = await caches.match('/index.html');
+    const response = await caches.match('/');
     return response ? response.text() : '';
   });
   expect(shell).toContain('<div id="root"></div>');

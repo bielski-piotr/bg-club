@@ -80,7 +80,9 @@ describe('aktualizacje aplikacji (NFR-3)', () => {
     const reload = vi.fn();
     const store = new PwaStore({ reload });
     const container = new FakeContainer({});
-    container.registration.waiting = new FakeWorker();
+    const waiting = new FakeWorker();
+    waiting.state = 'installed';
+    container.registration.waiting = waiting;
     await registerServiceWorker(store, {
       container: container as unknown as ServiceWorkerContainer,
     });
@@ -102,6 +104,22 @@ describe('aktualizacje aplikacji (NFR-3)', () => {
     expect(store.getSnapshot().draftBusy).toBe(false);
     expect(store.apply()).toBe(true);
     expect(worker.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('nowsza wersja po „Odśwież” dostaje zgodę; wersja, która przepadła, znika', async () => {
+    const { store, registration } = await setup({});
+    const first = new FakeWorker();
+    registration.found(first);
+    first.install();
+    store.apply();
+    const second = new FakeWorker();
+    registration.found(second);
+    second.install();
+    expect(second.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+    expect(store.getSnapshot().update).toBe('applying');
+    second.state = 'redundant';
+    second.dispatchEvent(new Event('statechange'));
+    expect(store.getSnapshot().update).toBe('none');
   });
 
   it('przełączenie w innej karcie: ta karta proponuje odświeżenie', async () => {

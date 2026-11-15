@@ -254,7 +254,7 @@ function PlayPad({
     }
     let saver = saverRef.current;
     if (!saver || saverFor.current !== initial) {
-      saver?.dispose(true);
+      void saver?.dispose(true);
       saver = new DraftSaver({
         profileId: me.id,
         playId: play.id,
@@ -272,7 +272,8 @@ function PlayPad({
     return () => {
       pendingClose.current = setTimeout(() => {
         pendingClose.current = null;
-        current.dispose(true);
+        // Odświeżenie (nowa wersja) czeka, aż wpisy z zamknięcia trafią do bazy.
+        void current.dispose(true).then(() => pwa.setDraft(play.id, false));
         if (saverRef.current === current) saverRef.current = null;
         // Lista partii i kolejne otwarcie mają czytać szkic z bazy.
         void queryClient.invalidateQueries({ queryKey: playKey(play.id) });
@@ -281,10 +282,10 @@ function PlayPad({
   }, [initial, client, me.id, play.id, queryClient]);
 
   // Aktualizacja aplikacji czeka, aż wpisy będą w bazie (NFR-3, PAD-4).
+  // Po zamknięciu notesu blokadę zdejmuje dopiero koniec zapisu (`dispose` wyżej).
   useEffect(() => {
     pwa.setDraft(play.id, status.state !== 'saved' && status.state !== 'failed');
   }, [play.id, status.state]);
-  useEffect(() => () => pwa.setDraft(play.id, false), [play.id]);
 
   // Konflikt w trakcie wpisywania: nowszy szkic z bazy (kto i kiedy go zapisał).
   const liveConflict = status.state === 'conflict';
@@ -431,7 +432,7 @@ function PlayPad({
         .catch(() => null)
         .then(() => queryClient.invalidateQueries({ queryKey: meetingsKey }));
       // Partia zakończona: szkic i jego kopie lokalne nic już nie znaczą.
-      saverRef.current?.dispose(false);
+      void saverRef.current?.dispose(false);
       saverRef.current = null;
       removeLocalDrafts(draftStorage(), play.id);
       release();

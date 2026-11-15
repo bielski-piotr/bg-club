@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -17,7 +18,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     // Service worker powłoki (NFR-3): `dist/sw.js` z listą plików tego buildu.
-    plugins: [react(), pwaPlugin(new URL('./src/pwa/sw.js', import.meta.url).pathname)],
+    plugins: [react(), pwaPlugin(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url)))],
     server: { port: 5173, strictPort: true },
     preview: { port: 4173, strictPort: true },
     build: { target: 'es2022', sourcemap: true },
