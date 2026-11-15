@@ -47,7 +47,7 @@ select results_eq(
        ('game_collection', 'SELECT'),
        ('game_votes', 'DELETE,SELECT'),
        ('games', 'SELECT'),
-       ('meeting_games', 'DELETE,SELECT'),
+       ('meeting_games', 'SELECT'),
        ('meeting_participants', 'SELECT'),
        ('meetings', 'DELETE,SELECT'),
        ('play_results', 'SELECT'),
@@ -71,11 +71,9 @@ select results_eq(
        ('game_votes', 'INSERT', 'game_id,meeting_id,profile_id'),
        ('games', 'INSERT', 'cover_path,id,max_players,min_players,placement_points,title'),
        ('games', 'UPDATE', 'cover_path,deleted_at,max_players,min_players,placement_points,title'),
-       ('meeting_games', 'INSERT', 'game_id,meeting_id,position'),
-       ('meeting_games', 'UPDATE', 'position'),
        ('profiles', 'UPDATE', 'avatar_path,first_name,last_name,password_change_suggested,theme'),
        ('scorepads', 'UPDATE', 'current_version_id,deleted_at,name') $$,
-  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at; notesy przez save_scorepad, spotkania przez save_meeting)'
+  'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at; notesy przez save_scorepad, spotkania przez save_meeting, gry spotkania przez publish_meeting_games)'
 );
 select results_eq(
   $$ select p.oid::regprocedure::text from pg_proc p
@@ -92,6 +90,8 @@ select results_eq(
        ('private.is_meeting_runner(uuid)'),
        ('private.is_voting_open(uuid)'),
        ('private.try_uuid(text)'),
+       ('publish_meeting_games(uuid,uuid[])'),
+       ('reopen_voting(uuid)'),
        ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid,boolean)'),
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
@@ -151,7 +151,7 @@ select results_eq(
        ('club', 'INSERT,SELECT,UPDATE'),
        ('game_votes', 'DELETE,INSERT,SELECT'),
        ('games', 'INSERT,SELECT,UPDATE'),
-       ('meeting_games', 'DELETE,INSERT,SELECT,UPDATE'),
+       ('meeting_games', 'SELECT'),
        ('meeting_participants', 'SELECT'),
        ('meetings', 'DELETE,SELECT'),
        ('play_results', 'SELECT'),

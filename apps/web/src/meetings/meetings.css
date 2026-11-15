@@ -239,3 +239,251 @@
     line-height: 32px;
   }
 }
+
+/* Popup spotkania (DS §15 „Popup structure”): bloki co 20 px. */
+.meeting-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.meeting-view__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.meeting-view__date {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-view__people {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: -6px;
+}
+
+.meeting-view__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.meeting-view__head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.meeting-view__head {
+  margin: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.meeting-view__note {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-view__intro {
+  margin: -4px 0 0;
+}
+
+/* Pole akcji administratora (DS §15 „Admin action box”). */
+.meeting-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--c-tint);
+}
+
+.meeting-admin__text {
+  margin: 0 0 4px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.meeting-admin .btn--secondary {
+  background: var(--c-surface);
+}
+
+.meeting-person {
+  min-height: 48px;
+}
+
+/* Wiersz głosowania h64 (DS §15 „Vote row”): miniatura, dwie linie, przełącznik głosu. */
+.vote-row {
+  padding-block: 8px;
+}
+
+.vote-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vote-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+.vote-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.vote-row__badge {
+  display: inline-flex;
+}
+
+/* Przełącznik głosu h32 (DS §15 „Vote toggle”). */
+.vote-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding-inline: 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  font: inherit;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-ink);
+  cursor: pointer;
+}
+
+.vote-toggle--on {
+  padding-inline: 12px;
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+.vote-toggle:hover:not(:disabled) {
+  border-color: var(--c-accent);
+}
+
+.vote-toggle--on:hover:not(:disabled) {
+  background: var(--c-accent-hover);
+}
+
+.vote-toggle:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.vote-toggle:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+/* Wiersz publikacji h64 (DS §15 „Publish-games row”). */
+.publish-row {
+  cursor: pointer;
+}
+
+.publish-row .choice__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.publish-row__body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.publish-row__count {
+  flex-shrink: 0;
+  min-width: 20px;
+  text-align: right;
+  font: 700 16px/20px var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink);
+}
+
+.publish-row__count--zero {
+  color: var(--c-disabled);
+}
+
+.publish-count {
+  margin: 0;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+/* Tytuł w widżecie otwiera popup spotkania (MTG-1); cały blok jest klikalny. */
+.meeting-widget {
+  position: relative;
+}
+
+.meeting-widget__open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+}
+
+.meeting-widget__open:hover {
+  color: var(--c-accent-text);
+}
+
+.meeting-widget__open {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 18px;
+}
+
+.meeting-widget__open:focus-visible {
+  outline: none;
+}
+
+.meeting-widget__open:focus-visible::after {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 4px;
+}

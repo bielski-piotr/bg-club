@@ -45,6 +45,22 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
+  it('zna popup spotkania i publikację gier (VIEW-1, VOTE-5)', () => {
+    expect(parseStack(`?p=meeting/${ID}&p=meeting/${ID.toUpperCase()}/publish`)).toEqual([
+      { kind: 'meeting', id: ID },
+      { kind: 'publish-games', id: ID },
+    ]);
+    expect(
+      stackSearch('', [
+        { kind: 'meeting', id: ID },
+        { kind: 'publish-games', id: ID },
+      ]),
+    ).toBe(`?p=meeting/${ID}&p=meeting/${ID}/publish`);
+    for (const raw of ['meeting/1', 'meeting/1/publish', `meeting/${ID}/votes`, 'meeting']) {
+      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    }
+  });
+
   it('zna formularz klubu (CLUB-2)', () => {
     expect(parseStack('?p=club')).toEqual([{ kind: 'club' }]);
     expect(stackSearch('', [{ kind: 'club' }])).toBe('?p=club');
