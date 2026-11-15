@@ -21,6 +21,19 @@ describe('adresy popupów (PRD §4)', () => {
     expect(stackSearch('?x=1&p=members', [])).toBe('?x=1');
   });
 
+  it('zna kalendarz i popup spotkania (CAL-1, MTG-3)', () => {
+    expect(parseStack(`?p=calendar&p=meeting/${ID.toUpperCase()}`)).toEqual([
+      { kind: 'calendar' },
+      { kind: 'meeting', id: ID },
+    ]);
+    expect(stackSearch('', [{ kind: 'calendar' }, { kind: 'meeting', id: ID }])).toBe(
+      `?p=calendar&p=meeting/${ID}`,
+    );
+    for (const raw of ['calendar/2026-11', 'meeting/1', `meeting/${ID}/x`]) {
+      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    }
+  });
+
   it('zna planowanie, edycję i usuwanie spotkania (PLAN-1, PLAN-3)', () => {
     expect(parseStack(`?p=meetings/new&p=meeting/${ID}/edit&p=meeting/${ID}/delete`)).toEqual([
       { kind: 'add-meeting' },

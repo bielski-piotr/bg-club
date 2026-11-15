@@ -1,0 +1,759 @@
+/* Timeline, kalendarz, agenda i popup spotkania (DS §15.1). */
+
+/* Mini kafelek daty 44×48. */
+.mini-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 48px;
+  border-radius: 14px;
+}
+
+.mini-tile--upcoming {
+  background: var(--c-accent-tint);
+}
+
+.mini-tile--past {
+  background: var(--c-tint);
+}
+
+.mini-tile__month {
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.mini-tile--upcoming .mini-tile__month {
+  color: var(--c-accent-text);
+}
+
+.mini-tile--past .mini-tile__month {
+  color: var(--c-muted);
+}
+
+.mini-tile__day {
+  font: 700 18px/22px var(--font-display);
+  color: var(--c-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Zwycięzcy: puchar 14, stos awatarów 20/6, imiona. */
+.winners {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.winners__icon {
+  flex-shrink: 0;
+  color: var(--c-accent-text);
+}
+
+.winners__stack {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.winners__stack > * + * {
+  margin-left: -6px;
+}
+
+.winners__names {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+/* ---------------------------------------------------------------------------------------- */
+/* Timeline (widżet) */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 20px 0 0;
+  list-style: none;
+}
+
+.timeline__row {
+  display: flex;
+}
+
+.timeline__link {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  border-radius: var(--r-row);
+  color: inherit;
+  text-decoration: none;
+}
+
+.timeline__link:hover .timeline__title {
+  color: var(--c-accent-text);
+}
+
+.timeline__link:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.timeline__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  width: 44px;
+  padding-bottom: 4px;
+}
+
+.timeline__connector {
+  flex: 1;
+  width: 2px;
+  min-height: 12px;
+  border-radius: 2px;
+  background: var(--c-border);
+}
+
+.timeline__row--last .timeline__connector {
+  display: none;
+}
+
+.timeline__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 5px 0 20px;
+}
+
+.timeline__row--last .timeline__content {
+  padding-bottom: 0;
+}
+
+.timeline__title {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.timeline__meta {
+  padding-top: 2px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.timeline__winners {
+  padding-top: 8px;
+}
+
+.timeline__chevron {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 48px;
+  color: var(--c-disabled);
+}
+
+/* Divider „Dziś”: kółko 18 z kropką 8 na szynie i linia. */
+.timeline__today-dot {
+  position: relative;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-accent-tint);
+}
+
+.timeline__today-dot::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--c-accent);
+}
+
+.timeline__row:not(:has(.timeline__link)) {
+  gap: 12px;
+}
+
+.timeline__divider {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 18px;
+  margin-bottom: 20px;
+}
+
+.timeline__row--last .timeline__divider {
+  margin-bottom: 0;
+}
+
+.timeline__divider-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-accent-text);
+}
+
+.timeline__hairline {
+  flex: 1;
+  height: 1px;
+  background: var(--c-border);
+}
+
+@media (min-width: 768px) {
+  .timeline {
+    padding-top: 24px;
+  }
+
+  .timeline__link,
+  .timeline__row:not(:has(.timeline__link)) {
+    gap: 14px;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------- */
+/* Kalendarz (popup) */
+
+.calendar-plan__long {
+  display: none;
+}
+
+.calendar {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.calendar__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.calendar__month {
+  margin: 0;
+  font: 700 18px/22px var(--font-display);
+  color: var(--c-ink);
+}
+
+.calendar__count {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.calendar__heading .calendar__count {
+  display: none;
+}
+
+.calendar__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar__today {
+  padding-inline: 14px;
+  border-radius: var(--r-pill);
+}
+
+.calendar__status {
+  padding-top: 12px;
+}
+
+.calendar__weekdays,
+.calendar__week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar__weekdays span {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+/* Siatka desktopowa: ukryta na telefonie. */
+.calendar__grid--full {
+  display: none;
+}
+
+/* Kompaktowa siatka (telefon). */
+.calendar__grid--compact {
+  padding-top: 12px;
+}
+
+.calendar__grid--compact .calendar__weekdays span {
+  padding-block: 4px;
+  text-align: center;
+}
+
+.calendar-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-ink);
+  font: inherit;
+  text-decoration: none;
+}
+
+button.calendar-dot,
+a.calendar-dot {
+  cursor: pointer;
+}
+
+.calendar-dot:focus-visible {
+  outline: none;
+}
+
+.calendar-dot:focus-visible .calendar-dot__circle {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.calendar-dot__circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.calendar-dot--past .calendar-dot__circle {
+  color: var(--c-muted);
+}
+
+.calendar-dot--today .calendar-dot__circle {
+  box-shadow: inset 0 0 0 1.5px var(--c-accent);
+  color: var(--c-accent-text);
+  font-weight: 600;
+}
+
+.calendar-dot--plannable:hover .calendar-dot__circle {
+  background: var(--c-accent-tint);
+}
+
+.calendar-dot--planned .calendar-dot__circle {
+  background: var(--c-accent-tint-strong);
+  color: var(--c-accent-text);
+  font-weight: 600;
+}
+
+.calendar-dot--in_progress .calendar-dot__circle {
+  background: var(--c-success-bg);
+  color: var(--c-success-text);
+  font-weight: 600;
+}
+
+.calendar-dot--finished .calendar-dot__circle {
+  background: var(--c-tint);
+  color: var(--c-ink);
+  font-weight: 600;
+}
+
+/* Kilka spotkań jednego dnia: kropka pod kółkiem. */
+.calendar-dot__more {
+  position: absolute;
+  bottom: 1px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.calendar__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 12px;
+}
+
+.calendar__hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+/* Na telefonie „Dotknij”, na desktopie „Kliknij”. */
+.calendar__hint--pointer {
+  display: none;
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calendar-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.calendar-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.calendar-legend__swatch--planned {
+  background: var(--c-accent);
+}
+
+.calendar-legend__swatch--in_progress {
+  background: var(--c-success-text);
+}
+
+.calendar-legend__swatch--finished {
+  background: var(--c-muted);
+}
+
+/* Agenda (telefon, CAL-2). */
+.calendar__agenda {
+  padding-top: 24px;
+}
+
+.calendar__agenda-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calendar__agenda-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.calendar__agenda-head .calendar__count {
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.calendar__agenda-list {
+  margin-top: 12px;
+}
+
+.calendar__agenda-empty {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-row);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  text-decoration: none;
+  transition: background-color 120ms var(--ease);
+}
+
+.agenda-row:hover {
+  background: var(--c-accent-tint);
+}
+
+.agenda-row:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.agenda-row__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.agenda-row__title {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.agenda-row__meta {
+  padding-top: 2px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.agenda-row__chip {
+  padding-top: 6px;
+}
+
+@media (min-width: 768px) {
+  .calendar-plan__long {
+    display: inline;
+  }
+
+  .calendar-plan__short {
+    display: none;
+  }
+
+  .calendar__bar {
+    padding-top: 20px;
+  }
+
+  .calendar__month {
+    font-size: 20px;
+    line-height: 26px;
+  }
+
+  .calendar__heading .calendar__count {
+    display: inline;
+  }
+
+  .calendar__today {
+    padding-inline: 16px;
+  }
+
+  .calendar__grid--compact,
+  .calendar__agenda {
+    display: none;
+  }
+
+  .calendar__grid--full {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 16px;
+    padding: 10px;
+    border-radius: var(--r-tray);
+    background: var(--c-tint);
+  }
+
+  .calendar__grid--full .calendar__weekdays span {
+    padding-inline: 10px;
+  }
+
+  .calendar__grid--full .calendar__week {
+    gap: 6px;
+  }
+
+  .calendar__footer {
+    padding-top: 16px;
+  }
+
+  .calendar__hint--pointer {
+    display: inline;
+  }
+
+  .calendar__hint--touch {
+    display: none;
+  }
+
+  .calendar-legend {
+    gap: 8px 16px;
+  }
+}
+
+/* Kafelek dnia (desktop): h104, spotkania jako chipy. */
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  min-height: 104px;
+  padding: 6px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--c-ink);
+  font: inherit;
+  text-align: left;
+}
+
+.calendar-day--in-month {
+  background: var(--c-surface);
+}
+
+.calendar-day__number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.calendar-day--past .calendar-day__number {
+  color: var(--c-muted);
+}
+
+/* Dni sąsiednich miesięcy: bez tła kafelka; numer w kolorze pomocniczym (kontrast WCAG AA). */
+.calendar-day--other .calendar-day__number {
+  color: var(--c-muted);
+  font-weight: 500;
+}
+
+.calendar-day--today .calendar-day__number {
+  box-shadow: inset 0 0 0 1.5px var(--c-accent);
+  color: var(--c-accent-text);
+}
+
+/* Pusty dzień do zaplanowania (admin): „+ Zaplanuj” po najechaniu albo fokusie. */
+.calendar-day--plannable {
+  cursor: pointer;
+}
+
+.calendar-day__plan {
+  display: none;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-accent-text);
+}
+
+.calendar-day--plannable:hover,
+.calendar-day--plannable:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--c-accent);
+}
+
+.calendar-day--plannable:hover .calendar-day__number,
+.calendar-day--plannable:focus-visible .calendar-day__number {
+  color: var(--c-accent-text);
+}
+
+.calendar-day--plannable:hover .calendar-day__plan,
+.calendar-day--plannable:focus-visible .calendar-day__plan {
+  display: flex;
+}
+
+.calendar-day__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calendar-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 7px;
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.calendar-chip:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.calendar-chip__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: break-word;
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 600;
+}
+
+.calendar-chip__time {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+}
+
+.calendar-chip--planned {
+  background: var(--c-accent-tint-strong);
+  color: var(--c-accent-text);
+}
+
+.calendar-chip--in_progress {
+  background: var(--c-success-bg);
+  color: var(--c-success-text);
+}
+
+.calendar-chip--finished {
+  background: var(--c-tint);
+  color: var(--c-ink);
+}
+
+.calendar-chip--finished .calendar-chip__time {
+  color: var(--c-muted);
+}
+
+.calendar-chip:hover {
+  filter: brightness(0.97);
+}

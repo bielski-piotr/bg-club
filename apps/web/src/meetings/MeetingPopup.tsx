@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
@@ -7,17 +7,24 @@ import { GameCover } from '../games/GameCover';
 import { useGameSearch } from '../games/games';
 import { useClub } from '../hub/club';
 import { format, plural, t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
+import { usePopupLevel, usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { avatarPerson, fullName, useMembers, type Profile } from '../profile/profiles';
+import {
+  avatarPerson,
+  fullName,
+  useAllProfiles,
+  useMembers,
+  type Profile,
+} from '../profile/profiles';
 import {
   AvatarStack,
   Badge,
   Button,
   EmptyState,
   Icon,
+  Menu,
   SearchField,
   StatusChip,
   Tray,
@@ -25,7 +32,9 @@ import {
 } from '../ui';
 import { cx } from '../ui/cx';
 import { formatMeetingDate, longMeetingDate } from './datetime';
+import { WinnersLine } from './MeetingParts';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
+import { useMeetingOverview, type MeetingOverview } from './overview';
 import {
   castVote,
   fitsPlayers,
@@ -51,14 +60,16 @@ const popup = t.meetings.popup;
 /**
  * Popup spotkania (VIEW-1, VIEW-2, DS §15 „Popup structure”): nagłówek ze statusem, terminem
  * i uczestnikami, a w zaplanowanym głosowanie (VOTE-1…VOTE-4) albo lista „Gramy w:” (VOTE-5).
- * Administrator ma pole akcji z publikacją i ponownym otwarciem (VOTE-6). Partie i przebieg
- * spotkania dochodzą w [026].
+ * Administrator ma pole akcji z publikacją i ponownym otwarciem (VOTE-6) oraz menu „Edytuj /
+ * Usuń spotkanie”. Trwające i zakończone pokazują liczbę zapisanych partii i zwycięzców (MTG-3).
+ * Przebieg spotkania dochodzi w [026].
  */
 export function MeetingPopup({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
   const { client } = useAuth();
   const meeting = useMeeting(client, id);
   const club = useClub(client);
   const members = useMembers(client);
+  useCloseWhenDeleted(meeting.data);
 
   if (!meeting.isSuccess || !club.isSuccess || !members.isSuccess) {
     return (
@@ -99,8 +110,15 @@ interface ViewProps {
 }
 
 function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
+  const { client } = useAuth();
+  const overview = useMeetingOverview(client, meeting.id);
   const isAdmin = me.role === 'admin';
-  const people = members.filter((member) => meeting.participants.includes(member.id));
+  const profiles = useAllProfiles(client);
+  // Uczestnicy także usunięci w międzyczasie (MEM-5: zostają w historii spotkania).
+  const people = meeting.participants
+    .map((id) => profiles.data?.get(id) ?? members.find((member) => member.id === id))
+    .filter((person): person is Profile => person !== undefined)
+    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'pl') || a.id.localeCompare(b.id));
   const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
   const planned = meeting.status === 'planned';
   const status = t.meetings.status;
@@ -116,7 +134,14 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
     );
 
   return (
-    <PopupModal title={meeting.title}>
+    <PopupModal
+      title={meeting.title}
+      actions={
+        isAdmin && hasActions(meeting, overview.data) ? (
+          <MeetingMenu meeting={meeting} overview={overview.data} />
+        ) : undefined
+      }
+    >
       <div className="meeting-view">
         <div className="meeting-view__meta">
           {chip}
@@ -145,6 +170,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
           <PlayingSection meeting={meeting} members={members} />
         )}
         {!planned ? <p className="meeting-form__hint">{popup.startedNote}</p> : null}
+        {!planned ? <PlaysSummary meeting={meeting} overview={overview} /> : null}
 
         <section className="meeting-view__section" aria-labelledby={`${meeting.id}-people`}>
           <h3 id={`${meeting.id}-people`} className="meeting-view__head">
@@ -472,5 +498,132 @@ function PlayingItem({
         </span>
       </div>
     </li>
+  );
+}
+
+/**
+ * Spotkanie usunięte z menu tego popupu: po zamknięciu potwierdzenia popup jest znów na górze,
+ * a odświeżone dane mówią, że spotkania nie ma, więc zamyka się sam zamiast pokazywać
+ * „Nie znaleziono”. Popup otwarty ze starego linku (spotkania nie było od początku) zostaje.
+ */
+function useCloseWhenDeleted(meeting: Meeting | null | undefined) {
+  const { back } = usePopups();
+  const { covered } = usePopupLevel();
+  const seen = useRef(false);
+  useEffect(() => {
+    if (meeting) {
+      seen.current = true;
+    } else if (meeting === null && seen.current && !covered) {
+      seen.current = false;
+      back();
+    }
+  }, [meeting, covered, back]);
+}
+
+/** Edycja: zaplanowane i trwające (PLAN-3, PLAN-4). */
+function canEdit(meeting: Meeting): boolean {
+  return meeting.status !== 'finished';
+}
+
+/**
+ * Usunięcie: nie trwające i bez zapisanych partii (PLAN-3, PLAN-5, Q4). Zakończone dopiero
+ * po wczytaniu liczby partii.
+ */
+function canDelete(meeting: Meeting, overview: MeetingOverview | null | undefined): boolean {
+  if (meeting.status === 'planned') return true;
+  return meeting.status === 'finished' && overview?.playCount === 0;
+}
+
+function hasActions(meeting: Meeting, overview: MeetingOverview | null | undefined): boolean {
+  return canEdit(meeting) || canDelete(meeting, overview);
+}
+
+function MeetingMenu({
+  meeting,
+  overview,
+}: {
+  readonly meeting: Meeting;
+  readonly overview: MeetingOverview | null | undefined;
+}) {
+  const { open } = usePopups();
+  const label = t.meetings.view.actions;
+  return (
+    <Menu
+      label={label}
+      align="end"
+      items={[
+        ...(!canEdit(meeting)
+          ? []
+          : [
+              {
+                id: 'edit',
+                label: t.meetings.menu.edit,
+                icon: 'pencil' as const,
+                onSelect: () => open({ kind: 'edit-meeting', id: meeting.id }),
+              },
+            ]),
+        ...(!canDelete(meeting, overview)
+          ? []
+          : [
+              {
+                id: 'delete',
+                label: t.meetings.menu.delete,
+                icon: 'trash' as const,
+                destructive: true,
+                onSelect: () => open({ kind: 'delete-meeting', id: meeting.id }),
+              },
+            ]),
+      ]}
+      trigger={(props) => (
+        <button
+          type="button"
+          {...props}
+          className="icon-btn icon-btn--36"
+          aria-label={label}
+          title={label}
+        >
+          <Icon name="more" />
+        </button>
+      )}
+    />
+  );
+}
+
+/** Partie trwającego albo zakończonego spotkania: liczba zapisanych i zwycięzcy (MTG-3). */
+function PlaysSummary({
+  meeting,
+  overview,
+}: {
+  readonly meeting: Meeting;
+  readonly overview: ReturnType<typeof useMeetingOverview>;
+}) {
+  const { client } = useAuth();
+  const profiles = useAllProfiles(client);
+  const headingId = `${meeting.id}-plays`;
+  const data = overview.data;
+  return (
+    <section className="meeting-view__section" aria-labelledby={headingId}>
+      <div className="meeting-view__head-row">
+        <h3 id={headingId} className="meeting-view__head">
+          {t.meetings.view.plays}
+        </h3>
+        {data ? (
+          <span className="meeting-view__note">{plural(data.playCount, t.hub.timeline.plays)}</span>
+        ) : null}
+      </div>
+      {!data || !profiles.data ? (
+        <QueryStatus
+          isError={overview.isError || profiles.isError}
+          onRetry={() => {
+            if (overview.isError) void overview.refetch();
+            if (profiles.isError) void profiles.refetch();
+          }}
+        />
+      ) : data.playCount === 0 ? (
+        <p className="meeting-form__state">{t.meetings.view.noPlays}</p>
+      ) : (
+        <WinnersLine winners={data.winners} profiles={profiles.data} />
+      )}
+    </section>
   );
 }

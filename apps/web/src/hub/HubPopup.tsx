@@ -5,6 +5,7 @@ import { AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
 import { AddMemberPopup } from '../members/AddMemberPopup';
 import { DeleteMemberDialog } from '../members/DeleteMemberDialog';
 import { MembersPopup } from '../members/MembersPopup';
+import { CalendarPopup } from '../meetings/CalendarPopup';
 import { DeleteMeetingDialog } from '../meetings/DeleteMeetingDialog';
 import { AddMeetingPopup, EditMeetingPopup } from '../meetings/MeetingFormPopup';
 import { MeetingPopup } from '../meetings/MeetingPopup';
@@ -71,11 +72,14 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <RenameScorepadDialog id={route.id} /> : <InvalidPopup />;
     case 'delete-scorepad':
       return me.role === 'admin' ? <DeleteScorepadDialog id={route.id} /> : <InvalidPopup />;
+    case 'meeting':
+      return <MeetingPopup id={route.id} me={me} />;
+    case 'calendar':
+      // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi (DS §15.1).
+      return <CalendarPopup isAdmin={me.role === 'admin'} />;
     case 'add-meeting':
       // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
       return me.role === 'admin' ? <AddMeetingPopup me={me} date={route.date} /> : <InvalidPopup />;
-    case 'meeting':
-      return <MeetingPopup id={route.id} me={me} />;
     case 'publish-games':
       // Gry publikuje tylko administrator (VOTE-5, §2.1); bazę chroni RPC.
       return me.role === 'admin' ? <PublishGamesPopup id={route.id} me={me} /> : <InvalidPopup />;
