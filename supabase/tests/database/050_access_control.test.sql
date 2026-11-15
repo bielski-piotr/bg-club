@@ -91,6 +91,7 @@ select results_eq(
        ('leaderboard(text,integer)'),
        ('leaderboard_years()'),
        ('orphan_sheet_images(uuid)'),
+       ('private.club_timezone()'),
        ('private.is_active_member()'),
        ('private.is_admin()'),
        ('private.is_meeting_runner(uuid)'),

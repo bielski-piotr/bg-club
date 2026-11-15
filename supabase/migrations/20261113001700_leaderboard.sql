@@ -20,6 +20,24 @@
 -- - Funkcje działają z prawami wywołującego (security invoker), więc RLS daje wynik tylko
 --   aktywnym członkom. Zły rodzaj albo rok to błąd 22023 z nazwą reguły w HINT.
 
+-- Strefa klubu do granic roku (NFR-10). Przed założeniem klubu obowiązuje domyślna strefa
+-- kolumny `club.timezone`. Działa z prawami wywołującego (RLS), jak funkcje rankingów.
+create function private.club_timezone()
+returns text
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select coalesce((select c.timezone from public.club c where c.id = 1), 'Europe/Warsaw');
+$$;
+
+comment on function private.club_timezone() is
+  'Strefa IANA klubu do granic roku leaderboardu (NFR-10); przed założeniem klubu Europe/Warsaw.';
+
+revoke all on function private.club_timezone() from public, anon;
+grant execute on function private.club_timezone() to authenticated;
+
 create function public.leaderboard(kind text, year int default null)
 returns table (
   place int,
@@ -37,9 +55,10 @@ security invoker
 set search_path = ''
 as $$
 declare
-  tz text := coalesce((select c.timezone from public.club c), 'Europe/Warsaw');
-  year_starts timestamptz;
-  year_ends timestamptz;
+  tz text := private.club_timezone();
+  -- Cała historia to nieograniczony zakres: jeden prosty warunek zakresu dla planu z indeksem.
+  year_starts timestamptz := '-infinity'::timestamptz;
+  year_ends timestamptz := 'infinity'::timestamptz;
 begin
   if kind is null or kind not in ('points', 'wins', 'streak') then
     raise exception 'unknown leaderboard kind %', kind
@@ -61,8 +80,7 @@ begin
       from public.play_results r
       join public.plays p on p.id = r.play_id and p.status = 'saved'
       join public.meetings m on m.id = r.meeting_id
-     where year_starts is null
-        or (m.starts_at >= year_starts and m.starts_at < year_ends)
+     where m.starts_at >= year_starts and m.starts_at < year_ends
   ),
   totals as (
     select r.profile_id,
@@ -71,10 +89,12 @@ begin
       from results r
      group by r.profile_id
   ),
+  -- Serie liczymy tylko dla klasyfikacji `streak`; dla pozostałych ten krok jest pusty.
   meetings_played as (
-    select r.profile_id, r.meeting_id, r.starts_at, bool_or(r.is_win) as won
+    select r.profile_id, r.meeting_id, min(r.starts_at) as starts_at, bool_or(r.is_win) as won
       from results r
-     group by r.profile_id, r.meeting_id, r.starts_at
+     where leaderboard.kind = 'streak'
+     group by r.profile_id, r.meeting_id
   ),
   -- Każde spotkanie bez wygranej zaczyna nową grupę; wygrane w grupie to jedna seria.
   runs as (
@@ -96,10 +116,10 @@ begin
            case leaderboard.kind
              when 'points' then t.points
              when 'wins' then t.wins
-             else s.record
+             else coalesce(s.record, 0)
            end as value
       from totals t
-      join streaks s on s.profile_id = t.profile_id
+      left join streaks s on s.profile_id = t.profile_id
       join public.profiles pr on pr.id = t.profile_id
   ),
   ranked as (
@@ -131,8 +151,9 @@ stable
 security invoker
 set search_path = ''
 as $$
-  select distinct extract(year from m.starts_at at time zone
-           coalesce((select c.timezone from public.club c), 'Europe/Warsaw'))::int as year
+  -- Rok lokalny chwili `starts_at`: ten sam co zakres [1 stycznia, 1 stycznia następnego roku)
+  -- w strefie klubu, którym filtruje `leaderboard`.
+  select distinct extract(year from m.starts_at at time zone private.club_timezone())::int as year
     from public.meetings m
    where exists (select 1 from public.plays p where p.meeting_id = m.id and p.status = 'saved')
    order by year desc;

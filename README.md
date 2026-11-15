@@ -241,7 +241,7 @@ Wymagania: PRD LB-1, LB-4–LB-7, §5.6.3, §5.6.4, §5.6.6, NFR-10. Migracja [`
 - **Zakres**: tylko zapisane partie (szkice pomija), także ze spotkania w trakcie. Klasyfikowani są gracze z co najmniej jedną zapisaną partią w zakresie (LB-5).
 - **Seria** (§5.6.4): spotkania gracza po kolei według `starts_at`, potem `id` (chwila, nie godzina lokalna, więc także w nocy zmiany czasu). Spotkanie z co najmniej jedną wygraną daje +1 (raz), spotkanie z partiami bez wygranej zeruje serię, spotkanie bez partii gracza nic nie zmienia. Rekord to najdłuższa seria (0 bez wygranych); w filtrze roku liczy się tylko w obrębie roku.
 - **Miejsca** (LB-6, LB-7): równe wyniki mają wspólne miejsce (1, 1, 3), a w remisie kolejność jest alfabetyczna (imię, nazwisko, polskie sortowanie ICU `pl-x-icu`). Usunięci członkowie są zawsze za aktywnymi (między sobą według wyniku), ich miejsca liczą się dalej, a `podium` jest u nich zawsze `false`.
-- **`leaderboard_years()`**: lata (w strefie klubu) ze spotkaniami z zapisaną partią, od najnowszego, do listy filtru roku.
+- **`leaderboard_years()`**: lata (w strefie klubu) ze spotkaniami z zapisaną partią, od najnowszego, do listy filtru roku. Obie funkcje biorą strefę z `private.club_timezone()` (przed założeniem klubu `Europe/Warsaw`).
 - **Przeliczenia** (§5.6.5): rankingi liczą się z `play_results` przy odczycie, więc `save_play` i `delete_play` zmieniają je od razu, bez zapisanych agregatów; `private.recalculate_after_plays_change` pozostaje punktem dla osiągnięć ([036]).
 
 ## Członkowie

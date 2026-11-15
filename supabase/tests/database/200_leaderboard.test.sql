@@ -16,7 +16,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(31);
+select plan(34);
 
 insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw');
 
@@ -140,12 +140,15 @@ select ok(not has_function_privilege('anon', 'public.leaderboard(text, int)', 'e
 select ok(not has_function_privilege('anon', 'public.leaderboard_years()', 'execute'),
   'anon nie wywoła leaderboard_years');
 select ok(
-  (select not prosecdef from pg_proc where oid = 'public.leaderboard(text, int)'::regprocedure),
-  'leaderboard działa z prawami wywołującego (RLS)');
+  (select bool_and(not prosecdef) from pg_proc
+    where oid in ('public.leaderboard(text, int)'::regprocedure, 'public.leaderboard_years()'::regprocedure,
+                  'private.club_timezone()'::regprocedure)),
+  'funkcje rankingów działają z prawami wywołującego (RLS)');
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000014", "role": "authenticated"}';
 select is(public.test_board('points'), '{}'::text[], 'usunięty członek nie widzi rankingu');
+select is(array(select public.leaderboard_years()), '{}'::int[], 'usunięty członek nie widzi lat filtru');
 
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000015", "role": "authenticated"}';
 select is(public.test_failure($$ select public.leaderboard('elo') $$), '22023/leaderboard_kind_invalid',
@@ -153,7 +156,10 @@ select is(public.test_failure($$ select public.leaderboard('elo') $$), '22023/le
 select is(public.test_failure($$ select public.leaderboard(null) $$), '22023/leaderboard_kind_invalid',
   'rodzaj jest wymagany');
 select is(public.test_failure($$ select public.leaderboard('points', 0) $$), '22023/leaderboard_year_invalid',
-  'rok spoza zakresu');
+  'rok spoza zakresu (0)');
+select is(public.test_failure($$ select public.leaderboard('points', 10000) $$), '22023/leaderboard_year_invalid',
+  'rok spoza zakresu (10000)');
+select is(public.test_board('points', 9999), '{}'::text[], 'ostatni dozwolony rok: pusta klasyfikacja');
 
 -- =============================================================================================
 -- Cała historia (LB-1, LB-5–LB-7)
@@ -167,8 +173,9 @@ select is(public.test_board('wins'),
 select is(public.test_board('streak'),
   array['1 Lucyna 2 podium', '1 Łukasz 2 podium', '3 Mateusz 1 podium', '4 Celina 1 usunięty'],
   'seria: remis 1, 1, 3 alfabetycznie po polsku (L przed Ł, LB-6); usunięta bez podium (LB-7)');
-select is(public.test_board('streak') = public.test_board('streak', null), true,
-  'brak roku = cała historia');
+select is(
+  (select value from public.leaderboard('points', null) where first_name = 'Celina'), 16,
+  'brak roku = cała historia: punkty z 2025 (10) i 2026 (6)');
 
 -- Seria Lucyny: m1 bez wygranej (0), m2 dwie wygrane (+1 raz), m3 nieobecna (bez zmian),
 -- m4 wygrana (2), m5 bez wygranej (0) → rekord 2. Łukasz: m3 i m4 → 2 mimo braku w m5.
