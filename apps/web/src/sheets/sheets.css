@@ -79,11 +79,12 @@
   color: var(--c-muted);
 }
 
-/* Wiersz „Meeting link” (DS „Kolekcja / Karteczka”): kalendarz w kółku, tytuł i termin. */
+/* „Usuń partię” pod linkiem do spotkania (admin, VIEW-6). */
 .sheet-view__delete {
   align-self: flex-start;
 }
 
+/* Wiersz „Meeting link” (DS „Kolekcja / Karteczka”): kalendarz w kółku, tytuł i termin. */
 .sheet-view__meeting {
   display: flex;
   align-items: center;

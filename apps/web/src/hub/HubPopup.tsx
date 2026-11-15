@@ -114,8 +114,8 @@ export function HubPopup({ route, me }: HubPopupProps) {
     case 'discard-play':
       return <DiscardPlayDialog id={route.id} me={me} />;
     case 'delete-play':
-      // Tylko admin (VIEW-6); dialog sam sprawdza rolę, bazę chroni RPC delete_play.
-      return <DeletePlayDialog id={route.id} me={me} />;
+      // Tylko admin (VIEW-6); bazę chroni RPC delete_play.
+      return me.role === 'admin' ? <DeletePlayDialog id={route.id} /> : <InvalidPopup />;
     case 'invalid':
       return <InvalidPopup />;
   }

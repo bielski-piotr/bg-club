@@ -96,19 +96,20 @@ describe('removeDeletedPlayImage', () => {
 });
 
 describe('invalidatePlayData', () => {
-  it('unieważnia spotkania, kolekcję i profile, bez innych widoków', async () => {
+  it('unieważnia spotkania, kolekcję i profile (bez własnego), bez innych widoków', async () => {
     const queryClient = new QueryClient();
     const keys = [
       [...meetingsKey, 'plays', 'm1'],
       [...meetingsKey, 'game-sheets', 'g1'],
       [...gamesKey, 'widget'],
       ['profiles', 'byId', 'p1'],
+      ['profiles', 'own', 'p1'],
       ['club'],
       ['scorepads'],
     ];
     for (const key of keys) queryClient.setQueryData(key, 1);
     await invalidatePlayData(queryClient);
     const stale = keys.map((key) => queryClient.getQueryState(key)?.isInvalidated);
-    expect(stale).toEqual([true, true, true, true, false, false]);
+    expect(stale).toEqual([true, true, true, true, false, false, false]);
   });
 });

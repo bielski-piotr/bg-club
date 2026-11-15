@@ -186,7 +186,7 @@ select ok(
   'publish_meeting_games i reopen_voting (security definer) zaczynają od strażnika private.require_admin()'
 );
 select ok(
-  (select prosrc ~ '^\s*declare[^$]*begin\s+play_meeting_id := private\.play_meeting\(delete_play\.play_id\);\s+perform private\.require_admin\(\);'
+  (select prosrc ~ '^\s*declare[^$]*begin\s+(--[^\n]*\s+)*perform private\.require_admin\(\);'
      from pg_proc where oid = 'public.delete_play(uuid)'::regprocedure),
   'delete_play (security definer) zaczyna od strażnika private.require_admin()'
 );

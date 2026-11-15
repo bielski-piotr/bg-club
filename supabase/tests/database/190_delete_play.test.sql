@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(25);
+select plan(26);
 
 -- a001 Ada: admin; a002 Bartek: prowadzący; a003 Celina: gracz.
 insert into public.profiles (id, hook, first_name, last_name, role) values
@@ -125,6 +125,7 @@ set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000003",
 select is(public.test_delete(1), '42501', 'gracz nie usuwa partii, także swojej');
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 select is(public.test_delete(1), '42501', 'prowadzący nie usuwa zapisanej partii');
+select is(public.test_delete(9), '42501', 'bez uprawnień odmowa także dla nieistniejącej partii');
 reset role;
 select is(public.test_failure($$ set local role anon; select public.delete_play('00000000-0000-4000-f000-000000000001') $$),
   '42501', 'anon nie wywoła delete_play');

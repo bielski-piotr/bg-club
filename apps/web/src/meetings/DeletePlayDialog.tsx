@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
 import { format, t } from '../i18n';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { usePopups } from '../popups/popupContext';
 import { PopupDialog } from '../popups/PopupDialog';
 import { QueryStatus } from '../popups/QueryStatus';
 import { useMounted } from '../popups/useMounted';
+import { allowOrphanSweep } from '../sheets/sheetImages';
 import { Banner, Button, useToast } from '../ui';
 import {
   deletePlay,
@@ -23,15 +23,21 @@ interface DeleteOutcome {
   readonly leftImage: string | null;
 }
 
+/** Dane partii z chwili potwierdzenia: po usunięciu zapytanie o partię zwraca `null`. */
+interface DeleteTarget {
+  readonly title: string;
+  readonly meetingId: string;
+}
+
 /**
  * Potwierdzenie „Usuń partię” (VIEW-6, §5.6.5, DS §15 „Dialog variants”): tylko admin trwale
  * usuwa zapisaną partię z karteczką i wynikami; baza w tej samej transakcji przelicza zależne
  * dane, a aplikacja odświeża zależne widoki. Potem dialog usuwa obraz karteczki ze Storage.
  * Błąd Storage nie przywraca partii: dialog zostaje otwarty z ponowieniem, a obraz bez partii
- * posprząta też otwarcie spotkania przez admina (`orphan_sheet_images`).
- * Otwarty nad karteczką tej partii zamyka też karteczkę.
+ * posprząta też kolejne otwarcie spotkania przez admina (`orphan_sheet_images`).
+ * Otwarty nad karteczką tej partii zamyka też karteczkę. Rolę sprawdza `HubPopup`.
  */
-export function DeletePlayDialog({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
+export function DeletePlayDialog({ id }: { readonly id: string }) {
   const { client } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -44,15 +50,19 @@ export function DeletePlayDialog({ id, me }: { readonly id: string; readonly me:
   const close = () => {
     if (mounted.current) backBy(overSheet ? 2 : 1);
   };
+  const closeWithLeftImage = (meetingId: string) => {
+    // Obraz został w Storage: kolejne otwarcie spotkania w tej karcie znów posprząta.
+    allowOrphanSweep(meetingId);
+    close();
+  };
 
   const remove = useMutation({
-    // Tytuł gry z chwili potwierdzenia: po usunięciu zapytanie o partię zwraca `null`.
-    mutationFn: async (_title: string): Promise<DeleteOutcome> => {
+    mutationFn: async (_target: DeleteTarget): Promise<DeleteOutcome> => {
       const { imagePath } = await deletePlay(client, id);
       if (!imagePath) return { leftImage: null };
       return { leftImage: (await removeDeletedPlayImage(client, imagePath)) ? null : imagePath };
     },
-    onSuccess: ({ leftImage }, title) => {
+    onSuccess: ({ leftImage }, { title }) => {
       toast.show(format(t.meetings.toasts.playDeleted, { title }), 'success');
       void invalidatePlayData(queryClient);
       if (!leftImage) close();
@@ -70,10 +80,10 @@ export function DeletePlayDialog({ id, me }: { readonly id: string; readonly me:
     onSuccess: close,
   });
 
-  // Przed usunięciem (z linku): tylko admin i tylko zapisana partia, która istnieje.
-  if (!remove.isSuccess) {
-    if (me.role !== 'admin') return <InvalidPopup />;
-    if (play.isSuccess && (!play.data || play.data.status !== 'saved')) return <InvalidPopup />;
+  // Przed potwierdzeniem (np. z linku): tylko zapisana partia, która istnieje. Po próbie
+  // usunięcia dialog zostaje, nawet gdy odświeżona partia już nie pasuje (błąd, sukces).
+  if (remove.isIdle && play.isSuccess && (!play.data || play.data.status !== 'saved')) {
+    return <InvalidPopup />;
   }
 
   const failure =
@@ -84,7 +94,7 @@ export function DeletePlayDialog({ id, me }: { readonly id: string; readonly me:
           ? text.errors.draft
           : text.errors.save
       : text.errors.save;
-  const title = play.data?.game.title ?? remove.variables ?? '';
+  const title = play.data?.game.title ?? remove.variables?.title ?? '';
   const imagePending = leftImage !== null && !retryImage.isSuccess;
   return (
     <PopupDialog
@@ -101,7 +111,11 @@ export function DeletePlayDialog({ id, me }: { readonly id: string; readonly me:
       footer={
         imagePending ? (
           <>
-            <Button variant="secondary" disabled={retryImage.isPending} onClick={close}>
+            <Button
+              variant="secondary"
+              disabled={retryImage.isPending}
+              onClick={() => closeWithLeftImage(remove.variables?.meetingId ?? '')}
+            >
               {text.close}
             </Button>
             <Button loading={retryImage.isPending} onClick={() => retryImage.mutate()}>
@@ -117,7 +131,7 @@ export function DeletePlayDialog({ id, me }: { readonly id: string; readonly me:
               variant="destructive"
               loading={remove.isPending}
               disabled={!play.data || remove.isSuccess}
-              onClick={() => remove.mutate(title)}
+              onClick={() => play.data && remove.mutate({ title, meetingId: play.data.meeting_id })}
             >
               {text.submit}
             </Button>

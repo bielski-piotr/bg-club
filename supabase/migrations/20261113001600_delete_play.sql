@@ -54,8 +54,9 @@ declare
   play_meeting_id uuid;
   play public.plays;
 begin
-  play_meeting_id := private.play_meeting(delete_play.play_id);
+  -- Strażnik przed odczytem partii: bez uprawnień odpowiedź nie zdradza, czy partia istnieje.
   perform private.require_admin();
+  play_meeting_id := private.play_meeting(delete_play.play_id);
 
   -- Kolejność blokad jak przy zapisie: najpierw spotkanie, potem partia.
   perform 1 from public.meetings m where m.id = play_meeting_id for update;

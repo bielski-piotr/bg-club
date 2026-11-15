@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { QueryClient } from '@tanstack/react-query';
 import { gamesKey } from '../games/games';
-import { SHEETS_BUCKET } from '../sheets/sheetImages';
+import { isOwnProfileKey, profilesKey } from '../profile/profiles';
+import { removeSheetImages } from '../sheets/sheetImages';
 import { meetingsKey } from './meetings';
 
 /*
@@ -60,16 +61,8 @@ export async function deletePlay(client: SupabaseClient, playId: string): Promis
  * i można ponowić). Pusta lista usuniętych bez błędu znaczy, że pliku już nie ma (admin może
  * usuwać każdy obraz karteczki, polityka `bg_club_sheets_delete_admin`).
  */
-export async function removeDeletedPlayImage(
-  client: SupabaseClient,
-  path: string,
-): Promise<boolean> {
-  try {
-    const { error } = await client.storage.from(SHEETS_BUCKET).remove([path]);
-    return !error;
-  } catch {
-    return false;
-  }
+export function removeDeletedPlayImage(client: SupabaseClient, path: string): Promise<boolean> {
+  return removeSheetImages(client, [path]);
 }
 
 /** Klucze pamięci podręcznej widoków liczonych z zapisanych partii. */
@@ -78,8 +71,9 @@ export const PLAY_DEPENDENT_KEYS: readonly (readonly string[])[] = [
   meetingsKey,
   // Kolekcja: „ostatnio grane”.
   gamesKey,
-  // Profile: statystyki, rankingi, serie i osiągnięcia (E5/E6).
-  ['profiles'],
+  // Profile: statystyki, rankingi, serie i osiągnięcia (E5/E6); bez własnego profilu
+  // zalogowanego (rola, motyw), którego partie nie zmieniają.
+  profilesKey,
 ];
 
 /**
@@ -89,6 +83,11 @@ export const PLAY_DEPENDENT_KEYS: readonly (readonly string[])[] = [
  */
 export async function invalidatePlayData(queryClient: QueryClient): Promise<void> {
   await Promise.all(
-    PLAY_DEPENDENT_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+    PLAY_DEPENDENT_KEYS.map((queryKey) =>
+      queryClient.invalidateQueries({
+        queryKey,
+        predicate: (query) => !isOwnProfileKey(query.queryKey),
+      }),
+    ),
   );
 }
