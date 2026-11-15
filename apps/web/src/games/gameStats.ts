@@ -1,0 +1,81 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { useQuery } from '@tanstack/react-query';
+import { isUuid } from '../popups/routes';
+import { gamesKey } from './games';
+
+/**
+ * Statystyki gry (PRD GAME-11) z funkcji SQL `game_stats(game_id)` (migracja
+ * `20261113001800_game_stats.sql`). Baza liczy wszystko z zapisanych partii (szkice się nie
+ * liczą), więc zapis i usunięcie partii zmieniają je od razu (§5.6.5).
+ */
+
+/** Gracz z największą liczbą wygranych w tej grze (przy remisie wszyscy). */
+export interface TopWinner {
+  readonly profile_id: string;
+  readonly wins: number;
+}
+
+/** Rekordzista z pierwszą partią, w której osiągnął rekord (kto i kiedy, Q25). */
+export interface RecordHolder {
+  readonly profile_id: string;
+  readonly play_id: string;
+  readonly meeting_id: string;
+  /** Termin spotkania partii. */
+  readonly starts_at: string;
+}
+
+/** Rekord gry: najlepsza wartość kategorii decydującej w kierunku notesu (EDT-2, Q6). */
+export interface GameRecord {
+  readonly value: number;
+  /** `asc` = „mniej = lepiej”. */
+  readonly dir: 'asc' | 'desc';
+  readonly holders: readonly RecordHolder[];
+}
+
+/** Wiersz rankingu graczy w grze: wygrane, potem punkty (1, 1, 3; usunięci na końcu). */
+export interface GameRankingEntry {
+  readonly place: number;
+  readonly profile_id: string;
+  readonly deleted: boolean;
+  readonly wins: number;
+  readonly points: number;
+  readonly plays: number;
+}
+
+export interface GameStats {
+  readonly play_count: number;
+  /** Termin spotkania ostatniej zapisanej partii; `null` bez partii. */
+  readonly last_played_at: string | null;
+  readonly top_winners: readonly TopWinner[];
+  /** `null`, gdy żadna partia nie ma wartości kategorii decydującej. */
+  readonly record: GameRecord | null;
+  /** Średnia wartość decydująca zwycięzców; `null` bez wartości. */
+  readonly winner_average: number | null;
+  readonly ranking: readonly GameRankingEntry[];
+}
+
+/**
+ * Klucz w `gamesKey`: zapis i usunięcie partii odświeżają statystyki razem z kolekcją
+ * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
+ */
+export const gameStatsKey = (id: string) => [...gamesKey, 'stats', id] as const;
+
+/** Statystyki gry; `null` = gry nie ma (albo brak dostępu). */
+export function useGameStats(client: SupabaseClient, id: string) {
+  return useQuery({
+    queryKey: gameStatsKey(id),
+    queryFn: async (): Promise<GameStats | null> => {
+      if (!isUuid(id)) return null;
+      const { data, error } = await client.rpc('game_stats', { game_id: id });
+      if (error) throw error;
+      return (data ?? null) as GameStats | null;
+    },
+  });
+}
+
+const numberFormat = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 });
+
+/** Wynik po polsku: przecinek dziesiętny, najwyżej jedno miejsce po przecinku („28,8”). */
+export function formatScore(value: number): string {
+  return numberFormat.format(value);
+}

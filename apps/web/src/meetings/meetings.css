@@ -1448,3 +1448,86 @@
   font: 500 12px/16px var(--font-ui);
   color: var(--c-muted);
 }
+
+/* Podsumowanie spotkania (VIEW-4, DS §15 „Meeting summary row”). */
+.summary-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--c-surface);
+  border-radius: var(--r-row);
+}
+
+.summary-row__place {
+  flex-shrink: 0;
+  width: 18px;
+  padding-top: 9px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--c-muted);
+  font-feature-settings: 'tnum';
+}
+
+.summary-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.summary-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.summary-row__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.summary-row__points {
+  flex-shrink: 0;
+  font: 700 16px/20px var(--font-display);
+  color: var(--c-ink);
+  font-feature-settings: 'tnum';
+}
+
+.summary-row__unit {
+  font: 500 12px/16px var(--font-ui);
+  color: var(--c-muted);
+}
+
+.summary-row__breakdown {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+  overflow-wrap: anywhere;
+}
+
+.summary-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.summary-row__badges .badge {
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.summary-row--muted .summary-row__name,
+.summary-row--muted .summary-row__points {
+  color: var(--c-muted);
+}
