@@ -53,6 +53,10 @@ export type PopupRoute =
   | { readonly kind: 'meeting'; readonly id: string }
   /** „Opublikuj gry” (VOTE-5, admin), adres `meeting/<uuid>/publish`. */
   | { readonly kind: 'publish-games'; readonly id: string }
+  /** Potwierdzenie „Rozpocznij spotkanie” (RUN-1, admin lub prowadzący), `meeting/<uuid>/start`. */
+  | { readonly kind: 'start-meeting'; readonly id: string }
+  /** „Zakończ spotkanie” z listą partii w toku (RUN-4), adres `meeting/<uuid>/finish`. */
+  | { readonly kind: 'finish-meeting'; readonly id: string }
   /** Kalendarz spotkań (CAL-1…CAL-3), adres `calendar`. */
   | { readonly kind: 'calendar' }
   /** „Edytuj spotkanie” (PLAN-3, PLAN-4, admin), adres `meeting/<uuid>/edit`. */
@@ -120,6 +124,8 @@ export function parseRoute(raw: string): PopupRoute {
     if (args[1] === 'publish') return { kind: 'publish-games', id };
     if (args[1] === 'edit') return { kind: 'edit-meeting', id };
     if (args[1] === 'delete') return { kind: 'delete-meeting', id };
+    if (args[1] === 'start') return { kind: 'start-meeting', id };
+    if (args[1] === 'finish') return { kind: 'finish-meeting', id };
   }
   if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
   if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
@@ -176,6 +182,10 @@ export function serializeRoute(route: PopupRoute): string {
       return `meeting/${route.id}/edit`;
     case 'delete-meeting':
       return `meeting/${route.id}/delete`;
+    case 'start-meeting':
+      return `meeting/${route.id}/start`;
+    case 'finish-meeting':
+      return `meeting/${route.id}/finish`;
     case 'profile':
       return `profile/${route.id}`;
     case 'delete-member':

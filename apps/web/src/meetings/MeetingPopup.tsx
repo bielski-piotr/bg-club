@@ -32,8 +32,10 @@ import {
 } from '../ui';
 import { cx } from '../ui/cx';
 import { formatMeetingDate, longMeetingDate } from './datetime';
-import { WinnersLine } from './MeetingParts';
+import { MeetingPlaysSection } from './MeetingPlays';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
+import { menuItems } from './meetingMenu';
+import { isMeetingRunner } from './plays';
 import { useMeetingOverview, type MeetingOverview } from './overview';
 import {
   castVote,
@@ -61,8 +63,9 @@ const popup = t.meetings.popup;
  * Popup spotkania (VIEW-1, VIEW-2, DS §15 „Popup structure”): nagłówek ze statusem, terminem
  * i uczestnikami, a w zaplanowanym głosowanie (VOTE-1…VOTE-4) albo lista „Gramy w:” (VOTE-5).
  * Administrator ma pole akcji z publikacją i ponownym otwarciem (VOTE-6) oraz menu „Edytuj /
- * Usuń spotkanie”. Trwające i zakończone pokazują liczbę zapisanych partii i zwycięzców (MTG-3).
- * Przebieg spotkania dochodzi w [026].
+ * Usuń spotkanie”. Przebieg (RUN-1, RUN-4, VIEW-3): administrator i prowadzący rozpoczynają
+ * i kończą spotkanie z pola akcji; trwające i zakończone pokazują partie w toku i zapisane.
+ * Prowadzący nie ma akcji administracyjnych (uczestnicy, prowadzący, PLAN-4, Q14).
  */
 export function MeetingPopup({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
   const { client } = useAuth();
@@ -113,6 +116,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
   const { client } = useAuth();
   const overview = useMeetingOverview(client, meeting.id);
   const isAdmin = me.role === 'admin';
+  const runner = isMeetingRunner(meeting, me);
   const profiles = useAllProfiles(client);
   // Uczestnicy także usunięci w międzyczasie (MEM-5: zostają w historii spotkania).
   const people = meeting.participants
@@ -137,8 +141,13 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
     <PopupModal
       title={meeting.title}
       actions={
-        isAdmin && hasActions(meeting, overview.data) ? (
-          <MeetingMenu meeting={meeting} overview={overview.data} />
+        menuItems(meeting, overview.data, isAdmin, runner).length > 0 ? (
+          <MeetingMenu
+            meeting={meeting}
+            overview={overview.data}
+            isAdmin={isAdmin}
+            runner={runner}
+          />
         ) : undefined
       }
     >
@@ -162,15 +171,22 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
           </p>
         </div>
 
-        {planned && isAdmin ? <AdminBox meeting={meeting} /> : null}
+        {runner && meeting.status !== 'finished' ? (
+          <RunnerBox meeting={meeting} isAdmin={isAdmin} />
+        ) : null}
 
         {planned && meeting.voting_open ? (
           <VotingSection meeting={meeting} me={me} members={members} />
         ) : (
           <PlayingSection meeting={meeting} members={members} />
         )}
-        {!planned ? <p className="meeting-form__hint">{popup.startedNote}</p> : null}
-        {!planned ? <PlaysSummary meeting={meeting} overview={overview} /> : null}
+        {!planned ? (
+          <MeetingPlaysSection
+            meeting={meeting}
+            timeZone={timeZone}
+            winners={overview.data?.winners}
+          />
+        ) : null}
 
         <section className="meeting-view__section" aria-labelledby={`${meeting.id}-people`}>
           <h3 id={`${meeting.id}-people`} className="meeting-view__head">
@@ -202,24 +218,64 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
 }
 
 /**
- * Pole akcji administratora (DS §15 „Admin action box”): przy otwartym głosowaniu
- * „Opublikuj gry” (VOTE-5), po publikacji „Otwórz głosowanie ponownie” (VOTE-6).
+ * Pole akcji (DS §15 „Admin action box”). Zaplanowane: administrator publikuje gry (VOTE-5)
+ * albo zmienia listę i otwiera głosowanie ponownie (VOTE-6); administrator i prowadzący
+ * rozpoczynają spotkanie (RUN-1). W trakcie: „Zakończ spotkanie” (RUN-4). Obie zmiany statusu
+ * mają potwierdzenie w osobnym dialogu.
  */
-function AdminBox({ meeting }: { readonly meeting: Meeting }) {
+function RunnerBox({ meeting, isAdmin }: { readonly meeting: Meeting; readonly isAdmin: boolean }) {
   const { client } = useAuth();
   const { open } = usePopups();
   const reopen = useReopenVoting(client);
+  const run = t.meetings.run;
+  if (meeting.status === 'in_progress') {
+    return (
+      <div className="meeting-admin">
+        <p className="meeting-admin__text">{run.inProgressRunner}</p>
+        <Button
+          fullWidth
+          variant="secondary"
+          icon="flag"
+          onClick={() => open({ kind: 'finish-meeting', id: meeting.id })}
+        >
+          {run.finish}
+        </Button>
+      </div>
+    );
+  }
+  const start = (
+    <Button
+      fullWidth
+      variant={isAdmin && meeting.voting_open ? 'secondary' : 'primary'}
+      icon="play"
+      onClick={() => open({ kind: 'start-meeting', id: meeting.id })}
+    >
+      {run.start}
+    </Button>
+  );
+  if (!isAdmin) {
+    return (
+      <div className="meeting-admin">
+        <p className="meeting-admin__text">{run.plannedRunner}</p>
+        {start}
+      </div>
+    );
+  }
   return (
     <div className="meeting-admin">
       <p className="meeting-admin__text">
         {meeting.voting_open ? text.adminOpen : text.adminClosed}
       </p>
       {meeting.voting_open ? (
-        <Button fullWidth onClick={() => open({ kind: 'publish-games', id: meeting.id })}>
-          {text.publish}
-        </Button>
+        <>
+          <Button fullWidth onClick={() => open({ kind: 'publish-games', id: meeting.id })}>
+            {text.publish}
+          </Button>
+          {start}
+        </>
       ) : (
         <>
+          {start}
           <Button
             fullWidth
             variant="secondary"
@@ -520,60 +576,29 @@ function useCloseWhenDeleted(meeting: Meeting | null | undefined) {
   }, [meeting, covered, back]);
 }
 
-/** Edycja: zaplanowane i trwające (PLAN-3, PLAN-4). */
-function canEdit(meeting: Meeting): boolean {
-  return meeting.status !== 'finished';
-}
-
-/**
- * Usunięcie: nie trwające i bez zapisanych partii (PLAN-3, PLAN-5, Q4). Zakończone dopiero
- * po wczytaniu liczby partii.
- */
-function canDelete(meeting: Meeting, overview: MeetingOverview | null | undefined): boolean {
-  if (meeting.status === 'planned') return true;
-  return meeting.status === 'finished' && overview?.playCount === 0;
-}
-
-function hasActions(meeting: Meeting, overview: MeetingOverview | null | undefined): boolean {
-  return canEdit(meeting) || canDelete(meeting, overview);
-}
-
 function MeetingMenu({
   meeting,
   overview,
+  isAdmin,
+  runner,
 }: {
   readonly meeting: Meeting;
   readonly overview: MeetingOverview | null | undefined;
+  readonly isAdmin: boolean;
+  readonly runner: boolean;
 }) {
+  const { client } = useAuth();
   const { open } = usePopups();
+  const reopen = useReopenVoting(client);
   const label = t.meetings.view.actions;
   return (
     <Menu
       label={label}
       align="end"
-      items={[
-        ...(!canEdit(meeting)
-          ? []
-          : [
-              {
-                id: 'edit',
-                label: t.meetings.menu.edit,
-                icon: 'pencil' as const,
-                onSelect: () => open({ kind: 'edit-meeting', id: meeting.id }),
-              },
-            ]),
-        ...(!canDelete(meeting, overview)
-          ? []
-          : [
-              {
-                id: 'delete',
-                label: t.meetings.menu.delete,
-                icon: 'trash' as const,
-                destructive: true,
-                onSelect: () => open({ kind: 'delete-meeting', id: meeting.id }),
-              },
-            ]),
-      ]}
+      items={menuItems(meeting, overview, isAdmin, runner).map(({ route, ...item }) => ({
+        ...item,
+        onSelect: () => (route ? open(route) : reopen.mutate(meeting.id)),
+      }))}
       trigger={(props) => (
         <button
           type="button"
@@ -586,44 +611,5 @@ function MeetingMenu({
         </button>
       )}
     />
-  );
-}
-
-/** Partie trwającego albo zakończonego spotkania: liczba zapisanych i zwycięzcy (MTG-3). */
-function PlaysSummary({
-  meeting,
-  overview,
-}: {
-  readonly meeting: Meeting;
-  readonly overview: ReturnType<typeof useMeetingOverview>;
-}) {
-  const { client } = useAuth();
-  const profiles = useAllProfiles(client);
-  const headingId = `${meeting.id}-plays`;
-  const data = overview.data;
-  return (
-    <section className="meeting-view__section" aria-labelledby={headingId}>
-      <div className="meeting-view__head-row">
-        <h3 id={headingId} className="meeting-view__head">
-          {t.meetings.view.plays}
-        </h3>
-        {data ? (
-          <span className="meeting-view__note">{plural(data.playCount, t.hub.timeline.plays)}</span>
-        ) : null}
-      </div>
-      {!data || !profiles.data ? (
-        <QueryStatus
-          isError={overview.isError || profiles.isError}
-          onRetry={() => {
-            if (overview.isError) void overview.refetch();
-            if (profiles.isError) void profiles.refetch();
-          }}
-        />
-      ) : data.playCount === 0 ? (
-        <p className="meeting-form__state">{t.meetings.view.noPlays}</p>
-      ) : (
-        <WinnersLine winners={data.winners} profiles={profiles.data} />
-      )}
-    </section>
   );
 }

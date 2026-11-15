@@ -1,0 +1,158 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { useQuery } from '@tanstack/react-query';
+import type { OwnProfile } from '../auth/useOwnProfile';
+import { format, plural, t } from '../i18n';
+import { isUuid } from '../popups/routes';
+import { todayIn, localDateTime } from './datetime';
+import { meetingsKey, type Meeting } from './meetings';
+
+/*
+ * Przebieg spotkania (PRD RUN-1, RUN-4, VIEW-3, MTG-1): partie spotkania, uprawnienia
+ * prowadzącego i teksty stanu. Partie tworzy i zapisuje notes (E4); tu jest tylko odczyt.
+ */
+
+/** Wynik gracza w partii. W szkicu (`draft`) miejsce, punkty i wygrana są `null`. */
+export interface PlayResult {
+  readonly profile_id: string;
+  readonly seat: number;
+  /** Wartość kategorii decydującej (EDT-2): wynik pokazywany przy graczu. */
+  readonly ranking_value: number | null;
+  readonly place: number | null;
+  readonly points: number | null;
+  readonly is_win: boolean | null;
+}
+
+/** Partia spotkania z grą i wynikami graczy. */
+export interface MeetingPlay {
+  readonly id: string;
+  readonly status: 'draft' | 'saved';
+  readonly started_at: string;
+  readonly saved_at: string | null;
+  readonly started_by: string;
+  /** Gra partii; usunięta z kolekcji zostaje w historii (GAME-8). */
+  readonly game: {
+    readonly id: string;
+    readonly title: string;
+    readonly cover_path: string | null;
+  };
+  readonly results: readonly PlayResult[];
+}
+
+interface PlayRow extends Omit<MeetingPlay, 'game' | 'results'> {
+  readonly game_id: string;
+  readonly games: MeetingPlay['game'] | null;
+  readonly play_results: readonly PlayResult[];
+}
+
+const PLAY_COLUMNS =
+  'id, status, started_at, saved_at, started_by, game_id, games(id, title, cover_path), ' +
+  'play_results!play_results_play_id_meeting_id_fkey(profile_id, seat, ranking_value, place, points, is_win)';
+
+export const meetingPlaysKey = (id: string) => [...meetingsKey, 'plays', id] as const;
+
+export function fromPlayRow(row: PlayRow): MeetingPlay {
+  const { games, game_id, play_results, ...rest } = row;
+  return {
+    ...rest,
+    game: games ?? { id: game_id, title: t.meetings.plays.unknownGame, cover_path: null },
+    results: play_results,
+  };
+}
+
+/**
+ * Partie spotkania: zapisane i szkice (partie w toku). `fresh`: pobiera je od nowa przy każdym
+ * otwarciu (dialog zakończenia nie może polegać na liście sprzed chwili, RUN-4).
+ */
+export function useMeetingPlays(client: SupabaseClient, meetingId: string, fresh = false) {
+  return useQuery({
+    queryKey: meetingPlaysKey(meetingId),
+    ...(fresh ? { refetchOnMount: 'always' as const } : {}),
+    queryFn: async (): Promise<MeetingPlay[]> => {
+      if (!isUuid(meetingId)) return [];
+      const { data, error } = await client
+        .from('plays')
+        .select(PLAY_COLUMNS)
+        .eq('meeting_id', meetingId)
+        .returns<PlayRow[]>();
+      if (error) throw error;
+      return data.map(fromPlayRow);
+    },
+  });
+}
+
+export interface SplitPlays {
+  /** Zapisane partie w kolejności rozegrania (`saved_at`, potem `id`, §5.6.6, Q24). */
+  readonly saved: readonly MeetingPlay[];
+  /** Partie w toku (szkice) od najwcześniej rozpoczętej (`started_at`, potem `id`). */
+  readonly drafts: readonly MeetingPlay[];
+}
+
+const time = (iso: string | null) => (iso ? new Date(iso).getTime() : 0);
+
+export function splitPlays(plays: readonly MeetingPlay[]): SplitPlays {
+  const saved = plays
+    .filter((play) => play.status === 'saved')
+    .sort((a, b) => time(a.saved_at) - time(b.saved_at) || a.id.localeCompare(b.id));
+  const drafts = plays
+    .filter((play) => play.status === 'draft')
+    .sort((a, b) => time(a.started_at) - time(b.started_at) || a.id.localeCompare(b.id));
+  return { saved, drafts };
+}
+
+/**
+ * Wyniki zapisanej partii od najlepszego miejsca (remis: ta sama liczba, potem miejsce
+ * w notesie). Szkic nie ma miejsc, więc zostaje kolejność miejsc w notesie.
+ */
+export function sortedResults(play: MeetingPlay): PlayResult[] {
+  return [...play.results].sort(
+    (a, b) => (a.place ?? Infinity) - (b.place ?? Infinity) || a.seat - b.seat,
+  );
+}
+
+/**
+ * Czy zalogowany prowadzi spotkanie (§2.1, `private.is_meeting_runner`): admin zawsze,
+ * prowadzący (`host_id`) tylko w niezakończonym. Rozpoczyna i kończy spotkanie (RUN-1, RUN-4).
+ */
+export function isMeetingRunner(meeting: Meeting, me: Pick<OwnProfile, 'id' | 'role'>): boolean {
+  if (me.role === 'admin') return true;
+  return meeting.host_id === me.id && meeting.status !== 'finished';
+}
+
+/** „2 rozegrane · 1 w toku” (DS §15 „Widget tray head”). Bez partii w toku: tylko rozegrane. */
+export function playsProgressLabel(saved: number, drafts: number): string {
+  const text = t.meetings.plays;
+  const done = plural(saved, text.saved);
+  return drafts > 0 ? `${done} · ${plural(drafts, text.drafts)}` : done;
+}
+
+/**
+ * Odliczanie w nagłówku widżetu (DS §15 „Widget header”): „dziś”, „jutro”, „za 16 dni”
+ * według dat w strefie klubu. Termin, który już minął (spotkanie nie rozpoczęło się), daje
+ * `null`: widżet pokazuje wtedy tylko datę.
+ */
+export function countdownLabel(
+  startsAt: string,
+  timeZone: string,
+  now: Date = new Date(),
+): string | null {
+  const day = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
+  const days = Math.round(
+    day(localDateTime(startsAt, timeZone).date) - day(todayIn(timeZone, now)),
+  );
+  const text = t.hub.meeting.countdown;
+  if (days < 0) return null;
+  if (days === 0) return text.today;
+  if (days === 1) return text.tomorrow;
+  return plural(days, text.days);
+}
+
+/** „Partia 1 · 18:10 · 5 graczy” (DS §15 „Play card”). */
+export function playSubtitle(play: MeetingPlay, index: number, timeZone: string): string {
+  const text = t.meetings.plays;
+  const at = localDateTime(play.saved_at ?? play.started_at, timeZone).time;
+  return format(text.subtitle, {
+    n: index + 1,
+    time: at,
+    players: plural(play.results.length, text.players),
+  });
+}

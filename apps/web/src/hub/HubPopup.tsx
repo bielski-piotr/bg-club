@@ -10,6 +10,7 @@ import { DeleteMeetingDialog } from '../meetings/DeleteMeetingDialog';
 import { AddMeetingPopup, EditMeetingPopup } from '../meetings/MeetingFormPopup';
 import { MeetingPopup } from '../meetings/MeetingPopup';
 import { PublishGamesPopup } from '../meetings/PublishGamesPopup';
+import { FinishMeetingDialog, StartMeetingDialog } from '../meetings/RunMeetingDialogs';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
 import type { OwnProfile } from '../auth/useOwnProfile';
@@ -87,6 +88,11 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <EditMeetingPopup id={route.id} me={me} /> : <InvalidPopup />;
     case 'delete-meeting':
       return me.role === 'admin' ? <DeleteMeetingDialog id={route.id} /> : <InvalidPopup />;
+    case 'start-meeting':
+      // Admin albo prowadzący (RUN-1, §2.1); dialog sam sprawdza rolę, bazę chroni RPC.
+      return <StartMeetingDialog id={route.id} me={me} />;
+    case 'finish-meeting':
+      return <FinishMeetingDialog id={route.id} me={me} />;
     case 'invalid':
       return <InvalidPopup />;
   }

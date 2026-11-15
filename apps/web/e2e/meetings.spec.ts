@@ -220,10 +220,12 @@ test('w trakcie: tytuł i termin zablokowane, uczestnik z partią zostaje (PLAN-
   });
 
   // Menu trwającego spotkania nie ma usuwania (PLAN-3), a kolejne spotkanie da się zaplanować.
+  // Edycja w trakcie to dopisanie uczestnika i zmiana prowadzącego (PLAN-4, DS §15).
   await widget.getByRole('button', { name: 'Akcje spotkania Trwające granie' }).click();
   await expect(page.getByRole('menuitem')).toHaveText([
     'Zaplanuj kolejne spotkanie',
-    'Edytuj spotkanie',
+    'Dodaj uczestnika',
+    'Zmień prowadzącego',
   ]);
   await page.getByRole('menuitem', { name: 'Zaplanuj kolejne spotkanie' }).click();
   await expect(page.getByRole('dialog', { name: 'Zaplanuj spotkanie' })).toBeVisible();

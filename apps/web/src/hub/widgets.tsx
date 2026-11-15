@@ -4,34 +4,76 @@ import { usePopups } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { ProfileLink } from '../profile/ProfileLink';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { fullName, useAllProfiles, useMembers, type Profile } from '../profile/profiles';
+import {
+  avatarPerson,
+  fullName,
+  useAllProfiles,
+  useMembers,
+  type Profile,
+} from '../profile/profiles';
 import { visibleMembers } from './members';
 import { GameCover } from '../games/GameCover';
-import { useCollectionWidget } from '../games/games';
+import { useCollectionWidget, useGameSearch } from '../games/games';
 import { playersLabel } from '../games/labels';
 import { useClub } from './club';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { dateTile, formatMeetingDate, longMeetingDate, todayIn } from '../meetings/datetime';
+import {
+  dateTile,
+  formatMeetingDate,
+  localDateTime,
+  longMeetingDate,
+  todayIn,
+} from '../meetings/datetime';
 import { useHubMeeting, type Meeting } from '../meetings/meetings';
 import { shortDayLabel, weekdayTime } from '../meetings/calendar';
 import { MeetingStatusChip, MiniDateTile, WinnersLine } from '../meetings/MeetingParts';
 import { useTimeline, type MeetingOverview, type Timeline } from '../meetings/overview';
-import { useReopenVoting } from '../meetings/voting';
-import { Banner, Button, Card, EmptyState, Icon, Menu, Skeleton, Spinner, Tray } from '../ui';
+import { menuItems } from '../meetings/meetingMenu';
+import {
+  countdownLabel,
+  isMeetingRunner,
+  playsProgressLabel,
+  splitPlays,
+  useMeetingPlays,
+} from '../meetings/plays';
+import {
+  myVoteCount,
+  useMeetingVotes,
+  usePublishedGames,
+  useReopenVoting,
+  voteRows,
+  votesLabel,
+} from '../meetings/voting';
+import {
+  AvatarStack,
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Icon,
+  Menu,
+  Skeleton,
+  Spinner,
+  StatusChip,
+  Tray,
+  type MenuItem,
+} from '../ui';
 import '../meetings/meetings.css';
 import '../meetings/calendar.css';
 
 /*
  * Widżety huba (PRD §4, DS §6, §17). Ranking ma na razie tylko pusty stan (CLUB-4); jego treść
- * dochodzi w zadaniu [033]. Spotkanie (MTG-1, od [023]), Timeline (MTG-3, [025]), Kolekcja
+ * dochodzi w zadaniu [033]. Spotkanie (MTG-1, od [023], przebieg w [026]), Timeline (MTG-3, [025]), Kolekcja
  * (GAME-1) i Członkowie (MEM-1) pokazują już prawdziwe dane.
  */
 
 /**
- * Widżet spotkania (MTG-1, DS §15 „Widget meeting block”): trwające spotkanie, a gdy go nie
- * ma, najbliższe zaplanowane, z datą w strefie klubu, uczestnikami i stanem. Administrator ma
- * menu „Edytuj / Usuń spotkanie”, a w pustym stanie „Zaplanuj spotkanie” (CLUB-4, PLAN-1).
- * Popup spotkania z głosowaniem, startem i końcem dochodzi w [024]–[026].
+ * Widżet spotkania (MTG-1, DS §15 „Widget meeting block”, „Widget header”, „Widget tray head”):
+ * trwające spotkanie, a gdy go nie ma, najbliższe zaplanowane, z datą w strefie klubu,
+ * uczestnikami i stanem. W nagłówku odliczanie albo chip „Trwa”; pod spodem taca stanu:
+ * najwięcej głosów (głosowanie otwarte), „Gramy w” (gry wybrane) albo partie (w trakcie).
+ * Menu ma akcje zależne od roli (DS §15 „Meeting menus”), a pusty stan dla administratora
+ * „Zaplanuj spotkanie” (CLUB-4, PLAN-1).
  */
 export function MeetingWidget({ me }: { readonly me: Profile }) {
   const { client } = useAuth();
@@ -44,61 +86,59 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
   const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
   const reopen = useReopenVoting(client);
 
-  const action =
-    isAdmin && data ? (
-      <Menu
-        label={format(t.hub.meeting.actions, { title: data.title })}
-        align="end"
-        items={[
-          // Kolejne spotkanie z menu widżetu (PLAN-1); kalendarz ma też własny przycisk (CAL-3).
-          {
-            id: 'plan',
-            label: t.meetings.menu.plan,
-            icon: 'plus',
-            onSelect: () => open({ kind: 'add-meeting' }),
-          },
-          {
-            id: 'edit',
-            label: t.meetings.menu.edit,
-            icon: 'pencil',
-            onSelect: () => open({ kind: 'edit-meeting', id: data.id }),
-          },
-          // Ponowne otwarcie głosowania przed rozpoczęciem (VOTE-6, DS §15 „Meeting menus”).
-          ...(data.status === 'planned' && !data.voting_open
-            ? [
-                {
-                  id: 'reopen',
-                  label: t.meetings.menu.reopen,
-                  icon: 'refresh' as const,
-                  onSelect: () => reopen.mutate(data.id),
-                },
-              ]
-            : []),
-          ...(data.status === 'planned'
-            ? [
-                {
-                  id: 'delete',
-                  label: t.meetings.menu.delete,
-                  icon: 'trash' as const,
-                  destructive: true,
-                  onSelect: () => open({ kind: 'delete-meeting', id: data.id }),
-                },
-              ]
-            : []),
-        ]}
-        trigger={(props) => (
-          <button
-            type="button"
-            {...props}
-            className="icon-btn icon-btn--32"
-            aria-label={format(t.hub.meeting.actions, { title: data.title })}
-            title={format(t.hub.meeting.actions, { title: data.title })}
-          >
-            <Icon name="more" />
-          </button>
-        )}
-      />
-    ) : undefined;
+  const items: MenuItem[] = data
+    ? [
+        // Kolejne spotkanie z menu widżetu (PLAN-1); kalendarz ma też własny przycisk (CAL-3).
+        ...(isAdmin
+          ? [
+              {
+                id: 'plan',
+                label: t.meetings.menu.plan,
+                icon: 'plus' as const,
+                onSelect: () => open({ kind: 'add-meeting' }),
+              },
+            ]
+          : []),
+        ...menuItems(data, undefined, isAdmin, isMeetingRunner(data, me)).map(
+          ({ route, ...item }) => ({
+            ...item,
+            onSelect: () => (route ? open(route) : reopen.mutate(data.id)),
+          }),
+        ),
+      ]
+    : [];
+  const countdown =
+    data && data.status === 'planned' && !club.isPending
+      ? countdownLabel(data.starts_at, timeZone)
+      : null;
+
+  const action = data ? (
+    <span className="meeting-widget__actions">
+      {data.status === 'in_progress' ? (
+        <StatusChip tone="success">{t.hub.meeting.live}</StatusChip>
+      ) : countdown ? (
+        <span className="meeting-widget__countdown">{countdown}</span>
+      ) : null}
+      {items.length > 0 ? (
+        <Menu
+          label={format(t.hub.meeting.actions, { title: data.title })}
+          align="end"
+          items={items}
+          trigger={(props) => (
+            <button
+              type="button"
+              {...props}
+              className="icon-btn icon-btn--32"
+              aria-label={format(t.hub.meeting.actions, { title: data.title })}
+              title={format(t.hub.meeting.actions, { title: data.title })}
+            >
+              <Icon name="more" />
+            </button>
+          )}
+        />
+      ) : null}
+    </span>
+  ) : undefined;
 
   return (
     <Card title={t.hub.meeting.title} action={action}>
@@ -137,7 +177,7 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
           }
         />
       ) : (
-        <MeetingBlock meeting={data} timeZone={timeZone} members={members.data ?? []} />
+        <MeetingBlock meeting={data} me={me} timeZone={timeZone} members={members.data ?? []} />
       )}
     </Card>
   );
@@ -145,10 +185,12 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
 
 function MeetingBlock({
   meeting,
+  me,
   timeZone,
   members,
 }: {
   readonly meeting: Meeting;
+  readonly me: Profile;
   readonly timeZone: string;
   readonly members: readonly Profile[];
 }) {
@@ -194,9 +236,251 @@ function MeetingBlock({
           {host ? ` · ${format(t.hub.meeting.host, { name: host.first_name })}` : null}
         </p>
       </div>
-      <div className="meeting-widget__row">
+      <MeetingStateTray meeting={meeting} me={me} timeZone={timeZone} />
+    </div>
+  );
+}
+
+/** Najwięcej wierszy w tacy widżetu; resztę pokazuje popup spotkania. */
+const TRAY_ROWS = 3;
+
+/**
+ * Taca stanu widżetu (MTG-1, DS §15 „Widget tray head”, „Voter mini-stack + count”): chip stanu
+ * z notatką po prawej i najwyżej trzy wiersze h54.
+ */
+function MeetingStateTray({
+  meeting,
+  me,
+  timeZone,
+}: {
+  readonly meeting: Meeting;
+  readonly me: Profile;
+  readonly timeZone: string;
+}) {
+  if (meeting.status === 'in_progress') return <PlaysTray meeting={meeting} timeZone={timeZone} />;
+  if (meeting.voting_open) return <VotesTray meeting={meeting} me={me} />;
+  return <ChosenGamesTray meeting={meeting} />;
+}
+
+/**
+ * Głowa tacy: chip stanu zaplanowanego spotkania albo, w trakcie, etykieta „Partie” (chip
+ * „Trwa” jest już w nagłówku karty), z notatką po prawej.
+ */
+function TrayHead({ meeting, note }: { readonly meeting: Meeting; readonly note?: string | null }) {
+  return (
+    <div className="meeting-tray__head">
+      {meeting.status === 'in_progress' ? (
+        <span className="meeting-tray__label">{t.meetings.view.plays}</span>
+      ) : (
         <MeetingStatusChip meeting={meeting} short />
+      )}
+      {note ? <span className="meeting-tray__note">{note}</span> : null}
+    </div>
+  );
+}
+
+function TrayLoading({
+  isError,
+  onRetry,
+}: {
+  readonly isError: boolean;
+  readonly onRetry: () => void;
+}) {
+  return isError ? (
+    <Banner
+      variant="error"
+      action={
+        <Button size="sm" variant="secondary" icon="refresh" onClick={onRetry}>
+          {t.hub.retry}
+        </Button>
+      }
+    >
+      {t.hub.loadError}
+    </Banner>
+  ) : (
+    <Skeleton width="100%" height={54} radius={14} />
+  );
+}
+
+function MoreRows({ hidden }: { readonly hidden: number }) {
+  return hidden > 0 ? (
+    <p className="meeting-tray__more">{plural(hidden, t.hub.meeting.more)}</p>
+  ) : null;
+}
+
+function VotesTray({ meeting, me }: { readonly meeting: Meeting; readonly me: Profile }) {
+  const { client } = useAuth();
+  const games = useGameSearch(client, '');
+  const votes = useMeetingVotes(client, meeting.id);
+  const profiles = useAllProfiles(client);
+  const canVote = meeting.participants.includes(me.id);
+  const note =
+    canVote && votes.data
+      ? format(t.meetings.voting.myVotes, { n: myVoteCount(votes.data, me.id) })
+      : null;
+  if (!games.isSuccess || !votes.isSuccess) {
+    return (
+      <div className="meeting-tray">
+        <TrayHead meeting={meeting} />
+        <TrayLoading
+          isError={games.isError || votes.isError}
+          onRetry={() => {
+            void games.refetch();
+            void votes.refetch();
+          }}
+        />
       </div>
+    );
+  }
+  const rows = voteRows(games.data, votes.data, {
+    me: me.id,
+    participants: meeting.participants.length,
+  }).filter((row) => row.voters.length > 0);
+  return (
+    <div className="meeting-tray">
+      <TrayHead meeting={meeting} note={note} />
+      {rows.length === 0 ? (
+        <p className="meeting-tray__empty">{t.hub.meeting.noVotes}</p>
+      ) : (
+        <>
+          <Tray label={t.hub.meeting.topVotesLabel}>
+            {rows.slice(0, TRAY_ROWS).map((row) => {
+              const voters = row.voters.flatMap((id) => {
+                const person = profiles.data?.get(id);
+                return person ? [avatarPerson(person)] : [];
+              });
+              return (
+                <li key={row.game.id} className="tray__item">
+                  <div className="row row--54 meeting-tray__row">
+                    <GameCover
+                      id={row.game.id}
+                      title={row.game.title}
+                      coverPath={row.game.cover_path}
+                      size="thumb"
+                    />
+                    <span className="meeting-tray__name">{row.game.title}</span>
+                    <span className="voter-count">
+                      {voters.length > 0 ? <AvatarStack people={voters} size={20} max={3} /> : null}
+                      <span className="voter-count__n" aria-hidden="true">
+                        {row.voters.length}
+                      </span>
+                      <span className="sr-only">{votesLabel(row.voters.length)}</span>
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </Tray>
+          <MoreRows hidden={rows.length - TRAY_ROWS} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function ChosenGamesTray({ meeting }: { readonly meeting: Meeting }) {
+  const { client } = useAuth();
+  const games = usePublishedGames(client, meeting.id);
+  if (!games.isSuccess) {
+    return (
+      <div className="meeting-tray">
+        <TrayHead meeting={meeting} />
+        <TrayLoading isError={games.isError} onRetry={() => void games.refetch()} />
+      </div>
+    );
+  }
+  return (
+    <div className="meeting-tray">
+      <TrayHead meeting={meeting} />
+      {games.data.length === 0 ? (
+        <p className="meeting-tray__empty">{t.meetings.voting.playingEmpty}</p>
+      ) : (
+        <>
+          <Tray label={t.meetings.voting.playingLabel}>
+            {games.data.slice(0, TRAY_ROWS).map((game) => (
+              <li key={game.id} className="tray__item">
+                <div className="row row--54 meeting-tray__row">
+                  <GameCover
+                    id={game.id}
+                    title={game.title}
+                    coverPath={game.cover_path}
+                    size="thumb"
+                  />
+                  <span className="meeting-tray__name">{game.title}</span>
+                </div>
+              </li>
+            ))}
+          </Tray>
+          <MoreRows hidden={games.data.length - TRAY_ROWS} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Partie trwającego spotkania: najpierw w toku, potem ostatnio zapisane ze zwycięzcami. */
+function PlaysTray({
+  meeting,
+  timeZone,
+}: {
+  readonly meeting: Meeting;
+  readonly timeZone: string;
+}) {
+  const { client } = useAuth();
+  const plays = useMeetingPlays(client, meeting.id);
+  const profiles = useAllProfiles(client);
+  if (!plays.isSuccess) {
+    return (
+      <div className="meeting-tray">
+        <TrayHead meeting={meeting} />
+        <TrayLoading isError={plays.isError} onRetry={() => void plays.refetch()} />
+      </div>
+    );
+  }
+  const { saved, drafts } = splitPlays(plays.data);
+  const rows = [...drafts, ...[...saved].reverse()];
+  return (
+    <div className="meeting-tray">
+      <TrayHead meeting={meeting} note={playsProgressLabel(saved.length, drafts.length)} />
+      {rows.length === 0 ? (
+        <p className="meeting-tray__empty">{t.hub.meeting.noPlays}</p>
+      ) : (
+        <>
+          <Tray label={t.hub.meeting.playsLabel}>
+            {rows.slice(0, TRAY_ROWS).map((play) => (
+              <li key={play.id} className="tray__item">
+                <div className="row row--54 meeting-tray__row">
+                  <GameCover
+                    id={play.game.id}
+                    title={play.game.title}
+                    coverPath={play.game.cover_path}
+                    size="thumb"
+                  />
+                  <span className="meeting-tray__text">
+                    <span className="meeting-tray__name">{play.game.title}</span>
+                    {play.status === 'draft' ? (
+                      <span className="meeting-tray__meta meeting-tray__meta--live">
+                        {format(t.meetings.plays.liveSince, {
+                          time: localDateTime(play.started_at, timeZone).time,
+                        })}
+                      </span>
+                    ) : null}
+                  </span>
+                  {play.status === 'saved' ? (
+                    <WinnersLine
+                      winners={play.results
+                        .filter((r) => r.is_win === true)
+                        .map((r) => r.profile_id)}
+                      profiles={profiles.data}
+                    />
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </Tray>
+          <MoreRows hidden={rows.length - TRAY_ROWS} />
+        </>
+      )}
     </div>
   );
 }

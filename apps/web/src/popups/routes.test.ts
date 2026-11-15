@@ -34,6 +34,17 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
+  it('zna rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4)', () => {
+    const stack = [
+      { kind: 'meeting', id: ID },
+      { kind: 'start-meeting', id: ID },
+      { kind: 'finish-meeting', id: ID },
+    ] as const;
+    const search = `?p=meeting/${ID}&p=meeting/${ID}/start&p=meeting/${ID}/finish`;
+    expect(parseStack(search)).toEqual(stack);
+    expect(stackSearch('', stack)).toBe(search);
+  });
+
   it('zna planowanie, edycję i usuwanie spotkania (PLAN-1, PLAN-3)', () => {
     expect(parseStack(`?p=meetings/new&p=meeting/${ID}/edit&p=meeting/${ID}/delete`)).toEqual([
       { kind: 'add-meeting' },
