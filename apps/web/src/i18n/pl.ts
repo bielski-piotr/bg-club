@@ -618,8 +618,44 @@ export const pl = {
       notInProgress: 'Notes jest dostępny tylko w trwającym spotkaniu.',
       gone: 'Tej partii już nie ma. Mogła zostać porzucona na innym urządzeniu.',
       saved: 'Ta partia jest już zapisana.',
-      noTear:
-        'Oderwanie karteczki i zapis wyników dojdą w kolejnym kroku. Wpisy zapisują się na bieżąco jako szkic partii.',
+      tearHint:
+        'Wpisy zapisują się na bieżąco jako szkic partii. Gdy skończycie, oderwij karteczkę: zobaczysz podsumowanie i zapiszesz wyniki.',
+      tear: 'Oderwij kartkę',
+      tearLabel: 'Oderwij kartkę i zakończ partię {title}',
+      emptySheet: 'Kartka nie ma jeszcze wyników. Wpisz je, a potem oderwij karteczkę.',
+      tearConflict: 'Najpierw rozstrzygnij konflikt szkicu, a potem oderwij karteczkę.',
+      restoreFailed:
+        'Nie udało się położyć kartki z powrotem na notesie. Zamknij notes i otwórz go ponownie: wpisy są zapisane w szkicu partii.',
+      summary: {
+        title: 'Podsumowanie partii',
+        description:
+          '{title}. Sprawdź miejsca i punkty przed zapisem. Zapisanej partii nie można już zmienić.',
+        listLabel: 'Wyniki partii {title}',
+        place: '{n}.',
+        placeLabel: 'Miejsce {n}',
+        shared: 'Wspólne miejsce',
+        win: 'Wygrana',
+        noValue: 'brak wyniku',
+        score: 'Wynik {n}',
+        points: '+{n} pkt',
+        pointsLabel: '{n} pkt do rankingu',
+        cancel: 'Wróć do kartki',
+        submit: 'Zapisz partię',
+        invalidSheet:
+          'Tej kartki nie da się zapisać: wyniki nie pasują do graczy partii albo nikt nie ma wyniku w kategorii decydującej. Wróć do kartki i uzupełnij wpisy.',
+        errors: {
+          gone: 'Tej partii już nie ma. Mogła zostać porzucona na innym urządzeniu.',
+          saved: 'Ta partia została już zapisana z innymi wynikami, np. na innym urządzeniu.',
+          closed: 'Spotkanie już się nie toczy, więc partii nie można zapisać.',
+          forbidden: 'Partię zapisuje administrator albo prowadzący spotkania.',
+          invalid:
+            'Baza odrzuciła wyniki tej kartki. Wróć do kartki, sprawdź wpisy i oderwij ją ponownie.',
+          network:
+            'Nie udało się połączyć z serwerem. Wpisy są bezpieczne na tym urządzeniu. Spróbuj ponownie: partia nie zapisze się dwa razy.',
+          server:
+            'Nie udało się zapisać partii. Spróbuj ponownie: partia nie zapisze się dwa razy.',
+        },
+      },
       status: {
         saved: 'Szkic zapisany',
         pending: 'Zmiany czekają na zapis…',
@@ -858,6 +894,7 @@ export const pl = {
       started: 'Spotkanie rozpoczęte',
       playStarted: 'Partia rozpoczęta: {title}',
       playDiscarded: 'Partia porzucona: {title}',
+      playSaved: 'Partia zapisana: {title}',
       finished: 'Spotkanie zakończone',
     },
   },

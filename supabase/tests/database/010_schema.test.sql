@@ -138,7 +138,8 @@ select is_empty(
           'public.reopen_voting(uuid)'::regprocedure,
           'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure,
           'public.save_play_draft(uuid,jsonb,int)'::regprocedure,
-          'public.discard_play(uuid)'::regprocedure
+          'public.discard_play(uuid)'::regprocedure,
+          'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure
         )
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
@@ -166,8 +167,9 @@ select ok(
 );
 select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+play_meeting_id := private\.play_meeting\(\w+\.play_id\);\s+perform private\.require_meeting_runner\(play_meeting_id\);')
-     from pg_proc where oid in ('public.save_play_draft(uuid,jsonb,int)'::regprocedure, 'public.discard_play(uuid)'::regprocedure)),
-  'save_play_draft i discard_play (security definer) zaczynają od strażnika private.require_meeting_runner()'
+     from pg_proc where oid in ('public.save_play_draft(uuid,jsonb,int)'::regprocedure, 'public.discard_play(uuid)'::regprocedure,
+                                'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure)),
+  'save_play_draft, discard_play i save_play (security definer) zaczynają od strażnika private.require_meeting_runner()'
 );
 select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);')

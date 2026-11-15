@@ -160,6 +160,27 @@ export interface MockOptions {
   startPlayError?: { readonly code: string; readonly hint?: string; readonly message: string };
   /** Brak sieci przy zapisie szkicu (`save_play_draft` przerwane jak offline, PAD-4). */
   draftOffline?: boolean;
+  /**
+   * Zapis partii (`save_play`, PAD-5): tyle pierwszych żądań baza wykonuje, ale odpowiedź nie
+   * dociera (przekroczony czas po zatwierdzeniu transakcji).
+   */
+  savePlayLostReplies?: number;
+  /** Błąd PostgREST zwracany przez `save_play` (np. reguła z HINT). */
+  savePlayError?: { readonly code: string; readonly hint?: string; readonly message: string };
+}
+
+/** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
+export interface PlaySave {
+  readonly play_id: string;
+  readonly scorepad_version_id: string;
+  readonly sheet: Record<string, unknown>;
+  readonly results: readonly {
+    readonly profile_id: string;
+    readonly seat: number;
+    readonly place: number;
+    readonly scores: Record<string, number | null>;
+    readonly ranking_value: number | null;
+  }[];
 }
 
 /** Wywołanie `save_play_draft` (PAD-4): wpisy kartki i wersja, od której zaczyna zapis. */
@@ -201,6 +222,10 @@ export interface MockPlay {
   readonly draft_saved_by?: string | null;
   /** Notes partii (`options.scorepads`): szablon i liczba miejsc notesu partii. */
   readonly scorepad_id?: string;
+  /** Snapshot punktacji z rozpoczęcia partii (GAME-9); domyślnie 10/6/4/2. */
+  readonly points_snapshot?: readonly number[];
+  /** Treść ostatniego `save_play` (ponowienie z tą samą treścią zwraca zapisaną partię). */
+  readonly saved_payload?: string;
   readonly play_results: readonly {
     readonly profile_id: string;
     readonly is_win: boolean | null;
@@ -414,6 +439,8 @@ export interface SupabaseMock {
   /** Wywołania `save_play_draft` (PAD-4) i `discard_play` (PAD-8, id partii). */
   readonly draftSaves: DraftSave[];
   readonly discards: string[];
+  /** Wywołania `save_play` (PAD-5), także ponowienia. */
+  readonly playSaves: PlaySave[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -477,6 +504,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     playStarts: [],
     draftSaves: [],
     discards: [],
+    playSaves: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -861,6 +889,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
             draft_version: play.draft_version ?? 0,
             draft_saved_at: play.draft_saved_at ?? null,
             draft_saved_by: play.draft_saved_by ?? null,
+            points_snapshot: play.points_snapshot ?? [10, 6, 4, 2],
             scorepad_version_id: pad?.current.id ?? '00000000-0000-4000-e000-00000000ffff',
             game_id: gameId,
             games: game ? { id: game.id, title: game.title, cover_path: game.cover_path } : null,
@@ -906,6 +935,59 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
           draft_saved_at: saved.draft_saved_at,
         },
       });
+    }
+    // Zapis partii (PAD-5) jak `save_play`: punkty i wygrane liczy „baza” ze snapshotu,
+    // ponowienie z tą samą treścią zwraca zapisaną partię, inna treść jest odrzucana.
+    if (url.pathname === '/rest/v1/rpc/save_play' && request.method() === 'POST') {
+      const body = request.postDataJSON() as PlaySave;
+      mock.playSaves.push(body);
+      const fail = (status: number, code: string, hint: string) =>
+        route.fulfill({ status, json: { code, hint, message: hint } });
+      if (mock.options.savePlayError) {
+        return route.fulfill({ status: 400, json: mock.options.savePlayError });
+      }
+      const play = (mock.options.plays ?? []).find((p) => p.id === body.play_id);
+      if (!play) return fail(404, 'P0002', 'plays_not_found');
+      const payload = JSON.stringify({ sheet: body.sheet, results: body.results });
+      let saved = play;
+      if (play.status === 'saved') {
+        if (play.saved_payload !== payload) return fail(400, '23514', 'plays_already_saved');
+      } else {
+        const pad = (mock.options.scorepads ?? []).find((p) => p.id === play.scorepad_id);
+        if (pad && pad.current.id !== body.scorepad_version_id) {
+          return fail(400, '23514', 'plays_scorepad_version_mismatch');
+        }
+        if (body.results.some((r) => 'points' in r || 'is_win' in r)) {
+          return fail(400, '23514', 'plays_results_invalid');
+        }
+        const snapshot = play.points_snapshot ?? [10, 6, 4, 2];
+        const places = body.results.map((r) => r.place);
+        saved = {
+          ...play,
+          status: 'saved',
+          saved_at: new Date().toISOString(),
+          sheet: body.sheet,
+          saved_payload: payload,
+          play_results: body.results.map((r) => {
+            const tied = places.filter((p) => p === r.place).length;
+            const sum = snapshot.slice(r.place - 1, r.place - 1 + tied).reduce((a, b) => a + b, 0);
+            return {
+              profile_id: r.profile_id,
+              seat: r.seat,
+              place: r.place,
+              ranking_value: r.ranking_value,
+              points: Math.floor(sum / tied),
+              is_win: r.place === 1,
+            };
+          }),
+        };
+        mock.options.plays = (mock.options.plays ?? []).map((p) => (p.id === play.id ? saved : p));
+      }
+      if ((mock.options.savePlayLostReplies ?? 0) > 0) {
+        mock.options.savePlayLostReplies = (mock.options.savePlayLostReplies ?? 0) - 1;
+        return route.abort('timedout');
+      }
+      return route.fulfill({ json: { id: saved.id } });
     }
     // Porzucenie partii w toku (PAD-8): szkic znika razem z graczami.
     if (url.pathname === '/rest/v1/rpc/discard_play' && request.method() === 'POST') {

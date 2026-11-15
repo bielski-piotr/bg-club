@@ -1,10 +1,12 @@
 /**
- * Generator testu pgTAP `supabase/tests/database/110_scoring.test.sql` ze wspólnych przypadków
- * (PRD §8.3). Plik SQL jest wynikiem tej funkcji; `sql.test.ts` pilnuje, że jest aktualny,
- * a `pnpm --filter @bg-club/scoring gen:sql` zapisuje go od nowa.
+ * Generatory testów pgTAP ze wspólnych przypadków (PRD §8.3): `110_scoring` (punkty,
+ * `public.play_points`) i `171_save_play_cases` (pełny zapis partii, `public.save_play`).
+ * Pliki SQL są wynikiem tych funkcji; `sql.test.ts` pilnuje, że są aktualne,
+ * a `pnpm --filter @bg-club/scoring gen:sql` zapisuje je od nowa.
  */
 import type { InvalidPlacingCase, PlayCase } from './cases';
 import { placesInSeatOrder } from './cases';
+import type { SavePlayResult } from './save';
 
 export const SQL_TEST_PATH = 'supabase/tests/database/110_scoring.test.sql';
 
@@ -51,5 +53,111 @@ export function renderSqlTest(
     );
   }
   lines.push('', 'select * from finish();', 'rollback;', '');
+  return lines.join('\n');
+}
+
+/** Test pgTAP zapisu partii (`public.save_play`) z tych samych przypadków. */
+export const SAVE_PLAY_SQL_TEST_PATH = 'supabase/tests/database/171_save_play_cases.test.sql';
+
+const uuid = (group: string, n: number): string =>
+  `00000000-0000-4000-${group}-${String(n).padStart(12, '0')}`;
+const bool = (b: boolean): string => (b ? 'true' : 'false');
+
+/**
+ * Każdy przypadek przechodzi pełną ścieżkę partii w bazie: gra z punktacją przypadku, notes
+ * z jego szablonem, `start_play` i `save_play` z miejscami policzonymi w TypeScripcie
+ * (`rankPlayers` → `savePlayResults`). Baza musi przyjąć te miejsca (zgodność z kategorią
+ * decydującą i kierunkiem reguły) i policzyć te same punkty, remisy i wygrane co przypadek.
+ */
+export function renderSavePlaySqlTest(
+  cases: readonly PlayCase[],
+  results: (c: PlayCase) => readonly SavePlayResult[],
+): string {
+  const players = Math.max(...cases.map((c) => Math.max(...c.players.map((p) => p.seat + 1))));
+  const admin = uuid('a000', 1);
+  const player = (seat: number): string => uuid('a000', 100 + seat);
+  const lines: string[] = [
+    '-- [029] Zapis partii (PRD PAD-5, §5.6, §8.3): public.save_play na wspólnych przypadkach.',
+    '-- PLIK GENEROWANY z packages/scoring/src/cases/play-cases.json — nie edytować ręcznie.',
+    '-- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.',
+    '-- Miejsca liczy TypeScript (rankPlayers, savePlayResults), punkty i wygrane baza.',
+    '-- Dane testowe są fikcyjne.',
+    'begin;',
+    '',
+    'create extension if not exists pgtap with schema extensions;',
+    '',
+    `select plan(${cases.length * 2});`,
+    '',
+    'insert into public.profiles (id, hook, first_name, last_name, role) values',
+    [
+      `  (${literal(admin)}, 'ada-adminowska-a001', 'Ada', 'Adminowska', 'admin')`,
+      ...Array.from(
+        { length: players },
+        (_, seat) =>
+          `  (${literal(player(seat))}, ${literal(`gracz-${seat + 1}-testowy-${(0xa100 + seat).toString(16)}`)}, 'Gracz', ${literal(`Testowy ${seat + 1}`)}, 'player')`,
+      ),
+    ].join(',\n') + ';',
+    '',
+    'insert into public.meetings (id, title, starts_at, created_by) values',
+    `  (${literal(uuid('c000', 1))}, 'Wspólne przypadki', '2026-11-20 18:00+01', ${literal(admin)});`,
+    'insert into public.meeting_participants (meeting_id, profile_id)',
+    `select ${literal(uuid('c000', 1))}, p.id from public.profiles p;`,
+    "update public.meetings set status = 'in_progress', voting_open = false, started_at = now();",
+    '',
+  ];
+  cases.forEach((c, index) => {
+    const n = index + 1;
+    const slots = Math.max(...c.players.map((p) => p.seat + 1));
+    const template = JSON.stringify({ v: 2, ...c.template });
+    lines.push(
+      `-- ${c.name}`,
+      'insert into public.games (id, title, min_players, max_players, placement_points) values',
+      `  (${literal(uuid('b000', n))}, ${literal(`Gra ${n}`)}, 2, ${c.points.length}, ${intArray(c.points)});`,
+      'insert into public.scorepads (id, game_id, name) values',
+      `  (${literal(uuid('d000', n))}, ${literal(uuid('b000', n))}, ${literal(`Notes ${n}`)});`,
+      'insert into public.scorepad_versions (id, scorepad_id, template, player_slots) values',
+      `  (${literal(uuid('e000', n))}, ${literal(uuid('d000', n))}, ${literal(template)}, ${slots});`,
+      `update public.scorepads set current_version_id = ${literal(uuid('e000', n))} where id = ${literal(uuid('d000', n))};`,
+    );
+  });
+  lines.push(
+    '',
+    'set local role authenticated;',
+    `set local request.jwt.claims to ${literal(JSON.stringify({ sub: admin, role: 'authenticated' }))};`,
+    '',
+  );
+  cases.forEach((c, index) => {
+    const n = index + 1;
+    const slots = Math.max(...c.players.map((p) => p.seat + 1));
+    const seats = Array.from({ length: slots }, (_, seat) =>
+      c.players.some((p) => p.seat === seat) ? literal(player(seat)) : 'null',
+    );
+    const payload = JSON.stringify(results(c));
+    const sheet = JSON.stringify({ game: n, names: [], cells: {} });
+    const call = [
+      `select public.start_play(${literal(uuid('f000', n))}, ${literal(uuid('c000', 1))}, ${literal(uuid('d000', n))},`,
+      `       array[${seats.join(', ')}]::uuid[]);`,
+      `     select public.save_play(${literal(uuid('f000', n))}, ${literal(uuid('e000', n))},`,
+      `       ${literal(sheet)}::jsonb,`,
+      `       ${literal(payload)}::jsonb);`,
+    ].join('\n');
+    const expected = [...c.expected]
+      .sort((a, b) => a.seat - b.seat)
+      .map(
+        (e) =>
+          `(${e.seat + 1}, ${e.place}, ${bool(e.tiedWith.length > 0)}, ${e.points}, ${bool(e.place === 1)})`,
+      );
+    lines.push(
+      `select lives_ok($$ ${call} $$,`,
+      `  ${literal(`${c.name}: baza przyjmuje miejsca z TypeScriptu`)});`,
+      `select results_eq(`,
+      `  $$ select seat, place, tied, points, is_win from public.play_results`,
+      `      where play_id = ${literal(uuid('f000', n))} order by seat $$,`,
+      `  $$ values ${expected.join(', ')} $$,`,
+      `  ${literal(`${c.name}: punkty, remisy i wygrane z bazy`)});`,
+      '',
+    );
+  });
+  lines.push('select * from finish();', 'rollback;', '');
   return lines.join('\n');
 }
