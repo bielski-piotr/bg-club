@@ -208,7 +208,8 @@ test('oderwanie: obraz karteczki WebP ≤ 150 KB do Storage i do partii po zapis
   expect(first?.size).toBeGreaterThan(1000);
   expect(first?.size).toBeLessThanOrEqual(150 * 1024);
   await summary.getByRole('button', { name: 'Wróć do kartki' }).click();
-  await expect.poll(() => mock.sheetRemoved).toEqual([first?.path]);
+  // Otwarcie spotkania przez prowadzącego też sprząta osierocone pliki (SAVED_PATH).
+  await expect.poll(() => mock.sheetRemoved).toContain(first?.path);
 
   // Zapis: nowy obraz, dołączony do partii po `save_play`, potem sprzątanie osieroconych plików.
   await tear(page);
@@ -218,9 +219,13 @@ test('oderwanie: obraz karteczki WebP ≤ 150 KB do Storage i do partii po zapis
   const second = mock.sheetUploads[1]?.path;
   expect(second).toBeDefined();
   expect(second).not.toBe(first?.path);
-  expect(mock.sheetAttaches).toEqual([{ play_id: PLAY_ID, image_path: second }]);
-  expect(mock.sheetRemoved).toEqual([first?.path, SAVED_PATH]);
-  expect(mock.options.plays?.[0]?.sheet_image_path).toBe(second);
+  // Dołączenie i sprzątanie idą w tle po zapisie wyników.
+  await expect.poll(() => mock.sheetAttaches).toEqual([{ play_id: PLAY_ID, image_path: second }]);
+  await expect
+    .poll(() => [...new Set(mock.sheetRemoved)].sort())
+    .toEqual([first?.path, SAVED_PATH].sort());
+  expect(mock.sheetRemoved).not.toContain(second);
+  await expect.poll(() => mock.options.plays?.[0]?.sheet_image_path).toBe(second);
 
   // Karta partii w spotkaniu pokazuje obraz karteczki.
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
