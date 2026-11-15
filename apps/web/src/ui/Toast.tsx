@@ -49,6 +49,8 @@ export interface ToastProviderProps {
   readonly duration?: number | undefined;
   /** Najwyżej tyle toastów naraz; starsze znikają. */
   readonly limit?: number | undefined;
+  /** Stały stan nad toastami (np. brak sieci, nowa wersja aplikacji). */
+  readonly pinned?: ReactNode | undefined;
 }
 
 /**
@@ -56,7 +58,12 @@ export interface ToastProviderProps {
  * (błędy: `assertive`), więc czytnik ekranu je ogłasza. Najechanie lub fokus
  * wstrzymuje znikanie.
  */
-export function ToastProvider({ children, duration = 4000, limit = 3 }: ToastProviderProps) {
+export function ToastProvider({
+  children,
+  duration = 4000,
+  limit = 3,
+  pinned,
+}: ToastProviderProps) {
   const [entries, setEntries] = useState<readonly Entry[]>([]);
   // Najechanie i fokus wstrzymują znikanie niezależnie od siebie.
   const [hovered, setHovered] = useState(false);
@@ -101,6 +108,7 @@ export function ToastProvider({ children, duration = 4000, limit = 3 }: ToastPro
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
         }}
       >
+        {pinned}
         <div aria-live="polite" className="toast-region__list">
           {entries
             .filter((e) => e.variant !== 'error')

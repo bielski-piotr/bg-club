@@ -8,6 +8,8 @@ import { parseConfig } from './config/env';
 import { viewForPath } from './design-system/path';
 import { createQueryClient } from './lib/queryClient';
 import { getSupabase } from './lib/supabase';
+import { AppStatus } from './pwa/AppStatus';
+import { registerServiceWorker } from './pwa/updates';
 import { Root } from './Root';
 import { initTheme } from './theme/useTheme';
 import { ToastProvider } from './ui/Toast';
@@ -19,13 +21,22 @@ const view = viewForPath(window.location.pathname);
 const config = parseConfig(import.meta.env);
 if (view === 'app' && config.ok) getSupabase(config.config);
 
+// Service worker powłoki tylko w buildzie (NFR-3); w `vite dev` pliki zmieniają się na bieżąco.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    registerServiceWorker().catch(() => {
+      // Bez service workera aplikacja działa dalej, tylko bez instalacji i cache powłoki.
+    });
+  });
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Brak elementu #root w index.html');
 
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={createQueryClient()}>
-      <ToastProvider>
+      <ToastProvider pinned={view === 'app' ? <AppStatus /> : null}>
         <Root config={config} view={view} />
       </ToastProvider>
     </QueryClientProvider>

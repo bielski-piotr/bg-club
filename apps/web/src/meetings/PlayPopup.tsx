@@ -43,6 +43,7 @@ import {
   type DraftStatus,
   type ServerDraft,
 } from './playDraft';
+import { pwa } from '../pwa/updates';
 import { invalidatePlayData } from './playDelete';
 import { isMeetingRunner, playKey, usePlay, type PlayDetail } from './plays';
 import { PlaySaveError, playSummary, savePlay, type PlaySummary } from './playSave';
@@ -278,6 +279,12 @@ function PlayPad({
       }, 0);
     };
   }, [initial, client, me.id, play.id, queryClient]);
+
+  // Aktualizacja aplikacji czeka, aż wpisy będą w bazie (NFR-3, PAD-4).
+  useEffect(() => {
+    pwa.setDraft(play.id, status.state !== 'saved' && status.state !== 'failed');
+  }, [play.id, status.state]);
+  useEffect(() => () => pwa.setDraft(play.id, false), [play.id]);
 
   // Konflikt w trakcie wpisywania: nowszy szkic z bazy (kto i kiedy go zapisał).
   const liveConflict = status.state === 'conflict';

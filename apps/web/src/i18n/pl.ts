@@ -1459,6 +1459,15 @@ export const pl = {
     dark: 'Ciemny',
     system: 'Systemowy',
   },
+  /** Aplikacja instalowana, brak sieci i aktualizacje (PRD NFR-3, zadanie [038]). */
+  pwa: {
+    offline:
+      'Brak połączenia z internetem. BG Club potrzebuje sieci; wpisy w notesie czekają na tym urządzeniu.',
+    available: 'Dostępna nowa wersja aplikacji.',
+    activated: 'Aplikacja zaktualizowała się w innej karcie.',
+    waitForDraft: 'Odświeżysz, gdy szkic partii zapisze się w bazie.',
+    reload: 'Odśwież',
+  },
   /** Teksty wbudowane w komponenty design systemu (`src/ui`). */
   ui: {
     close: 'Zamknij',

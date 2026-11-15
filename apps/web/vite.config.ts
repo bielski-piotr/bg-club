@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { isSecretKey } from './src/config/secretKey';
+import { pwaPlugin } from './src/pwa/plugin';
 
 export default defineConfig(({ mode }) => {
   // Vite wbudowuje zmienne VITE_* w publiczny bundel. Sekretny klucz serwera w miejscu klucza
@@ -15,7 +16,8 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react()],
+    // Service worker powłoki (NFR-3): `dist/sw.js` z listą plików tego buildu.
+    plugins: [react(), pwaPlugin(new URL('./src/pwa/sw.js', import.meta.url).pathname)],
     server: { port: 5173, strictPort: true },
     preview: { port: 4173, strictPort: true },
     build: { target: 'es2022', sourcemap: true },
