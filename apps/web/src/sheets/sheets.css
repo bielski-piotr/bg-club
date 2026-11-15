@@ -226,21 +226,27 @@
   background: var(--c-tint);
 }
 
-.sheet-gallery__img {
-  display: block;
-  width: 86%;
+.sheet-gallery__sheet.play-sheet {
+  width: 72px;
+  height: 92px;
+}
+
+/* Obraz karteczki w galerii: cała kartka, lekko obrócona (DS §14). */
+.sheet-gallery__sheet.play-sheet--image {
+  width: 80%;
   height: 86%;
-  object-fit: contain;
+  border: 0;
+  border-radius: 4px;
+  background: none;
   transform: rotate(-2deg);
 }
 
-.sheet-gallery__item:hover .sheet-gallery__img {
-  transform: rotate(0deg) scale(1.03);
+.sheet-gallery__sheet .play-sheet__img {
+  object-fit: contain;
 }
 
-.sheet-gallery__placeholder.play-sheet {
-  width: 72px;
-  height: 92px;
+.sheet-gallery__item:hover .sheet-gallery__sheet.play-sheet--image {
+  transform: rotate(0deg) scale(1.03);
 }
 
 .sheet-gallery__caption {
@@ -251,7 +257,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .sheet-gallery__img {
+  .sheet-gallery__sheet {
     transition: transform 160ms ease;
   }
 }

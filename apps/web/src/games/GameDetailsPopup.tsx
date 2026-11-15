@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useClub } from '../hub/club';
@@ -23,7 +22,7 @@ const text = t.games.details;
  * w powiększeniu z wynikami i linkiem do spotkania (`sheet/<uuid>`). Statystyki gry dochodzą
  * w zadaniu [035].
  */
-export function GameDetailsPopup({ id }: { readonly id: string; readonly isAdmin: boolean }) {
+export function GameDetailsPopup({ id }: { readonly id: string }) {
   const { client } = useAuth();
   const game = useGame(client, id);
   const sheets = useGameSheets(client, id);
@@ -109,7 +108,6 @@ function GalleryItem({
   readonly timeZone: string;
 }) {
   const { open } = usePopups();
-  const [failed, setFailed] = useState(false);
   const date = formatMeetingDate(sheet.saved_at, timeZone);
   return (
     <button
@@ -119,17 +117,11 @@ function GalleryItem({
       onClick={() => open({ kind: 'sheet', id: sheet.id })}
     >
       <span className="sheet-gallery__frame" aria-hidden="true">
-        {sheet.image_url && !failed ? (
-          <img
-            className="sheet-gallery__img"
-            src={sheet.image_url}
-            alt=""
-            loading="lazy"
-            onError={() => setFailed(true)}
-          />
-        ) : (
-          <SheetThumbnail gameId={gameId} className="sheet-gallery__placeholder" />
-        )}
+        <SheetThumbnail
+          gameId={gameId}
+          imageUrl={sheet.image_url}
+          className="sheet-gallery__sheet"
+        />
       </span>
       <span className="sheet-gallery__caption" aria-hidden="true">
         {sheet.meeting_title

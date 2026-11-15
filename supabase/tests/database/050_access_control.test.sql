@@ -79,7 +79,7 @@ select results_eq(
   $$ select p.oid::regprocedure::text from pg_proc p
       where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
         and has_function_privilege('authenticated', p.oid, 'execute')
-      order by 1 collate "C" $$,
+      order by p.oid::regprocedure::text collate "C" $$,
   $$ values
        ('attach_play_sheet_image(uuid,text)'),
        ('discard_play(uuid)'),

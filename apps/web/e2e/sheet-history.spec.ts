@@ -325,7 +325,7 @@ test('galeria gry od najnowszej karteczki; historia zostaje po usunięciu gry i 
   await expect(details.getByText('2 partie')).toBeVisible();
   // Najnowsza (partia 2, bez obrazu) pierwsza, z karteczką zastępczą; starsza z obrazem.
   await expect(items.nth(0).locator('.play-sheet__band')).toBeVisible();
-  await expect(items.nth(1).locator('.sheet-gallery__img')).toBeVisible();
+  await expect(items.nth(1).locator('.play-sheet__img')).toBeVisible();
   await expect(items.nth(1)).toContainText('Listopadowe granie');
   await check(page);
   await items.nth(1).getByRole('button').click();

@@ -198,10 +198,7 @@ export async function encodeSheetImage(
       last = b;
       if (b.size <= maxBytes) return b;
       // bez kodera WebP przeglądarka daje PNG: jakość nic nie zmienia, zostaje mniejszy wymiar
-      if (b.type !== 'image/webp') {
-        if (b.size <= maxBytes * 4) return b;
-        break;
-      }
+      if (b.type !== 'image/webp') break;
     }
     side = Math.round(side * 0.8);
   }
@@ -2041,7 +2038,9 @@ export class ScorePad {
     this.sfx.whoosh();
     const data = sheet.data;
     // obraz karteczki teraz: lecąca kartka jest potem usuwana razem z teksturą (PAD-6)
-    const shot = entry ? sheet.snapshot(SHEET_IMAGE_MAX_SIDE) : null;
+    // (tylko partia w trybie klubowym; notes testowy kreatora i demo obrazu nie zapisują)
+    const shot =
+      entry && this.opts.club && !this.opts.test ? sheet.snapshot(SHEET_IMAGE_MAX_SIDE) : null;
     // Partia: podsumowanie z potwierdzeniem pokazuje aplikacja (PAD-5).
     if (this.opts.summary !== false) window.setTimeout(() => this.showSaved(entry, data, t), 700);
     if (entry) {
@@ -2049,7 +2048,7 @@ export class ScorePad {
         ...entry,
         sheet: packSheet(data),
         results: this.sheetResults(data, t),
-        image: (options) => encodeSheetImage(shot as HTMLCanvasElement, options),
+        image: (options) => (shot ? encodeSheetImage(shot, options) : Promise.resolve(null)),
       };
       this.host.dispatchEvent(
         new CustomEvent('scorepad:save', { detail, bubbles: true, composed: true }),

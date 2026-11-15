@@ -61,7 +61,7 @@ export function HubPopup({ route, me }: HubPopupProps) {
     case 'games':
       return <CollectionPopup isAdmin={me.role === 'admin'} />;
     case 'game':
-      return <GameDetailsPopup id={route.id} isAdmin={me.role === 'admin'} />;
+      return <GameDetailsPopup id={route.id} />;
     case 'sheet':
       return <SheetPopup id={route.id} />;
     case 'add-game':

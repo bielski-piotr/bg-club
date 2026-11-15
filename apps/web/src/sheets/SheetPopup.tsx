@@ -139,9 +139,11 @@ function SheetView({
 
 /** Powiększony obraz karteczki; bez obrazu (przerwany upload) kartka zastępcza z wyjaśnieniem. */
 function SheetImage({ sheet, label }: { readonly sheet: SavedSheet; readonly label: string }) {
-  const url = useSheetImageUrl(sheet.sheet_image_path);
+  const signed = useSheetImageUrl(sheet.sheet_image_path);
+  const url = signed.data;
   const [failed, setFailed] = useState<string | undefined>(undefined);
-  if (sheet.sheet_image_path && url === undefined && failed === undefined) {
+  // Bez adresu (np. plik usunięty, błąd Storage) karteczka zastępcza zamiast wczytywania.
+  if (sheet.sheet_image_path && url === undefined && !signed.isError) {
     return <div className="sheet-view__stage sheet-view__stage--loading" aria-busy="true" />;
   }
   if (!url || url === failed) {

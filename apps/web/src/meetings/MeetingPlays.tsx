@@ -123,15 +123,19 @@ export function MeetingPlaysSection({
 export function SheetThumbnail({
   gameId,
   imagePath = null,
+  imageUrl,
   small = false,
   className,
 }: {
   readonly gameId: string;
   readonly imagePath?: string | null | undefined;
+  /** Gotowy podpisany adres (galeria podpisuje wszystkie obrazy jednym żądaniem). */
+  readonly imageUrl?: string | null | undefined;
   readonly small?: boolean;
   readonly className?: string | undefined;
 }) {
-  const url = useSheetImageUrl(imagePath);
+  const signed = useSheetImageUrl(imageUrl === undefined ? imagePath : null).data;
+  const url = imageUrl === undefined ? signed : (imageUrl ?? undefined);
   const [failed, setFailed] = useState<string | undefined>(undefined);
   const showImage = url !== undefined && url !== failed;
   return (

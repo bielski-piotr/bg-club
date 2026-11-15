@@ -19,7 +19,7 @@ import { SHEETS_BUCKET } from './sheetImages';
 /** Podpisany adres obrazu karteczki; bez ścieżki zapytanie jest wyłączone. */
 export function useSheetImageUrl(path: string | null | undefined) {
   const { client } = useAuth();
-  return useQuery(signedUrlQuery(client, SHEETS_BUCKET, path ?? null)).data;
+  return useQuery(signedUrlQuery(client, SHEETS_BUCKET, path ?? null));
 }
 
 /** Zapisana karteczka partii: powiększenie, wyniki, spotkanie i podgląd 3D. */

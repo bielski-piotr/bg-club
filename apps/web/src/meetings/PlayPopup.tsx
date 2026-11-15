@@ -407,11 +407,8 @@ function PlayPad({
   const { release } = useLeaveGuard(torn ? tearGuard : null);
 
   const saveFinal = useMutation({
-    mutationFn: async ({ summary, image }: { summary: PlaySummary; image: PendingSheetImage }) => {
-      await savePlay(client, play, summary);
-      // Partia zapisana: obraz karteczki dołączamy potem; jego brak nie psuje historii (PAD-6).
-      await finishSheetImage(client, play, image);
-    },
+    mutationFn: ({ summary }: { summary: PlaySummary; image: PendingSheetImage }) =>
+      savePlay(client, play, summary),
     onMutate: () => {
       savingRef.current = true;
     },
@@ -419,7 +416,12 @@ function PlayPad({
       savingRef.current = false;
       void queryClient.invalidateQueries({ queryKey: playKey(play.id) });
     },
-    onSuccess: () => {
+    onSuccess: (_result, { image }) => {
+      // Obraz karteczki dołączamy w tle: zapis wyników na niego nie czeka, a jego brak nie psuje
+      // historii (PAD-6). Po dołączeniu lista partii pokazuje miniaturę.
+      void finishSheetImage(client, play, image)
+        .catch(() => null)
+        .then(() => queryClient.invalidateQueries({ queryKey: meetingsKey }));
       // Partia zakończona: szkic i jego kopie lokalne nic już nie znaczą.
       saverRef.current?.dispose(false);
       saverRef.current = null;
