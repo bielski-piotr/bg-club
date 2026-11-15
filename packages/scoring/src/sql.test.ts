@@ -2,11 +2,14 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { invalidPlacings, playCases, type PlayCase } from './cases';
+import { achievementCases } from './cases/achievements';
 import { rankPlayers } from './ranking';
 import { savePlayResults } from './save';
 import {
+  ACHIEVEMENTS_SQL_TEST_PATH,
   SAVE_PLAY_SQL_TEST_PATH,
   SQL_TEST_PATH,
+  renderAchievementSqlTest,
   renderSavePlaySqlTest,
   renderSqlTest,
 } from './sql';
@@ -38,6 +41,10 @@ describe('testy pgTAP ze wspólnych przypadków', () => {
 
   it('171_save_play_cases jest aktualny (pnpm --filter @bg-club/scoring gen:sql)', () => {
     expectFresh(SAVE_PLAY_SQL_TEST_PATH, renderSavePlaySqlTest(playCases, tsResults));
+  });
+
+  it('221_achievement_cases jest aktualny (pnpm --filter @bg-club/scoring gen:sql)', () => {
+    expectFresh(ACHIEVEMENTS_SQL_TEST_PATH, renderAchievementSqlTest(achievementCases));
   });
 
   it('cytuje apostrofy w nazwach przypadków', () => {

@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(26);
+select plan(27);
 
 -- a001 Ada: admin; a002 Bartek: prowadzący; a003 Celina: gracz.
 insert into public.profiles (id, hook, first_name, last_name, role) values
@@ -109,14 +109,22 @@ select lives_ok(
   'prowadzący zapisuje dwie partie (f001 z obrazem) i zaczyna trzecią'
 );
 
--- Odblokowania z przeliczenia osiągnięć ([036]): jedno wskazuje partię f001, drugie spotkanie.
+-- Odblokowania z przeliczenia osiągnięć ([036]) po zapisie: „gracz:osiągnięcie:partia”.
 reset role;
-insert into public.achievement_unlocks (profile_id, achievement_id, unlocked_at, meeting_id, play_id) values
-  ('00000000-0000-4000-a000-000000000002', 'beginners-luck', '2026-11-20 18:00+01',
-   '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-f000-000000000001'),
-  ('00000000-0000-4000-a000-000000000003', 'meet-1', '2026-11-20 18:00+01',
-   '00000000-0000-4000-c000-000000000001', null);
+create function public.test_unlocks()
+returns text[]
+language sql
+set search_path = ''
+as $$
+  select coalesce(array_agg(right(u.profile_id::text, 1) || ':' || u.achievement_id || ':'
+           || coalesce(right(u.play_id::text, 1), '-') order by u.profile_id, u.achievement_id), '{}')
+    from public.achievement_unlocks u;
+$$;
+grant execute on function public.test_unlocks() to authenticated;
 set local role authenticated;
+select is(public.test_unlocks(),
+  array['2:beginners-luck:1', '2:meet-1:1', '2:win-1:1', '3:meet-1:1', '3:win-1:2'],
+  'zapis partii przelicza osiągnięcia (Bartek wygrywa f001, Celina f002)');
 
 -- =============================================================================================
 -- Uprawnienia (VIEW-6): tylko admin
@@ -153,10 +161,9 @@ select is((select count(*) from public.plays where id = '00000000-0000-4000-f000
   'partia i dane kartki usunięte trwale');
 select is((select count(*) from public.play_results where play_id = '00000000-0000-4000-f000-000000000001'), 0::bigint,
   'wyniki partii usunięte');
-select is(
-  (select array_agg(achievement_id order by achievement_id) from public.achievement_unlocks),
-  array['meet-1'],
-  'odblokowanie z usuniętej partii cofnięte; przeliczenie spotkania należy do [036]');
+select is(public.test_unlocks(),
+  array['2:meet-1:2', '3:beginners-luck:2', '3:meet-1:2', '3:win-1:2'],
+  'przeliczenie po usunięciu: wygrane Bartka cofnięte, pierwsza partia Celiny to teraz f002');
 
 -- Rankingi liczą się z wyników: zostaje tylko f002 (Celina 10 pkt i 1 wygrana, Bartek 6 pkt).
 select results_eq(
