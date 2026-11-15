@@ -5,6 +5,7 @@ import { PopupHost } from './PopupHost';
 import { PopupModal } from './PopupModal';
 import { PopupRouter } from './PopupRouter';
 import type { PopupRoute } from './routes';
+import { usePopups } from './popupContext';
 import { useLeaveGuard } from './useLeaveGuard';
 import { useState, type ReactNode } from 'react';
 
@@ -25,11 +26,28 @@ function TestPopup({ route }: { readonly route: PopupRoute }) {
         <label>
           Notatka <input />
         </label>
+        <StackButtons />
       </Guarded>
     );
   }
+  if (route.kind === 'settings') return <PopupModal title="Ustawienia">ustawienia</PopupModal>;
   return (
     <PopupModal title="Nie znaleziono">{route.kind === 'invalid' ? route.raw : null}</PopupModal>
+  );
+}
+
+/** `backBy(2)` i `replace` z wnętrza popupu (np. dialog nad popupem, którego treść zniknęła). */
+function StackButtons() {
+  const { backBy, replace } = usePopups();
+  return (
+    <>
+      <button type="button" onClick={() => backBy(2)}>
+        Zamknij dwa
+      </button>
+      <button type="button" onClick={() => replace({ kind: 'settings' })}>
+        Podmień
+      </button>
+    </>
   );
 }
 
@@ -141,6 +159,45 @@ describe('stos popupów', () => {
     expect(window.location.search).toBe('');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Członkowie klubu' })).toHaveFocus();
+  });
+
+  it('backBy(2) zamyka dwa górne popupy jednym cofnięciem historii', async () => {
+    renderStack();
+    fireEvent.click(screen.getByRole('link', { name: 'Członkowie klubu' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Ania' }));
+    const go = vi.spyOn(window.history, 'go');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Zamknij dwa' }));
+      await new Promise((resolve) => window.addEventListener('popstate', resolve, { once: true }));
+    });
+    expect(go).toHaveBeenCalledWith(-2);
+    expect(window.location.search).toBe('');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    go.mockRestore();
+  });
+
+  it('backBy(2) ze stosu z linku podmienia adres bez wychodzenia z aplikacji', () => {
+    window.history.replaceState(null, '', `/?p=members&p=profile/${ID}`);
+    const before = window.history.length;
+    renderStack();
+    fireEvent.click(screen.getByRole('button', { name: 'Zamknij dwa' }));
+    expect(window.location.search).toBe('');
+    expect(window.history.length).toBe(before);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('replace podmienia górny popup bez nowego wpisu historii', async () => {
+    renderStack();
+    fireEvent.click(screen.getByRole('link', { name: 'Członkowie klubu' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Ania' }));
+    const before = window.history.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Podmień' }));
+    expect(window.location.search).toBe('?p=members&p=settings');
+    expect(window.history.length).toBe(before);
+    expect(dialog('Ustawienia')).toBeInTheDocument();
+    // Wstecz wraca pod podmieniony popup, a nie do profilu.
+    await goBack();
+    expect(window.location.search).toBe('?p=members');
   });
 
   it('szybkie podwójne Esc nie cofa historii poza aplikację', async () => {

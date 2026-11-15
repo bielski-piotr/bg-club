@@ -605,6 +605,65 @@ export const pl = {
         save: 'Nie udało się rozpocząć partii. Sprawdź połączenie i spróbuj ponownie.',
       },
     },
+    /** Partia w toku: notes, szkic, konflikt i porzucenie (PAD-4, PAD-8, PAD-9, zadanie [028]). */
+    play: {
+      backToPad: 'Wróć do notesu',
+      backToPadLabel: 'Wróć do notesu partii {title}',
+      discard: 'Porzuć',
+      discardLabel: 'Porzuć partię {title}',
+      liveTitle: 'Trwa partia: {title}',
+      players: 'Gracze: {names}',
+      loading: 'Wczytywanie partii',
+      notRunner: 'Notes partii jest dostępny tylko dla administratora i prowadzącego spotkania.',
+      notInProgress: 'Notes jest dostępny tylko w trwającym spotkaniu.',
+      gone: 'Tej partii już nie ma. Mogła zostać porzucona na innym urządzeniu.',
+      saved: 'Ta partia jest już zapisana.',
+      noTear:
+        'Oderwanie karteczki i zapis wyników dojdą w kolejnym kroku. Wpisy zapisują się na bieżąco jako szkic partii.',
+      status: {
+        saved: 'Szkic zapisany',
+        pending: 'Zmiany czekają na zapis…',
+        saving: 'Zapisywanie szkicu…',
+        offline: 'Brak połączenia. Wpisy są bezpieczne na tym urządzeniu i zapiszą się same.',
+        server: 'Serwer nie odpowiada. Wpisy są bezpieczne na tym urządzeniu, spróbujemy ponownie.',
+        conflict: 'Szkic zmienił się na innym urządzeniu.',
+        localFailed:
+          'Przeglądarka nie pozwala zapisać kopii na tym urządzeniu. Wpisy trafiają tylko do bazy.',
+      },
+      errors: {
+        conflict: 'Szkic zmienił się na innym urządzeniu.',
+        gone: 'Tej partii już nie ma albo została zapisana. Wpisów nie można zapisać.',
+        closed: 'Spotkanie już się nie toczy, więc szkicu nie można zapisać.',
+        forbidden:
+          'Nie masz już uprawnień do tej partii (prowadzi ją administrator albo prowadzący).',
+        invalid: 'Baza odrzuciła szkic kartki. Odśwież notes i spróbuj ponownie.',
+        network: 'Brak połączenia. Wpisy są bezpieczne na tym urządzeniu.',
+        server: 'Nie udało się zapisać szkicu. Spróbujemy ponownie.',
+      },
+      conflict: {
+        title: 'Szkic zmienił się na innym urządzeniu',
+        text: 'Na tym urządzeniu są wpisy, których nie ma w bazie, a w międzyczasie ktoś zapisał nowszy szkic.',
+        by: 'Nowszy szkic: {name}, {time}.',
+        byUnknown: 'Nowszy szkic zapisano o {time}.',
+        useServer: 'Wczytaj szkic z bazy',
+        keepLocal: 'Zachowaj wpisy z tego urządzenia',
+        keepLocalNote: 'Zachowanie wpisów z tego urządzenia nadpisze szkic w bazie.',
+        loadError: 'Nie udało się wczytać szkicu z bazy. Sprawdź połączenie i spróbuj ponownie.',
+        retry: 'Spróbuj ponownie',
+      },
+      discardDialog: {
+        title: 'Porzucić partię?',
+        description:
+          'Partia {title} zostanie usunięta razem z wpisami z kartki. Nie trafi do historii ani statystyk.',
+        cancel: 'Anuluj',
+        submit: 'Porzuć partię',
+        errors: {
+          forbidden: 'Partię porzuca administrator albo prowadzący spotkania.',
+          gone: 'Tej partii nie można już porzucić, bo została zapisana.',
+          save: 'Nie udało się porzucić partii. Sprawdź połączenie i spróbuj ponownie.',
+        },
+      },
+    },
     /** Kalendarz spotkań (CAL-1…CAL-3, DS §15.1, zadanie [025]). */
     calendar: {
       title: 'Kalendarz',
@@ -798,6 +857,7 @@ export const pl = {
       reopened: 'Głosowanie otwarte ponownie',
       started: 'Spotkanie rozpoczęte',
       playStarted: 'Partia rozpoczęta: {title}',
+      playDiscarded: 'Partia porzucona: {title}',
       finished: 'Spotkanie zakończone',
     },
   },

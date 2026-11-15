@@ -1184,3 +1184,141 @@
   cursor: default;
   opacity: 0.6;
 }
+
+/* Partia w toku: przyciski admina i prowadzącego (DS §15 „Live play card”, PAD-4, PAD-8). */
+.play-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.play-card__resume {
+  flex: 1;
+}
+
+.play-card__actions .btn--secondary {
+  background: var(--c-surface);
+}
+
+/* Notes partii w toku (PAD-4, PAD-9): stan zapisu szkicu, konflikt i notes 3D. */
+.play-pad__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.play-pad__pad {
+  height: min(68vh, 720px);
+  min-height: 380px;
+}
+
+.play-pad__status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.play-pad__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.play-pad__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-success-text);
+}
+
+.play-pad__status--warning {
+  color: var(--c-warning-text);
+}
+
+.play-pad__status--warning .play-pad__dot {
+  background: var(--c-warning-icon);
+}
+
+.play-pad__status--error {
+  color: var(--c-danger-text);
+}
+
+.play-pad__status--error .play-pad__dot {
+  background: var(--c-danger);
+}
+
+.play-pad__note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.play-pad__conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--c-warning-bg);
+  color: var(--c-ink);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.play-pad__conflict p {
+  margin: 0;
+}
+
+.play-pad__conflict-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--c-warning-text);
+}
+
+.play-pad__conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.play-pad__conflict-actions .btn--secondary {
+  background: var(--c-surface);
+}
+
+.play-pad__info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.play-pad__players {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+@media (max-width: 599px) {
+  .play-pad__pad {
+    height: calc(100dvh - 220px);
+    min-height: 320px;
+  }
+
+  .play-pad__conflict-actions > * {
+    flex: 1 1 100%;
+  }
+}

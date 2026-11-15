@@ -186,6 +186,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
             meeting={meeting}
             timeZone={timeZone}
             winners={overview.data?.winners}
+            runner={runner}
           />
         ) : null}
 

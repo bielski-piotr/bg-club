@@ -229,6 +229,12 @@ test('admin: gra, notes i gracze; partia w toku obok drugiej (RUN-2, RUN-3, PAD-
     scorepad_id: AZUL_PAD.id,
     player_ids: [null, CEZARY.id, null, BEA.id],
   });
+  // Kreator ustępuje notesowi nowej partii (PAD-4); Wstecz wraca do spotkania.
+  const playId = mock.playStarts[0]?.play_id ?? '';
+  await expect(page.getByRole('dialog', { name: 'Azul' })).toBeVisible();
+  expect(await search(page)).toBe(`?p=meeting/${RUNNING.id}&p=play/${playId}`);
+  await page.getByRole('dialog', { name: 'Azul' }).getByRole('button', { name: 'Wróć' }).click();
+  await expect(page.getByRole('dialog', { name: 'Azul' })).toHaveCount(0);
   // Dwie partie w toku w tym samym spotkaniu (RUN-3).
   await expect(meeting.getByText('2 w toku')).toBeVisible();
   await expect(

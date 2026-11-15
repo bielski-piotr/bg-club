@@ -158,6 +158,15 @@ export interface MockOptions {
   meetingGames?: { readonly meeting_id: string; readonly game_id: string }[];
   /** Błąd PostgREST zwracany przez `start_play` (np. reguła z HINT). */
   startPlayError?: { readonly code: string; readonly hint?: string; readonly message: string };
+  /** Brak sieci przy zapisie szkicu (`save_play_draft` przerwane jak offline, PAD-4). */
+  draftOffline?: boolean;
+}
+
+/** Wywołanie `save_play_draft` (PAD-4): wpisy kartki i wersja, od której zaczyna zapis. */
+export interface DraftSave {
+  readonly play_id: string;
+  readonly sheet: Record<string, unknown>;
+  readonly base_version: number;
 }
 
 /** Wywołanie `start_play` (RUN-2): miejsca notesu z NULL dla wolnych. */
@@ -185,6 +194,13 @@ export interface MockPlay {
   readonly saved_at: string | null;
   readonly started_at?: string;
   readonly game_id?: string;
+  /** Szkic kartki (PAD-4): wpisy, wersja i kto ją zapisał. Zapis z aplikacji je zmienia. */
+  readonly sheet?: Record<string, unknown> | null;
+  readonly draft_version?: number;
+  readonly draft_saved_at?: string | null;
+  readonly draft_saved_by?: string | null;
+  /** Notes partii (`options.scorepads`): szablon i liczba miejsc notesu partii. */
+  readonly scorepad_id?: string;
   readonly play_results: readonly {
     readonly profile_id: string;
     readonly is_win: boolean | null;
@@ -395,6 +411,9 @@ export interface SupabaseMock {
   readonly runs: { action: 'start' | 'finish'; meeting_id: string }[];
   /** Wywołania `start_play` (RUN-2). */
   readonly playStarts: PlayStart[];
+  /** Wywołania `save_play_draft` (PAD-4) i `discard_play` (PAD-8, id partii). */
+  readonly draftSaves: DraftSave[];
+  readonly discards: string[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -456,6 +475,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     reopens: [],
     runs: [],
     playStarts: [],
+    draftSaves: [],
+    discards: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -806,6 +827,106 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       setMeeting(saved);
       return route.fulfill({ json: saved });
     }
+    // Partia z kartką i szkicem (PAD-4), jak `plays?id=eq.…&select=…scorepad_versions(…)`.
+    const playId = url.searchParams.get('id')?.replace(/^eq\./, '');
+    if (url.pathname === '/rest/v1/plays' && request.method() === 'GET' && playId) {
+      const play = (mock.options.plays ?? []).find((p) => p.id === playId);
+      // `.maybeSingle()` przy GET czyta tablicę (pusta = brak partii).
+      if (!play) return route.fulfill({ json: [] });
+      const gameId = play.game_id ?? '00000000-0000-4000-b000-000000000001';
+      const game = (mock.options.games ?? []).find((g) => g.id === gameId);
+      const pad = (mock.options.scorepads ?? []).find((p) => p.id === play.scorepad_id);
+      const select = url.searchParams.get('select') ?? '';
+      // Konflikt szkicu: aplikacja pyta tylko o pola szkicu.
+      if (!select.includes('games')) {
+        return route.fulfill({
+          json: [
+            {
+              sheet: play.sheet ?? null,
+              draft_version: play.draft_version ?? 0,
+              draft_saved_at: play.draft_saved_at ?? null,
+              draft_saved_by: play.draft_saved_by ?? null,
+            },
+          ],
+        });
+      }
+      return route.fulfill({
+        json: [
+          {
+            id: play.id,
+            meeting_id: play.meeting_id,
+            status: play.status,
+            started_at: play.started_at ?? '2026-11-28T17:10:00+00:00',
+            sheet: play.sheet ?? null,
+            draft_version: play.draft_version ?? 0,
+            draft_saved_at: play.draft_saved_at ?? null,
+            draft_saved_by: play.draft_saved_by ?? null,
+            scorepad_version_id: pad?.current.id ?? '00000000-0000-4000-e000-00000000ffff',
+            game_id: gameId,
+            games: game ? { id: game.id, title: game.title, cover_path: game.cover_path } : null,
+            scorepad_versions: pad
+              ? { player_slots: pad.current.player_slots, scorepads: { name: pad.name } }
+              : null,
+            play_results: play.play_results.map((r, index) => ({
+              profile_id: r.profile_id,
+              seat: r.seat ?? index + 1,
+            })),
+          },
+        ],
+      });
+    }
+    // Szkic kartki (PAD-4) z kontrolą wersji jak `save_play_draft`.
+    if (url.pathname === '/rest/v1/rpc/save_play_draft' && request.method() === 'POST') {
+      const body = request.postDataJSON() as DraftSave;
+      mock.draftSaves.push(body);
+      if (mock.options.draftOffline) return route.abort('internetdisconnected');
+      const fail = (status: number, code: string, hint: string) =>
+        route.fulfill({ status, json: { code, hint, message: hint } });
+      const play = (mock.options.plays ?? []).find((p) => p.id === body.play_id);
+      if (!play) return fail(404, 'P0002', 'plays_not_found');
+      if (play.status !== 'draft') return fail(400, '23514', 'plays_not_draft');
+      const target = meetingById(play.meeting_id);
+      if (target?.status !== 'in_progress') return fail(400, '23514', 'plays_meeting_in_progress');
+      if ((play.draft_version ?? 0) !== body.base_version) {
+        return fail(409, 'PT409', 'plays_draft_conflict');
+      }
+      const saved: MockPlay = {
+        ...play,
+        sheet: body.sheet,
+        draft_version: body.base_version + 1,
+        draft_saved_at: new Date().toISOString(),
+        draft_saved_by: ADA.id,
+      };
+      mock.options.plays = (mock.options.plays ?? []).map((p) => (p.id === play.id ? saved : p));
+      return route.fulfill({
+        json: {
+          id: saved.id,
+          status: saved.status,
+          draft_version: saved.draft_version,
+          draft_saved_at: saved.draft_saved_at,
+        },
+      });
+    }
+    // Porzucenie partii w toku (PAD-8): szkic znika razem z graczami.
+    if (url.pathname === '/rest/v1/rpc/discard_play' && request.method() === 'POST') {
+      const { play_id } = request.postDataJSON() as { play_id: string };
+      mock.discards.push(play_id);
+      const play = (mock.options.plays ?? []).find((p) => p.id === play_id);
+      if (!play) {
+        return route.fulfill({
+          status: 404,
+          json: { code: 'P0002', hint: 'plays_not_found', message: 'plays_not_found' },
+        });
+      }
+      if (play.status !== 'draft') {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'plays_not_draft', message: 'plays_not_draft' },
+        });
+      }
+      mock.options.plays = (mock.options.plays ?? []).filter((p) => p.id !== play_id);
+      return route.fulfill({ status: 204, body: '' });
+    }
     // Partie spotkania z grą i wynikami (VIEW-3), jak `plays?meeting_id=eq.…&select=…games(…)`.
     if (url.pathname === '/rest/v1/plays' && request.method() === 'GET') {
       const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
@@ -896,6 +1017,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         saved_at: null,
         started_at: new Date().toISOString(),
         game_id: pad.game_id,
+        scorepad_id: pad.id,
         play_results: body.player_ids.flatMap((id, index) =>
           id ? [{ profile_id: id, is_win: null, seat: index + 1 }] : [],
         ),
