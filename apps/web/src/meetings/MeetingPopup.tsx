@@ -13,6 +13,7 @@ import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import {
   avatarPerson,
+  compareProfiles,
   fullName,
   useAllProfiles,
   useMembers,
@@ -122,7 +123,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
   const people = meeting.participants
     .map((id) => profiles.data?.get(id) ?? members.find((member) => member.id === id))
     .filter((person): person is Profile => person !== undefined)
-    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'pl') || a.id.localeCompare(b.id));
+    .sort(compareProfiles);
   const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
   const planned = meeting.status === 'planned';
   const status = t.meetings.status;

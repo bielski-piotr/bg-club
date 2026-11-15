@@ -71,6 +71,8 @@ export function gameReason(
   participants: number,
 ): string | null {
   const text = t.meetings.newPlay.reasons;
+  // Partia ma co najmniej 2 graczy (Q2), więc gra jednoosobowa nie ma partii w klubie.
+  if (game.max_players < 2) return text.solo;
   if (pads.length === 0) return text.noScorepad;
   if (fittingScorepads(game, pads).length === 0) {
     return format(text.noFittingScorepad, { need: plural(minPlayers(game), text.players) });
@@ -124,12 +126,13 @@ export function groupGames(
     ? games.filter((game) => normalizeSearch(game.title).includes(needle))
     : games;
   const byId = new Map(matching.map((game) => [game.id, game]));
+  const publishedSet = new Set(publishedIds);
   const published = publishedIds.flatMap((id) => {
     const game = byId.get(id);
     return game ? [game] : [];
   });
   const others = matching
-    .filter((game) => !publishedIds.includes(game.id))
+    .filter((game) => !publishedSet.has(game.id))
     .sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
   return { published, others };
 }

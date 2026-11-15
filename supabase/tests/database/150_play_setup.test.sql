@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(30);
+select plan(32);
 
 -- a001 Ada: admin; a002 Bartek: prowadzący; a003 Celina, a004 Dawid: gracze;
 -- a005 Ewa: uczestniczka, potem usunięta; a006 Filip: spoza spotkania.
@@ -135,6 +135,16 @@ select is(
 select is(
   (select count(*)::int from public.plays where meeting_id = '00000000-0000-4000-c000-000000000001'),
   1, 'ponowienie nie tworzy drugiej partii');
+select is(
+  public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000001',
+    '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
+    array['00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000002']::uuid[]) $$),
+  '23505/plays_already_exists', 'ten sam id z innym składem: błąd zamiast zwrotu starej partii');
+select is(
+  public.test_failure($$ select public.start_play(null,
+    '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
+    array['00000000-0000-4000-a000-000000000002', '00000000-0000-4000-a000-000000000003']::uuid[]) $$),
+  '23502', 'bez identyfikatora partii: odrzucone (bez reguły notesu w HINT)');
 
 -- =============================================================================================
 -- Kilka partii w toku (RUN-3), wolne miejsca, admin

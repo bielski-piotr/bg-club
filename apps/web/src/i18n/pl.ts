@@ -538,6 +538,7 @@ export const pl = {
       stepsLabel: 'Kroki nowej partii',
       stepCurrent: '{n}. {name}',
       stepDone: '{name}: gotowe, wróć do kroku',
+      stepSkipped: '{name}: gotowe, gra ma jeden notes',
       stepUpcoming: '{n}. {name}',
       gameIntro:
         'Wybierz grę. Najpierw są gry opublikowane na to spotkanie, potem reszta kolekcji.',
@@ -585,6 +586,7 @@ export const pl = {
         players: { one: '{n} gracz', few: '{n} graczy', many: '{n} graczy' },
         slots: { one: '{n} miejsce', few: '{n} miejsca', many: '{n} miejsc' },
         noScorepad: 'Brak notesu. Administrator może go dodać w kolekcji gier.',
+        solo: 'Gra jednoosobowa: partia w klubie wymaga co najmniej 2 graczy.',
         noFittingScorepad: 'Żaden notes nie mieści {need}.',
         tooFewParticipants: 'Gra wymaga {need}. Aktywni uczestnicy spotkania: {n}.',
         scorepadTooSmall: 'Notes ma {slots}, a gra wymaga {need}.',

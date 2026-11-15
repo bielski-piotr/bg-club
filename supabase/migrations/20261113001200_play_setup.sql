@@ -13,10 +13,43 @@
 --   najwyżej raz (PAD-2).
 -- - Liczba graczy: max(2, min gry) ≤ n ≤ min(max gry, miejsca notesu) (PAD-3, Q2). Notes
 --   z mniejszą liczbą miejsc niż max(2, min gry) jest niepasujący i odrzucany osobnym błędem.
--- - Identyfikator partii nadaje klient: ponowienie po błędzie sieci zwraca już utworzoną partię
---   zamiast tworzyć drugą (ten sam autor i spotkanie).
+-- - Identyfikator partii nadaje klient: ponowienie po błędzie sieci (także równoległe) zwraca
+--   już utworzoną partię zamiast tworzyć drugą, ale tylko gdy to ta sama partia (autor,
+--   spotkanie, notes i gracze na miejscach). Inna treść pod tym samym id to błąd.
 -- - Błędy reguł mają SQLSTATE 23514 (brak wiersza: P0002) i nazwę reguły w HINT, jak
 --   w migracjach [023] i [024]. Wyzwalacze z [003] pilnują tych samych reguł także poza RPC.
+
+-- Ponowienie start_play: istniejąca partia, gdy to ta sama (autor, spotkanie, notes, gracze na
+-- miejscach); inaczej błąd `plays_already_exists`, zamiast zwracać inną partię jako sukces.
+create function private.same_started_play(existing public.plays, meeting_id uuid, scorepad_id uuid, player_ids uuid[])
+returns public.plays
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  if existing.started_by = auth.uid()
+     and existing.meeting_id = same_started_play.meeting_id
+     and exists (
+       select 1 from public.scorepad_versions v
+        where v.id = existing.scorepad_version_id and v.scorepad_id = same_started_play.scorepad_id
+     )
+     and array(
+       select r.seat || ':' || r.profile_id from public.play_results r
+        where r.play_id = existing.id order by r.seat
+     ) = array(
+       select s.seat || ':' || s.id
+         from unnest(same_started_play.player_ids) with ordinality as s(id, seat)
+        where s.id is not null order by s.seat
+     ) then
+    return existing;
+  end if;
+  raise exception 'play % already exists', existing.id
+    using errcode = '23505', constraint = 'plays_pkey', hint = 'plays_already_exists';
+end;
+$$;
+
+revoke execute on function private.same_started_play(public.plays, uuid, uuid, uuid[]) from public, anon, authenticated;
 
 create function public.start_play(play_id uuid, meeting_id uuid, scorepad_id uuid, player_ids uuid[])
 returns public.plays
@@ -34,11 +67,15 @@ declare
   lower_bound int;
   upper_bound int;
   saved public.plays;
+  created boolean;
 begin
   perform private.require_meeting_runner(start_play.meeting_id);
 
-  if start_play.play_id is null or start_play.scorepad_id is null then
-    raise exception 'play id and scorepad are required'
+  if start_play.play_id is null then
+    raise exception 'play id is required' using errcode = '23502';
+  end if;
+  if start_play.scorepad_id is null then
+    raise exception 'scorepad is required'
       using errcode = '23502', hint = 'plays_scorepad_unavailable';
   end if;
 
@@ -53,11 +90,7 @@ begin
   -- Ponowienie po błędzie sieci: partia już jest.
   select p.* into existing from public.plays p where p.id = start_play.play_id;
   if found then
-    if existing.meeting_id = start_play.meeting_id and existing.started_by = auth.uid() then
-      return existing;
-    end if;
-    raise exception 'play % already exists', start_play.play_id
-      using errcode = '23505', constraint = 'plays_pkey', hint = 'plays_already_exists';
+    return private.same_started_play(existing, start_play.meeting_id, start_play.scorepad_id, start_play.player_ids);
   end if;
 
   -- Blokady: równoległe usunięcie notesu albo gry czeka na rozpoczęcie partii albo partia
@@ -73,6 +106,10 @@ begin
       using errcode = '23514', constraint = 'plays_game_active', hint = 'plays_game_active';
   end if;
   select v.player_slots into slots from public.scorepad_versions v where v.id = pad.current_version_id;
+  if slots is null then
+    raise exception 'scorepad % has no current version', pad.id
+      using errcode = 'P0002', hint = 'plays_scorepad_unavailable';
+  end if;
 
   lower_bound := greatest(2, game.min_players);
   upper_bound := least(game.max_players, slots);
@@ -112,9 +149,16 @@ begin
       using errcode = '23514', constraint = 'play_results_participant', hint = 'plays_player_participant';
   end if;
 
+  -- Równoległe ponowienie z tym samym id czeka na pierwsze wywołanie i dostaje jego partię.
   insert into public.plays (id, meeting_id, game_id, scorepad_version_id, points_snapshot, started_by)
   values (start_play.play_id, start_play.meeting_id, game.id, pad.current_version_id, game.placement_points, auth.uid())
+  on conflict (id) do nothing
   returning * into saved;
+  created := found;
+  if not created then
+    select p.* into existing from public.plays p where p.id = start_play.play_id;
+    return private.same_started_play(existing, start_play.meeting_id, start_play.scorepad_id, start_play.player_ids);
+  end if;
 
   insert into public.play_results (play_id, meeting_id, profile_id, seat)
   select saved.id, saved.meeting_id, s.id, s.seat::int

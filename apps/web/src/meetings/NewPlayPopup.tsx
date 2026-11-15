@@ -3,15 +3,15 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { GameCover } from '../games/GameCover';
-import { useGameSearch, type Game } from '../games/games';
+import { gamesKey, useGameSearch, type Game } from '../games/games';
 import { format, plural, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { useMounted } from '../popups/useMounted';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
-import { useActiveScorepads, type Scorepad } from '../score-pad/scorepads';
+import { compareProfiles, fullName, useAllProfiles, type Profile } from '../profile/profiles';
+import { scorepadsKey, useActiveScorepads, type Scorepad } from '../score-pad/scorepads';
 import { Banner, Button, EmptyState, Icon, SearchField, Tray, useToast } from '../ui';
 import { cx } from '../ui/cx';
 import { SheetThumbnail } from './MeetingPlays';
@@ -124,7 +124,9 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
   const toast = useToast();
   const { back } = usePopups();
   const mounted = useMounted();
-  const [playId] = useState(() => crypto.randomUUID());
+  // Id partii: to samo przy ponowieniu (błąd sieci nie zdubluje partii), nowe po każdej zmianie
+  // wyboru, bo baza zwraca istniejącą partię tylko dla identycznej treści.
+  const [playId, setPlayId] = useState(() => crypto.randomUUID());
   const [step, setStep] = useState<NewPlayStep>('game');
   const [gameId, setGameId] = useState<string | null>(null);
   const [scorepadId, setScorepadId] = useState<string | null>(null);
@@ -134,7 +136,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
   const participants = meeting.participants
     .map((id) => profiles.get(id))
     .filter((person): person is Profile => person !== undefined && person.deleted_at === null)
-    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'pl') || a.id.localeCompare(b.id));
+    .sort(compareProfiles);
   const byGame = scorepadsByGame(pads);
   const game = games.find((candidate) => candidate.id === gameId) ?? null;
   const gamePads = game ? (byGame.get(game.id) ?? []) : [];
@@ -161,21 +163,34 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
       if (mounted.current) back();
     },
     // Także po błędzie: notes, gra albo spotkanie mogły się zmienić w innej karcie.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
+    onSettled: (_, error) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: meetingsKey }),
+        ...(error
+          ? [
+              queryClient.invalidateQueries({ queryKey: scorepadsKey }),
+              queryClient.invalidateQueries({ queryKey: gamesKey }),
+            ]
+          : []),
+      ]),
   });
+  const changed = () => {
+    start.reset();
+    setPlayId(crypto.randomUUID());
+  };
 
   const chooseGame = (id: string) => {
     if (id === gameId) return;
     setGameId(id);
     setScorepadId(null);
     setSeats([]);
-    start.reset();
+    changed();
   };
   const chooseScorepad = (next: Scorepad) => {
     if (next.id === scorepadId) return;
     setScorepadId(next.id);
     setSeats(emptySeats(scorepadSlots(next)));
-    start.reset();
+    changed();
   };
 
   const gameReady = game !== null && gameReason(game, gamePads, participants.length) === null;
@@ -234,7 +249,12 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
       }
     >
       <div className="meeting-view new-play">
-        <StepPills step={step} done={done} onBack={busy ? undefined : setStep} />
+        <StepPills
+          step={step}
+          done={done}
+          skipped={singlePad ? 'scorepad' : null}
+          onBack={busy ? undefined : setStep}
+        />
         {start.isError ? <Banner variant="error">{failure}</Banner> : null}
         {step === 'game' ? (
           <GameStep
@@ -258,7 +278,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
             seats={seats}
             onChange={(nextSeats) => {
               setSeats(nextSeats);
-              start.reset();
+              changed();
             }}
             disabled={busy}
           />
@@ -271,14 +291,17 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
 /**
  * Pigułki kroków (DS §15 „Step pills”): bieżący „N. Nazwa” na ciemnym tle, ukończony
  * z ptaszkiem w kolorze akcentu (przycisk powrotu do kroku), kolejny z obramowaniem.
+ * Pominięty krok (jedyny pasujący notes) jest ukończony, ale bez powrotu.
  */
 function StepPills({
   step,
   done,
+  skipped,
   onBack,
 }: {
   readonly step: NewPlayStep;
   readonly done: Readonly<Record<NewPlayStep, boolean>>;
+  readonly skipped: NewPlayStep | null;
   readonly onBack: ((step: NewPlayStep) => void) | undefined;
 }) {
   return (
@@ -290,6 +313,15 @@ function StepPills({
           return (
             <li key={id} className="step-pill step-pill--current" aria-current="step">
               {format(text.stepCurrent, { n, name })}
+            </li>
+          );
+        }
+        if (done[id] && id === skipped) {
+          return (
+            <li key={id} className="step-pill step-pill--done">
+              <Icon name="check" size={14} />
+              <span aria-hidden="true">{name}</span>
+              <span className="sr-only">{format(text.stepSkipped, { name })}</span>
             </li>
           );
         }

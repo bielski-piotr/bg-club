@@ -258,7 +258,9 @@ test('prowadzący: jeden notes pomija krok, limit graczy gry, błąd bazy (PAD-3
   await wizard.getByRole('button', { name: 'Dalej' }).click();
   const steps = wizard.getByRole('list', { name: 'Kroki nowej partii' });
   await expect(steps.getByRole('listitem').nth(2)).toHaveText('3. Gracze');
-  await expect(steps.getByRole('button', { name: 'Notes: gotowe, wróć do kroku' })).toBeVisible();
+  // Pominięty krok „Notes” jest ukończony, ale bez przycisku powrotu.
+  await expect(steps.getByText('Notes: gotowe, gra ma jeden notes')).toBeAttached();
+  await expect(steps.getByRole('button')).toHaveAccessibleName('Gra: gotowe, wróć do kroku');
   await expect(wizard.getByText('Żółwie Wyścigi · Wyścig · 2 graczy')).toBeVisible();
 
   const outside = wizard.getByRole('list', { name: 'Uczestnicy poza partią' });

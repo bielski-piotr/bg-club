@@ -94,6 +94,13 @@ describe('notesy i gry z wyjaśnieniem wyłączenia (RUN-2, PAD-3)', () => {
     );
   });
 
+  it('gra jednoosobowa nie ma partii (Q2)', () => {
+    const solo = game(3, 'Pasjans', 1, 1);
+    expect(gameReason(solo, [pad(1, solo.id, 4)], 4)).toBe(
+      'Gra jednoosobowa: partia w klubie wymaga co najmniej 2 graczy.',
+    );
+  });
+
   it('gra bez notesu nie pozwala rozpocząć partii', () => {
     expect(gameReason(zolwie, [], 4)).toBe(
       'Brak notesu. Administrator może go dodać w kolekcji gier.',
