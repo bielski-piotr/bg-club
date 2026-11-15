@@ -45,6 +45,20 @@ describe('adresy popupów (PRD §4)', () => {
     expect(stackSearch('', stack)).toBe(search);
   });
 
+  it('zna kreator nowej partii (RUN-2)', () => {
+    const stack = [
+      { kind: 'meeting', id: ID },
+      { kind: 'new-play', meetingId: ID },
+    ] as const;
+    const search = `?p=meeting/${ID}&p=meeting/${ID}/plays/new`;
+    expect(parseStack(search)).toEqual(stack);
+    expect(stackSearch('', stack)).toBe(search);
+    expect(parseRoute(`meeting/${ID.toUpperCase()}/plays/new`)).toEqual(stack[1]);
+    for (const raw of [`meeting/${ID}/plays`, `meeting/${ID}/plays/x`, 'meeting/1/plays/new']) {
+      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    }
+  });
+
   it('zna planowanie, edycję i usuwanie spotkania (PLAN-1, PLAN-3)', () => {
     expect(parseStack(`?p=meetings/new&p=meeting/${ID}/edit&p=meeting/${ID}/delete`)).toEqual([
       { kind: 'add-meeting' },

@@ -156,6 +156,16 @@ export interface MockOptions {
   votes?: MockVote[];
   /** Opublikowane gry (`meeting_games`, VOTE-5) w kolejności `position`. */
   meetingGames?: { readonly meeting_id: string; readonly game_id: string }[];
+  /** Błąd PostgREST zwracany przez `start_play` (np. reguła z HINT). */
+  startPlayError?: { readonly code: string; readonly hint?: string; readonly message: string };
+}
+
+/** Wywołanie `start_play` (RUN-2): miejsca notesu z NULL dla wolnych. */
+export interface PlayStart {
+  readonly play_id: string;
+  readonly meeting_id: string;
+  readonly scorepad_id: string;
+  readonly player_ids: (string | null)[];
 }
 
 export interface MockVote {
@@ -383,6 +393,8 @@ export interface SupabaseMock {
   readonly reopens: string[];
   /** Wywołania `start_meeting` i `finish_meeting` (RUN-1, RUN-4). */
   readonly runs: { action: 'start' | 'finish'; meeting_id: string }[];
+  /** Wywołania `start_play` (RUN-2). */
+  readonly playStarts: PlayStart[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -443,6 +455,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     publishes: [],
     reopens: [],
     runs: [],
+    playStarts: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -858,6 +871,37 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       };
       setMeeting(saved);
       return route.fulfill({ json: saved });
+    }
+    // Nowa partia (RUN-2, PAD-3): szkic z graczami w miejscach, reguły jak `start_play`.
+    if (url.pathname === '/rest/v1/rpc/start_play' && request.method() === 'POST') {
+      const body = request.postDataJSON() as PlayStart;
+      mock.playStarts.push(body);
+      const fail = (status: number, code: string, hint: string) =>
+        route.fulfill({ status, json: { code, hint, message: hint } });
+      if (mock.options.startPlayError) {
+        return route.fulfill({ status: 400, json: mock.options.startPlayError });
+      }
+      const target = meetingById(body.meeting_id);
+      if (target?.status !== 'in_progress') return fail(400, '23514', 'plays_meeting_in_progress');
+      const pad = (mock.options.scorepads ?? []).find((p) => p.id === body.scorepad_id);
+      if (!pad) return fail(404, 'P0002', 'plays_scorepad_unavailable');
+      const players = body.player_ids.filter((id): id is string => id !== null);
+      if (new Set(players).size !== players.length) {
+        return fail(400, '23514', 'plays_players_unique');
+      }
+      const play: MockPlay = {
+        id: body.play_id,
+        meeting_id: body.meeting_id,
+        status: 'draft',
+        saved_at: null,
+        started_at: new Date().toISOString(),
+        game_id: pad.game_id,
+        play_results: body.player_ids.flatMap((id, index) =>
+          id ? [{ profile_id: id, is_win: null, seat: index + 1 }] : [],
+        ),
+      };
+      mock.options.plays = [...(mock.options.plays ?? []), play];
+      return route.fulfill({ json: { id: play.id, status: 'draft' } });
     }
     if (url.pathname === '/rest/v1/play_results' && request.method() === 'GET') {
       const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');

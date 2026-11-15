@@ -1,0 +1,235 @@
+import { describe, expect, it } from 'vitest';
+import type { Game } from '../games/games';
+import type { Scorepad } from '../score-pad/scorepads';
+import {
+  assignSeat,
+  boundsLabel,
+  emptySeats,
+  firstFreeSeat,
+  fittingScorepads,
+  gameReason,
+  gameSubtitle,
+  groupGames,
+  minPlayers,
+  playerBounds,
+  scorepadReason,
+  scorepadsByGame,
+  scorepadSubtitle,
+  seatedPlayers,
+  seatsProblem,
+  startPlay,
+  startPlayFailure,
+  StartPlayError,
+} from './newPlay';
+
+function game(n: number, title: string, min = 2, max = 4): Game {
+  return {
+    id: `00000000-0000-4000-b000-00000000000${n}`,
+    title,
+    cover_path: null,
+    min_players: min,
+    max_players: max,
+    placement_points: Array.from({ length: max }, (_, i) => max - i),
+    created_at: '2026-10-01T00:00:00Z',
+    last_played_at: null,
+  };
+}
+
+function pad(n: number, gameId: string, slots: number | null, version = 1): Scorepad {
+  return {
+    id: `00000000-0000-4000-d000-00000000000${n}`,
+    game_id: gameId,
+    name: `Notes ${n}`,
+    created_at: '2026-10-01T00:00:00Z',
+    current:
+      slots === null
+        ? null
+        : {
+            id: `00000000-0000-4000-e000-00000000000${n}`,
+            version,
+            image_path: null,
+            player_slots: slots,
+            created_at: '2026-10-01T00:00:00Z',
+          },
+  };
+}
+
+const A = 'a';
+const B = 'b';
+const C = 'c';
+
+describe('liczba graczy (PAD-3, Q2)', () => {
+  it('partia ma co najmniej 2 graczy, także gdy gra ma min = 1', () => {
+    expect(minPlayers(game(1, 'Pasjans', 1, 4))).toBe(2);
+    expect(minPlayers(game(1, 'Łąka', 3, 5))).toBe(3);
+  });
+
+  it('górna granica to mniejsza z max gry i miejsc notesu', () => {
+    expect(playerBounds(game(1, 'X', 1, 4), 3)).toEqual({ min: 2, max: 3 });
+    expect(playerBounds(game(1, 'X', 2, 4), 10)).toEqual({ min: 2, max: 4 });
+  });
+
+  it('opisuje zakres po polsku', () => {
+    expect(boundsLabel({ min: 2, max: 4 })).toBe('2–4 graczy');
+    expect(boundsLabel({ min: 2, max: 2 })).toBe('2 graczy');
+  });
+});
+
+describe('notesy i gry z wyjaśnieniem wyłączenia (RUN-2, PAD-3)', () => {
+  const zolwie = game(1, 'Żółwie', 1, 4);
+
+  it('notes z mniejszą liczbą miejsc niż minimum jest niepasujący', () => {
+    expect(scorepadReason(zolwie, pad(1, zolwie.id, 1))).toBe(
+      'Notes ma 1 miejsce, a gra wymaga 2 graczy.',
+    );
+    expect(scorepadReason(game(2, 'Łąka', 3, 5), pad(2, 'x', 2))).toBe(
+      'Notes ma 2 miejsca, a gra wymaga 3 graczy.',
+    );
+    expect(scorepadReason(zolwie, pad(3, zolwie.id, 2))).toBeNull();
+  });
+
+  it('notes bez wersji nie nadaje się do partii', () => {
+    expect(scorepadReason(zolwie, pad(1, zolwie.id, null))).toBe(
+      'Notes nie ma jeszcze zapisanej wersji.',
+    );
+  });
+
+  it('gra bez notesu nie pozwala rozpocząć partii', () => {
+    expect(gameReason(zolwie, [], 4)).toBe(
+      'Brak notesu. Administrator może go dodać w kolekcji gier.',
+    );
+  });
+
+  it('gra bez pasującego notesu jest wyłączona', () => {
+    expect(gameReason(zolwie, [pad(1, zolwie.id, 1)], 4)).toBe('Żaden notes nie mieści 2 graczy.');
+  });
+
+  it('gra z większym minimum niż liczba uczestników jest wyłączona', () => {
+    const laka = game(2, 'Łąka', 3, 5);
+    expect(gameReason(laka, [pad(1, laka.id, 5)], 2)).toBe(
+      'Gra wymaga 3 graczy. Aktywni uczestnicy spotkania: 2.',
+    );
+    expect(gameReason(laka, [pad(1, laka.id, 5)], 3)).toBeNull();
+  });
+
+  it('filtruje pasujące notesy i grupuje je według gry', () => {
+    const pads = [pad(1, zolwie.id, 1), pad(2, zolwie.id, 4), pad(3, 'inna', 2)];
+    expect(fittingScorepads(zolwie, pads.slice(0, 2)).map((p) => p.id)).toEqual([pads[1]?.id]);
+    const map = scorepadsByGame(pads);
+    expect(map.get(zolwie.id)?.length).toBe(2);
+    expect(map.get('inna')?.length).toBe(1);
+  });
+
+  it('opisuje grę i notes', () => {
+    expect(gameSubtitle(zolwie, [pad(1, zolwie.id, 4), pad(2, zolwie.id, 3)])).toBe(
+      '2–4 graczy · 2 notesy',
+    );
+    expect(gameSubtitle(zolwie, [])).toBe('2–4 graczy');
+    expect(scorepadSubtitle(pad(1, zolwie.id, 4, 2))).toBe('4 miejsca · wersja 2');
+    expect(scorepadSubtitle(pad(1, zolwie.id, 5))).toBe('5 miejsc · wersja 1');
+  });
+});
+
+describe('kolejność gier (RUN-2: najpierw opublikowane)', () => {
+  const azul = game(1, 'Azul');
+  const zolwie = game(2, 'Żółwie Wyścigi');
+  const brzdek = game(3, 'Brzdęk');
+  const games = [zolwie, azul, brzdek];
+
+  it('opublikowane w kolejności publikacji, potem reszta alfabetycznie', () => {
+    const groups = groupGames(games, [zolwie.id, brzdek.id]);
+    expect(groups.published.map((g) => g.title)).toEqual(['Żółwie Wyścigi', 'Brzdęk']);
+    expect(groups.others.map((g) => g.title)).toEqual(['Azul']);
+  });
+
+  it('bez publikacji cała kolekcja alfabetycznie; opublikowana usunięta gra znika', () => {
+    expect(groupGames(games, []).others.map((g) => g.title)).toEqual([
+      'Azul',
+      'Brzdęk',
+      'Żółwie Wyścigi',
+    ]);
+    expect(groupGames(games, ['usunieta']).published).toEqual([]);
+  });
+
+  it('wyszukuje bez polskich znaków i wielkości liter', () => {
+    const groups = groupGames(games, [zolwie.id], 'ZOLW');
+    expect(groups.published.map((g) => g.title)).toEqual(['Żółwie Wyścigi']);
+    expect(groups.others).toEqual([]);
+  });
+});
+
+describe('miejsca w notesie (PAD-2)', () => {
+  it('puste miejsca według liczby miejsc notesu', () => {
+    expect(emptySeats(3)).toEqual([null, null, null]);
+  });
+
+  it('sadza gracza i przesadza go bez duplikatów', () => {
+    let seats = assignSeat(emptySeats(3), 0, A);
+    seats = assignSeat(seats, 2, B);
+    expect(seats).toEqual([A, null, B]);
+    seats = assignSeat(seats, 1, A);
+    expect(seats).toEqual([null, A, B]);
+    expect(seatedPlayers(seats)).toEqual([A, B]);
+    expect(assignSeat(seats, 1, null)).toEqual([null, null, B]);
+  });
+
+  it('zamiana gracza na miejscu nie rusza pozostałych', () => {
+    expect(assignSeat([A, B, null], 0, C)).toEqual([C, B, null]);
+  });
+
+  it('pierwsze wolne miejsce', () => {
+    expect(firstFreeSeat([A, null, null])).toBe(1);
+    expect(firstFreeSeat([A, B])).toBe(-1);
+  });
+
+  it('sprawdza liczbę graczy', () => {
+    const bounds = { min: 2, max: 3 };
+    expect(seatsProblem([A, null, null, null], bounds)).toBe('tooFew');
+    expect(seatsProblem([A, null, B, null], bounds)).toBeNull();
+    expect(seatsProblem([A, B, C, 'd'], bounds)).toBe('tooMany');
+  });
+});
+
+describe('startPlay (RPC start_play)', () => {
+  it('wysyła miejsca jako tablicę z NULL dla wolnych miejsc', async () => {
+    const calls: unknown[] = [];
+    const client = {
+      rpc: (name: string, args: unknown) => {
+        calls.push([name, args]);
+        return Promise.resolve({ error: null });
+      },
+    };
+    await startPlay(client as never, {
+      playId: 'p',
+      meetingId: 'm',
+      scorepadId: 's',
+      seats: [null, A, B],
+    });
+    expect(calls).toEqual([
+      ['start_play', { play_id: 'p', meeting_id: 'm', scorepad_id: 's', player_ids: [null, A, B] }],
+    ]);
+  });
+
+  it('zamienia błąd bazy na powód z komunikatem', async () => {
+    const client = {
+      rpc: () =>
+        Promise.resolve({ error: { code: '23514', hint: 'plays_players_count', message: 'x' } }),
+    };
+    await expect(
+      startPlay(client as never, { playId: 'p', meetingId: 'm', scorepadId: 's', seats: [] }),
+    ).rejects.toEqual(new StartPlayError('count'));
+  });
+
+  it('mapuje reguły z HINT i brak uprawnień', () => {
+    expect(startPlayFailure({ hint: 'plays_meeting_in_progress' })).toBe('notInProgress');
+    expect(startPlayFailure({ hint: 'plays_scorepad_unavailable' })).toBe('scorepadGone');
+    expect(startPlayFailure({ hint: 'plays_game_active' })).toBe('gameGone');
+    expect(startPlayFailure({ hint: 'plays_scorepad_fits_game' })).toBe('scorepadTooSmall');
+    expect(startPlayFailure({ hint: 'play_results_seat_within_slots' })).toBe('seats');
+    expect(startPlayFailure({ hint: 'plays_players_unique' })).toBe('duplicate');
+    expect(startPlayFailure({ hint: 'plays_player_participant' })).toBe('participant');
+    expect(startPlayFailure({ code: '42501' })).toBe('forbidden');
+    expect(startPlayFailure({ code: '08000' })).toBe('save');
+    expect(startPlayFailure({ hint: 'plays_already_exists', code: '23505' })).toBe('save');
+  });
+});

@@ -96,8 +96,9 @@ select results_eq(
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
        ('search_text(text)'),
-       ('start_meeting(uuid)') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu i RPC spotkań'
+       ('start_meeting(uuid)'),
+       ('start_play(uuid,uuid,uuid,uuid[])') $$,
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań i rozpoczęcie partii'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.

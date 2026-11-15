@@ -9,6 +9,7 @@ import { CalendarPopup } from '../meetings/CalendarPopup';
 import { DeleteMeetingDialog } from '../meetings/DeleteMeetingDialog';
 import { AddMeetingPopup, EditMeetingPopup } from '../meetings/MeetingFormPopup';
 import { MeetingPopup } from '../meetings/MeetingPopup';
+import { NewPlayPopup } from '../meetings/NewPlayPopup';
 import { PublishGamesPopup } from '../meetings/PublishGamesPopup';
 import { FinishMeetingDialog, StartMeetingDialog } from '../meetings/RunMeetingDialogs';
 import { InvalidPopup } from '../popups/InvalidPopup';
@@ -93,6 +94,10 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return <StartMeetingDialog id={route.id} me={me} />;
     case 'finish-meeting':
       return <FinishMeetingDialog id={route.id} me={me} />;
+    case 'new-play':
+      // Admin albo prowadzący spotkania w trakcie (RUN-2, PAD-9); popup sprawdza rolę i status,
+      // bazę chroni RPC start_play.
+      return <NewPlayPopup meetingId={route.meetingId} me={me} />;
     case 'invalid':
       return <InvalidPopup />;
   }

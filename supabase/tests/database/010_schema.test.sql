@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(41);
+select plan(42);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
@@ -134,7 +134,8 @@ select is_empty(
           'public.start_meeting(uuid)'::regprocedure,
           'public.finish_meeting(uuid)'::regprocedure,
           'public.publish_meeting_games(uuid,uuid[])'::regprocedure,
-          'public.reopen_voting(uuid)'::regprocedure
+          'public.reopen_voting(uuid)'::regprocedure,
+          'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure
         )
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
@@ -154,6 +155,11 @@ select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(')
      from pg_proc where oid in ('public.start_meeting(uuid)'::regprocedure, 'public.finish_meeting(uuid)'::regprocedure)),
   'start_meeting i finish_meeting (security definer) zaczynają od strażnika private.require_meeting_runner()'
+);
+select ok(
+  (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(start_play\.meeting_id\);'
+     from pg_proc where oid = 'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure),
+  'start_play (security definer) zaczyna od strażnika private.require_meeting_runner()'
 );
 select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);')
