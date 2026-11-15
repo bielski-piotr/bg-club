@@ -499,7 +499,6 @@ export const pl = {
       stats: {
         title: 'Statystyki',
         plays: 'Partie',
-        lastPlay: 'Ostatnia partia',
         topWinner: 'Najczęściej wygrywa',
         topWins: { one: '{n} wygrana', few: '{n} wygrane', many: '{n} wygranych' },
         winnerAverage: 'Średni wynik zwycięzcy',

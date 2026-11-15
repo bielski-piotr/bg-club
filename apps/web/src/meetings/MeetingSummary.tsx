@@ -33,7 +33,10 @@ export function MeetingSummarySection({ meetingId }: { readonly meetingId: strin
   const summary = useMeetingSummary(client, meetingId);
   const profiles = useAllProfiles(client);
   const headingId = `${meetingId}-summary`;
+  // Sekcja pojawia się dopiero z danymi (albo błędem): spotkanie bez zapisanych partii nie ma
+  // podsumowania, więc nagłówek z ładowaniem tylko by mignął.
   if (summary.data?.length === 0) return null;
+  if (!summary.isError && !profiles.isError && (!summary.data || !profiles.data)) return null;
   return (
     <section className="meeting-view__section" aria-labelledby={headingId}>
       <div className="meeting-view__head-row">

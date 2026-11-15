@@ -165,7 +165,6 @@ test('statystyki gry: kafle, rekord z rekordzistami, ranking gry (GAME-11)', asy
   const details = page.getByRole('dialog', { name: 'Azul' });
   const stats = details.getByRole('region', { name: 'Statystyki' });
   await expect(stats.getByRole('definition').first()).toHaveText('14');
-  await expect(stats).toContainText('Ostatnia partia8 lis 2026');
   await expect(stats).toContainText('Bea Bobrowska, Cezary Cichy5 wygranych');
   await expect(stats).toContainText('Średni wynik zwycięzcy28,8');
 

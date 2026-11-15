@@ -14,7 +14,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(31);
+select plan(32);
 
 insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw');
 
@@ -205,6 +205,17 @@ select is((public.game_stats('00000000-0000-4000-b000-000000000002') ->> 'winner
   'gra asc: średnia zwycięzców (40 + 38) / 2');
 select is(public.test_names(public.game_stats('00000000-0000-4000-b000-000000000002') -> 'top_winners'),
   array['Lucyna', 'Mateusz'], 'remis najczęstszych zwycięzców: wszyscy, alfabetycznie');
+-- Usunięty członek z największą liczbą wygranych nie jest wyróżniany (jak podium, LB-7):
+-- po usunięciu Łukasza (2 wygrane) najczęściej wygrywają aktywni Lucyna i Mateusz (po 1),
+-- bez usuniętej Celiny (też 1).
+reset role;
+update public.profiles set deleted_at = now() where id = '00000000-0000-4000-a000-000000000011';
+set local role authenticated;
+select is(public.test_names(public.game_stats('00000000-0000-4000-b000-000000000001') -> 'top_winners'),
+  array['Lucyna', 'Mateusz'], 'usunięty członek nie jest najczęstszym zwycięzcą');
+reset role;
+update public.profiles set deleted_at = null where id = '00000000-0000-4000-a000-000000000011';
+set local role authenticated;
 
 -- Usunięcie partii wersji e2 przywraca kierunek „więcej = lepiej” i wspólny rekord (Q25).
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';

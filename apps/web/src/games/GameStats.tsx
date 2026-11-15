@@ -12,9 +12,9 @@ import { formatScore, useGameStats, type GameRecord, type GameStats } from './ga
 const text = t.games.details.stats;
 
 /**
- * Statystyki gry w szczegółach gry (GAME-10, GAME-11): liczba partii, data ostatniej partii,
- * najczęstszy zwycięzca, średni wynik zwycięzcy, rekord gry (wszyscy rekordziści przy równej
+ * Statystyki gry w szczegółach gry (GAME-10, GAME-11): liczba partii, najczęstszy zwycięzca, średni wynik zwycięzcy, rekord gry (wszyscy rekordziści przy równej
  * wartości, Q25; kto i kiedy, z linkiem do spotkania) i ranking graczy w grze (wygrane, punkty).
+ * Datę ostatniej partii pokazuje nagłówek szczegółów gry.
  */
 export function GameStatsSection({
   gameId,
@@ -76,13 +76,7 @@ function StatsBody({
           <dt className="game-stats__label">{text.plays}</dt>
           <dd className="game-stats__value">{stats.play_count}</dd>
         </div>
-        <div className="game-stats__tile">
-          <dt className="game-stats__label">{text.lastPlay}</dt>
-          <dd className="game-stats__value">
-            {stats.last_played_at ? shortMeetingDate(stats.last_played_at, timeZone) : text.none}
-          </dd>
-        </div>
-        <div className="game-stats__tile">
+        <div className="game-stats__tile game-stats__tile--wide">
           <dt className="game-stats__label">{text.topWinner}</dt>
           <dd className="game-stats__value">
             {stats.top_winners.length > 0
@@ -98,7 +92,7 @@ function StatsBody({
         <div className="game-stats__tile">
           <dt className="game-stats__label">{text.winnerAverage}</dt>
           <dd className="game-stats__value">
-            {stats.winner_average !== null ? formatScore(stats.winner_average) : text.none}
+            {stats.winner_average !== null ? formatScore(stats.winner_average, 1) : text.none}
           </dd>
         </div>
       </dl>

@@ -39,7 +39,8 @@ describe('podsumowanie spotkania (VIEW-4)', () => {
 
 describe('statystyki gry (GAME-11)', () => {
   it('formatuje wynik po polsku', () => {
-    expect(formatScore(28.75)).toBe('28,8');
+    expect(formatScore(28.75, 1)).toBe('28,8');
+    expect(formatScore(12.34)).toBe('12,34');
     expect(formatScore(39)).toBe('39');
   });
 });

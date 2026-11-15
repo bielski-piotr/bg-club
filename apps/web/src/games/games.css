@@ -314,7 +314,7 @@
 /* Statystyki gry (GAME-11): kafle faktów, rekord i ranking graczy w grze. */
 .game-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
   gap: 10px;
   margin: 0;
 }
@@ -432,5 +432,10 @@
 @media (max-width: 767.98px) {
   .game-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-stats__tile--wide {
+    grid-column: 1 / -1;
+    order: 1;
   }
 }

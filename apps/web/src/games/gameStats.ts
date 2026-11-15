@@ -73,9 +73,10 @@ export function useGameStats(client: SupabaseClient, id: string) {
   });
 }
 
-const numberFormat = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 });
-
-/** Wynik po polsku: przecinek dziesiętny, najwyżej jedno miejsce po przecinku („28,8”). */
-export function formatScore(value: number): string {
-  return numberFormat.format(value);
+/**
+ * Wynik po polsku z przecinkiem dziesiętnym. Rekord pokazujemy z dokładnością notesu (do 2
+ * miejsc), a średnią zaokrąglamy do 1 miejsca („28,8”).
+ */
+export function formatScore(value: number, fractionDigits = 2): string {
+  return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: fractionDigits }).format(value);
 }

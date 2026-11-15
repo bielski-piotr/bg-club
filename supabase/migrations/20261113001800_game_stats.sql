@@ -10,7 +10,8 @@
 --
 -- `game_stats(game_id)` (GAME-11) zwraca obiekt jsonb (NULL, gdy gry nie ma):
 -- - `play_count`, `last_played_at` (termin spotkania ostatniej partii; NULL bez partii);
--- - `top_winners`: gracze z największą liczbą wygranych (> 0) w tej grze, wszyscy przy remisie;
+-- - `top_winners`: aktywni gracze z największą liczbą wygranych (> 0) w tej grze, wszyscy przy
+--   remisie, alfabetycznie; usunięci członkowie nie są wyróżniani (jak podium, LB-7);
 -- - `record`: najlepsza wartość kategorii decydującej (`ranking_value`) i wszyscy, którzy ją
 --   osiągnęli (Q25), każdy z pierwszą partią, w której to zrobił (kto i kiedy). Kierunek
 --   „lepiej” bierzemy z reguły notesu (`private.scorepad_ranking`): wersje notesu mogą się
@@ -103,9 +104,10 @@ as $$
     'last_played_at', (select max(pl.starts_at) from plays pl),
     'top_winners', coalesce((
       select jsonb_agg(jsonb_build_object('profile_id', rk.profile_id, 'wins', rk.wins)
-               order by rk.deleted, rk.first_name collate "pl-x-icu", rk.last_name collate "pl-x-icu", rk.profile_id)
+               order by rk.first_name collate "pl-x-icu", rk.last_name collate "pl-x-icu", rk.profile_id)
         from ranked rk
-       where rk.wins > 0 and rk.wins = (select max(x.wins) from ranked x)
+       where not rk.deleted and rk.wins > 0
+         and rk.wins = (select max(x.wins) from ranked x where not x.deleted)
     ), '[]'::jsonb),
     'record', (
       select jsonb_build_object(
