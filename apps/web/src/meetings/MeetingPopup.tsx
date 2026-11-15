@@ -34,7 +34,7 @@ import {
 import { cx } from '../ui/cx';
 import { formatMeetingDate, longMeetingDate } from './datetime';
 import { MeetingPlaysSection } from './MeetingPlays';
-import { sweepOrphanSheetImages } from '../sheets/sheetImages';
+import { claimOrphanSweep, sweepOrphanSheetImages } from '../sheets/sheetImages';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
 import { menuItems } from './meetingMenu';
 import { isMeetingRunner } from './plays';
@@ -107,9 +107,6 @@ export function MeetingPopup({ id, me }: { readonly id: string; readonly me: Own
   );
 }
 
-/** Spotkania, w których ta karta już sprzątała obrazy karteczek. */
-const sweptMeetings = new Set<string>();
-
 interface ViewProps {
   readonly meeting: Meeting;
   readonly me: OwnProfile;
@@ -128,8 +125,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
   // admina albo prowadzącego (raz na spotkanie w tej karcie; po zakończeniu tylko admin).
   const status = meeting.status;
   useEffect(() => {
-    if (!runner || status === 'planned' || sweptMeetings.has(meeting.id)) return;
-    sweptMeetings.add(meeting.id);
+    if (!runner || status === 'planned' || !claimOrphanSweep(meeting.id)) return;
     void sweepOrphanSheetImages(client, meeting.id);
   }, [client, meeting.id, runner, status]);
   // Uczestnicy także usunięci w międzyczasie (MEM-5: zostają w historii spotkania).
@@ -200,6 +196,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
             timeZone={timeZone}
             winners={overview.data?.winners}
             runner={runner}
+            admin={isAdmin}
           />
         ) : null}
 

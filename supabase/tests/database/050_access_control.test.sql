@@ -82,6 +82,7 @@ select results_eq(
       order by p.oid::regprocedure::text collate "C" $$,
   $$ values
        ('attach_play_sheet_image(uuid,text)'),
+       ('delete_play(uuid)'),
        ('discard_play(uuid)'),
        ('f_unaccent(text)'),
        ('finish_meeting(uuid)'),
@@ -103,7 +104,7 @@ select results_eq(
        ('search_text(text)'),
        ('start_meeting(uuid)'),
        ('start_play(uuid,uuid,uuid,uuid[])') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie i zapis partii, obrazy karteczek'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie, zapis i usunięcie partii, obrazy karteczek'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.

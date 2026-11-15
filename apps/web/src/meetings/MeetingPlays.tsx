@@ -7,7 +7,7 @@ import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { avatarPerson, fullName, useAllProfiles, type Profile } from '../profile/profiles';
-import { AvatarStack, Button, Icon, paletteColor, paletteIndex } from '../ui';
+import { AvatarStack, Button, Icon, Menu, paletteColor, paletteIndex } from '../ui';
 import { cx } from '../ui/cx';
 import { useSheetImageUrl } from '../sheets/sheets';
 import { localDateTime } from './datetime';
@@ -32,19 +32,22 @@ const text = t.meetings.plays;
  * Miniatura zapisanej partii to obraz oderwanej karteczki (PAD-6); kliknięcie otwiera
  * karteczkę w powiększeniu z wynikami (`sheet/<uuid>`). `runner` (admin albo prowadzący)
  * dostaje przy partiach w toku „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą
- * tylko, że partia trwa (PAD-9).
+ * tylko, że partia trwa (PAD-9). `admin` dostaje przy zapisanych partiach menu z „Usuń partię”
+ * (VIEW-6, §5.6.5).
  */
 export function MeetingPlaysSection({
   meeting,
   timeZone,
   winners,
   runner = false,
+  admin = false,
 }: {
   readonly meeting: Meeting;
   readonly timeZone: string;
   /** Zwycięzcy spotkania (MTG-3) nad listą partii; puste = bez wiersza. */
   readonly winners?: readonly string[] | undefined;
   readonly runner?: boolean | undefined;
+  readonly admin?: boolean | undefined;
 }) {
   const { client } = useAuth();
   const { open } = usePopups();
@@ -105,6 +108,7 @@ export function MeetingPlaysSection({
                     timeZone={timeZone}
                     profiles={profiles.data}
                     onOpen={() => open({ kind: 'sheet', id: play.id })}
+                    onDelete={admin ? () => open({ kind: 'delete-play', id: play.id }) : undefined}
                   />
                 </li>
               ))}
@@ -237,12 +241,15 @@ function PlayCard({
   timeZone,
   profiles,
   onOpen,
+  onDelete,
 }: {
   readonly play: MeetingPlay;
   readonly index: number;
   readonly timeZone: string;
   readonly profiles: ReadonlyMap<string, Profile>;
   readonly onOpen: () => void;
+  /** Admin: menu partii z „Usuń partię” zamiast strzałki (DS §15 „Play card”, VIEW-6). */
+  readonly onDelete?: (() => void) | undefined;
 }) {
   const title = play.game.title;
   const head = (
@@ -254,17 +261,56 @@ function PlayCard({
       </span>
     </>
   );
+  const menuLabel = format(text.menu, { title });
   return (
     <article className="play-card" aria-label={title}>
-      <button
-        type="button"
-        className="play-card__head play-card__head--button"
-        aria-label={format(text.sheet, { title })}
-        onClick={onOpen}
-      >
-        {head}
-        <Icon name="chevron-right" className="play-card__chevron" />
-      </button>
+      {onDelete ? (
+        <div className="play-card__row">
+          <button
+            type="button"
+            className="play-card__head play-card__head--button"
+            aria-label={format(text.sheet, { title })}
+            onClick={onOpen}
+          >
+            {head}
+          </button>
+          <Menu
+            label={menuLabel}
+            align="end"
+            items={[
+              { id: 'sheet', label: text.showSheet, icon: 'image', onSelect: onOpen },
+              {
+                id: 'delete',
+                label: text.delete,
+                icon: 'trash',
+                destructive: true,
+                onSelect: onDelete,
+              },
+            ]}
+            trigger={(props) => (
+              <button
+                type="button"
+                {...props}
+                className="icon-btn icon-btn--32"
+                aria-label={menuLabel}
+                title={menuLabel}
+              >
+                <Icon name="more" />
+              </button>
+            )}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="play-card__head play-card__head--button"
+          aria-label={format(text.sheet, { title })}
+          onClick={onOpen}
+        >
+          {head}
+          <Icon name="chevron-right" className="play-card__chevron" />
+        </button>
+      )}
       <PlayResultRows
         play={play}
         profiles={profiles}

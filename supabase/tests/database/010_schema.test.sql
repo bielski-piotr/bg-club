@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(44);
+select plan(45);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
@@ -141,7 +141,8 @@ select is_empty(
           'public.discard_play(uuid)'::regprocedure,
           'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
           'public.attach_play_sheet_image(uuid,text)'::regprocedure,
-          'public.orphan_sheet_images(uuid)'::regprocedure
+          'public.orphan_sheet_images(uuid)'::regprocedure,
+          'public.delete_play(uuid)'::regprocedure
         )
         and (has_function_privilege('anon', p.oid, 'execute')
              or has_function_privilege('authenticated', p.oid, 'execute')) $$,
@@ -183,6 +184,11 @@ select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);')
      from pg_proc where oid in ('public.publish_meeting_games(uuid,uuid[])'::regprocedure, 'public.reopen_voting(uuid)'::regprocedure)),
   'publish_meeting_games i reopen_voting (security definer) zaczynają od strażnika private.require_admin()'
+);
+select ok(
+  (select prosrc ~ '^\s*declare[^$]*begin\s+(--[^\n]*\s+)*perform private\.require_admin\(\);'
+     from pg_proc where oid = 'public.delete_play(uuid)'::regprocedure),
+  'delete_play (security definer) zaczyna od strażnika private.require_admin()'
 );
 
 -- Wartości domyślne.

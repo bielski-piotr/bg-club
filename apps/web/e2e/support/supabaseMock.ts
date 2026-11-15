@@ -171,6 +171,8 @@ export interface MockOptions {
   sheetUploadOffline?: boolean;
   /** Osierocone obrazy spotkania zwracane przez `orphan_sheet_images`. */
   orphanSheets?: readonly string[];
+  /** Tyle pierwszych usunięć plików z bucketu `sheets` kończy się błędem Storage (500). */
+  sheetRemoveFailures?: number;
 }
 
 /** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
@@ -453,6 +455,8 @@ export interface SupabaseMock {
   readonly sheetUploads: { readonly path: string; readonly type: string; readonly size: number }[];
   readonly sheetAttaches: { readonly play_id: string; readonly image_path: string }[];
   readonly sheetRemoved: string[];
+  /** Wywołania `delete_play` (VIEW-6, id partii), także odrzucone. */
+  readonly playDeletes: string[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -516,6 +520,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     playStarts: [],
     draftSaves: [],
     discards: [],
+    playDeletes: [],
     playSaves: [],
     sheetUploads: [],
     sheetAttaches: [],
@@ -715,7 +720,12 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
           json: { code: '23514', hint: 'meetings_delete_in_progress', message: 'in progress' },
         });
       }
-      if (target && (mock.options.playResults ?? []).some((r) => r.meeting_id === target.id)) {
+      if (
+        target &&
+        [...(mock.options.playResults ?? []), ...(mock.options.plays ?? [])].some(
+          (r) => r.meeting_id === target.id,
+        )
+      ) {
         return route.fulfill({ status: 409, json: { code: '23503', message: 'plays fkey' } });
       }
       mock.options.meetings = (mock.options.meetings ?? []).filter((row) => row.id !== id);
@@ -1077,6 +1087,30 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.options.plays = (mock.options.plays ?? []).filter((p) => p.id !== play_id);
       return route.fulfill({ status: 204, body: '' });
     }
+    // Usunięcie zapisanej partii przez admina (VIEW-6): partia znika z wynikami, RPC zwraca
+    // ścieżkę obrazu karteczki do usunięcia przez API Storage.
+    if (url.pathname === '/rest/v1/rpc/delete_play' && request.method() === 'POST') {
+      const { play_id } = request.postDataJSON() as { play_id: string };
+      mock.playDeletes.push(play_id);
+      if ((mock.options.profile ?? ADA).role !== 'admin') {
+        return route.fulfill({ status: 403, json: { code: '42501', message: 'admin only' } });
+      }
+      const play = (mock.options.plays ?? []).find((p) => p.id === play_id);
+      if (!play) {
+        return route.fulfill({
+          status: 404,
+          json: { code: 'P0002', hint: 'plays_not_found', message: 'plays_not_found' },
+        });
+      }
+      if (play.status !== 'saved') {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'plays_not_saved', message: 'plays_not_saved' },
+        });
+      }
+      mock.options.plays = (mock.options.plays ?? []).filter((p) => p.id !== play_id);
+      return route.fulfill({ json: play.sheet_image_path ?? null });
+    }
     // Partie spotkania z grą i wynikami (VIEW-3), jak `plays?meeting_id=eq.…&select=…games(…)`.
     if (url.pathname === '/rest/v1/plays' && request.method() === 'GET') {
       const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
@@ -1351,6 +1385,13 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     }
     if (url.pathname === `${objectPrefix}sheets` && request.method() === 'DELETE') {
       const { prefixes } = request.postDataJSON() as { prefixes: string[] };
+      if ((mock.options.sheetRemoveFailures ?? 0) > 0) {
+        mock.options.sheetRemoveFailures = (mock.options.sheetRemoveFailures ?? 0) - 1;
+        return route.fulfill({
+          status: 500,
+          json: { statusCode: '500', error: 'internal', message: 'storage unavailable' },
+        });
+      }
       mock.sheetRemoved.push(...prefixes);
       return route.fulfill({ json: [] });
     }

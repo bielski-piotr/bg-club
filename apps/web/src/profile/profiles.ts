@@ -22,7 +22,14 @@ export const PROFILE_COLUMNS = 'id, hook, first_name, last_name, role, avatar_pa
 /** Bucket ze zdjęciami profilowymi (prywatny, zapis: właściciel folderu `<id>/`). */
 export const AVATARS_BUCKET = 'avatars';
 
+/** Korzeń kluczy profili: profile członków, listy i (E5/E6) statystyki. */
+export const profilesKey = ['profiles'] as const;
 export const profileKey = (id: string) => ['profiles', 'byId', id] as const;
+
+/** Klucz własnego profilu zalogowanego (`ownProfileKey`): rola i ustawienia, nie statystyki. */
+export function isOwnProfileKey(key: readonly unknown[]): boolean {
+  return key[0] === profilesKey[0] && key[1] === 'own';
+}
 export const membersKey = ['profiles', 'members'] as const;
 
 export function fullName(profile: Pick<Profile, 'first_name' | 'last_name'>): string {

@@ -78,6 +78,8 @@ export type PopupRoute =
   | { readonly kind: 'play'; readonly id: string }
   /** Potwierdzenie „Porzuć partię” (PAD-8, admin lub prowadzący), adres `play/<uuid>/discard`. */
   | { readonly kind: 'discard-play'; readonly id: string }
+  /** Potwierdzenie „Usuń partię” zapisanej partii (VIEW-6, admin), adres `play/<uuid>/delete`. */
+  | { readonly kind: 'delete-play'; readonly id: string }
   /** Kalendarz spotkań (CAL-1…CAL-3), adres `calendar`. */
   | { readonly kind: 'calendar' }
   /** „Edytuj spotkanie” (PLAN-3, PLAN-4, admin), adres `meeting/<uuid>/edit`. */
@@ -165,6 +167,9 @@ export function parseRoute(raw: string): PopupRoute {
   if (kind === 'play' && args.length === 2 && isUuid(args[0] ?? '') && args[1] === 'discard') {
     return { kind: 'discard-play', id: (args[0] ?? '').toLowerCase() };
   }
+  if (kind === 'play' && args.length === 2 && isUuid(args[0] ?? '') && args[1] === 'delete') {
+    return { kind: 'delete-play', id: (args[0] ?? '').toLowerCase() };
+  }
   if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
   if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
     return { kind: 'change-password' };
@@ -234,6 +239,8 @@ export function serializeRoute(route: PopupRoute): string {
       return `play/${route.id}`;
     case 'discard-play':
       return `play/${route.id}/discard`;
+    case 'delete-play':
+      return `play/${route.id}/delete`;
     case 'profile':
       return `profile/${route.id}`;
     case 'delete-member':

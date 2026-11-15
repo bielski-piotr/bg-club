@@ -142,17 +142,40 @@ export async function attachSheetImage(
   }, options);
 }
 
-/** Usuwa pliki obrazów (bez błędu: plik bez partii posprząta też `orphan_sheet_images`). */
+/**
+ * Usuwa pliki obrazów. Nie rzuca (plik bez partii posprząta też `orphan_sheet_images`);
+ * `false` = błąd Storage albo sieci, pliki mogą zostać.
+ */
 export async function removeSheetImages(
   client: SupabaseClient,
   paths: readonly string[],
-): Promise<void> {
-  if (paths.length === 0) return;
+): Promise<boolean> {
+  if (paths.length === 0) return true;
   try {
-    await client.storage.from(SHEETS_BUCKET).remove([...paths]);
+    const { error } = await client.storage.from(SHEETS_BUCKET).remove([...paths]);
+    return !error;
   } catch {
     // Usunięcie jest tylko sprzątaniem.
+    return false;
   }
+}
+
+/** Spotkania, w których ta karta już sprzątała obrazy karteczek przy otwarciu. */
+const sweptMeetings = new Set<string>();
+
+/**
+ * Sprzątanie przy otwarciu spotkania, raz na spotkanie w tej karcie. `false` = już było
+ * (ponownie dopiero po `allowOrphanSweep`).
+ */
+export function claimOrphanSweep(meetingId: string): boolean {
+  if (sweptMeetings.has(meetingId)) return false;
+  sweptMeetings.add(meetingId);
+  return true;
+}
+
+/** Kolejne otwarcie spotkania znów sprząta (np. obraz usuniętej partii został po błędzie). */
+export function allowOrphanSweep(meetingId: string): void {
+  sweptMeetings.delete(meetingId);
 }
 
 /** Usuwa osierocone obrazy spotkania (przerwane zapisy sprzed co najmniej 15 minut). */
