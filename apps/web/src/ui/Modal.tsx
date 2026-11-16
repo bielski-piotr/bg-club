@@ -1,4 +1,4 @@
-import { useId, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { t } from '../i18n';
 import { IconButton } from './Button';
 import { Icon, type IconName } from './Icon';
@@ -39,10 +39,12 @@ export interface ModalProps {
 }
 
 /** Tab i Shift+Tab krążą w oknie dialogu (NFR-6). */
-function trapFocus(event: KeyboardEvent<HTMLDivElement>) {
+function trapFocus(event: KeyboardEvent, dialog: HTMLDivElement) {
   if (event.key !== 'Tab') return;
-  const dialog = event.currentTarget;
-  const items = focusableIn(dialog);
+  const notifications = document.querySelector<HTMLElement>('.toast-region__toasts');
+  const active = document.activeElement;
+  if (active !== dialog && !dialog.contains(active) && !notifications?.contains(active)) return;
+  const items = [...focusableIn(dialog), ...(notifications ? focusableIn(notifications) : [])];
   const first = items[0];
   const last = items.at(-1);
   if (!first || !last) {
@@ -50,7 +52,6 @@ function trapFocus(event: KeyboardEvent<HTMLDivElement>) {
     dialog.focus();
     return;
   }
-  const active = document.activeElement;
   if (event.shiftKey && (active === first || active === dialog)) {
     event.preventDefault();
     last.focus();
@@ -58,6 +59,25 @@ function trapFocus(event: KeyboardEvent<HTMLDivElement>) {
     event.preventDefault();
     first.focus();
   }
+}
+
+/** Toast z linkiem pozostaje osiągalny klawiaturą również nad otwartym popupem. */
+function useDialogFocus(inactive: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (inactive) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter(
+        (el) => !el.closest('[inert]'),
+      );
+      if (!event.defaultPrevented && ref.current && dialogs.at(-1) === ref.current) {
+        trapFocus(event, ref.current);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [inactive]);
+  return ref;
 }
 
 /**
@@ -81,6 +101,7 @@ export function Modal({
   className,
 }: ModalProps) {
   const titleId = useId();
+  const dialogRef = useDialogFocus(covered || blocked);
 
   return (
     <div
@@ -90,12 +111,12 @@ export function Modal({
       <div className="popup-layer__scrim" aria-hidden="true" onClick={onScrimClick} />
       <div
         role="dialog"
+        ref={dialogRef}
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
         data-popup-level={level}
         className={cx('modal', `modal--${width}`, className)}
-        onKeyDown={trapFocus}
       >
         <header className="modal__header">
           <div className="modal__heading">
@@ -163,6 +184,7 @@ export function Dialog({
 }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const dialogRef = useDialogFocus(covered);
   return (
     <div
       className={cx('popup-layer', 'popup-layer--dialog', covered && 'popup-layer--covered')}
@@ -177,7 +199,7 @@ export function Dialog({
         tabIndex={-1}
         data-popup-level={level}
         className="dialog"
-        onKeyDown={trapFocus}
+        ref={dialogRef}
       >
         {media ? (
           <span className="dialog__media" aria-hidden="true">

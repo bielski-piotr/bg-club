@@ -197,6 +197,8 @@ export interface MockOptions {
    * `20261116000000_achievement_showcase.sql`); domyślnie pusta gablota.
    */
   playerAchievements?: (profileId: string) => unknown;
+  /** Nowe odblokowania zwracane wyłącznie pierwszemu żądaniu zapisu (ACH-4). */
+  savePlayUnlocks?: readonly { readonly profile_id: string; readonly achievement_id: string }[];
   /** Wiersze `meeting_achievements(meeting_id)` (VIEW-5); domyślnie brak odblokowań. */
   meetingAchievements?: (meetingId: string) => readonly unknown[];
 }
@@ -257,6 +259,7 @@ export interface MockLeaderboardRow {
 
 /** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
 export interface PlaySave {
+  readonly request_id?: string;
   readonly play_id: string;
   readonly scorepad_version_id: string;
   readonly sheet: Record<string, unknown>;
@@ -578,6 +581,10 @@ function describe(request: Request): string {
 }
 
 export async function mockSupabase(page: Page, options: MockOptions = {}): Promise<SupabaseMock> {
+  const saveReceipts = new Map<
+    string,
+    { requestId: string | undefined; unlocks: NonNullable<MockOptions['savePlayUnlocks']> }
+  >();
   const mock: SupabaseMock = {
     options,
     calls: [],
@@ -1103,7 +1110,12 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     }
     // Zapis partii (PAD-5) jak `save_play`: punkty i wygrane liczy „baza” ze snapshotu,
     // ponowienie z tą samą treścią zwraca zapisaną partię, inna treść jest odrzucana.
-    if (url.pathname === '/rest/v1/rpc/save_play' && request.method() === 'POST') {
+    if (
+      ['/rest/v1/rpc/save_play', '/rest/v1/rpc/save_play_with_achievements'].includes(
+        url.pathname,
+      ) &&
+      request.method() === 'POST'
+    ) {
       const body = request.postDataJSON() as PlaySave;
       mock.playSaves.push(body);
       const fail = (status: number, code: string, hint: string) =>
@@ -1115,6 +1127,12 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       if (!play) return fail(404, 'P0002', 'plays_not_found');
       const payload = JSON.stringify({ sheet: body.sheet, results: body.results });
       let saved = play;
+      if (!saveReceipts.has(play.id)) {
+        saveReceipts.set(play.id, {
+          requestId: body.request_id,
+          unlocks: play.status === 'draft' ? (mock.options.savePlayUnlocks ?? []) : [],
+        });
+      }
       if (play.status === 'saved') {
         if (play.saved_payload !== payload) return fail(400, '23514', 'plays_already_saved');
       } else {
@@ -1152,7 +1170,13 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         mock.options.savePlayLostReplies = (mock.options.savePlayLostReplies ?? 0) - 1;
         return route.abort('timedout');
       }
-      return route.fulfill({ json: { id: saved.id } });
+      const receipt = saveReceipts.get(play.id);
+      return route.fulfill({
+        json: {
+          id: saved.id,
+          unlocks: receipt?.requestId === body.request_id ? receipt?.unlocks : [],
+        },
+      });
     }
     // Porzucenie partii w toku (PAD-8): szkic znika razem z graczami.
     if (url.pathname === '/rest/v1/rpc/discard_play' && request.method() === 'POST') {

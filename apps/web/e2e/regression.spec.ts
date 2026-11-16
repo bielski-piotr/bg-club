@@ -144,6 +144,7 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
     .getByRole('dialog', { name: 'Zakończyć spotkanie?' })
     .getByRole('button', { name: 'Zakończ', exact: true })
     .click();
+  await expect(page.getByRole('dialog', { name: 'Zakończyć spotkanie?' })).toBeHidden();
   await page.goto('/');
   await expect(page.getByRole('region', { name: 'Timeline', exact: true })).toContainText(
     'Spotkanie regresji',

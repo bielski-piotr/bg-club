@@ -110,6 +110,7 @@ select results_eq(
        ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid,boolean)'),
        ('save_play(uuid,uuid,jsonb,jsonb)'),
        ('save_play_draft(uuid,jsonb,integer)'),
+       ('save_play_with_achievements(uuid,uuid,jsonb,jsonb,uuid)'),
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
        ('search_text(text)'),

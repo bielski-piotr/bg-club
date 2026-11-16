@@ -240,6 +240,13 @@ export const pl = {
       meetingLink: 'Otwórz spotkanie: {title}, {date}',
       pointsUnit: 'pkt',
     },
+    achievementNotification: {
+      label: 'Nowo odblokowane osiągnięcia',
+      eyebrow: 'Nowe osiągnięcie',
+      view: 'Zobacz',
+      unknownPlayer: 'Gracz',
+      details: '{name}: {achievement}. Pokaż szczegóły osiągnięcia',
+    },
     /** Gablota osiągnięć (PRD ACH-3, §5.10) i szczegóły odznaki. */
     achievements: {
       title: 'Gablota osiągnięć',
