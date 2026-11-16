@@ -1,0 +1,9 @@
+# Cloudflare Pages (NFR-3): service worker i manifest zawsze świeże, żeby nowa wersja
+# aplikacji była wykrywana (strony HTML Pages serwuje domyślnie z max-age=0); pliki
+# z /assets/ mają hash w nazwie i są niezmienne.
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

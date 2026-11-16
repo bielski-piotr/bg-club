@@ -328,6 +328,8 @@ export class DraftSaver {
   /** Notes zamknięty: bez stanu i timerów; kończy tylko zapis (`dispose(true)`). */
   private closed = false;
   private flushOnClose = false;
+  /** Koniec pracy po zamknięciu (`dispose(true)`): wpisy w bazie albo zapis się nie udał. */
+  private settle: (() => void) | null = null;
   private readonly onOnline = () => this.flush();
 
   constructor(options: DraftSaverOptions) {
@@ -386,14 +388,27 @@ export class DraftSaver {
    * Koniec pracy (zamknięcie notesu): bez stanu, timerów i ponowień po błędzie. `flush`:
    * niezapisane wpisy idą do bazy od razu, także te zmienione w trakcie trwającego zapisu;
    * kopia lokalna zapamiętuje wynik, więc kolejne otwarcie nie widzi fałszywego konfliktu.
+   * Zwraca obietnicę spełnianą, gdy zapis przy zamknięciu się skończy (także błędem).
    */
-  dispose(flush = false): void {
-    if (this.closed) return;
+  dispose(flush = false): Promise<void> {
+    if (this.closed) return Promise.resolve();
     this.closed = true;
     this.flushOnClose = flush;
     this.clearTimer();
     if (typeof window !== 'undefined') window.removeEventListener('online', this.onOnline);
-    if (flush) void this.run();
+    if (!flush) return Promise.resolve();
+    const done = new Promise<void>((resolve) => {
+      this.settle = resolve;
+    });
+    void this.run();
+    return done;
+  }
+
+  /** Po zamknięciu: nic już nie czeka na zapis. */
+  private finish(): void {
+    if (!this.closed || this.inFlight || !this.settle) return;
+    this.settle();
+    this.settle = null;
   }
 
   private isDirty(): boolean {
@@ -435,8 +450,11 @@ export class DraftSaver {
 
   private async run(): Promise<void> {
     // Zapis w toku: kolejny ruszy po nim (od nowej wersji).
-    if (this.stopped || this.inFlight || !this.isDirty()) return;
-    if (this.closed && !this.flushOnClose) return;
+    if (this.inFlight) return;
+    if (this.stopped || !this.isDirty() || (this.closed && !this.flushOnClose)) {
+      this.finish();
+      return;
+    }
     const sheet = this.sheet as ScorePadSheet;
     this.inFlight = true;
     this.emit({ state: 'saving' });
@@ -448,6 +466,7 @@ export class DraftSaver {
       this.storeLocal();
       if (!this.isDirty()) {
         this.emit({ state: 'saved' });
+        this.finish();
       } else if (this.closed) {
         // Zmiany z czasu trwania zapisu, a notes już zamknięty: wysyłamy je od razu.
         void this.run();
@@ -458,7 +477,10 @@ export class DraftSaver {
     } catch (error) {
       this.inFlight = false;
       // Po zamknięciu wpisy zostają w kopii lokalnej; kolejne otwarcie je wznowi.
-      if (this.closed) return;
+      if (this.closed) {
+        this.finish();
+        return;
+      }
       const reason = error instanceof DraftError ? error.reason : 'network';
       if (isRetryable(reason)) {
         this.emit({ state: 'offline', reason });

@@ -512,6 +512,17 @@ deno test
 3. **functions:** `deno lint`, `deno check`, `deno test` w `supabase/functions`,
 4. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, Storage, Edge Functions, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
 
+## Aplikacja instalowana (PWA) i aktualizacje
+
+Wymagania: PRD NFR-3, PAD-4; wygląd DS §12 (standardowy toast). Kod: [`apps/web/src/pwa`](apps/web/src/pwa) (`sw.js`, `plugin.ts`, `updates.ts`, `AppStatus.tsx`), [`public/manifest.webmanifest`](apps/web/public/manifest.webmanifest), ikony w `public/icons` (generuje je `node apps/web/scripts/icons.mjs` z `favicon.svg`), Vitest `plugin.test.ts`, `updates.test.tsx`, E2E `pwa.spec.ts`.
+
+- **Instalacja**: manifest (`display: standalone`, `lang: pl`), ikony 192/512, ikona `maskable` i `apple-touch-icon` dla iOS. Przeglądarka proponuje dodanie do ekranu głównego, gdy stronę obsługuje service worker.
+- **Service worker** (`dist/sw.js` generowany przy `pnpm build`; w `vite dev` nie jest rejestrowany): wstępnie buforuje tylko powłokę (`index.html`, wejście JS/CSS, manifest, ikony), a pliki z `/assets/` (nazwy z hashem) dopisuje przy pierwszym użyciu. Nawigacja idzie najpierw do sieci, bez sieci startuje powłoka z cache. Żądania do Supabase (API, Auth, Storage — inny origin) i żądania inne niż GET nigdy nie trafiają do cache, więc po wylogowaniu na urządzeniu nie zostają dane poprzedniego konta (sesję i cache zapytań czyści `AuthProvider`). Kopie szkiców w `localStorage` mają w kluczu konto i czyta je tylko to konto.
+- **Bez sieci** aplikacja nie udaje pracy offline: nad toastami stoi komunikat „Brak połączenia z internetem…”, a notes partii pokazuje swój stan zapisu (wpisy czekają w kopii lokalnej, PAD-4).
+- **Aktualizacje**: nowa wersja (każdy build z inną listą plików, `index.html` albo szablonem workera) instaluje się w tle i czeka. Aplikacja sprawdza ją co 30 min i po powrocie do karty, a gdy jest gotowa, pokazuje „Dostępna nowa wersja aplikacji.” z przyciskiem **Odśwież**. Nic nie przeładowuje się samo. Póki otwarty notes ma wpisy, których nie ma w bazie (zapis czeka, trwa, brak sieci, konflikt), **Odśwież** jest nieaktywne z wyjaśnieniem; po zapisie odświeżenie wraca do tej samej partii z wpisami. Stara wersja obsługuje otwarte karty do kliknięcia, więc ich leniwie ładowane pliki zostają w cache. Przełączenie w innej karcie proponuje odświeżenie także tutaj.
+- **Cloudflare Pages**: `public/_headers` wyłącza cache HTTP dla `sw.js`, manifestu i `index.html`, a pliki z `/assets/` są niezmienne.
+- **Weryfikacja ręczna** (poza E2E): instalacja z Chrome na Androidzie i „Do ekranu początkowego” w Safari na iOS, start z ikony po zamknięciu, wdrożenie nowej wersji przy otwartym notesie, wylogowanie i start bez sieci.
+
 ## Wdrożenie (zarys)
 
 Pełna instrukcja wdrożenia od zera, kopii zapasowych i odtworzenia powstaje w zadaniu [042] (NFR-8, NFR-9). W skrócie:
@@ -537,3 +548,4 @@ Pełna instrukcja wdrożenia od zera, kopii zapasowych i odtworzenia powstaje w 
   - Build output directory: `apps/web/dist`
   - Zmienne środowiskowe: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (osobno dla Production i Preview).
   - Wersję Node.js Cloudflare odczytuje z `.nvmrc`. Bez pliku `404.html` Pages serwuje `index.html` dla każdej ścieżki SPA.
+  - Nagłówki cache z `apps/web/public/_headers` (service worker i manifest bez cache HTTP, sekcja „Aplikacja instalowana (PWA) i aktualizacje”).

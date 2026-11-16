@@ -27,6 +27,8 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'pl-PL',
     trace: 'off',
+    // Service worker (NFR-3) mógłby ominąć atrapy `page.route`; włącza go tylko e2e/pwa.spec.ts.
+    serviceWorkers: 'block',
   },
   projects: [
     { name: 'mobile-light', use: { ...mobile, colorScheme: 'light' } },

@@ -49,6 +49,8 @@ export interface ToastProviderProps {
   readonly duration?: number | undefined;
   /** Najwyżej tyle toastów naraz; starsze znikają. */
   readonly limit?: number | undefined;
+  /** Stały stan nad toastami (np. brak sieci, nowa wersja aplikacji). */
+  readonly pinned?: ReactNode | undefined;
 }
 
 /**
@@ -56,7 +58,12 @@ export interface ToastProviderProps {
  * (błędy: `assertive`), więc czytnik ekranu je ogłasza. Najechanie lub fokus
  * wstrzymuje znikanie.
  */
-export function ToastProvider({ children, duration = 4000, limit = 3 }: ToastProviderProps) {
+export function ToastProvider({
+  children,
+  duration = 4000,
+  limit = 3,
+  pinned,
+}: ToastProviderProps) {
   const [entries, setEntries] = useState<readonly Entry[]>([]);
   // Najechanie i fokus wstrzymują znikanie niezależnie od siebie.
   const [hovered, setHovered] = useState(false);
@@ -89,43 +96,47 @@ export function ToastProvider({ children, duration = 4000, limit = 3 }: ToastPro
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div
-        className="toast-region"
-        role="region"
-        aria-label={t.ui.notifications}
-        ref={regionRef}
-        onPointerEnter={() => setHovered(true)}
-        onPointerLeave={() => setHovered(false)}
-        onFocus={() => setFocused(true)}
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
-        }}
-      >
-        <div aria-live="polite" className="toast-region__list">
-          {entries
-            .filter((e) => e.variant !== 'error')
-            .map((e) => (
-              <TimedToast
-                key={e.id}
-                entry={e}
-                duration={duration}
-                paused={paused}
-                onDismiss={dismiss}
-              />
-            ))}
-        </div>
-        <div aria-live="assertive" className="toast-region__list">
-          {entries
-            .filter((e) => e.variant === 'error')
-            .map((e) => (
-              <TimedToast
-                key={e.id}
-                entry={e}
-                duration={duration * 2}
-                paused={paused}
-                onDismiss={dismiss}
-              />
-            ))}
+      <div className="toast-region" role="region" aria-label={t.ui.notifications}>
+        {/* Stały stan nie wstrzymuje znikania toastów: obsługa najechania i fokusu jest niżej. */}
+        {pinned}
+        <div
+          className="toast-region__toasts"
+          ref={regionRef}
+          onPointerEnter={() => setHovered(true)}
+          onPointerLeave={() => setHovered(false)}
+          onFocus={() => setFocused(true)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setFocused(false);
+            }
+          }}
+        >
+          <div aria-live="polite" className="toast-region__list">
+            {entries
+              .filter((e) => e.variant !== 'error')
+              .map((e) => (
+                <TimedToast
+                  key={e.id}
+                  entry={e}
+                  duration={duration}
+                  paused={paused}
+                  onDismiss={dismiss}
+                />
+              ))}
+          </div>
+          <div aria-live="assertive" className="toast-region__list">
+            {entries
+              .filter((e) => e.variant === 'error')
+              .map((e) => (
+                <TimedToast
+                  key={e.id}
+                  entry={e}
+                  duration={duration * 2}
+                  paused={paused}
+                  onDismiss={dismiss}
+                />
+              ))}
+          </div>
         </div>
       </div>
     </ToastContext.Provider>

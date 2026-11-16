@@ -1,0 +1,47 @@
+/* Stan aplikacji: brak sieci i nowa wersja (NFR-3), w stylu standardowego toastu (DS §12). */
+.app-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.app-status__alert {
+  color: var(--c-toast-error);
+}
+
+.app-status__note {
+  display: block;
+  margin-top: 2px;
+  color: #ffffffb3;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.app-status__action {
+  flex-shrink: 0;
+  min-height: 32px;
+  margin: -6px -8px -6px 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: #ffffff1f;
+  color: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-status__action:hover:not(:disabled) {
+  background: #ffffff33;
+}
+
+.app-status__action:focus-visible {
+  outline-color: #ffffff;
+}
+
+.app-status__action:disabled {
+  color: #ffffff80;
+  cursor: default;
+}
