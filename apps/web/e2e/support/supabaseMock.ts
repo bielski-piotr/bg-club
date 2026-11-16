@@ -815,6 +815,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         return route.fulfill({ status: 409, json: { code: '23503', message: 'plays fkey' } });
       }
       mock.options.meetings = (mock.options.meetings ?? []).filter((row) => row.id !== id);
+      mock.options.votes = (mock.options.votes ?? []).filter((vote) => vote.meeting_id !== id);
       if (target) mock.meetingDeletes.push(target.id);
       return route.fulfill({ json: target ? [{ id: target.id }] : [] });
     }
@@ -1369,6 +1370,12 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     }
     if (url.pathname === '/rest/v1/rpc/leaderboard_years' && request.method() === 'POST') {
       return route.fulfill({ json: mock.options.leaderboardYears ?? [] });
+    }
+    if (url.pathname === '/rest/v1/rpc/game_vote_total' && request.method() === 'POST') {
+      const { game_id } = request.postDataJSON() as { game_id: string };
+      return route.fulfill({
+        json: (mock.options.votes ?? []).filter((vote) => vote.game_id === game_id).length,
+      });
     }
     if (url.pathname === '/rest/v1/rpc/game_stats' && request.method() === 'POST') {
       const { game_id } = request.postDataJSON() as { game_id: string };

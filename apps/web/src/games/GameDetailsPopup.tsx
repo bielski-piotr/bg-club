@@ -12,6 +12,7 @@ import { EmptyState } from '../ui';
 import { GameCover } from './GameCover';
 import { GameStatsSection } from './GameStats';
 import { useGame } from './games';
+import { useGameVoteTotal } from './gameVoteTotal';
 import { playersLabel } from './labels';
 import '../sheets/sheets.css';
 
@@ -26,6 +27,7 @@ const text = t.games.details;
 export function GameDetailsPopup({ id }: { readonly id: string }) {
   const { client } = useAuth();
   const game = useGame(client, id);
+  const votes = useGameVoteTotal(client, id);
   const sheets = useGameSheets(client, id);
   const club = useClub(client);
   const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
@@ -66,6 +68,13 @@ export function GameDetailsPopup({ id }: { readonly id: string }) {
                   })
                 : text.neverPlayed}
             </p>
+            {votes.isError || votes.data === undefined ? (
+              <QueryStatus isError={votes.isError} onRetry={() => void votes.refetch()} />
+            ) : votes.data !== null ? (
+              <p className="game-details__fact" aria-live="polite">
+                {format(text.voteTotal, { count: votes.data })}
+              </p>
+            ) : null}
           </div>
         </div>
         <GameStatsSection gameId={data.id} title={data.title} timeZone={timeZone} />
