@@ -43,15 +43,32 @@ export function PopupHost({ children, renderPopup, fallbackFocusId }: PopupHostP
     const before = previous.current;
     previous.current = { length: stack.length, topKey };
     if (before.length === stack.length && before.topKey === topKey) return;
-    if (stack.length < before.length) {
-      const opener = openers.take(stack.length);
-      if (isFocusable(opener)) {
-        opener.focus({ preventScroll: stack.length > 0 });
-        return;
+    const opener = stack.length < before.length ? openers.take(stack.length) : null;
+    const level = stack.length;
+    const restore = (giveUp = false) => {
+      if (opener?.isConnected && isFocusable(opener)) {
+        opener.focus({ preventScroll: level > 0 });
+        return document.activeElement === opener;
       }
-    }
-    const target = stack.length > 0 ? dialogAt(stack.length - 1) : null;
-    (target ?? document.getElementById(fallbackFocusId))?.focus({ preventScroll: true });
+      if (opener?.isConnected && level > 0 && !giveUp) return false;
+      const target = level > 0 ? dialogAt(level - 1) : null;
+      const fallback = target ?? document.getElementById(fallbackFocusId);
+      fallback?.focus({ preventScroll: true });
+      return !fallback || document.activeElement === fallback;
+    };
+    if (restore()) return;
+    // Odsłonięty popup może jeszcze przez klatkę być `inert`/ukryty (np. gdy jego treść
+    // przerenderowuje się osobno); wtedy `focus()` nic nie robi i fokus zostaje na body.
+    // Ponawiamy w kolejnych klatkach, aż element przyjmie fokus (NFR-6).
+    let frames = 0;
+    let frame = requestAnimationFrame(function retry() {
+      frames += 1;
+      // Użytkownik zdążył przenieść fokus sam: nie zabieramy go.
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      if (!restore(frames >= 30) && frames < 30) frame = requestAnimationFrame(retry);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [stack.length, topKey, openers, fallbackFocusId]);
 
   useEffect(() => {

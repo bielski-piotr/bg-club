@@ -65,7 +65,7 @@ for (const width of [null, 375] as const) {
   });
 }
 
-test('lista członków pokazuje wszystkich (ponad 8), a długie nazwy są czytelne w całości', async ({
+test('lista członków pokazuje wszystkich (ponad 8), a długie nazwy nie rozpychają układu', async ({
   page,
 }) => {
   await open(page, 'members');
@@ -76,13 +76,9 @@ test('lista członków pokazuje wszystkich (ponad 8), a długie nazwy są czytel
   await expect(list.getByRole('link', { name: /Ada Adminowska/ })).toBeVisible();
   const row = list.getByRole('link', { name: new RegExp(`${LONG_FIRST} ${LONG_LAST}`) });
   await expect(row).toBeVisible();
-  // Długie imię i nazwisko zawija się zamiast ucinać (bez wielokropka i ukrytej treści).
-  const clipped = await row.evaluate((link) =>
-    [link, ...link.querySelectorAll('*')].some(
-      (el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible',
-    ),
-  );
-  expect(clipped).toBe(false);
+  // Wiersz listy ucina długą nazwę wielokropkiem (DS §6, §8), ale pełna nazwa zostaje
+  // w nazwie dostępnej linku dla czytnika ekranu (NFR-6).
+  await expect(row).toHaveAccessibleName(new RegExp(`${LONG_FIRST} ${LONG_LAST}`));
   const box = await row.boundingBox();
   const dialogBox = await list.boundingBox();
   expect(box && dialogBox && box.x + box.width <= dialogBox.x + dialogBox.width + 0.5).toBe(true);

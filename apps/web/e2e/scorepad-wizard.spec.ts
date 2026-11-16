@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { settled } from './support/a11y';
 import { expect, test, type Page } from '@playwright/test';
 import { png } from './support/png';
 import { mockGame, mockSupabase, session, storeSession } from './support/supabaseMock';
@@ -54,9 +55,7 @@ async function noHorizontalOverflow(page: Page) {
 }
 
 async function axe(page: Page) {
-  await page.waitForFunction(() =>
-    document.getAnimations().every((animation) => animation.playState !== 'running'),
-  );
+  await settled(page);
   const results = await new AxeBuilder({ page })
     .include('.scorepad-wizard')
     // Shadow DOM edytora (kroki 2–3) i notesu (krok 5) ma własne style z POC; sprawdzamy ramę.
@@ -216,6 +215,9 @@ test('import pliku .json w kroku 1: wszystkie kroki wykonane', async ({ page }) 
   }
   await expect(dialog.getByRole('group', { name: 'Test notesu' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Zapisz notes' })).toBeEnabled();
+  // Akcje testu notesu włączają się, gdy notes jest gotowy; axe mierzy stan końcowy.
+  await expect(dialog.getByRole('button', { name: 'Wypełnij losowo' })).toBeEnabled();
+  await expect(dialog.getByRole('button', { name: 'Oderwij kartkę' })).toBeEnabled();
   await noHorizontalOverflow(page);
   expect(await axe(page)).toEqual([]);
 });

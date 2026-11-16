@@ -1,8 +1,18 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 
-/** Czeka, aż na stronie nie trwa żadna animacja ani przejście (DS §16). */
+/**
+ * Czeka, aż na stronie nie trwa żadna animacja ani przejście (DS §16). Najpierw dwie klatki:
+ * przejście po zmianie stanu (np. przycisk przestaje być wyłączony) startuje dopiero w kolejnej
+ * klatce i wcześniej `getAnimations()` go nie widzi, a kolor jest jeszcze stary.
+ */
 export async function settled(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
   await page.waitForFunction(() =>
     document.getAnimations().every((animation) => animation.playState !== 'running'),
   );

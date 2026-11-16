@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { settled } from './support/a11y';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockGame, mockSupabase, session, storeSession } from './support/supabaseMock';
 
@@ -110,9 +111,7 @@ async function noHorizontalOverflow(page: Page) {
 }
 
 async function axe(page: Page) {
-  await page.waitForFunction(() =>
-    document.getAnimations().every((animation) => animation.playState !== 'running'),
-  );
+  await settled(page);
   const results = await new AxeBuilder({ page })
     .include('.scorepad-wizard')
     .exclude('score-pad-editor')
