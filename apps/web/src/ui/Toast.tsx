@@ -15,14 +15,15 @@ export interface ToastProps {
   readonly variant?: ToastVariant | undefined;
   readonly children: ReactNode;
   readonly onDismiss?: () => void;
+  readonly rich?: boolean | undefined;
 }
 
 /** Ciemny toast 343 px (DS §12) z ikoną wariantu i opcjonalnym przyciskiem zamknięcia. */
-export function Toast({ variant = 'success', children, onDismiss }: ToastProps) {
+export function Toast({ variant = 'success', children, onDismiss, rich }: ToastProps) {
   return (
-    <div className={cx('toast', `toast--${variant}`)}>
-      <Icon name={icons[variant]} className="toast__icon" />
-      <span className="toast__message">{children}</span>
+    <div className={cx('toast', `toast--${variant}`, rich && 'toast--rich')} aria-atomic="true">
+      {!rich && <Icon name={icons[variant]} className="toast__icon" />}
+      <div className="toast__message">{children}</div>
       {onDismiss ? (
         <button
           type="button"
@@ -39,8 +40,10 @@ export function Toast({ variant = 'success', children, onDismiss }: ToastProps) 
 
 interface Entry {
   readonly id: number;
-  readonly message: string;
+  readonly message: ReactNode;
   readonly variant: ToastVariant;
+  readonly rich?: boolean | undefined;
+  readonly duration?: number | undefined;
 }
 
 export interface ToastProviderProps {
@@ -71,15 +74,23 @@ export function ToastProvider({
   const paused = hovered || focused;
   const regionRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
+  const shownKeys = useRef(new Map<string, number>());
 
   const dismiss = useCallback((id: number) => {
     setEntries((list) => list.filter((e) => e.id !== id));
   }, []);
 
   const show = useCallback(
-    (message: string, variant: ToastVariant = 'success') => {
+    (
+      message: ReactNode,
+      variant: ToastVariant = 'success',
+      options?: Parameters<ToastApi['show']>[2],
+    ) => {
+      const previous = options?.key ? shownKeys.current.get(options.key) : undefined;
+      if (previous !== undefined) return previous;
       const id = nextId.current++;
-      setEntries((list) => [...list, { id, message, variant }].slice(-limit));
+      if (options?.key) shownKeys.current.set(options.key, id);
+      setEntries((list) => [...list, { id, message, variant, ...options }].slice(-limit));
       return id;
     },
     [limit],
@@ -156,11 +167,11 @@ function TimedToast({
 }) {
   useEffect(() => {
     if (paused) return;
-    const timer = window.setTimeout(() => onDismiss(entry.id), duration);
+    const timer = window.setTimeout(() => onDismiss(entry.id), entry.duration ?? duration);
     return () => window.clearTimeout(timer);
-  }, [entry.id, duration, paused, onDismiss]);
+  }, [entry.id, entry.duration, duration, paused, onDismiss]);
   return (
-    <Toast variant={entry.variant} onDismiss={() => onDismiss(entry.id)}>
+    <Toast variant={entry.variant} rich={entry.rich} onDismiss={() => onDismiss(entry.id)}>
       {entry.message}
     </Toast>
   );

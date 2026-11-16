@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { png } from './support/png';
 import {
   ADA,
+  EMPTY_PLAYER_ACHIEVEMENTS,
   member,
   mockGame,
   mockMeeting,
@@ -289,4 +290,89 @@ test('pusta kartka wraca na notes z wyjaśnieniem; błąd zapisu zostawia podsum
   await check(page);
   await summary.getByRole('button', { name: 'Wróć do kartki' }).click();
   expect((await padSheet(page)).cells.a?.slice(0, 2)).toEqual([5, 8]);
+});
+
+test('ACH-4: kilka odznak tylko po zapisie, ponowienie bez duplikatów, link i odświeżenie', async ({
+  page,
+}, testInfo) => {
+  test.slow();
+  const unlocks = [
+    { profile_id: BEA.id, achievement_id: 'meet-1' },
+    { profile_id: BEA.id, achievement_id: 'win-1' },
+    { profile_id: BEA.id, achievement_id: 'beginners-luck' },
+    { profile_id: CEZARY.id, achievement_id: 'meet-1' },
+  ];
+  const mock = await openApp(page, {
+    plays: [draft()],
+    savePlayLostReplies: 1,
+    savePlayUnlocks: unlocks,
+    playerAchievements: () => ({
+      ...EMPTY_PLAYER_ACHIEVEMENTS,
+      unlocks: [
+        {
+          achievement_id: 'meet-1',
+          unlocked_at: RUNNING.starts_at,
+          meeting_id: RUNNING.id,
+          meeting_title: RUNNING.title,
+          play_id: PLAY_ID,
+        },
+      ],
+    }),
+  });
+  const notifications = page.getByRole('list', { name: 'Nowo odblokowane osiągnięcia' });
+  await expect(notifications).toHaveCount(0);
+  await write(page, { a: [9, 4, null, null] });
+  await tear(page);
+  await summaryDialog(page).getByRole('button', { name: 'Zapisz partię' }).click();
+  await expect(notifications).toBeVisible({ timeout: 10_000 });
+  await notifications.hover();
+  expect(mock.playSaves).toHaveLength(2);
+  expect(mock.playSaves[0]).toEqual(mock.playSaves[1]);
+  const links = notifications.getByRole('link');
+  await expect(links).toHaveCount(4);
+  await expect(notifications.locator('xpath=ancestor::*[@aria-live]')).toHaveAttribute(
+    'aria-live',
+    'polite',
+  );
+  const first = links.first();
+  await expect(first).toHaveAttribute('href', new RegExp(`profile/${BEA.id}/achievement/meet-1`));
+  await check(page);
+  await page.screenshot({ path: testInfo.outputPath('achievement-toast.png') });
+  await page.locator('.toast:not(.toast--rich) .toast__close').click();
+  // Tab z ostatniego przycisku popupu przechodzi do linku w toaście, Shift+Tab wraca.
+  const modal = page.getByRole('dialog', { name: RUNNING.title });
+  const controls = modal.locator(
+    'a[href], button:not([disabled]), input:not([disabled]), [tabindex="0"]',
+  );
+  await controls.last().focus();
+  await page.keyboard.press('Tab');
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(controls.last()).toBeFocused();
+  await first.focus();
+  await page.keyboard.press('Enter');
+  const detail = page.getByRole('dialog', { name: 'Pierwsze kroki' });
+  await expect(detail).toBeVisible();
+  await expect(detail).toContainText('Udział w pierwszym spotkaniu');
+  await expect(detail.getByText('Czwartkowe granie')).toBeVisible();
+  await page.reload();
+  await expect(detail).toBeVisible();
+  await expect(notifications).toHaveCount(0);
+  expect(mock.playSaves).toHaveLength(2);
+});
+
+test('ACH-4: brak nowych odznak i odczyt zapisanej partii nie pokazują toastu', async ({
+  page,
+}) => {
+  test.slow();
+  const mock = await openApp(page, { plays: [draft()] });
+  await write(page, { a: [9, 4, null, null] });
+  await tear(page);
+  await summaryDialog(page).getByRole('button', { name: 'Zapisz partię' }).click();
+  await expect(page.getByText('Partia zapisana: Azul')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Nowo odblokowane osiągnięcia' })).toHaveCount(0);
+  await page.goto(`/?p=play/${PLAY_ID}`);
+  await expect(page.getByText('Ta partia jest już zapisana')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Nowo odblokowane osiągnięcia' })).toHaveCount(0);
+  expect(mock.playSaves).toHaveLength(1);
 });

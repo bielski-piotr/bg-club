@@ -1,6 +1,10 @@
 import type { ScorePadSaveResult, ScorePadSheet } from '@bg-club/score-pad';
 import { placementPoints, savePlayResults, type SavePlayResult } from '@bg-club/scoring';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  parseAchievementNotifications,
+  type AchievementNotification,
+} from '../profile/achievementNotifications';
 
 /*
  * Zakończenie partii (PRD PAD-5, PAD-7, §5.6, migracja [029]): po oderwaniu karteczki notes
@@ -149,6 +153,8 @@ export const SAVE_RETRY_DELAYS_MS: readonly number[] = [1000, 3000];
 export const SAVE_TIMEOUT_MS = 15_000;
 
 export interface SavePlayOptions {
+  /** Stały dla automatycznych i ręcznych ponowień na urządzeniu zapisującym. */
+  readonly requestId?: string | undefined;
   readonly retryDelays?: readonly number[] | undefined;
   readonly timeoutMs?: number | undefined;
   readonly sleep?: ((ms: number) => Promise<void>) | undefined;
@@ -173,23 +179,23 @@ export async function savePlay(
   play: { readonly id: string; readonly scorepad_version_id: string },
   summary: Pick<PlaySummary, 'sheet' | 'results'>,
   options: SavePlayOptions = {},
-): Promise<void> {
+): Promise<readonly AchievementNotification[]> {
+  const requestId = options.requestId ?? crypto.randomUUID();
   const delays = options.retryDelays ?? SAVE_RETRY_DELAYS_MS;
   const sleep = options.sleep ?? wait;
   for (let attempt = 0; ; attempt++) {
     let reason: PlaySaveFailure;
     try {
-      const { error } = await client
-        .rpc('save_play', {
+      const { data, error } = await client
+        .rpc('save_play_with_achievements', {
           play_id: play.id,
           scorepad_version_id: play.scorepad_version_id,
           sheet: summary.sheet,
           results: summary.results,
+          request_id: requestId,
         })
-        .abortSignal(timeoutSignal(options.timeoutMs ?? SAVE_TIMEOUT_MS))
-        .select('id')
-        .single();
-      if (!error) return;
+        .abortSignal(timeoutSignal(options.timeoutMs ?? SAVE_TIMEOUT_MS));
+      if (!error) return parseAchievementNotifications(data);
       reason = playSaveFailure(error);
     } catch {
       reason = 'network';
