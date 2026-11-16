@@ -525,7 +525,7 @@ Wymagania: PRD NFR-3, PAD-4; wygląd DS §12 (standardowy toast). Kod: [`apps/we
 
 ## Wdrożenie od zera
 
-Poniższe kroki dotyczą przyszłej instalacji. W ramach #45 wykonano lokalne odtworzenie z fikcyjnymi danymi, opisane w [raporcie próby](docs/restore-drill.md). **Produkcja i spotkanie klubowe nie zostały wykonane ani odebrane.** Rejestr wartości do późniejszego uzupełnienia: [szablon instalacji i odbioru #46](docs/deployment-record.example.md). Nie wpisuj tam haseł ani prywatnych kluczy.
+Poniższe kroki dotyczą przyszłej instalacji. W ramach #45 wykonano lokalne odtworzenie z fikcyjnymi danymi, opisane w [raporcie próby](docs/restore-drill.md). **Produkcja i spotkanie klubowe nie zostały wykonane ani odebrane.** Użytkownik wyłączył ten etap z automatycznej kolejki i usunął issue #46. Rejestr wartości do późniejszego uzupełnienia: [szablon instalacji i odbioru](docs/deployment-record.example.md). Nie wpisuj tam haseł ani prywatnych kluczy.
 
 ### 1. Repozytorium i dwa projekty Supabase
 

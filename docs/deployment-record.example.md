@@ -1,6 +1,7 @@
 # Rejestr instalacji i odbioru do uzupełnienia
 
-Status na #45: **produkcji nie wdrożono, spotkania klubowego nie przeprowadzono, #46 nie odebrano**.
+Status na #45: **produkcji nie wdrożono, spotkania klubowego nie przeprowadzono**.
+Użytkownik wyłączył ten etap z automatycznej kolejki i usunął issue #46.
 Ten plik jest szablonem. Zrób prywatną kopię poza repo i uzupełnij pola, gdy będą dostępne.
 Nie wklejaj sekretów, danych członków ani zrzutów ekranu z kluczami do issue/PR.
 
@@ -31,9 +32,10 @@ Nie wklejaj sekretów, danych członków ani zrzutów ekranu z kluczami do issue
 | Hasło administratora i przekazanie              | Bootstrap, późniejsza zmiana w UI                         | Menedżer haseł, prywatny kanał do administratora; zapisz tylko fakt przekazania                                                     |
 | Backup z hashami haseł i obrazami               | `backup:export`                                           | Szyfrowany magazyn poza repo, ograniczony dostęp i retencja                                                                         |
 
-## Przyszły odbiór #46
+## Późniejsze samodzielne wdrożenie i odbiór
 
-To miejsce na wynik przyszłego wdrożenia i spotkania. Uzupełnienie nie zmienia zależności issue.
+To miejsce na wynik przyszłego wdrożenia i spotkania, do samodzielnego uzupełnienia.
+Ten etap nie blokuje rozszerzeń #47–#50, które po decyzji użytkownika zależą od #45.
 
 | Pole                                                           | Wartość                                                      |
 | -------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -44,4 +46,4 @@ To miejsce na wynik przyszłego wdrożenia i spotkania. Uzupełnienie nie zmieni
 | Spotkanie, zapis partii, karteczki, wynik/ranking/odblokowania | NIE WYKONANO, później osoba/data i prywatne dowody           |
 | PWA na urządzeniu i aktualizacja z zapisanym szkicem           | NIE WYKONANO                                                 |
 | Produkcyjny backup i odtworzenie w izolowanym środowisku       | NIE WYKONANO                                                 |
-| Decyzja odbioru #46 / ograniczenia                             | NIE ODEBRANO                                                 |
+| Decyzja odbioru / ograniczenia                                 | NIE ODEBRANO                                                 |

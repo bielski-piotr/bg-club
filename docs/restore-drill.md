@@ -116,7 +116,8 @@ Nie używaj `stop --all`, resetu istniejącego `bg-club` ani poleceń usuwający
 
 To dowód lokalnego roundtripu z fikcyjnymi danymi i rzeczywistymi usługami. Nie wykonano
 wdrożenia hostowanego Supabase ani Cloudflare Pages, odtworzenia produkcji, spotkania klubowego
-i odbioru #46. Nie uruchamiano pełnego E2E UI, ponieważ nie zmieniono interfejsu.
+i odbioru klubowego. Ten etap użytkownik wyłączył z kolejki i usunął issue #46.
+Nie uruchamiano pełnego E2E UI, ponieważ nie zmieniono interfejsu.
 Kroki przyszłej produkcji i formularz dowodów odbioru pozostają do uzupełnienia w
 [rejestrze instalacji](deployment-record.example.md). Brakujące prawa POC pozostają jawnie
 niepotwierdzone w [audycie](licenses-and-data-audit.md).
