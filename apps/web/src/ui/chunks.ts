@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 /** Liczba pozycji długiej listy (kolekcja, członkowie) dorysowywanych naraz (NFR-2). */
-export const CHUNK_SIZE = 24;
+const CHUNK_SIZE = 24;
 
 /**
  * Długa lista rysowana porcjami (NFR-2): najpierw `size` pozycji, kolejne po „Pokaż więcej”.
@@ -13,6 +13,8 @@ export function useChunks<T>(items: readonly T[], resetKey: unknown, size = CHUN
   const [limit, setLimit] = useState(size);
   const [key, setKey] = useState(resetKey);
   const focusFrom = useRef<number | null>(null);
+  // Wartość atrybutu jest unikalna dla listy: kilka list w stosie popupów się nie myli.
+  const listId = useId();
   if (key !== resetKey) {
     setKey(resetKey);
     setLimit(size);
@@ -24,17 +26,18 @@ export function useChunks<T>(items: readonly T[], resetKey: unknown, size = CHUN
     if (from === null) return;
     document
       .querySelector<HTMLElement>(
-        `[data-chunk-start="${from}"] :is(a[href], button:not([disabled]))`,
+        `[data-chunk-start="${listId}${from}"] :is(a[href], button:not([disabled]))`,
       )
       ?.focus();
-  }, [limit]);
+  }, [limit, listId]);
 
   const visible = items.slice(0, limit);
   return {
     visible,
     hidden: items.length - visible.length,
     /** Wartość `data-chunk-start` pozycji: pierwsza z nowej porcji (cel fokusu) albo brak. */
-    chunkStart: (index: number) => (index === limit - size && index > 0 ? index : undefined),
+    chunkStart: (index: number) =>
+      index === limit - size && index > 0 ? `${listId}${index}` : undefined,
     showMore: () => {
       focusFrom.current = limit;
       setLimit(limit + size);

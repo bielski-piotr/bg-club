@@ -13,7 +13,7 @@ export { monogram, paletteColor, paletteIndex, AVATAR_PALETTE_SIZE } from './ava
 export { Badge, MetaChip, StatusChip, type Tone } from './Badge';
 export { Button, IconButton, TextLink, type ButtonSize, type ButtonVariant } from './Button';
 export { Card, ListRow, Tray } from './Card';
-export { CHUNK_SIZE, useChunks } from './chunks';
+export { useChunks } from './chunks';
 export { ShowMore } from './ShowMore';
 export {
   Checkbox,

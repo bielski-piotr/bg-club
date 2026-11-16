@@ -2,10 +2,11 @@
  * Ograniczenia GPU (NFR-2, PAD-16, zadanie [040]). Notes rysuje w pełnej gęstości ekranu (do
  * 3), a tekstura kartki ma pełną rozdzielczość z edytora. Na słabym GPU pełna gęstość może
  * zejść poniżej 30 kl./s; wtedy obniżamy tylko gęstość renderu (devicePixelRatio płótna)
- * stopniami do 1, nigdy rozdzielczość tekstury. Obniżamy, gdy średni czas klatki przez
- * `window` kolejnych klatek przekracza budżet 30 kl./s, i nie wracamy w górę (bez migotania
- * ostrości). Klatki po przerwie (karta w tle, debugger) i rozgrzewka po starcie (kompilacja
- * shaderów, wgrywanie tekstur) są pomijane.
+ * stopniami do 1, nigdy rozdzielczość tekstury. Obniżamy, gdy średni czas klatki w dwóch
+ * kolejnych oknach po `FRAME_WINDOW` klatek przekracza budżet 30 kl./s (pojedynczy skok, np.
+ * wgranie tekstury, nie wystarcza), i nie wracamy w górę (bez migotania ostrości). Klatki po
+ * przerwie (karta w tle, debugger) i rozgrzewka po (ponownym) starcie pętli (kompilacja
+ * shaderów, wgrywanie tekstur, `restart`) są pomijane.
  */
 
 /** Budżet klatki dla minimum 30 kl./s (NFR-2), z małym zapasem na pomiar. */
@@ -23,9 +24,18 @@ export class FrameBudget {
   private sum = 0;
   private count = 0;
   private start: number | null = null;
+  private slowWindows = 0;
 
   /** `ratio`: gęstość startowa (min(devicePixelRatio, 3)). */
   constructor(private ratio: number) {}
+
+  /** Nowa rozgrzewka: pętla ruszyła od nowa albo notes wczytał nowy szablon. */
+  restart(): void {
+    this.start = null;
+    this.sum = 0;
+    this.count = 0;
+    this.slowWindows = 0;
+  }
 
   get pixelRatio(): number {
     return this.ratio;
@@ -46,7 +56,9 @@ export class FrameBudget {
     const average = this.sum / this.count;
     this.sum = 0;
     this.count = 0;
-    if (average <= FRAME_BUDGET_MS) return null;
+    this.slowWindows = average > FRAME_BUDGET_MS ? this.slowWindows + 1 : 0;
+    if (this.slowWindows < 2) return null;
+    this.slowWindows = 0;
     this.ratio = STEPS.find((step) => step < this.ratio) ?? 1;
     return this.ratio;
   }

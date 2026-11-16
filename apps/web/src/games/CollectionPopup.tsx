@@ -122,7 +122,7 @@ function GameTile({
 }: {
   readonly game: Game;
   readonly isAdmin: boolean;
-  readonly chunkStart?: number | undefined;
+  readonly chunkStart?: string | undefined;
 }) {
   const { open } = usePopups();
   return (

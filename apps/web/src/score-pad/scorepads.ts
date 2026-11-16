@@ -247,7 +247,6 @@ function checked(result: ReadTemplateResult): { template: ScorePadTemplate; play
   return result;
 }
 
-/** Nazwa pliku zdjęcia: zawsze nowa, bo pliki wersji są niezmienne. */
 /** Dłuższy bok miniatury kartki: galeria 36×46 przy `devicePixelRatio` do 3 (NFR-2). */
 export const SCOREPAD_THUMB_MAX_SIDE = 160;
 /** Docelowy rozmiar miniatury: kilka KB zamiast 1–3 MB zdjęcia szablonu (NFR-7). */
@@ -284,6 +283,7 @@ async function uploadThumb(
   }
 }
 
+/** Nazwa pliku zdjęcia: zawsze nowa, bo pliki wersji są niezmienne. */
 export function newImagePath(gameId: string, scorepadId: string, extension: string): string {
   return `${gameId}/${scorepadId}-${crypto.randomUUID()}.${extension}`;
 }
@@ -342,10 +342,17 @@ export async function saveScorepad(
     if (!blob) throw new ScorepadError('image');
     if (blob.size > SCOREPAD_IMAGE_MAX_BYTES) throw new ScorepadError('imageSize');
     const path = newImagePath(draft.gameId, draft.scorepadId, IMAGE_TYPES[blob.type] ?? 'jpg');
-    const { error } = await storage.upload(path, blob, { contentType: blob.type, upsert: false });
-    if (error) throw new ScorepadError('upload');
+    // Miniatura skaluje się i wysyła równolegle ze zdjęciem: zapis nie czeka dłużej (NFR-2).
+    const [{ error }, thumbUploaded] = await Promise.all([
+      storage.upload(path, blob, { contentType: blob.type, upsert: false }),
+      uploadThumb(storage, path, blob),
+    ]);
+    if (error) {
+      if (thumbUploaded) await storage.remove([thumbUploaded]).catch(() => undefined);
+      throw new ScorepadError('upload');
+    }
     imagePath = uploaded = path;
-    thumb = await uploadThumb(storage, path, blob);
+    thumb = thumbUploaded;
   }
 
   // Id szablonu = id notesu: kolejne wersje są tym samym notesem także dla `<score-pad>`.

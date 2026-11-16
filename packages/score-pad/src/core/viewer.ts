@@ -3155,6 +3155,7 @@ export class ScorePad {
   private loop(): void {
     cancelAnimationFrame(this.rafId);
     this.last = performance.now();
+    this.budget?.restart();
     const frame = (now: number): void => {
       if (this.destroyed || !this.visible) return;
       this.rafId = requestAnimationFrame(frame);

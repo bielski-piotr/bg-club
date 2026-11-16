@@ -292,6 +292,7 @@ export function ScorepadThumb({
   const thumb = useQuery({
     ...signedUrlQuery(client, SCOREPADS_BUCKET, path && thumbPath(path)),
     retry: false,
+    retryOnMount: false,
   });
   const useFull = thumbFailed || thumb.isError;
   const full = useQuery(signedUrlQuery(client, SCOREPADS_BUCKET, useFull ? path : null));
