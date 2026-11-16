@@ -9,7 +9,7 @@ export {
   type AvatarProps,
   type AvatarSize,
 } from './Avatar';
-export { monogram, paletteColor, paletteIndex, AVATAR_PALETTE_SIZE } from './avatar';
+export { monogram, paletteColor, paletteIndex, AVATAR_PALETTE_SIZE } from './avatarUtils';
 export { Badge, MetaChip, StatusChip, type Tone } from './Badge';
 export { Button, IconButton, TextLink, type ButtonSize, type ButtonVariant } from './Button';
 export { Card, ListRow, Tray } from './Card';

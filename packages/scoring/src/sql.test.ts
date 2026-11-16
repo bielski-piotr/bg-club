@@ -31,7 +31,7 @@ const tsResults = (c: PlayCase) =>
 function expectFresh(relative: string, expected: string) {
   const file = path(relative);
   if (process.env.SCORING_WRITE_SQL) writeFileSync(file, expected);
-  expect(readFileSync(file, 'utf8')).toBe(expected);
+  expect(readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).toBe(expected);
 }
 
 describe('testy pgTAP ze wspólnych przypadków', () => {

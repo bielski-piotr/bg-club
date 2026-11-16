@@ -14,7 +14,7 @@ import {
   winRate,
   type PlayerGame,
   type PlayerStats,
-} from './playerStats';
+} from './playerStatsData';
 
 const text = t.profile.stats;
 

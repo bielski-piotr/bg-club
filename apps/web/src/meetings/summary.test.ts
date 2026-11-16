@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatScore } from '../games/gameStats';
+import { formatScore } from '../games/gameStatsData';
 import { pointsBreakdown, streakChange, streakLabel, winsLabel, type SummaryGame } from './summary';
 
 const game = (title: string, points: number, wins = 0, deleted = false): SummaryGame => ({

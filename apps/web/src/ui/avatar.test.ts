@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AVATAR_PALETTE_SIZE, monogram, paletteColor, paletteIndex } from './avatar';
+import { AVATAR_PALETTE_SIZE, monogram, paletteColor, paletteIndex } from './avatarUtils';
 
 describe('monogram', () => {
   it('bierze pierwszą literę imienia i nazwiska', () => {
