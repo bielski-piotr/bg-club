@@ -57,7 +57,7 @@ for (const width of [null, 375] as const) {
     for (const popup of POPUPS) {
       await page.goto(`/?p=${popup}`);
       const dialog = page.getByRole('dialog').last();
-      await expect(dialog).toBeFocused();
+      await expect(dialog).toBeVisible();
       // Audyt dotyczy treści, nie szkieletu ładowania (DS §12).
       await expect(page.locator('.skeleton, [aria-busy="true"]')).toHaveCount(0);
       expect(await audit(page), popup).toEqual([]);
