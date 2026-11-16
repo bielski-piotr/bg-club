@@ -23,6 +23,10 @@
     "db:lint": "supabase db lint --level warning",
     "test:sql": "supabase test db",
     "test:auth": "pnpm --filter @bg-club/accounts test:integration",
+    "backup:export": "node scripts/backup/backup.mjs export",
+    "backup:verify": "node scripts/backup/backup.mjs verify",
+    "backup:restore": "node scripts/backup/backup.mjs restore",
+    "test:restore": "node scripts/backup/drill.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
   "devDependencies": {

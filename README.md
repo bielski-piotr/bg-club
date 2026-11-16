@@ -97,7 +97,7 @@ pnpm --filter @bg-club/web exec playwright install chromium
 
 ## Konfiguracja i sekrety
 
-Repozytorium jest przygotowane do upublicznienia (PRD §1.1, NFR-9): nie zawiera sekretów ani danych klubu.
+Kontrola śledzonych plików, jej zakres i ograniczenia praw do kodu POC są opisane w [audycie danych i licencji](docs/licenses-and-data-audit.md). Nie należy dodawać do repozytorium sekretów, danych klubu ani backupów (PRD §1.1, NFR-9).
 
 - Frontend czyta wyłącznie `VITE_SUPABASE_URL` i `VITE_SUPABASE_ANON_KEY` (NFR-1). Wzór: [`apps/web/.env.example`](apps/web/.env.example). Klucz anon jest publiczny z założenia; dostęp chroni RLS.
 - Klucz `service_role` jest używany tylko w Edge Functions i w skrypcie `pnpm bootstrap:admin` uruchamianym przez instalującego. Nigdy nie trafia do frontendu ani do repozytorium. Lokalne sekrety funkcji: `supabase/functions/.env` (wzór: [`supabase/functions/.env.example`](supabase/functions/.env.example)); dane pierwszego administratora: `supabase/seed/.env` (wzór: [`supabase/seed/.env.example`](supabase/seed/.env.example)).
@@ -510,7 +510,7 @@ deno test
 1. **check:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`,
 2. **e2e:** Playwright (Chromium), raport HTML jako artefakt przy błędzie,
 3. **functions:** `deno lint`, `deno check`, `deno test` w `supabase/functions`,
-4. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, Storage, Edge Functions, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
+4. **sql:** lokalny Supabase (Postgres, Auth, PostgREST, Storage, Edge Functions, bez pozostałych usług), migracje i seed, `pnpm test:sql`, `pnpm db:lint`, `pnpm test:auth`, `pnpm test:restore` na dwóch dodatkowych stosach, potem `pnpm db:reset` (odtworzenie pustej bazy i ponowne zastosowanie migracji) i jeszcze raz `pnpm test:sql` i `pnpm test:auth` (ponowna instalacja od zera).
 
 ## Aplikacja instalowana (PWA) i aktualizacje
 
@@ -523,29 +523,119 @@ Wymagania: PRD NFR-3, PAD-4; wygląd DS §12 (standardowy toast). Kod: [`apps/we
 - **Cloudflare Pages**: `public/_headers` wyłącza cache HTTP dla `sw.js`, manifestu i `index.html`, a pliki z `/assets/` są niezmienne.
 - **Weryfikacja ręczna** (poza E2E): instalacja z Chrome na Androidzie i „Do ekranu początkowego” w Safari na iOS, start z ikony po zamknięciu, wdrożenie nowej wersji przy otwartym notesie, wylogowanie i start bez sieci.
 
-## Wdrożenie (zarys)
+## Wdrożenie od zera
 
-Pełna instrukcja wdrożenia od zera, kopii zapasowych i odtworzenia powstaje w zadaniu [042] (NFR-8, NFR-9). W skrócie:
+Poniższe kroki dotyczą przyszłej instalacji. W ramach #45 wykonano lokalne odtworzenie z fikcyjnymi danymi, opisane w [raporcie próby](docs/restore-drill.md). **Produkcja i spotkanie klubowe nie zostały wykonane ani odebrane.** Użytkownik wyłączył ten etap z automatycznej kolejki i usunął issue #46. Rejestr wartości do późniejszego uzupełnienia: [szablon instalacji i odbioru](docs/deployment-record.example.md). Nie wpisuj tam haseł ani prywatnych kluczy.
 
-- **Supabase:** projekt w panelu Supabase, potem `pnpm exec supabase link --project-ref <ref>` i `pnpm exec supabase db push` (migracje).
-- **Auth w panelu Supabase** (`config.toml` działa tylko lokalnie):
-  - Authentication → Sign In / Providers: wyłączyć „Allow new users to sign up” i „Allow anonymous sign-ins” (AUTH-2).
-  - Authentication → Hooks: dodać „Customize Access Token (JWT) Claims”, typ Postgres, funkcja `public.custom_access_token_hook` (AUTH-7). Bez tego usunięte konto zaloguje się, choć nie zobaczy danych.
-  - Authentication → Sign In / Providers → Email: minimalna długość hasła **12** i wymaganie obecnego hasła przy zmianie hasła (odpowiedniki `minimum_password_length` i `require_current_password` z `config.toml`, w GoTrue `GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_CURRENT_PASSWORD`). Bez tego Auth przyjmie zmianę hasła bez obecnego hasła, choć formularz o nie pyta (USR-5).
-- **Edge Functions:** `pnpm exec supabase functions deploy create-member delete-member delete-own-account` (po `supabase link`; CLI przenosi `verify_jwt = false` z `config.toml`, bo token sprawdza sama funkcja). Funkcje dostają `SUPABASE_URL`, `SUPABASE_ANON_KEY` i `SUPABASE_SERVICE_ROLE_KEY` od Supabase; nie trzeba ustawiać sekretów. Bez wdrożonych funkcji „Dodaj członka”, „Usuń członka” i „Usuń konto” kończą się komunikatem o błędzie.
-- **Pierwszy administrator:** na komputerze instalującego, z adresem projektu i kluczem service role z panelu (Project Settings → API Keys). Klucz nie trafia do repozytorium ani do Cloudflare.
+### 1. Repozytorium i dwa projekty Supabase
 
-  ```bash
-  SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<klucz> \
-  BOOTSTRAP_ADMIN_FIRST_NAME=<imię> BOOTSTRAP_ADMIN_LAST_NAME=<nazwisko> \
-  pnpm bootstrap:admin
-  ```
+1. Sklonuj repo i wybierz zatwierdzony commit `master`. Zainstaluj Node 22.18+ i pnpm 10.28.0 z `packageManager`, następnie `pnpm install --frozen-lockfile`. W Windows bez pnpm w PATH używaj `npx --yes pnpm@10.28.0` zamiast `pnpm`. Nie używaj nieprzypiętego `npx pnpm`.
+2. Utwórz w Supabase dwa **oddzielne projekty** z Postgres 17: Production i Preview. Zapisz ich nazwy, project ref i API URL w prywatnej kopii szablonu. Zachowaj hasła bazy w menedżerze haseł. Nie klonuj danych produkcyjnych do Preview.
+3. Z panelu projektu pobierz publiczny klucz `anon` lub `publishable`, prywatny klucz `service_role` do bootstrapu i backupu oraz parametry połączenia z bazy z okna **Connect**. Połączenie direct wymaga dostępności adresu IP projektu; przy braku IPv6 wybierz **Session pooler**, nigdy pooler transakcyjny dla dump/restore. Szczegóły połączenia i prywatne poświadczenia przechowuj poza Git.
+4. `supabase/config.toml` opisuje stos lokalny. Nie ustawia automatycznie Auth w hostowanym projekcie. Wykonaj kolejne kroki najpierw dla Preview, następnie osobno dla Production. Przed każdym poleceniem sprawdź ref projektu. Nie udostępniaj aplikacji do czasu zakończenia konfiguracji i bootstrapu.
 
-  Zmienne można też zapisać w `supabase/seed/.env`. Skrypt wypisuje hook i jednorazowo wygenerowane hasło; ponowne uruchomienie niczego nie zmienia.
+### 2. Migracje, funkcje i Storage
 
-- **Cloudflare Pages:** połączenie z repozytorium, gałąź produkcyjna `master` (PRD Q20), preview dla PR.
-  - Build command: `pnpm build`
-  - Build output directory: `apps/web/dist`
-  - Zmienne środowiskowe: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (osobno dla Production i Preview).
-  - Wersję Node.js Cloudflare odczytuje z `.nvmrc`. Bez pliku `404.html` Pages serwuje `index.html` dla każdej ścieżki SPA.
-  - Nagłówki cache z `apps/web/public/_headers` (service worker i manifest bez cache HTTP, sekcja „Aplikacja instalowana (PWA) i aktualizacje”).
+Zaloguj CLI przez `pnpm exec supabase login`. Token CLI przechowuj w jego bezpiecznym magazynie lub prywatnym środowisku operatora, bez `VITE_` i bez zapisu w historii poleceń. CLI dostarczone w lockfile ma wersję 3.1.0. Dla wybranego projektu:
+
+```sh
+pnpm exec supabase link --project-ref <REF_WYBRANEGO_PROJEKTU>
+pnpm exec supabase migration list --remote
+pnpm exec supabase db push --remote --dry-run
+# Sprawdź projekt i listę migracji przed rzeczywistym zastosowaniem.
+pnpm exec supabase db push --remote
+pnpm exec supabase functions deploy create-member delete-member delete-own-account --remote
+pnpm exec supabase functions list --remote
+```
+
+Na nowym projekcie stosuje się **wszystkie** pliki z `supabase/migrations` w kolejności nazw. Migracje zakładają rozszerzenia, schematy `public` i `private`, wszystkie RPC, wyzwalacze Auth, uprawnienia i polityki Storage. Nie wklejaj ręcznie fragmentów schematu i nie uruchamiaj na istniejącej produkcji `db reset`. Przed aktualizacją istniejącego projektu wykonaj [punkt backupu](docs/backup-restore.md#punkt-backupu-przed-zmianą).
+
+Funkcje używają `verify_jwt = false` z konfiguracji i same sprawdzają sesję przez `auth.getUser` oraz rolę z profilu. Supabase dostarcza im `SUPABASE_URL`, `SUPABASE_ANON_KEY` i `SUPABASE_SERVICE_ROLE_KEY`. W tym MVP nie ma dodatkowych sekretów funkcji do ustawienia. Kod importowany z `packages/accounts/src` musi być w checkoutcie podczas deployu. Ręcznie sprawdź, że wszystkie trzy funkcje są wdrożone i żądanie bez sesji zwraca 401.
+
+Migracje tworzą cztery prywatne buckety. Wszystkie dopuszczają `image/webp`, `image/jpeg`, `image/png`. Sprawdź w panelu Storage ich konfigurację oraz polityki na `storage.objects`:
+
+| Bucket      | Limit | Dostęp i polityki po wszystkich migracjach                                                                                                                                                                                                                                       |
+| ----------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `avatars`   | 1 MiB | Odczyt aktywnych członków przez `bg_club_objects_select`. Wstawienie, nadpisanie i usunięcie tylko we własnym folderze `<auth.uid>/<plik>` przez `bg_club_avatars_*_own`.                                                                                                        |
+| `covers`    | 2 MiB | Odczyt aktywnych członków. Zapis, zmiana i usunięcie przez admina, `bg_club_admin_assets_*`. Tu są też logotypy klubu.                                                                                                                                                           |
+| `scorepads` | 5 MiB | Odczyt aktywnych członków. Zapis przez admina, `bg_club_admin_assets_*`; późniejsze migracje blokują nadpisanie/usunięcie obrazu wskazanego przez wersję notesu.                                                                                                                 |
+| `sheets`    | 2 MiB | Odczyt aktywnych członków. `bg_club_sheets_insert_runner` pozwala prowadzącemu/adminowi dodawać pliki spotkania. Brak UPDATE. Usuwa admin, `bg_club_sheets_delete_admin`, a nieużywane pliki swojego niezakończonego spotkania także prowadzący, `bg_club_sheets_delete_unused`. |
+
+Nie ustawiaj bucketów jako publicznych. RLS tabel i odczyt Storage wymagają aktywnego profilu. `private` nie może być na liście schematów Data API. Nie nadawaj `anon` dostępu do danych aplikacji. Pełny kontrakt praw jest w sekcji „Uprawnienia” i testach SQL `050`, `060`, `120`, `180`.
+
+### 3. Auth i hook
+
+W każdym z obu projektów ustaw w panelu Authentication:
+
+| Ustawienie                            | Wartość i powód                                                                                                                                                                                                                                                                                |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Providers / Email                     | Email włączony, samodzielny signup wyłączony, anonymous sign-ins wyłączone. OAuth, SMS, Web3 i MFA pozostają wyłączone.                                                                                                                                                                        |
+| Password security                     | Minimum 12 znaków; wymagaj obecnego hasła przy zmianie, odpowiednik `require_current_password`. Jeżeli panel nie wystawia tego przełącznika, ustaw go przez obsługiwane API konfiguracji Auth i potwierdź próbą zmiany hasła bez obecnego hasła. Nie uznawaj samego formularza SPA za ochronę. |
+| Email confirmations                   | Wyłączone jak lokalnie; konta tworzy wyłącznie admin i serwer potwierdza techniczny adres. Bez SMTP, wiadomości i odzyskiwania hasła w MVP.                                                                                                                                                    |
+| Hooks / Customize Access Token Claims | Typ Postgres, **`public.custom_access_token_hook`**. Włącz po migracjach, przed pierwszym logowaniem. Prawa `supabase_auth_admin` nadaje migracja.                                                                                                                                             |
+| Sessions                              | JWT 3600 s, rotacja refresh tokenów włączona, reuse interval 10 s.                                                                                                                                                                                                                             |
+| URL configuration                     | Site URL równy adresowi frontendu danego środowiska. W Production dopuszczaj wyłącznie adres produkcji. W Preview wpisz konkretny adres/alias preview; wzorzec `https://**.<PAGES_PROJECT>.pages.dev` dopuszczaj tylko w projekcie Preview, jeśli potrzebujesz adresów kolejnych buildów.      |
+
+Hook odrzuca logowanie i refresh konta bez aktywnego profilu. Wyzwalacz `on_auth_user_created` tworzy profil o tym samym UID z `app_metadata.bg_club`; nie dodawaj kont przyciskiem „Add user” w panelu. Hook Auth nie zastępuje tego wyzwalacza. Formularz loguje hookiem, Auth otrzymuje `<hook>@users.bgclub.invalid`. Pusta instalacja nie zawiera klubu ani kont.
+
+Jeżeli panel nie udostępnia wymagania obecnego hasła, użyj [Management API Auth config](https://supabase.com/docs/reference/api/v1-update-auth-service-config). Wywołaj `PATCH https://api.supabase.com/v1/projects/<REF>/config/auth` z JSON `{"security_update_password_require_current_password":true}` i prywatnym tokenem operatora w nagłówku Authorization. Następnie odczytaj `GET` tego samego endpointu i sprawdź tę jedną właściwość. Nie wypisuj całej odpowiedzi konfiguracji, może zawierać sekrety. Przykład w PowerShell zakłada token już w prywatnym środowisku `SUPABASE_ACCESS_TOKEN` i ref w `BG_PROJECT_REF`:
+
+```powershell
+$authEndpoint = "https://api.supabase.com/v1/projects/$env:BG_PROJECT_REF/config/auth"
+$authHeaders = @{ Authorization = "Bearer $env:SUPABASE_ACCESS_TOKEN" }
+$null = Invoke-RestMethod -Method Patch -Uri $authEndpoint -Headers $authHeaders -ContentType 'application/json' -Body '{"security_update_password_require_current_password":true}'
+$authConfig = Invoke-RestMethod -Method Get -Uri $authEndpoint -Headers $authHeaders
+if ($authConfig.security_update_password_require_current_password -ne $true) { throw 'Brak wymogu obecnego hasła' }
+Remove-Variable authConfig, authHeaders
+```
+
+### 4. Pierwszy administrator
+
+Na zaufanym komputerze skopiuj `supabase/seed/.env.example` do ignorowanego `supabase/seed/.env`. Ustaw w nim `SUPABASE_URL` i prywatny `SUPABASE_SERVICE_ROLE_KEY` wybranego projektu oraz `BOOTSTRAP_ADMIN_FIRST_NAME`, `BOOTSTRAP_ADMIN_LAST_NAME`. Opcjonalny `BOOTSTRAP_ADMIN_PASSWORD` ma co najmniej 12 znaków. Następnie:
+
+```sh
+pnpm bootstrap:admin
+```
+
+Bez hasła skrypt generuje je i pokazuje jeden raz. Uruchamiaj w prywatnym terminalu bez nagrywania/transkrypcji, zapisz hook i hasło w menedżerze haseł. Ponowienie nie zmienia hasła i nie dodaje drugiego admina. Nie przekazuj service role Cloudflare ani SPA. Po operacji usuń prywatny plik, jeśli nie jest potrzebny; bezpieczny magazyn pozostaje źródłem poświadczeń. Dla Preview utwórz osobne fikcyjne konto, inne hasło i fikcyjne dane. Po odtworzeniu backupu **nie wykonuj bootstrapu**, konta są już w backupie.
+
+### 5. Cloudflare Pages, `master` i Preview
+
+W Cloudflare wybierz Workers & Pages, utwórz projekt **Pages** z repozytorium GitHub `bielski-piotr/bg-club`. Ustaw root na katalog główny repo, framework preset None, production branch **`master`** i preview dla wybranych gałęzi/PR. Zapisz nazwę projektu, Account ID i docelowy publiczny URL w prywatnym rejestrze instalacji.
+
+| Pole                     | Production                                         | Preview                                         |
+| ------------------------ | -------------------------------------------------- | ----------------------------------------------- |
+| Build command            | `pnpm build`                                       | `pnpm build`                                    |
+| Build output             | `apps/web/dist`                                    | `apps/web/dist`                                 |
+| Node                     | `.nvmrc`, minimum 22.18                            | ta sama wersja                                  |
+| `PNPM_VERSION`           | `10.28.0`                                          | `10.28.0`                                       |
+| `VITE_SUPABASE_URL`      | API URL projektu **Production**                    | API URL oddzielnego projektu **Preview**        |
+| `VITE_SUPABASE_ANON_KEY` | publiczny anon/publishable projektu **Production** | publiczny anon/publishable projektu **Preview** |
+
+Te dwie zmienne `VITE_` trafiają do publicznych plików JS w czasie budowania. Zmiana wartości wymaga nowego buildu. Po pierwszym deployu dopisz adresy Pages do ustawień Auth z kroku 3 i wykonaj próbę logowania. Sprawdź w ustawieniach Pages, że wartości Preview nie odziedziczyły produkcji. Wszystkie preview mogą współdzielić jeden projekt testowy, więc nie gwarantują izolacji między PR. Nigdy nie mogą korzystać z produkcyjnego API/klucza, kont, kopii danych ani bucketów. Migracje preview stosuj z odpowiadającej gałęzi ręcznie, zanim przetestujesz frontend, a produkcji dopiero po kontroli kompatybilności i backupie.
+
+Bez `404.html` Pages obsługuje ścieżki SPA przez `index.html`. Repo dostarcza `apps/web/public/_headers`, service worker, manifest i [informacje o licencjach](THIRD-PARTY-NOTICES.md). Przed przekazaniem instalacji sprawdź HTTPS, odświeżenie deep linku, nagłówki `sw.js` i plików `/assets/`, logowanie admina i gracza, odmowę anonimowego odczytu oraz upload/pobranie obrazu. Zapisz commit i deployment ID. Po potwierdzeniu pustego huba admin zakłada klub z UI. To są kroki przyszłego wdrożenia i odbioru, nie wynik lokalnego testu #45.
+
+Dokumentacja dostawcy: [build Pages](https://developers.cloudflare.com/pages/configuration/build-configuration/), [wersje narzędzi](https://developers.cloudflare.com/pages/configuration/build-image/), [kontrola gałęzi](https://developers.cloudflare.com/pages/configuration/branch-build-controls/), [preview](https://developers.cloudflare.com/pages/configuration/preview-deployments/).
+
+## Backup, odtworzenie i rollback
+
+Pełna procedura, prywatny szablon env i kryteria sukcesu są w [instrukcji backupu i odtworzenia](docs/backup-restore.md). Narzędzia są częścią repo, bez dodatkowych zależności npm:
+
+```sh
+# W prywatnym środowisku operatora, po zatrzymaniu zapisów.
+node --env-file=<PRYWATNY_ENV> scripts/backup/backup.mjs export --dir <NOWY_KATALOG_POZA_REPO>
+node scripts/backup/backup.mjs verify --dir <KATALOG_BACKUPU>
+# Cel: osobny, pusty projekt ze zgodnymi migracjami i usługami, nigdy bieżąca produkcja.
+node --env-file=<PRYWATNY_ENV_CELU> scripts/backup/backup.mjs restore --dir <KATALOG_BACKUPU>
+# Próba na samodzielnie tworzonych stosach z fikcyjnymi danymi, wymaga Dockera.
+pnpm test:restore
+```
+
+Backup zawiera dane `public`, `private`, konta i tożsamości Auth z oryginalnymi UID/hashami haseł, kopie migracji oraz **bajty każdego obiektu we wszystkich bucketach** z SHA-256. Nie przenosi sesji i jednorazowych flow Auth. Pliki są poufne i muszą być poza repo oraz w szyfrowanym magazynie. `verify` kontroluje pliki lokalnie; `restore` dodatkowo porównuje wszystkie odtworzone wiersze, sprawdza klucze obce i pobiera każdy wgrany obraz. Warunkiem odbioru jest też logowanie oryginalnym hasłem oraz sprawdzenie historii, snapshotów, wyników i odblokowań. Same metadane Storage, `db dump` ani pusty dry-run nie wystarczają.
+
+Przed każdą migracją zatrzymaj zapisy, zapisz commit/deployment ID i wykonaj pełny backup bazy **razem ze Storage**, sprawdź sumy i odtwórz go w oddzielnym projekcie. Bez poprawnego punktu backupu nie stosuj zmiany niszczącej dane. Nie usuwaj starego projektu przed odbiorem odtworzenia.
+
+Rollback frontendu: wyłącz automatyczne wdrożenia `master` na czas incydentu, w Pages wybierz poprzedni udany **production deployment** i „Rollback to this deployment”. Preview nie jest celem rollbacku. Sprawdź zgodność starego frontendu i Edge Functions z bieżącą bazą. Otwarte karty/PWA zachowują stary kod do bezpiecznej aktualizacji, więc poczekaj na zapis szkiców i użyj „Odśwież”. Nie kasuj `localStorage` przy niezapisanej kartce. Cofnięcie Pages nie cofa migracji, funkcji ani danych. [Procedura Pages](https://developers.cloudflare.com/pages/configuration/rollbacks/).
+
+Rollback bazy: migracje nie mają automatycznych plików down. Dla zgodnej zmiany dodaj nową migrację naprawczą i przetestuj ją na odtworzonej kopii. Nie edytuj zastosowanych migracji i nie traktuj `migration repair` jako odtworzenia danych. Dla utraty/nieodwracalnej zmiany odtwórz pełny backup w **nowym projekcie**, wdroż pasujące funkcje i Auth, sprawdź wyniki, potem przebuduj frontend z URL/kluczem tego projektu. Wszystkie zapisy po punkcie backupu zostaną utracone, chyba że osobno odzyskasz je ze starego projektu. Zachowaj awaryjną kopię jego bieżącego stanu przed przełączeniem. Różne momenty backupu bazy i Storage mogą dać brakujące obrazy; przywracaj wyłącznie kompletny wspólny zestaw.

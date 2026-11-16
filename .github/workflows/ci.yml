@@ -85,6 +85,9 @@ jobs:
       - run: pnpm db:lint
       # Bootstrap administratora i logowanie hookiem na świeżej instalacji.
       - run: pnpm test:auth
+      # Dwa nowe stosy na innych portach, fikcyjne dane i rzeczywisty roundtrip DB + Storage.
+      # Nie resetuje instalacji używanej przez testy Auth.
+      - run: pnpm test:restore
       # Reset do pustej bazy i ponowne uruchomienie instalacji też muszą przechodzić testy.
       - run: pnpm db:reset
       - run: pnpm test:sql

@@ -11,7 +11,7 @@ Web componenty `<score-pad>` (notes 3D) i `<score-pad-editor>` (edytor notesu) w
 | Three.js                      | `three` 0.149.0 z npm (ta sama wersja r149 co CDN w POC)    | zależność npm, licencja MIT; typy `@types/three` 0.149.0 (MIT)                                                     |
 | Fonty kartki                  | `@fontsource/caveat`, `alegreya-sc`, `archivo-narrow` 5.3.0 | zależności npm, licencja OFL-1.1; zastępują Google Fonts z POC                                                     |
 
-Repozytoria POC nie mają pliku licencji. Należą do tego samego właściciela co BG Club, a kod jest przeniesiony zgodnie z PRD §8.5 (zadanie [013]).
+Repozytoria POC nie mają pliku licencji. Należą do tego samego właściciela GitHub co BG Club, a kod jest przeniesiony zgodnie z PRD §8.5 (zadanie [013]). Sam właściciel repo nie jest dowodem kompletu praw do publicznej redystrybucji. Wynik kontroli, ograniczenia oraz teksty OFL/MIT dołączone do aplikacji są w [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md).
 
 Nie przeniesiono: `dist/`, `build.mjs` (esbuild, IIFE), stron pokazowych `demo.html` i `editor.html` ani `przyklad-osadzenia.html`. Bundlem jest Vite aplikacji.
 
