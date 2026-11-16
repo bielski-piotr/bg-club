@@ -7,7 +7,7 @@ import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
 import { EmptyState, Icon, ListRow, Tray } from '../ui';
-import { formatScore, useGameStats, type GameRecord, type GameStats } from './gameStats';
+import { formatScore, useGameStats, type GameRecord, type GameStats } from './gameStatsData';
 
 const text = t.games.details.stats;
 

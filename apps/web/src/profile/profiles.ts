@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { signedUrlQuery } from '../lib/storage';
 import { isUuid } from '../popups/routes';
 import type { AvatarPerson } from '../ui';
@@ -88,8 +88,8 @@ export function useProfile(client: SupabaseClient, id: string) {
  * Aktywni członkowie klubu (MEM-1, MEM-2, MEM-5: bez usuniętych), alfabetycznie.
  * Kolejność ustala zapytanie, a remisy rozstrzyga `id`, więc lista jest stabilna.
  */
-export function useMembers(client: SupabaseClient) {
-  return useQuery({
+export function membersQuery(client: SupabaseClient) {
+  return queryOptions({
     queryKey: membersKey,
     queryFn: async (): Promise<Profile[]> => {
       const { data, error } = await client
@@ -103,6 +103,10 @@ export function useMembers(client: SupabaseClient) {
       return data as Profile[];
     },
   });
+}
+
+export function useMembers(client: SupabaseClient) {
+  return useQuery(membersQuery(client));
 }
 
 export const allProfilesKey = ['profiles', 'all'] as const;

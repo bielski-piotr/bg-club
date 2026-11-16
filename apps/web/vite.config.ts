@@ -53,6 +53,9 @@ export default defineConfig(({ mode }) => {
     preview: { port: 4173, strictPort: true },
     build: { target: 'es2022', sourcemap: true },
     test: {
+      // Each jsdom worker also loads the lazy popup and scorepad modules. Running
+      // all files at once starves async UI assertions on developer machines.
+      maxWorkers: 1,
       environment: 'jsdom',
       include: ['src/**/*.test.{ts,tsx}'],
       setupFiles: ['./src/test/setup.ts'],

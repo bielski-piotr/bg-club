@@ -1,3 +1,6 @@
+import { membersQuery } from '../profile/profiles';
+import { collectionWidgetQuery } from '../games/games';
+import { hubMeetingQuery } from '../meetings/meetings';
 import { usePrefetchQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Hub } from '../hub/Hub';
@@ -21,6 +24,11 @@ export function SignedInScreen({ userId }: { readonly userId: string }) {
   // Klub pobieramy równolegle z profilem, nie dopiero po wyświetleniu huba (o jeden RTT
   // szybszy widok Klubu, NFR-2).
   usePrefetchQuery(clubQuery(client));
+  // All reads still use the authenticated client and server RLS. Start independent
+  // widget requests alongside the own-profile lookup to avoid another network round trip.
+  usePrefetchQuery(membersQuery(client));
+  usePrefetchQuery(collectionWidgetQuery(client));
+  usePrefetchQuery(hubMeetingQuery(client));
   const inactive = profile.isSuccess && profile.data === null;
   useProfileTheme(profile.data?.theme);
 

@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { plural, t } from '../i18n';
-import { paletteColor, paletteIndex, monogram } from './avatar';
+import { paletteColor, paletteIndex, monogram } from './avatarUtils';
 import { cx } from './cx';
 import './Avatar.css';
 
