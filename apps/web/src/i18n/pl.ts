@@ -532,6 +532,7 @@ export const pl = {
     details: {
       lastPlayed: 'Ostatnia partia: {date}',
       neverPlayed: 'Jeszcze nie grana',
+      voteTotal: 'Łącznie głosów: {count}',
       gallery: 'Karteczki',
       count: { one: '{n} partia', few: '{n} partie', many: '{n} partii' },
       galleryEmptyTitle: 'Brak karteczek',

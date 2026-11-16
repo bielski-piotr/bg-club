@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/authContext';
+import { gameVoteTotalsKey } from '../games/gameVoteTotal';
 import { format, t } from '../i18n';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { usePopups } from '../popups/popupContext';
@@ -46,6 +47,7 @@ export function DeleteMemberDialog({ id }: { readonly id: string }) {
     onSuccess: () => {
       if (member) toast.show(format(text.toast, { name: fullName(member) }), 'success');
       if (mounted.current) back();
+      void queryClient.invalidateQueries({ queryKey: gameVoteTotalsKey });
       // Profil (stan „usunięty”), lista i widżet członków odświeżają się z bazy.
       void queryClient.invalidateQueries({
         queryKey: ['profiles'],

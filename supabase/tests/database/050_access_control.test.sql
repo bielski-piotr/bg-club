@@ -87,6 +87,7 @@ select results_eq(
        ('f_unaccent(text)'),
        ('finish_meeting(uuid)'),
        ('game_stats(uuid)'),
+       ('game_vote_total(uuid)'),
        ('is_valid_points(integer[],integer)'),
        ('is_valid_timezone(text)'),
        ('leaderboard(text,integer)'),

@@ -6,6 +6,7 @@ import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { GameCover } from '../games/GameCover';
 import { useGameSearch } from '../games/games';
 import { useClub } from '../hub/club';
+import { gameVoteTotalKey } from '../games/gameVoteTotal';
 import { format, plural, t } from '../i18n';
 import { usePopupLevel, usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
@@ -451,9 +452,12 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
     // na chwilę do starego stanu i nie da się kliknąć go drugi raz z nieaktualną wartością.
     // Błąd mógł wynikać ze zmiany spotkania (zamknięte, usunięte): odświeżamy też spotkanie.
     onSettled: (_, error) =>
-      queryClient.invalidateQueries({
-        queryKey: error ? meetingsKey : meetingVotesKey(meeting.id),
-      }),
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: error ? meetingsKey : meetingVotesKey(meeting.id),
+        }),
+        queryClient.invalidateQueries({ queryKey: gameVoteTotalKey(game.id) }),
+      ]),
   });
   const mine = toggle.isPending ? toggle.variables : row.mine;
   const mismatch = !row.fits;
