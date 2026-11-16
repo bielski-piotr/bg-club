@@ -17,6 +17,7 @@ import { QueryStatus } from '../popups/QueryStatus';
 import { useLeaveGuard } from '../popups/useLeaveGuard';
 import { useMounted } from '../popups/useMounted';
 import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
+import { AchievementNotification } from '../profile/AchievementNotification';
 import { ScorePadView, type ScorePadHandle } from '../score-pad/ScorePadView';
 import {
   discardSheetImage,
@@ -200,6 +201,7 @@ function PlayPad({
   const toast = useToast();
   const mounted = useMounted();
   const { open, back } = usePopups();
+  const [saveRequestId] = useState(() => crypto.randomUUID());
   const padRef = useRef<ScorePadHandle>(null);
   const names = useMemo(() => seatNames(play, profiles), [play, profiles]);
   const namesRef = useRef(names);
@@ -418,7 +420,7 @@ function PlayPad({
 
   const saveFinal = useMutation({
     mutationFn: ({ summary }: { summary: PlaySummary; image: PendingSheetImage }) =>
-      savePlay(client, play, summary),
+      savePlay(client, play, summary, { requestId: saveRequestId }),
     onMutate: () => {
       savingRef.current = true;
     },
@@ -426,7 +428,7 @@ function PlayPad({
       savingRef.current = false;
       void queryClient.invalidateQueries({ queryKey: playKey(play.id) });
     },
-    onSuccess: (_result, { image }) => {
+    onSuccess: (unlocks, { image }) => {
       // Obraz karteczki dołączamy w tle: zapis wyników na niego nie czeka, a jego brak nie psuje
       // historii (PAD-6). Po dołączeniu lista partii pokazuje miniaturę.
       void finishSheetImage(client, play, image)
@@ -438,6 +440,13 @@ function PlayPad({
       removeLocalDrafts(draftStorage(), play.id);
       release();
       toast.show(format(t.meetings.toasts.playSaved, { title: play.game.title }), 'success');
+      if (unlocks.length > 0) {
+        toast.show(
+          <AchievementNotification unlocks={unlocks} profiles={profiles} open={open} />,
+          'success',
+          { rich: true, duration: 10_000, key: `achievement:${saveRequestId}` },
+        );
+      }
       // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane” (§5.6.5).
       void invalidatePlayData(queryClient);
       if (mounted.current) back();

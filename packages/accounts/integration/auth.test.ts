@@ -1246,6 +1246,33 @@ describe('konta i logowanie na pustej instalacji', () => {
     it('równoległe zapisy i ponowienia z dwóch sesji zapisują partię dokładnie raz', async () => {
       const [a, b] = sessions;
       if (!a || !b) throw new Error('brak sesji');
+      const requestA = crypto.randomUUID();
+      const requestB = crypto.randomUUID();
+      const notifiedSave = (client: SupabaseClient, request_id: string) =>
+        client.rpc('save_play_with_achievements', {
+          play_id: ids.play,
+          scorepad_version_id: ids.version,
+          sheet,
+          results: results(),
+          request_id,
+        });
+      const notifications = await Promise.all([
+        notifiedSave(a, requestA),
+        notifiedSave(b, requestB),
+        notifiedSave(a, requestA),
+        notifiedSave(b, requestB),
+      ]);
+      for (const reply of notifications) expect(reply.error).toBeNull();
+      expect(notifications[0]?.data).toEqual(notifications[2]?.data);
+      expect(notifications[1]?.data).toEqual(notifications[3]?.data);
+      const owners = notifications.slice(0, 2).filter((reply) => reply.data.unlocks.length > 0);
+      expect(owners).toHaveLength(1);
+      expect(owners[0]?.data.unlocks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ profile_id: ids.admin, achievement_id: 'win-1' }),
+        ]),
+      );
+      // Starszy klient nadal otrzymuje oryginalny kontrakt save_play.
       const replies = await Promise.all([save(a), save(b), save(a), save(b)]);
       for (const reply of replies) expect(reply.error).toBeNull();
       const savedAt = new Set(replies.map((reply) => reply.data?.saved_at));

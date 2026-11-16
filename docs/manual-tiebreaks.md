@@ -37,6 +37,13 @@ zagnieżdżonych sum i premii. Funkcja RPC zachowuje dotychczasowe uprawnienia,
 blokady, snapshoty, przeliczanie punktów i osiągnięć. Nie ma nowego publicznego RPC,
 tabeli, backfillu ani zmiany protokołu zapisu, co ogranicza kolizję z toastami #50.
 
+Po integracji #50 aplikacja przekazuje ręcznie ustalone miejsca przez
+`save_play_with_achievements`, który deleguje zapis do `save_play`. Zachowuje
+identyfikator żądania podczas ponowień i pokazuje toast nowych odznak po zapisie.
+Test SQL sprawdza odznakę ręcznie wybranego zwycięzcy oraz odzyskanie tego samego
+potwierdzenia. E2E sprawdza ręczny remis, toast Ex aequo, ponowienie bez duplikatu
+i brak ponownego toastu po przeładowaniu.
+
 Testy obejmują logikę grup w `packages/scoring/src/manual.test.ts`, SQL
 `270_manual_tiebreak.test.sql` i scenariusze manual w `play-save.spec.ts`
 oraz `scorepad-categories.spec.ts`. E2E sprawdzają także dostępność i brak

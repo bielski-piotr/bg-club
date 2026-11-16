@@ -140,6 +140,7 @@ select is_empty(
           'public.save_play_draft(uuid,jsonb,int)'::regprocedure,
           'public.discard_play(uuid)'::regprocedure,
           'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
+          'public.save_play_with_achievements(uuid,uuid,jsonb,jsonb,uuid)'::regprocedure,
           'public.attach_play_sheet_image(uuid,text)'::regprocedure,
           'public.orphan_sheet_images(uuid)'::regprocedure,
           'public.delete_play(uuid)'::regprocedure,

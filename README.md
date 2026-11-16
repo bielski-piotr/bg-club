@@ -296,6 +296,15 @@ Wymagania: PRD ACH-3, VIEW-5, USR-4, MEM-5, §5.6.5. Kod: [`apps/web/src/profile
 - **Odświeżanie**: klucze gabloty i listy spotkania są w `meetingsKey`, który unieważniają zapis i usunięcie partii (`PLAY_DEPENDENT_KEYS`) oraz rozpoczęcie, zakończenie, publikacja gier, edycja i usunięcie spotkania, czyli wszystkie zdarzenia przeliczające osiągnięcia ([036]). Oba widoki pobierają więc stan po przeliczeniu, bez nieaktualnych odznak.
 - **Ikony**: piktogramy odznak są rysowane ręcznie na siatce 16×16 (DS §13) i dekoracyjne (`aria-hidden`); nazwę i stan odznaki podaje tekst, a nazwa linku zawiera stan („Hat-trick, Odblokowane 8 lis 2026. Pokaż szczegóły”).
 
+## Powiadomienia o osiągnięciach
+
+ACH-4, DS §12. Po zapisie partii `save_play_with_achievements` wywołuje dotychczasowy `save_play` i zwraca nowe odblokowania z tej samej transakcji. Wyzwalacz `AFTER INSERT` na `achievement_unlocks` pomija istniejące odznaki, także po zmianie ich daty lub partii. Migracja: [`20261116000400_achievement_notifications.sql`](supabase/migrations/20261116000400_achievement_notifications.sql).
+
+- Pierwsze żądanie zapisu ma UUID utrzymany przez notes przy automatycznych i ręcznych ponowieniach. Prywatne potwierdzenie per partia przechowuje wynik dla tego UUID i autora, więc utrata odpowiedzi nie gubi powiadomień. Inne żądanie dostaje pustą listę. Błędny zapis wycofuje też potwierdzenie, a usunięcie partii je usuwa. Pierwotny RPC `save_play` zachowuje swój kontrakt.
+- Toast powstaje wyłącznie po udanej odpowiedzi mutacji na urządzeniu zapisującym. Odczyt historii, odświeżenie, Realtime i zakończenie spotkania nie emitują toastów. Odświeżenie w trakcie utraconej odpowiedzi może pominąć powiadomienie; gablota zachowuje odblokowania.
+- Wszystkie nowe odznaki graczy trafiają do jednego przewijalnego toastu, więc limit trzech toastów nie ucina listy. Każdy wiersz podaje gracza, nazwę odznaki i link „Zobacz” do szczegółów. Powiadomienie trwa 10 s, najechanie lub fokus wstrzymuje znikanie. Klucz żądania zapobiega ponownemu pokazaniu wyniku w bieżącej aplikacji. Region `aria-live="polite"` ogłasza treść; linki są osiągalne klawiaturą także przy otwartym popupie. Wygląd korzysta z tokenów obu motywów.
+- Testy: pgTAP `270_achievement_notifications` oraz listy praw `010`/`050`; integracja Auth/API sprawdza równoległe żądania dwóch sesji i odzyskanie wyniku; Vitest `achievementNotifications.test.tsx`, `playSave.test.ts`; Playwright `play-save.spec.ts` obejmuje utraconą odpowiedź, cztery odznaki dwóch graczy, szczegóły, klawiaturę, odświeżenie, brak nowych odznak i odczyt zapisanej partii na 360 px i desktopie w obu motywach.
+
 ## Członkowie
 
 Wymagania: PRD MEM-1…MEM-3, AUTH-2, AUTH-4, USR-1, USR-2; wygląd DS §6–8. Kod: [`apps/web/src/members`](apps/web/src/members), Edge Function [`supabase/functions/create-member`](supabase/functions/create-member), logika konta w [`packages/accounts/src/member.ts`](packages/accounts/src/member.ts).
