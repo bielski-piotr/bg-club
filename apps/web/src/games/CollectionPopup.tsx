@@ -4,7 +4,7 @@ import { format, plural, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { Button, EmptyState, Icon, Menu, SearchField } from '../ui';
+import { Button, EmptyState, Icon, Menu, SearchField, ShowMore, useChunks } from '../ui';
 import { GameCover } from './GameCover';
 import { playersLabel } from './labels';
 import { useGameSearch, type Game } from './games';
@@ -41,6 +41,7 @@ export function CollectionPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   const searching = deferredQuery !== '';
   const shown = searching ? results.data : all.data;
   const count = all.data ? plural(all.data.length, t.games.count) : undefined;
+  const chunks = useChunks(shown ?? [], deferredQuery);
 
   const actions = isAdmin ? (
     // Na telefonie krótka etykieta „Dodaj” (DS §7); nazwa dostępna jest zawsze pełna.
@@ -70,15 +71,23 @@ export function CollectionPopup({ isAdmin }: { readonly isAdmin: boolean }) {
               <QueryStatus isError={status.isError} onRetry={() => void status.refetch()} />
             </div>
           ) : shown.length > 0 ? (
-            <ul
-              className="game-grid games-body"
-              aria-label={text.listLabel}
-              aria-busy={results.isFetching && results.isPlaceholderData ? true : undefined}
-            >
-              {shown.map((game) => (
-                <GameTile key={game.id} game={game} isAdmin={isAdmin} />
-              ))}
-            </ul>
+            <>
+              <ul
+                className="game-grid games-body"
+                aria-label={text.listLabel}
+                aria-busy={results.isFetching && results.isPlaceholderData ? true : undefined}
+              >
+                {chunks.visible.map((game, index) => (
+                  <GameTile
+                    key={game.id}
+                    game={game}
+                    isAdmin={isAdmin}
+                    chunkStart={chunks.chunkStart(index)}
+                  />
+                ))}
+              </ul>
+              <ShowMore hidden={chunks.hidden} onClick={chunks.showMore} />
+            </>
           ) : (
             <div className="games-body">
               <EmptyState
@@ -106,10 +115,18 @@ export function CollectionPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   );
 }
 
-function GameTile({ game, isAdmin }: { readonly game: Game; readonly isAdmin: boolean }) {
+function GameTile({
+  game,
+  isAdmin,
+  chunkStart,
+}: {
+  readonly game: Game;
+  readonly isAdmin: boolean;
+  readonly chunkStart?: number | undefined;
+}) {
   const { open } = usePopups();
   return (
-    <li className="game-tile">
+    <li className="game-tile" data-chunk-start={chunkStart}>
       <div className="game-tile__cover">
         <button
           type="button"

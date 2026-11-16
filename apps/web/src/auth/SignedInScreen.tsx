@@ -1,5 +1,7 @@
+import { usePrefetchQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Hub } from '../hub/Hub';
+import { clubQuery } from '../hub/club';
 import { t } from '../i18n';
 import { PopupRouter } from '../popups/PopupRouter';
 import { useProfileTheme } from '../theme/useProfileTheme';
@@ -16,6 +18,9 @@ import './LoginScreen.css';
 export function SignedInScreen({ userId }: { readonly userId: string }) {
   const { client, signOut } = useAuth();
   const profile = useOwnProfile(client, userId);
+  // Klub pobieramy równolegle z profilem, nie dopiero po wyświetleniu huba (o jeden RTT
+  // szybszy widok Klubu, NFR-2).
+  usePrefetchQuery(clubQuery(client));
   const inactive = profile.isSuccess && profile.data === null;
   useProfileTheme(profile.data?.theme);
 

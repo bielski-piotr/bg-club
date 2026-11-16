@@ -16,6 +16,7 @@ import {
   importScorepad,
   ScorepadError,
   SCOREPADS_BUCKET,
+  thumbPath,
   useGameScorepads,
   type Scorepad,
   type SavedScorepad,
@@ -274,8 +275,9 @@ function ScorepadRow({
 }
 
 /**
- * Miniatura kartki 36×46 (DS „Score-sheet thumbnail”): zdjęcie aktualnej wersji z prywatnego
- * bucketu albo rysunek kartki, gdy notes nie ma zdjęcia lub obraz jeszcze się wczytuje.
+ * Miniatura kartki 36×46 (DS „Score-sheet thumbnail”): miniatura zdjęcia aktualnej wersji
+ * z prywatnego bucketu (kilka KB, `thumbPath`), a gdy jej nie ma (starsze wersje) pełne zdjęcie.
+ * Rysunek kartki, gdy notes nie ma zdjęcia lub obraz jeszcze się wczytuje.
  */
 export function ScorepadThumb({
   name,
@@ -285,9 +287,18 @@ export function ScorepadThumb({
   readonly path: string | null;
 }) {
   const { client } = useAuth();
-  const url = useQuery(signedUrlQuery(client, SCOREPADS_BUCKET, path));
+  const [thumbFailed, setThumbFailed] = useState(false);
+  // Brak miniatury (starsza wersja) to od razu pełne zdjęcie, bez ponawiania zapytania.
+  const thumb = useQuery({
+    ...signedUrlQuery(client, SCOREPADS_BUCKET, path && thumbPath(path)),
+    retry: false,
+  });
+  const useFull = thumbFailed || thumb.isError;
+  const full = useQuery(signedUrlQuery(client, SCOREPADS_BUCKET, useFull ? path : null));
   const [failed, setFailed] = useState(false);
-  const src = url.data && !failed ? url.data : undefined;
+  const url = useFull ? full.data : thumb.data;
+  const src = url && !failed ? url : undefined;
+  const onError = () => (useFull ? setFailed(true) : setThumbFailed(true));
   return (
     <span className={cx('sheet-thumb', src && 'sheet-thumb--photo')}>
       {src ? (
@@ -295,7 +306,8 @@ export function ScorepadThumb({
           src={src}
           alt={format(text.thumbnail, { name })}
           loading="lazy"
-          onError={() => setFailed(true)}
+          decoding="async"
+          onError={onError}
         />
       ) : (
         <span className="sheet-thumb__lines" aria-hidden="true">

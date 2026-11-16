@@ -2,6 +2,7 @@ import { scorePadFileName, type ScorePadFile, type ScorePadTemplate } from '@bg-
 import type { ReadTemplateResult } from '@bg-club/score-pad/template';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
+import { scaleImage } from '../club/image';
 import { isUuid } from '../popups/routes';
 
 /**
@@ -247,6 +248,42 @@ function checked(result: ReadTemplateResult): { template: ScorePadTemplate; play
 }
 
 /** Nazwa pliku zdjęcia: zawsze nowa, bo pliki wersji są niezmienne. */
+/** Dłuższy bok miniatury kartki: galeria 36×46 przy `devicePixelRatio` do 3 (NFR-2). */
+export const SCOREPAD_THUMB_MAX_SIDE = 160;
+/** Docelowy rozmiar miniatury: kilka KB zamiast 1–3 MB zdjęcia szablonu (NFR-7). */
+export const SCOREPAD_THUMB_TARGET_BYTES = 12 * 1024;
+
+/**
+ * Ścieżka miniatury zdjęcia wersji: obok zdjęcia, bez rozszerzenia (typ niesie `contentType`).
+ * Galeria notesów (ScorepadsPopup) pokazuje ją zamiast pełnego zdjęcia; starsze wersje bez
+ * miniatury wracają do pełnego zdjęcia.
+ */
+export function thumbPath(imagePath: string): string {
+  return `${imagePath.replace(/\.[^./]+$/, '')}-thumb`;
+}
+
+/**
+ * Wgrywa miniaturę zdjęcia kartki. Najlepszy wysiłek: bez miniatury galeria pokaże pełne
+ * zdjęcie, więc błąd skalowania albo wysyłki nie przerywa zapisu notesu.
+ */
+async function uploadThumb(
+  storage: ReturnType<SupabaseClient['storage']['from']>,
+  imagePath: string,
+  image: Blob,
+): Promise<string | null> {
+  try {
+    const { blob } = await scaleImage(image, {
+      maxSide: SCOREPAD_THUMB_MAX_SIDE,
+      targetBytes: SCOREPAD_THUMB_TARGET_BYTES,
+    });
+    const path = thumbPath(imagePath);
+    const { error } = await storage.upload(path, blob, { contentType: blob.type, upsert: true });
+    return error ? null : path;
+  } catch {
+    return null;
+  }
+}
+
 export function newImagePath(gameId: string, scorepadId: string, extension: string): string {
   return `${gameId}/${scorepadId}-${crypto.randomUUID()}.${extension}`;
 }
@@ -297,6 +334,7 @@ export async function saveScorepad(
   const storage = client.storage.from(SCOREPADS_BUCKET);
   let imagePath: string;
   let uploaded: string | null = null;
+  let thumb: string | null = null;
   if (draft.previousImage && image === draft.previousImage.url) {
     imagePath = draft.previousImage.path;
   } else {
@@ -307,6 +345,7 @@ export async function saveScorepad(
     const { error } = await storage.upload(path, blob, { contentType: blob.type, upsert: false });
     if (error) throw new ScorepadError('upload');
     imagePath = uploaded = path;
+    thumb = await uploadThumb(storage, path, blob);
   }
 
   // Id szablonu = id notesu: kolejne wersje są tym samym notesem także dla `<score-pad>`.
@@ -325,7 +364,9 @@ export async function saveScorepad(
     // Plik usuwamy tylko po odpowiedzi bazy (kod błędu): wtedy wersji na pewno nie ma, więc
     // Storage pozwala go usunąć. Po błędzie sieci transakcja mogła się jeszcze zatwierdzić,
     // a usunięty plik zostawiłby wersję bez zdjęcia; osierocony plik jest mniejszym złem.
-    if (uploaded && error.code) await storage.remove([uploaded]).catch(() => undefined);
+    if (uploaded && error.code) {
+      await storage.remove(thumb ? [uploaded, thumb] : [uploaded]).catch(() => undefined);
+    }
     throw new ScorepadError(failureFor(error));
   }
   return { name, version: data.version, playerSlots };

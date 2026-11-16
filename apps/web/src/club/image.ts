@@ -94,7 +94,7 @@ export interface ScaleOptions {
   readonly keepTransparency?: boolean | undefined;
 }
 
-export async function scaleImage(file: File, options: ScaleOptions = {}): Promise<ScaledImage> {
+export async function scaleImage(file: Blob, options: ScaleOptions = {}): Promise<ScaledImage> {
   const {
     maxSide = IMAGE_MAX_SIDE,
     targetBytes = IMAGE_TARGET_BYTES,

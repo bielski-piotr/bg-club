@@ -258,3 +258,12 @@
     grid-column: 2;
   }
 }
+
+/* Zastępnik popupu, zanim dotrze jego fragment pakietu (NFR-2): środek ekranu nad hubem. */
+.hub__popup-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}

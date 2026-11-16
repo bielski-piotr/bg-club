@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import type { ScaledImage } from '../club/image';
 import { signedUrlQuery } from '../lib/storage';
 
@@ -21,9 +21,9 @@ export const CLUB_NAME_MAX = 80;
 
 const CLUB_COLUMNS = 'name, logo_path, timezone';
 
-/** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1). */
-export function useClub(client: SupabaseClient) {
-  return useQuery({
+/** Zapytanie o klub: wspólne dla huba i prefetchu w `SignedInScreen` (NFR-2). */
+export function clubQuery(client: SupabaseClient) {
+  return queryOptions({
     queryKey: clubKey,
     queryFn: async (): Promise<Club | null> => {
       const { data, error } = await client.from('club').select(CLUB_COLUMNS).maybeSingle<Club>();
@@ -31,6 +31,11 @@ export function useClub(client: SupabaseClient) {
       return data;
     },
   });
+}
+
+/** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1). */
+export function useClub(client: SupabaseClient) {
+  return useQuery(clubQuery(client));
 }
 
 /** Adres pliku z prywatnego bucketu `covers` (logo klubu). Bez ścieżki: brak zapytania. */

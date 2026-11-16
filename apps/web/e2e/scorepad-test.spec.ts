@@ -214,8 +214,12 @@ test('pełna ścieżka nowego notesu: zdjęcie → obszar → pola → kategorie
   await dialog.getByRole('button', { name: 'Zapisz notes' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText(/Dodano notes/)).toBeVisible();
-  expect(mock.scorepadUploads).toHaveLength(1);
+  // Zdjęcie kartki i jego miniatura do galerii notesów (`<zdjęcie bez rozszerzenia>-thumb`, [040]).
+  expect(mock.scorepadUploads).toHaveLength(2);
   expect(mock.scorepadUploads[0]).toMatch(new RegExp(`^${GAME.id}/.+\\.(webp|jpg)$`));
+  expect(mock.scorepadUploads[1]).toBe(
+    `${mock.scorepadUploads[0]?.replace(/\.(webp|jpg)$/, '')}-thumb`,
+  );
   expect(mock.scorepadSaves).toHaveLength(1);
   const saved = mock.scorepadSaves[0] as {
     game_id: string;
