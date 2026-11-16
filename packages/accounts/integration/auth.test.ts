@@ -1173,5 +1173,52 @@ describe('konta i logowanie na pustej instalacji', () => {
         .eq('play_id', ids.play);
       expect(count).toBe(2);
     });
+
+    it('zapis jest widoczny w historii, rankingu i gablocie; usunięcie cofa projekcje', async () => {
+      const client = sessions[0];
+      if (!client) throw new Error('brak sesji');
+      const history = await client
+        .from('plays')
+        .select('game_id, status, play_results(points)')
+        .eq('id', ids.play)
+        .single();
+      expect(history.error).toBeNull();
+      expect(history.data?.status).toBe('saved');
+      expect(history.data?.play_results).toHaveLength(2);
+      const gameId = history.data?.game_id as string;
+      const stats = await client.rpc('game_stats', { game_id: gameId });
+      expect(stats.error).toBeNull();
+      expect(stats.data.play_count).toBe(1);
+      const ranking = await client.rpc('leaderboard', { kind: 'points', year: null });
+      expect(ranking.error).toBeNull();
+      const points = (rows: { profile_id: string; value: number }[]) =>
+        rows.find((row) => row.profile_id === ids.admin)?.value ?? 0;
+      const before = points(ranking.data);
+      expect(before).toBeGreaterThanOrEqual(10);
+      const showcase = await client.rpc('player_achievements', { profile_id: ids.admin });
+      expect(showcase.error).toBeNull();
+      expect(showcase.data.unlocks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ achievement_id: 'win-1', play_id: ids.play }),
+        ]),
+      );
+
+      const removed = await client.rpc('delete_play', { play_id: ids.play });
+      expect(removed.error).toBeNull();
+      const afterStats = await client.rpc('game_stats', { game_id: gameId });
+      expect(afterStats.error).toBeNull();
+      expect(afterStats.data.play_count).toBe(0);
+      const afterRanking = await client.rpc('leaderboard', { kind: 'points', year: null });
+      expect(afterRanking.error).toBeNull();
+      expect(points(afterRanking.data)).toBe(before - 10);
+      const afterShowcase = await client.rpc('player_achievements', { profile_id: ids.admin });
+      expect(afterShowcase.error).toBeNull();
+      expect(
+        afterShowcase.data.unlocks.some((u: { play_id: string }) => u.play_id === ids.play),
+      ).toBe(false);
+      const afterHistory = await client.from('plays').select('id').eq('id', ids.play);
+      expect(afterHistory.error).toBeNull();
+      expect(afterHistory.data).toEqual([]);
+    });
   });
 });

@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { ADA, mockSupabase, session, storeSession } from './support/supabaseMock';
+import {
+  ADA,
+  EMPTY_PLAYER_ACHIEVEMENTS,
+  mockSupabase,
+  session,
+  storeSession,
+} from './support/supabaseMock';
 import { png } from './support/png';
 
 /** Stateful UI regression. API responses are mocked; SQL/Auth suites prove server permissions. */
@@ -31,8 +37,8 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   await dialog.getByRole('button', { name: 'Zapisz', exact: true }).click();
   await expect(dialog).toBeHidden();
   const game = mock.options.games?.[0];
-  expect(game).toBeDefined();
-  await page.goto(`/?p=game/${game!.id}/scorepads/new`);
+  if (!game) throw new Error('Missing created game');
+  await page.goto(`/?p=game/${game.id}/scorepads/new`);
   dialog = page.getByRole('dialog', { name: /notes/i });
   const template = {
     v: 2,
@@ -47,23 +53,22 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
       { id: 'a', label: 'Punkty', kind: 'input', free: true },
     ],
   };
-  await dialog
-    .getByLabel('Plik notesu (.json)')
-    .setInputFiles({
-      name: 'notes.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from(JSON.stringify({ format: 'score-pad', version: 2, template })),
-    });
+  await dialog.getByLabel('Plik notesu (.json)').setInputFiles({
+    name: 'notes.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ format: 'score-pad', version: 2, template })),
+  });
   for (let i = 0; i < 4; i++) await dialog.getByRole('button', { name: 'Dalej' }).click();
   await dialog.getByRole('button', { name: 'Zapisz notes' }).click();
   await expect.poll(() => mock.scorepadSaves.length).toBe(1);
   // The shared API mock records this RPC but does not persist versions. Materialize its
   // recorded request for subsequent UI steps, without supplying expected scoring results.
-  const saved = mock.scorepadSaves[0]!;
+  const saved = mock.scorepadSaves[0];
+  if (!saved) throw new Error('Missing saved scorepad');
   mock.options.scorepads = [
     {
       id: saved.scorepad_id as string,
-      game_id: game!.id,
+      game_id: game.id,
       name: saved.name as string,
       created_at: new Date().toISOString(),
       current: {
@@ -87,8 +92,8 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   await dialog.getByRole('button', { name: 'Zaplanuj', exact: true }).click();
   await expect(dialog).toBeHidden();
   const meeting = mock.options.meetings?.[0];
-  expect(meeting).toBeDefined();
-  await page.goto(`/?p=meeting/${meeting!.id}`);
+  if (!meeting) throw new Error('Missing created meeting');
+  await page.goto(`/?p=meeting/${meeting.id}`);
   dialog = page.getByRole('dialog', { name: 'Spotkanie regresji' });
   await dialog.getByRole('button', { name: 'Zagłosuj na Gra regresji' }).click();
   await expect(dialog.getByText('Twoje głosy: 1')).toBeVisible();
@@ -99,7 +104,7 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
     .click();
   await dialog.getByRole('button', { name: 'Nowa partia' }).click();
   const wizard = page.getByRole('dialog', { name: 'Nowa partia' });
-  await wizard.getByRole('radio', { name: /Gra regresji/ }).click();
+  await wizard.getByText('Gra regresji', { exact: true }).click();
   await wizard.getByRole('button', { name: 'Dalej' }).click();
   const outside = wizard.getByRole('list', { name: 'Uczestnicy poza partią' });
   await outside.getByRole('button', { name: /Ada Adminowska/ }).click();
@@ -130,8 +135,54 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   await summary.getByRole('button', { name: 'Zapisz partię' }).click();
   await expect(page.getByText('Partia zapisana: Gra regresji')).toBeVisible();
   expect(mock.playSaves).toHaveLength(1);
+  const savedPlay = mock.options.plays?.find((p) => p.status === 'saved');
+  if (!savedPlay) throw new Error('Missing saved play');
+  expect(savedPlay.play_results?.map((r) => r.points)).toEqual([10, 6]);
+  await expect(dialog.getByRole('list', { name: 'Zapisane partie' })).toContainText('Gra regresji');
+  await dialog.getByRole('button', { name: 'Zakończ spotkanie' }).click();
+  await page
+    .getByRole('dialog', { name: 'Zakończyć spotkanie?' })
+    .getByRole('button', { name: 'Zakończ', exact: true })
+    .click();
+  await page.goto('/');
+  await expect(page.getByRole('region', { name: 'Timeline', exact: true })).toContainText(
+    'Spotkanie regresji',
+  );
+  await page.goto(`/?p=meeting/${meeting.id}`);
+  await expect(page.getByRole('list', { name: 'Zapisane partie' })).toContainText('Gra regresji');
+  // These RPC responses model server projections after save. Their computation is
+  // covered by the SQL fixtures, independently of this UI navigation regression.
+  mock.options.leaderboard = () =>
+    (savedPlay?.play_results ?? []).map((r, i) => ({
+      place: i + 1,
+      profile_id: r.profile_id,
+      first_name: i === 0 ? 'Ada' : 'Bea',
+      last_name: i === 0 ? 'Adminowska' : 'Testowa',
+      avatar_path: null,
+      deleted: false,
+      podium: true,
+      value: r.points ?? 0,
+    }));
+  await page.goto('/?p=leaderboard/points');
+  const ranking = page.getByRole('dialog', { name: 'Ranking' });
+  await expect(ranking.getByRole('list', { name: 'Podium' })).toContainText('Ada');
+  await expect(ranking.getByRole('list', { name: 'Podium' })).toContainText('10');
+  mock.options.playerAchievements = () => ({
+    ...EMPTY_PLAYER_ACHIEVEMENTS,
+    unlocks: [
+      {
+        achievement_id: 'win-1',
+        unlocked_at: meeting.starts_at,
+        meeting_id: meeting.id,
+        meeting_title: meeting.title,
+        play_id: savedPlay.id,
+      },
+    ],
+    progress: { ...EMPTY_PLAYER_ACHIEVEMENTS.progress, plays: 1, wins: 1, points: 10 },
+  });
   await page.goto(`/?p=profile/${ADA.id}`);
   await expect(page.getByRole('dialog', { name: 'Profil' })).toBeVisible();
   await expect(page.locator('[data-achievement]')).toHaveCount(29);
+  await expect(page.locator('[data-achievement="win-1"]')).toHaveAttribute('data-unlocked', 'true');
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });

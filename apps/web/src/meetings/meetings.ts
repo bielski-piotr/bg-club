@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { isUuid } from '../popups/routes';
 import type { MeetingFormValues } from './form';
 
@@ -63,8 +63,8 @@ export function useMeeting(client: SupabaseClient, id: string) {
  * Spotkanie widżetu (MTG-1): trwające, a gdy go nie ma, najwcześniejsze zaplanowane
  * (kolejność `starts_at`, potem `id`, Q24). `null` = brak spotkań do pokazania.
  */
-export function useHubMeeting(client: SupabaseClient) {
-  return useQuery({
+export function hubMeetingQuery(client: SupabaseClient) {
+  return queryOptions({
     queryKey: hubMeetingKey,
     queryFn: async (): Promise<Meeting | null> => {
       const { data, error } = await client
@@ -82,6 +82,10 @@ export function useHubMeeting(client: SupabaseClient) {
       return row ? fromRow(row) : null;
     },
   });
+}
+
+export function useHubMeeting(client: SupabaseClient) {
+  return useQuery(hubMeetingQuery(client));
 }
 
 /**

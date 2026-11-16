@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
 import type { ScaledImage } from '../club/image';
 import { COVERS_BUCKET } from '../hub/club';
 import { isUuid } from '../popups/routes';
@@ -45,8 +45,8 @@ export interface CollectionWidgetData {
  * Widżet kolekcji (GAME-1, Q11): najpierw gry z zapisanymi partiami według daty ostatniej
  * partii malejąco, potem pozostałe według daty dodania malejąco; remisy rozstrzyga `id`.
  */
-export function useCollectionWidget(client: SupabaseClient) {
-  return useQuery({
+export function collectionWidgetQuery(client: SupabaseClient) {
+  return queryOptions({
     queryKey: collectionWidgetKey,
     queryFn: async (): Promise<CollectionWidgetData> => {
       const { data, error, count } = await client
@@ -61,6 +61,10 @@ export function useCollectionWidget(client: SupabaseClient) {
       return { games: data, total: count ?? data.length };
     },
   });
+}
+
+export function useCollectionWidget(client: SupabaseClient) {
+  return useQuery(collectionWidgetQuery(client));
 }
 
 /**

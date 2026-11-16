@@ -6,8 +6,8 @@ const isCI = Boolean(process.env.CI);
 /**
  * E2E na zbudowanej aplikacji (`vite preview`). Każdy test przechodzi na telefonie (360 px)
  * i desktopie, w motywie jasnym i ciemnym (NFR-4, NFR-5).
- * Bez zmiennych środowiskowych używamy lokalnego adresu Supabase i klucza zastępczego:
- * szkielet aplikacji nie łączy się jeszcze z backendem.
+ * API jest atrapą przechwytywaną przez page.route. Reguły backendu sprawdzają osobne
+ * testy SQL oraz integracja Auth/API na lokalnym Supabase.
  */
 const env = {
   VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? 'http://127.0.0.1:54321',
@@ -20,6 +20,9 @@ const desktop = { ...devices['Desktop Chrome'], viewport: { width: 1280, height:
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // WebGL uses software rendering in headless Chromium. Multiple browser workers
+  // compete for CPU and invalidate the performance measurement; CLI can override this.
+  workers: 1,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   reporter: isCI ? [['github'], ['html', { open: 'never' }]] : 'list',
