@@ -105,6 +105,7 @@ select results_eq(
        ('private.scorepad_ranking(jsonb)'),
        ('private.try_uuid(text)'),
        ('publish_meeting_games(uuid,uuid[])'),
+       ('reopen_meeting(uuid)'),
        ('reopen_voting(uuid)'),
        ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid,boolean)'),
        ('save_play(uuid,uuid,jsonb,jsonb)'),

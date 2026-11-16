@@ -16,7 +16,11 @@ import { DiscardPlayDialog } from '../meetings/DiscardPlayDialog';
 import { NewPlayPopup } from '../meetings/NewPlayPopup';
 import { PlayPopup } from '../meetings/PlayPopup';
 import { PublishGamesPopup } from '../meetings/PublishGamesPopup';
-import { FinishMeetingDialog, StartMeetingDialog } from '../meetings/RunMeetingDialogs';
+import {
+  FinishMeetingDialog,
+  ReopenMeetingDialog,
+  StartMeetingDialog,
+} from '../meetings/RunMeetingDialogs';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
 import type { OwnProfile } from '../auth/useOwnProfile';
@@ -109,6 +113,8 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return <StartMeetingDialog id={route.id} me={me} />;
     case 'finish-meeting':
       return <FinishMeetingDialog id={route.id} me={me} />;
+    case 'reopen-meeting':
+      return me.role === 'admin' ? <ReopenMeetingDialog id={route.id} /> : <InvalidPopup />;
     case 'new-play':
       // Admin albo prowadzący spotkania w trakcie (RUN-2, PAD-9); popup sprawdza rolę i status,
       // bazę chroni RPC start_play.

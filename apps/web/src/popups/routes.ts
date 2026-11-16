@@ -74,6 +74,8 @@ export type PopupRoute =
   | { readonly kind: 'start-meeting'; readonly id: string }
   /** „Zakończ spotkanie” z listą partii w toku (RUN-4), adres `meeting/<uuid>/finish`. */
   | { readonly kind: 'finish-meeting'; readonly id: string }
+  /** Cofnięcie zakończenia (RUN-5, admin), adres `meeting/<uuid>/reopen`. */
+  | { readonly kind: 'reopen-meeting'; readonly id: string }
   /**
    * Nowa partia: gra, notes, gracze i miejsca (RUN-2, admin lub prowadzący spotkania w trakcie),
    * adres `meeting/<uuid>/plays/new`.
@@ -173,6 +175,7 @@ export function parseRoute(raw: string): PopupRoute {
     if (args[1] === 'delete') return { kind: 'delete-meeting', id };
     if (args[1] === 'start') return { kind: 'start-meeting', id };
     if (args[1] === 'finish') return { kind: 'finish-meeting', id };
+    if (args[1] === 'reopen') return { kind: 'reopen-meeting', id };
   }
   if (kind === 'meeting' && args.length === 3 && isUuid(args[0] ?? '')) {
     if (args[1] === 'plays' && args[2] === 'new') {
@@ -262,6 +265,8 @@ export function serializeRoute(route: PopupRoute): string {
       return `meeting/${route.id}/start`;
     case 'finish-meeting':
       return `meeting/${route.id}/finish`;
+    case 'reopen-meeting':
+      return `meeting/${route.id}/reopen`;
     case 'new-play':
       return `meeting/${route.meetingId}/plays/new`;
     case 'play':

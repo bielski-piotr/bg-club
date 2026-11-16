@@ -16,15 +16,24 @@ import {
   finishMeeting,
   MeetingError,
   meetingsKey,
+  reopenMeeting,
   startMeeting,
   useMeeting,
   type Meeting,
 } from './meetings';
 import { isMeetingRunner, splitPlays, useMeetingPlays, type MeetingPlay } from './plays';
+import { invalidatePlayData } from './playDelete';
 
 const text = t.meetings.run;
 
-type Action = 'start' | 'finish';
+type Action = 'start' | 'finish' | 'reopen';
+
+const runActions = { start: startMeeting, finish: finishMeeting, reopen: reopenMeeting };
+const successTexts = {
+  start: t.meetings.toasts.started,
+  finish: t.meetings.toasts.finished,
+  reopen: t.meetings.toasts.meetingReopened,
+};
 
 /** Mutacja zmiany statusu: toast, zamknięcie dialogu i odświeżenie wszystkich spotkań. */
 function useRunMutation(id: string, action: Action) {
@@ -34,16 +43,16 @@ function useRunMutation(id: string, action: Action) {
   const { back } = usePopups();
   const mounted = useMounted();
   return useMutation({
-    mutationFn: () => (action === 'start' ? startMeeting(client, id) : finishMeeting(client, id)),
+    mutationFn: () => runActions[action](client, id),
     onSuccess: () => {
-      toast.show(
-        action === 'start' ? t.meetings.toasts.started : t.meetings.toasts.finished,
-        'success',
-      );
+      toast.show(successTexts[action], 'success');
       if (mounted.current) back();
     },
     // Także po błędzie: status albo partie mogły się zmienić w innej karcie.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
+    onSettled: () =>
+      action === 'start'
+        ? queryClient.invalidateQueries({ queryKey: meetingsKey })
+        : invalidatePlayData(queryClient),
   });
 }
 
@@ -186,6 +195,57 @@ export function FinishMeetingDialog({ id, me }: { readonly id: string; readonly 
       {plays.isError ? <QueryStatus isError onRetry={() => void plays.refetch()} /> : null}
       {reason ? <Banner variant="warning">{reason}</Banner> : null}
       {run.isError ? <Banner variant="error">{failureText(run.error)}</Banner> : null}
+    </PopupDialog>
+  );
+}
+
+/** Cofnięcie zakończenia wymaga potwierdzenia admina, także przy wejściu z linku (RUN-5). */
+export function ReopenMeetingDialog({ id }: { readonly id: string }) {
+  const { client } = useAuth();
+  const { back } = usePopups();
+  const query = useMeeting(client, id);
+  const run = useRunMutation(id, 'reopen');
+  const meeting = query.data;
+  if (!run.isSuccess && query.isSuccess && !meeting) return <InvalidPopup />;
+  const reason =
+    meeting && meeting.status !== 'finished' && !run.isPending && !run.isSuccess
+      ? t.meetings.errors.notFinished
+      : null;
+  return (
+    <PopupDialog
+      title={text.reopenTitle}
+      icon="refresh"
+      description={
+        meeting ? (
+          <p>{format(text.reopenBody, { title: meeting.title })}</p>
+        ) : (
+          <QueryStatus isError={query.isError} onRetry={() => void query.refetch()} />
+        )
+      }
+      footer={
+        <>
+          <Button variant="secondary" disabled={run.isPending} onClick={back}>
+            {text.cancel}
+          </Button>
+          <Button
+            icon="refresh"
+            loading={run.isPending}
+            disabled={!meeting || reason !== null || run.isSuccess}
+            onClick={() => run.mutate()}
+          >
+            {text.confirmReopen}
+          </Button>
+        </>
+      }
+    >
+      {reason ? <Banner variant="warning">{reason}</Banner> : null}
+      {run.isError ? (
+        <Banner variant="error">
+          {run.error instanceof MeetingError && run.error.reason === 'forbidden'
+            ? text.reopenAdminOnly
+            : failureText(run.error)}
+        </Banner>
+      ) : null}
     </PopupDialog>
   );
 }

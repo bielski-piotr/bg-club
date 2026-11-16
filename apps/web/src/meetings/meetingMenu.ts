@@ -23,7 +23,7 @@ export type MeetingMenuItem = Omit<MenuItem, 'onSelect'> &
 /**
  * Menu spotkania (DS §15 „Meeting menus”). Administrator: zaplanowane „Edytuj spotkanie”,
  * „Otwórz głosowanie ponownie” (po publikacji gier) i „Usuń spotkanie”; w trakcie „Dodaj uczestnika” i „Zmień prowadzącego” (PLAN-4, oba
- * w formularzu edycji); zakończone bez partii „Usuń spotkanie”. Prowadzący: tylko „Zakończ
+ * w formularzu edycji); zakończone „Otwórz spotkanie ponownie” (RUN-5), a bez partii także „Usuń spotkanie”. Prowadzący: tylko „Zakończ
  * spotkanie” w trakcie (Q14), bez edycji uczestników i prowadzącego.
  */
 export function menuItems(
@@ -46,6 +46,14 @@ export function menuItems(
       { id: 'add-participant', label: menu.addParticipant, icon: 'user-plus', route: edit },
       { id: 'change-host', label: menu.changeHost, icon: 'user', route: edit },
     );
+  }
+  if (isAdmin && meeting.status === 'finished') {
+    items.push({
+      id: 'reopen-meeting',
+      label: menu.reopenMeeting,
+      icon: 'refresh',
+      route: { kind: 'reopen-meeting', id: meeting.id },
+    });
   }
   if (!isAdmin && runner && meeting.status === 'in_progress') {
     items.push({

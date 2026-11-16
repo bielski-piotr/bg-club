@@ -1022,6 +1022,116 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
+  describe('ponowne otwarcie przez równoległe sesje (RUN-5, Q10)', () => {
+    const sessions: SupabaseClient[] = [];
+    let first = '';
+    let second = '';
+    let planned = '';
+
+    function clientAt(index: number): SupabaseClient {
+      const client = sessions[index];
+      if (!client) throw new Error('brak sesji administratora');
+      return client;
+    }
+
+    beforeAll(async () => {
+      for (let i = 0; i < 2; i++) {
+        const { client, error } = await signIn(admin.hook, admin.password);
+        if (error) throw error;
+        sessions.push(client);
+      }
+      const client = clientAt(0);
+      const { data: running, error } = await service
+        .from('meetings')
+        .select('id')
+        .eq('status', 'in_progress')
+        .single();
+      if (error) throw error;
+      first = running.id as string;
+      expect((await client.rpc('finish_meeting', { meeting_id: first })).error).toBeNull();
+      const { data: profile } = await client.auth.getUser();
+      if (!profile.user) throw new Error('brak administratora');
+      for (let i = 0; i < 2; i++) {
+        const id = crypto.randomUUID();
+        expect(
+          (
+            await client.rpc('save_meeting', {
+              meeting_id: id,
+              title: 'Otwarcie testowe',
+              local_date: '2027-02-07',
+              local_time: '18:00',
+              participant_ids: [profile.user.id],
+              host_id: null,
+            })
+          ).error,
+        ).toBeNull();
+        if (i === 0) {
+          second = id;
+          expect((await client.rpc('start_meeting', { meeting_id: id })).error).toBeNull();
+          expect((await client.rpc('finish_meeting', { meeting_id: id })).error).toBeNull();
+        } else planned = id;
+      }
+    });
+
+    async function finishRunning() {
+      const { data, error } = await service
+        .from('meetings')
+        .select('id')
+        .eq('status', 'in_progress');
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+      const running = data?.[0];
+      if (!running) throw new Error('brak trwającego spotkania');
+      expect(
+        (await clientAt(0).rpc('finish_meeting', { meeting_id: running.id })).error,
+      ).toBeNull();
+    }
+
+    it('dwa różne zakończone spotkania: otwiera się dokładnie jedno', async () => {
+      const replies = await Promise.all([
+        clientAt(0).rpc('reopen_meeting', { meeting_id: first }),
+        clientAt(1).rpc('reopen_meeting', { meeting_id: second }),
+      ]);
+      expect(replies.filter((r) => !r.error)).toHaveLength(1);
+      expect(replies.find((r) => r.error)?.error).toMatchObject({
+        code: '23505',
+        hint: 'meetings_single_in_progress',
+      });
+      await finishRunning();
+    });
+
+    it('otwarcie ściga się z rozpoczęciem innego: baza zachowuje jedno w trakcie', async () => {
+      const replies = await Promise.all([
+        clientAt(0).rpc('reopen_meeting', { meeting_id: first }),
+        clientAt(1).rpc('start_meeting', { meeting_id: planned }),
+      ]);
+      expect(replies.filter((r) => !r.error)).toHaveLength(1);
+      expect(replies.find((r) => r.error)?.error).toMatchObject({
+        code: '23505',
+        hint: 'meetings_single_in_progress',
+      });
+      await finishRunning();
+    });
+
+    it('dwie próby tego samego spotkania: druga odrzuca nieaktualny status', async () => {
+      const replies = await Promise.all(
+        sessions.map((client) => client.rpc('reopen_meeting', { meeting_id: first })),
+      );
+      expect(replies.filter((r) => !r.error)).toHaveLength(1);
+      expect(replies.find((r) => r.error)?.error).toMatchObject({
+        code: '23514',
+        hint: 'meetings_reopen_finished',
+      });
+      const { data, error } = await service
+        .from('meetings')
+        .select('id, finished_at, voting_open')
+        .eq('status', 'in_progress');
+      expect(error).toBeNull();
+      expect(data).toEqual([{ id: first, finished_at: null, voting_open: false }]);
+      // Następny zestaw testów zapisze partię w tym otwartym spotkaniu.
+    });
+  });
+
   describe('zapis wyników partii przez RPC (PAD-5, §5.6, [029])', () => {
     const ids = { admin: '', player: '', meeting: '', version: '', play: '' };
     const sessions: SupabaseClient[] = [];

@@ -148,9 +148,9 @@ describe('menu spotkania zależne od roli (DS §15 „Meeting menus”, PLAN-4, 
     const finished = meeting({ status: 'finished', voting_open: false });
     const overview = (playCount: number) =>
       ({ ...finished, playCount, winners: [] }) satisfies MeetingOverview;
-    expect(ids(finished, ADMIN)).toEqual([]);
-    expect(ids(finished, ADMIN, overview(0))).toEqual(['delete']);
-    expect(ids(finished, ADMIN, overview(2))).toEqual([]);
+    expect(ids(finished, ADMIN)).toEqual(['reopen-meeting']);
+    expect(ids(finished, ADMIN, overview(0))).toEqual(['reopen-meeting', 'delete']);
+    expect(ids(finished, ADMIN, overview(2))).toEqual(['reopen-meeting']);
   });
 
   it('prowadzący: tylko „Zakończ spotkanie” w trakcie, bez akcji administracyjnych', () => {

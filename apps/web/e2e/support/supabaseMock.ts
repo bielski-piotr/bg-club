@@ -523,7 +523,7 @@ export interface SupabaseMock {
   readonly publishes: { meeting_id: string; game_ids: string[] }[];
   readonly reopens: string[];
   /** Wywołania `start_meeting` i `finish_meeting` (RUN-1, RUN-4). */
-  readonly runs: { action: 'start' | 'finish'; meeting_id: string }[];
+  readonly runs: { action: 'start' | 'finish' | 'reopen'; meeting_id: string }[];
   /** Wywołania `start_play` (RUN-2). */
   readonly playStarts: PlayStart[];
   /** Wywołania `save_play_draft` (PAD-4) i `discard_play` (PAD-8, id partii). */
@@ -1228,15 +1228,26 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return route.fulfill({ json });
     }
     // Rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4, MTG-2) z regułami jak w bazie.
-    const run = /^\/rest\/v1\/rpc\/(start|finish)_meeting$/.exec(url.pathname);
+    const run = /^\/rest\/v1\/rpc\/(start|finish|reopen)_meeting$/.exec(url.pathname);
     if (run && request.method() === 'POST') {
-      const action = run[1] as 'start' | 'finish';
+      const action = run[1] as 'start' | 'finish' | 'reopen';
       const { meeting_id } = request.postDataJSON() as { meeting_id: string };
       mock.runs.push({ action, meeting_id });
       const target = meetingById(meeting_id);
       const fail = (status: number, code: string, hint: string) =>
         route.fulfill({ status, json: { code, hint, message: hint } });
       if (!target) return fail(404, 'P0002', 'meetings_not_found');
+      if (action === 'reopen') {
+        if ((mock.options.profile ?? ADA).role !== 'admin')
+          return fail(403, '42501', 'admin_required');
+        if (target.status !== 'finished') return fail(400, '23514', 'meetings_reopen_finished');
+        if ((mock.options.meetings ?? []).some((m) => m.status === 'in_progress')) {
+          return fail(409, '23505', 'meetings_single_in_progress');
+        }
+        const saved = { ...target, status: 'in_progress' as const, finished_at: null };
+        setMeeting(saved);
+        return route.fulfill({ json: saved });
+      }
       if (action === 'start') {
         if (target.status !== 'planned') return fail(400, '23514', 'meetings_start_planned');
         const other = (mock.options.meetings ?? []).some(

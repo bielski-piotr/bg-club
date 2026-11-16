@@ -128,6 +128,7 @@ export type MeetingFailure =
   | 'otherInProgress'
   | 'notPlanned'
   | 'notInProgress'
+  | 'notFinished'
   | 'drafts'
   | 'deleteInProgress'
   | 'hasPlays'
@@ -162,6 +163,7 @@ const HINTS: Readonly<Record<string, MeetingFailure>> = {
   meetings_single_in_progress: 'otherInProgress',
   meetings_start_planned: 'notPlanned',
   meetings_finish_in_progress: 'notInProgress',
+  meetings_reopen_finished: 'notFinished',
   meetings_no_drafts_when_finished: 'drafts',
   meetings_delete_in_progress: 'deleteInProgress',
 };
@@ -230,6 +232,12 @@ export async function startMeeting(client: SupabaseClient, id: string): Promise<
 /** Kończy spotkanie; szkice partii blokują zakończenie (RUN-4). Admin lub prowadzący. */
 export async function finishMeeting(client: SupabaseClient, id: string): Promise<void> {
   const { error } = await client.rpc('finish_meeting', { meeting_id: id });
+  if (error) throw new MeetingError(meetingFailure(error));
+}
+
+/** Cofa zakończenie bez zmiany historii i snapshotów (RUN-5, Q10). Tylko admin. */
+export async function reopenMeeting(client: SupabaseClient, id: string): Promise<void> {
+  const { error } = await client.rpc('reopen_meeting', { meeting_id: id });
   if (error) throw new MeetingError(meetingFailure(error));
 }
 
