@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { FirstRun } from '../club/FirstRun';
@@ -9,7 +18,6 @@ import type { PopupRoute } from '../popups/routes';
 import type { Profile } from '../profile/profiles';
 import { Banner, Button, Spinner } from '../ui';
 import { AppHeader } from './AppHeader';
-import { HubPopup } from './HubPopup';
 import { useClub } from './club';
 import { useMasonry } from './useMasonry';
 import {
@@ -20,6 +28,12 @@ import {
   TimelineWidget,
 } from './widgets';
 import './Hub.css';
+
+// Popupy huba (z edytorem notesów, formularzami i statystykami) są osobnym fragmentem pakietu:
+// widok Klubu nie czeka na nie przy starcie (NFR-2). Fragment jest pobierany zaraz po
+// wyświetleniu huba (`usePrefetchPopups`), więc otwarcie popupu zwykle nie czeka na sieć.
+const loadHubPopup = () => import('./HubPopup');
+const HubPopup = lazy(() => loadHubPopup().then((m) => ({ default: m.HubPopup })));
 
 const MAIN_ID = 'hub-main';
 
@@ -33,7 +47,11 @@ export function Hub({ me }: { readonly me: OwnProfile }) {
   const { client } = useAuth();
   const club = useClub(client);
   usePasswordSuggestion(me);
-  const renderPopup = useCallback((route: PopupRoute) => <HubPopup route={route} me={me} />, [me]);
+  usePrefetchPopups();
+  const renderPopup = useCallback(
+    (route: PopupRoute) => <LazyHubPopup route={route} me={me} />,
+    [me],
+  );
   // Dane klubu mają pierwszeństwo przed błędem: nieudane ponowne pobranie nie chowa widżetów.
   const loaded = club.data !== undefined;
   const firstRun = club.data === null;
@@ -127,4 +145,61 @@ function Widgets({ me }: { readonly me: Profile }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Popup z leniwie ładowanego fragmentu. Gdy fragment jeszcze nie dotarł, `PopupHost` nie ma
+ * dokąd przenieść fokusu; po wczytaniu przenosimy go do najwyższego okna (NFR-6).
+ */
+function LazyHubPopup({ route, me }: { readonly route: PopupRoute; readonly me: OwnProfile }) {
+  const suspendedRef = useRef(false);
+  return (
+    <Suspense fallback={<PopupLoading suspendedRef={suspendedRef} />}>
+      <HubPopup route={route} me={me} />
+      <FocusWhenLoaded suspendedRef={suspendedRef} />
+    </Suspense>
+  );
+}
+
+function FocusWhenLoaded({ suspendedRef }: { readonly suspendedRef: RefObject<boolean> }) {
+  useLayoutEffect(() => {
+    if (!suspendedRef.current) return;
+    suspendedRef.current = false;
+    // Użytkownik zdążył przejść do innego okna: nie zabieramy mu fokusu.
+    if (document.activeElement?.closest('[role="dialog"]')) return;
+    const dialogs = [
+      ...document.querySelectorAll<HTMLElement>('[role="dialog"][data-popup-level]'),
+    ];
+    const level = (el: HTMLElement) => Number(el.dataset.popupLevel);
+    dialogs
+      .sort((a, b) => level(a) - level(b))
+      .at(-1)
+      ?.focus({ preventScroll: true });
+  }, [suspendedRef]);
+  return null;
+}
+
+/** Zastępnik popupu na czas pobierania fragmentu (zwykle niewidoczny dzięki prefetchowi). */
+function PopupLoading({ suspendedRef }: { readonly suspendedRef: RefObject<boolean> }) {
+  useEffect(() => {
+    suspendedRef.current = true;
+  }, [suspendedRef]);
+  return (
+    <div className="hub__popup-loading">
+      <Spinner size={24} label={t.hub.popupLoading} />
+    </div>
+  );
+}
+
+/** Pobiera fragment popupów w czasie bezczynności po pierwszym wyświetleniu huba. */
+function usePrefetchPopups() {
+  useEffect(() => {
+    const prefetch = () => void loadHubPopup().catch(() => undefined);
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(prefetch, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(prefetch, 1500);
+    return () => clearTimeout(id);
+  }, []);
 }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
+import { scaleImage } from '../club/image';
 import { fewerSeatsMessage } from './messages';
 import { scorePadFileName } from '@bg-club/score-pad';
 import {
@@ -9,7 +10,14 @@ import {
   scorepadFile,
   scorepadName,
   ScorepadError,
+  thumbPath,
 } from './scorepads';
+
+// Skalowanie miniatury wymaga canvasu; bez implementacji atrapa zachowuje się jak jsdom (błąd).
+vi.mock('../club/image', async (original) => ({
+  ...(await original<object>()),
+  scaleImage: vi.fn(),
+}));
 
 /*
  * Zapis, import i eksport notesu (PRD GAME-7, GAME-9, EDT-1, EDT-6…EDT-8, NFR-7, zadanie
@@ -124,6 +132,24 @@ describe('saveScorepad (GAME-9, EDT-1)', () => {
     await expect(failure).rejects.toEqual(new ScorepadError('gone'));
     const path = fake.upload.mock.calls[0]?.[0] ?? '';
     expect(fake.calls).toEqual([`upload ${path}`, 'rpc save_scorepad', `remove ${path}`]);
+  });
+
+  it('wysyła miniaturę obok zdjęcia i sprząta obie po nieudanym zapisie (NFR-2, [040])', async () => {
+    const thumb = new Blob(['t'], { type: 'image/webp' });
+    vi.mocked(scaleImage).mockResolvedValueOnce({
+      blob: thumb,
+      extension: 'webp',
+      width: 120,
+      height: 160,
+    });
+    const fake = fakeClient({ rpcError: { code: '23514', message: 'scorepad x is deleted' } });
+    await expect(
+      saveScorepad(fake.client, { gameId: GAME, scorepadId: PAD, template: sampleTemplate() }),
+    ).rejects.toEqual(new ScorepadError('gone'));
+    const path = fake.upload.mock.calls[0]?.[0] ?? '';
+    expect(vi.mocked(scaleImage).mock.calls[0]?.[1]).toEqual({ maxSide: 160, targetBytes: 12288 });
+    expect(fake.upload.mock.calls[1]?.slice(0, 2)).toEqual([thumbPath(path), thumb]);
+    expect(fake.calls.at(-1)).toBe(`remove ${path},${thumbPath(path)}`);
   });
 
   it('błąd uploadu nie publikuje wersji', async () => {
@@ -264,6 +290,11 @@ describe('pomocnicze', () => {
     ]);
     expect(dataUrlToBlob('blob:https://app.test/1')).toBeNull();
     expect(dataUrlToBlob('data:image/jpeg;base64,***')).toBeNull();
+  });
+
+  it('thumbPath: obok zdjęcia, bez rozszerzenia', () => {
+    expect(thumbPath('g/p-1.jpg')).toBe('g/p-1-thumb');
+    expect(thumbPath('g.x/p-1')).toBe('g.x/p-1-thumb');
   });
 
   it('nazwa notesu: przycięta, najwyżej 40 znaków, pusta = „Notes”', () => {

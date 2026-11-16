@@ -44,6 +44,7 @@ export const pl = {
   /** Widok Klubu: nagłówek i widżety (PRD §4, DS §6, §17, zadanie [007]). */
   hub: {
     widgetsLabel: 'Widżety klubu',
+    popupLoading: 'Wczytywanie…',
     loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
     meeting: {
@@ -1471,6 +1472,8 @@ export const pl = {
   /** Teksty wbudowane w komponenty design systemu (`src/ui`). */
   ui: {
     close: 'Zamknij',
+    /** Długie listy rysowane porcjami (NFR-2, `useChunks`). */
+    showMore: 'Pokaż więcej ({count})',
     back: 'Wróć',
     more: 'Więcej opcji',
     seeMore: 'Zobacz więcej',

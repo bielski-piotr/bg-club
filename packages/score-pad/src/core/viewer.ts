@@ -64,6 +64,7 @@ import type { Ink } from './util';
 import { clamp, el, esc, fmtDate, fmtTime, inkDone, inkNow, lerp, plural, uid } from './util';
 import type { ScorePadSheet } from '../index';
 import type { Box, Typed } from './entry';
+import { FrameBudget } from './frameBudget';
 import { checkTyped, cleanNumber, flipSign, nextInput, revealShift, stepTyped } from './entry';
 
 export interface ScorePadOptions {
@@ -323,6 +324,8 @@ export class ScorePad {
   private gestureIds = new Set<number>();
   private under!: THREE.DirectionalLight;
   private maxSide = 4096;
+  /** Obniża gęstość renderu na słabym GPU (NFR-2); tekstura zostaje w pełnej rozdzielczości. */
+  private budget: FrameBudget | null = null;
   /**
    * Pole punktów, w które się wpisuje (PAD-13…PAD-15): kategoria, czy przyjmuje wartości
    * ujemne i tekst pola przed zmianą (Esc do niego wraca).
@@ -804,6 +807,7 @@ export class ScorePad {
     const r = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     // pełna gęstość ekranu, do 3 (PAD-16)
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3));
+    this.budget = new FrameBudget(r.getPixelRatio());
     r.outputEncoding = THREE.sRGBEncoding;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.02;
@@ -3151,6 +3155,7 @@ export class ScorePad {
   private loop(): void {
     cancelAnimationFrame(this.rafId);
     this.last = performance.now();
+    this.budget?.restart();
     const frame = (now: number): void => {
       if (this.destroyed || !this.visible) return;
       this.rafId = requestAnimationFrame(frame);
@@ -3160,9 +3165,12 @@ export class ScorePad {
   }
 
   private tick(now: number): void {
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const frameMs = now - this.last;
+    const dt = Math.min(0.05, frameMs / 1000);
     this.last = now;
     if (this.suspended) return;
+    const ratio = this.budget?.sample(now, frameMs);
+    if (ratio) this.renderer?.setPixelRatio(ratio);
     this.pointerSpeed *= Math.pow(0.04, dt);
     const a = this.active;
     if (!a || !this.renderer) {

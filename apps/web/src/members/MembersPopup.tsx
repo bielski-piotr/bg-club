@@ -7,7 +7,7 @@ import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { fullName, useMembers } from '../profile/profiles';
-import { Badge, Button, EmptyState, Icon, SearchField, Tray } from '../ui';
+import { Badge, Button, EmptyState, Icon, SearchField, ShowMore, Tray, useChunks } from '../ui';
 import { filterMembers } from './search';
 import './members.css';
 
@@ -26,6 +26,7 @@ export function MembersPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   const count = members.data ? plural(members.data.length, t.hub.members.count) : undefined;
   const shown = members.data ? filterMembers(members.data, deferredQuery) : [];
   const searching = deferredQuery.trim() !== '';
+  const chunks = useChunks(shown, deferredQuery);
 
   const actions = isAdmin ? (
     // Na telefonie krótka etykieta „Dodaj” (DS §7); nazwa dostępna jest zawsze pełna.
@@ -55,29 +56,36 @@ export function MembersPopup({ isAdmin }: { readonly isAdmin: boolean }) {
             {searching ? plural(shown.length, t.membersPopup.results) : ''}
           </p>
           {shown.length > 0 ? (
-            <Tray label={t.membersPopup.listLabel} className="members-list">
-              {shown.map((member) => (
-                <li key={member.id} className="tray__item">
-                  <PopupLink
-                    to={{ kind: 'profile', id: member.id }}
-                    className="row row--64 row--interactive member-row"
+            <>
+              <Tray label={t.membersPopup.listLabel} className="members-list">
+                {chunks.visible.map((member, index) => (
+                  <li
+                    key={member.id}
+                    className="tray__item"
+                    data-chunk-start={chunks.chunkStart(index)}
                   >
-                    <ProfileAvatar profile={member} size={40} decorative />
-                    <span className="row__text">
-                      <span className="row__title">{fullName(member)}</span>
-                      <span className="row__meta member-row__hook">{member.hook}</span>
-                    </span>
-                    <span className="row__trailing">
-                      {member.role === 'admin' ? (
-                        <Badge tone="accent">{t.ui.adminBadge}</Badge>
-                      ) : null}
-                      {member.id === ownId ? <Badge tone="ink">{t.ui.youBadge}</Badge> : null}
-                    </span>
-                    <Icon name="chevron-right" className="row__chevron" />
-                  </PopupLink>
-                </li>
-              ))}
-            </Tray>
+                    <PopupLink
+                      to={{ kind: 'profile', id: member.id }}
+                      className="row row--64 row--interactive member-row"
+                    >
+                      <ProfileAvatar profile={member} size={40} decorative />
+                      <span className="row__text">
+                        <span className="row__title">{fullName(member)}</span>
+                        <span className="row__meta member-row__hook">{member.hook}</span>
+                      </span>
+                      <span className="row__trailing">
+                        {member.role === 'admin' ? (
+                          <Badge tone="accent">{t.ui.adminBadge}</Badge>
+                        ) : null}
+                        {member.id === ownId ? <Badge tone="ink">{t.ui.youBadge}</Badge> : null}
+                      </span>
+                      <Icon name="chevron-right" className="row__chevron" />
+                    </PopupLink>
+                  </li>
+                ))}
+              </Tray>
+              <ShowMore hidden={chunks.hidden} onClick={chunks.showMore} />
+            </>
           ) : (
             <div className="members-list">
               <EmptyState
