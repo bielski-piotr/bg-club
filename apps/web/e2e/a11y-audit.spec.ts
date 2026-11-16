@@ -1,5 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations, expectNoHorizontalOverflow } from './support/a11y';
 import { ADA, member, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
@@ -11,10 +11,12 @@ import { ADA, member, mockSupabase, session, storeSession } from './support/supa
 
 const LONG_FIRST = 'Bartłomiejaleksandranatalia';
 const LONG_LAST = 'Konstantynopolitańczykiewiczówna-Wielkopolska';
+const LONG_MEMBER = member(2, LONG_FIRST, LONG_LAST);
+const DELETED = member(20, 'Zoja', 'Zawada', true);
 const MEMBERS = [
-  member(2, LONG_FIRST, LONG_LAST),
+  LONG_MEMBER,
   ...Array.from({ length: 11 }, (_, i) => member(3 + i, `Gracz${i + 1}`, `Testowy${i + 1}`)),
-  member(20, 'Zoja', 'Zawada', true),
+  DELETED,
 ];
 const LONG_CLUB = 'Klub Miłośników Gier Planszowych i Karcianych „Pod Wesołym Meeplem” z Poznania';
 
@@ -28,23 +30,13 @@ async function open(page: Page, popup = '') {
 }
 
 async function audit(page: Page) {
-  // Bez trwających przejść (DS §16): axe liczy kontrast z bieżących, a nie docelowych kolorów.
-  await page.waitForFunction(() =>
-    document.getAnimations().every((animation) => animation.playState !== 'running'),
-  );
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow, 'poziome przewijanie strony').toBe(0);
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
-    .analyze();
-  return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' | ')}`);
+  await expectNoHorizontalOverflow(page);
+  return axeViolations(page);
 }
 
 const POPUPS = [
   'members',
-  `profile/${MEMBERS[0]?.id ?? ''}`,
+  `profile/${LONG_MEMBER.id}`,
   `profile/${ADA.id}`,
   'games',
   'calendar',
@@ -66,21 +58,31 @@ for (const width of [null, 375] as const) {
       await page.goto(`/?p=${popup}`);
       const dialog = page.getByRole('dialog').last();
       await expect(dialog).toBeFocused();
-      await expect(dialog.locator('[aria-busy="true"]')).toHaveCount(0);
+      // Audyt dotyczy treści, nie szkieletu ładowania (DS §12).
+      await expect(page.locator('.skeleton, [aria-busy="true"]')).toHaveCount(0);
       expect(await audit(page), popup).toEqual([]);
     }
   });
 }
 
-test('lista członków pokazuje wszystkich (ponad 8) i długie nazwy się zawijają', async ({
+test('lista członków pokazuje wszystkich (ponad 8), a długie nazwy są czytelne w całości', async ({
   page,
 }) => {
   await open(page, 'members');
   const list = page.getByRole('dialog', { name: 'Członkowie' });
-  // 12 aktywnych + Ada; usunięta Zoja nie jest liczona jako aktywny członek.
-  await expect(list.getByRole('listitem').filter({ hasText: /Gracz\d+/ })).toHaveCount(11);
-  const row = list.getByRole('link', { name: new RegExp(LONG_FIRST) });
+  await expect(page.locator('.skeleton')).toHaveCount(0);
+  // 12 aktywnych członków i Ada; brak globalnego limitu.
+  await expect(list.getByRole('link', { name: /Gracz\d+ Testowy\d+/ })).toHaveCount(11);
+  await expect(list.getByRole('link', { name: /Ada Adminowska/ })).toBeVisible();
+  const row = list.getByRole('link', { name: new RegExp(`${LONG_FIRST} ${LONG_LAST}`) });
   await expect(row).toBeVisible();
+  // Długie imię i nazwisko zawija się zamiast ucinać (bez wielokropka i ukrytej treści).
+  const clipped = await row.evaluate((link) =>
+    [link, ...link.querySelectorAll('*')].some(
+      (el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible',
+    ),
+  );
+  expect(clipped).toBe(false);
   const box = await row.boundingBox();
   const dialogBox = await list.boundingBox();
   expect(box && dialogBox && box.x + box.width <= dialogBox.x + dialogBox.width + 0.5).toBe(true);
