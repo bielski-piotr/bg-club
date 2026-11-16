@@ -104,6 +104,98 @@ async function settled(page: Page) {
 
 const search = (page: Page) => page.evaluate(() => decodeURIComponent(window.location.search));
 
+const FINISHED = { ...RUNNING, status: 'finished' as const, finished_at: '2026-11-12T20:00:00Z' };
+
+test('RUN-5: admin potwierdza otwarcie, anulowanie zachowuje historię, kolejne cykle działają', async ({
+  page,
+}) => {
+  const mock = await openApp(
+    page,
+    { meetings: [{ ...FINISHED }], plays: [SAVED] },
+    `/?p=meeting/${FINISHED.id}`,
+  );
+  const meeting = page.getByRole('dialog', { name: FINISHED.title });
+  await expect(meeting.getByRole('list', { name: 'Zapisane partie' })).toContainText(
+    'Żółwie Wyścigi',
+  );
+  await meeting.getByRole('button', { name: 'Akcje spotkania' }).click();
+  await page.getByRole('menuitem', { name: 'Otwórz spotkanie ponownie' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Otworzyć spotkanie ponownie?' });
+  await expect(
+    confirm.getByText(/Dotychczasowe partie, wyniki i karteczki pozostaną/),
+  ).toBeVisible();
+  await settled(page);
+  expect(await horizontalOverflow(page)).toBe(0);
+  expect(await axe(page)).toEqual([]);
+  await confirm.getByRole('button', { name: 'Anuluj' }).click();
+  expect(mock.runs).toEqual([]);
+  expect(mock.options.meetings?.[0]?.status).toBe('finished');
+
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await meeting.getByRole('button', { name: 'Akcje spotkania' }).click();
+    await page.getByRole('menuitem', { name: 'Otwórz spotkanie ponownie' }).click();
+    await confirm.getByRole('button', { name: 'Otwórz ponownie', exact: true }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(meeting.getByText('Trwa', { exact: true })).toBeVisible();
+    await expect(meeting.getByRole('button', { name: 'Nowa partia' })).toBeVisible();
+    await expect(meeting.getByRole('list', { name: 'Zapisane partie' })).toContainText('57');
+    await meeting.getByRole('button', { name: 'Zakończ spotkanie' }).click();
+    await page
+      .getByRole('dialog', { name: 'Zakończyć spotkanie?' })
+      .getByRole('button', { name: 'Zakończ', exact: true })
+      .click();
+    await expect(meeting.getByText('Zakończone', { exact: true })).toBeVisible();
+  }
+  expect(mock.runs.map((run) => run.action)).toEqual(['reopen', 'finish', 'reopen', 'finish']);
+  expect(mock.options.plays).toEqual([SAVED]);
+});
+
+for (const host of [false, true]) {
+  test(`RUN-5: ${host ? 'prowadzący' : 'gracz'} nie ma akcji ani dostępu z deep linku`, async ({
+    page,
+  }) => {
+    const mock = await openApp(
+      page,
+      {
+        profile: { ...ADA, role: 'player' },
+        meetings: [{ ...FINISHED, host_id: host ? ADA.id : BEA.id }],
+        plays: [SAVED],
+      },
+      `/?p=meeting/${FINISHED.id}`,
+    );
+    await expect(page.getByRole('dialog', { name: FINISHED.title })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Akcje spotkania', exact: true })).toHaveCount(0);
+    await page.goto(`/?p=meeting/${FINISHED.id}/reopen`);
+    await expect(page.getByRole('button', { name: 'Otwórz ponownie', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Wróć do klubu' })).toBeVisible();
+    expect(mock.runs).toEqual([]);
+  });
+}
+
+test('RUN-5: deep link, konflikt z innym spotkaniem i zmieniony status', async ({ page }) => {
+  const other = { ...RUNNING, id: PLANNED.id };
+  const mock = await openApp(
+    page,
+    { meetings: [{ ...FINISHED }, other] },
+    `/?p=meeting/${FINISHED.id}/reopen`,
+  );
+  const confirm = page.getByRole('dialog', { name: 'Otworzyć spotkanie ponownie?' });
+  await confirm.getByRole('button', { name: 'Otwórz ponownie', exact: true }).click();
+  await expect(confirm.getByText('Trwa już inne spotkanie. Najpierw je zakończ.')).toBeVisible();
+  expect(mock.options.meetings?.[0]?.status).toBe('finished');
+  await page.goto(`/?p=meeting/${other.id}/reopen`);
+  await expect(
+    confirm.getByText('Tylko zakończone spotkanie można otworzyć ponownie.'),
+  ).toBeVisible();
+  await expect(
+    confirm.getByRole('button', { name: 'Otwórz ponownie', exact: true }),
+  ).toBeDisabled();
+  // Stary link do spotkania usuniętego w innej karcie.
+  await page.goto('/?p=meeting/00000000-0000-4000-c000-000000000099/reopen');
+  await expect(page.getByRole('button', { name: 'Wróć do klubu' })).toBeVisible();
+  expect(mock.runs).toHaveLength(1);
+});
+
 test('widżet: odliczanie i najwięcej głosów; admin rozpoczyna spotkanie (MTG-1, RUN-1)', async ({
   page,
 }) => {

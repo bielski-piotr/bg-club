@@ -688,6 +688,11 @@ export const pl = {
       startBody: '„{title}” zmieni status na „W trakcie”. Od tej chwili można zapisywać partie.',
       startVoting: 'Głosowanie jest otwarte. Rozpoczęcie je zamknie, a oddane głosy zostaną.',
       finishTitle: 'Zakończyć spotkanie?',
+      reopenTitle: 'Otworzyć spotkanie ponownie?',
+      reopenBody:
+        'Spotkanie "{title}" wróci do stanu "W trakcie", aby można było dograć partie. Dotychczasowe partie, wyniki i karteczki pozostaną. Po dograniu zakończ spotkanie ponownie.',
+      confirmReopen: 'Otwórz ponownie',
+      reopenAdminOnly: 'Tylko administrator może otworzyć zakończone spotkanie ponownie.',
       finishBody: '„{title}” zmieni status na „Zakończone”. Potem nie można już dodawać partii.',
       draftsTitle: 'Najpierw dokończ partie w toku',
       draftsBody:
@@ -906,6 +911,7 @@ export const pl = {
       edit: 'Edytuj spotkanie',
       delete: 'Usuń spotkanie',
       reopen: 'Otwórz głosowanie ponownie',
+      reopenMeeting: 'Otwórz spotkanie ponownie',
       finish: 'Zakończ spotkanie',
       addParticipant: 'Dodaj uczestnika',
       changeHost: 'Zmień prowadzącego',
@@ -1051,6 +1057,7 @@ export const pl = {
       otherInProgress: 'Trwa już inne spotkanie. Najpierw je zakończ.',
       notPlanned: 'To spotkanie zostało już rozpoczęte.',
       notInProgress: 'To spotkanie nie trwa.',
+      notFinished: 'Tylko zakończone spotkanie można otworzyć ponownie.',
       drafts: 'Najpierw zapisz albo porzuć partie w toku.',
       deleteInProgress: 'Trwającego spotkania nie można usunąć. Najpierw je zakończ.',
       hasPlays: 'Spotkanie ma zapisane partie. Najpierw je usuń.',
@@ -1070,6 +1077,7 @@ export const pl = {
       playSaved: 'Partia zapisana: {title}',
       playDeleted: 'Usunięto partię: {title}',
       finished: 'Spotkanie zakończone',
+      meetingReopened: 'Spotkanie otwarte ponownie',
     },
   },
   /** Notesy gry: lista, edytor, import i eksport pliku `.json` (PRD GAME-7, EDT-1, zadanie [015]). */

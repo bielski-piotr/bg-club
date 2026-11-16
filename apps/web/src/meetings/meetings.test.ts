@@ -6,6 +6,7 @@ import {
   finishMeeting,
   MeetingError,
   meetingFailure,
+  reopenMeeting,
   saveMeeting,
   startMeeting,
   type MeetingFailure,
@@ -22,6 +23,7 @@ describe('błędy spotkań (reguły bazy [023])', () => {
       ['23514', 'meetings_finished_locked', 'finished'],
       ['23514', 'meetings_start_planned', 'notPlanned'],
       ['23514', 'meetings_finish_in_progress', 'notInProgress'],
+      ['23514', 'meetings_reopen_finished', 'notFinished'],
       ['23514', 'meetings_delete_in_progress', 'deleteInProgress'],
       ['23514', 'meetings_host_participant', 'hostInvalid'],
       ['23514', 'meetings_host_not_admin', 'hostInvalid'],
@@ -91,6 +93,21 @@ function fakeClient(result: { data?: unknown; error?: object | null }) {
 }
 
 describe('RPC spotkań', () => {
+  it('otwiera zakończone spotkanie i przekazuje błędy roli, statusu i drugiego spotkania', async () => {
+    const fake = fakeClient({});
+    await reopenMeeting(fake.client, 'm1');
+    expect(fake.rpc).toHaveBeenCalledWith('reopen_meeting', { meeting_id: 'm1' });
+    for (const [error, reason] of [
+      [{ code: '42501' }, 'forbidden'],
+      [{ hint: 'meetings_reopen_finished' }, 'notFinished'],
+      [{ hint: 'meetings_single_in_progress' }, 'otherInProgress'],
+      [{ hint: 'meetings_not_found' }, 'gone'],
+    ] as const) {
+      await expect(reopenMeeting(fakeClient({ error }).client, 'm1')).rejects.toMatchObject({
+        reason,
+      });
+    }
+  });
   it('save_meeting dostaje datę i godzinę w strefie klubu, tytuł bez spacji', async () => {
     const fake = fakeClient({});
     await saveMeeting(fake.client, {

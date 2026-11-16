@@ -28,12 +28,30 @@ function field(status: Record<string, unknown>, name: string): string {
 export function readLocalStack(): LocalStack {
   let output: string;
   try {
-    output = execFileSync('pnpm', ['exec', 'supabase', 'status', '-o', 'json'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
-    });
+    const workdir = process.env.BG_CLUB_TEST_WORKDIR;
+    // Ścieżkę override przekazujemy bez powłoki, także gdy zawiera spacje.
+    const pnpmScript = process.env.npm_execpath;
+    if (workdir && !pnpmScript?.includes('pnpm')) {
+      throw new Error('Override stosu wymaga uruchomienia przez pnpm.');
+    }
+    const args = [
+      'exec',
+      'supabase',
+      'status',
+      '-o',
+      'json',
+      ...(workdir ? ['--workdir', workdir] : []),
+    ];
+    output = execFileSync(
+      workdir ? process.execPath : 'pnpm',
+      workdir && pnpmScript ? [pnpmScript, ...args] : args,
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: !workdir && process.platform === 'win32',
+      },
+    );
   } catch {
     throw new Error('Lokalny Supabase nie działa. Uruchom `pnpm db:start`.');
   }
