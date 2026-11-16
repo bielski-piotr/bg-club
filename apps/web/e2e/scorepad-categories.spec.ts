@@ -10,6 +10,58 @@ import { mockGame, mockSupabase, session, storeSession } from './support/supabas
  */
 
 const GAME = mockGame(1, 'Żółwie Wyścigi');
+
+test('manual: dodanie reguły, zachowanie kategorii, test notesu i usunięcie', async ({ page }) => {
+  test.slow();
+  const dialog = await openCategories(page);
+  await dialog.getByRole('tab', { name: 'Wygrana i remisy' }).click();
+  await choose(page, dialog, /^Kategoria decydująca o miejscu/, 'Kategoria 2');
+  await dialog.getByRole('button', { name: 'Dodaj regułę', exact: true }).click();
+  await dialog
+    .locator('.wizard-rule--editing')
+    .getByRole('button', { name: 'Dodaj', exact: true })
+    .click();
+  await dialog.getByRole('button', { name: 'Dodaj: rozstrzyga prowadzący' }).click();
+  await expect
+    .poll(async () => (await exported(page)).ranking?.tiebreak.map((r) => r.type))
+    .toEqual(['line', 'manual']);
+  await expect(dialog.getByRole('button', { name: 'Dodaj: rozstrzyga prowadzący' })).toBeDisabled();
+  await noHorizontalOverflow(page);
+  expect(await axe(page)).toEqual([]);
+  await dialog.getByRole('button', { name: 'Usuń regułę 2' }).click();
+  await expect
+    .poll(async () => (await exported(page)).ranking?.tiebreak.map((r) => r.type))
+    .toEqual(['line']);
+  await dialog.getByRole('button', { name: 'Usuń regułę 1' }).click();
+  await dialog.getByRole('button', { name: 'Dodaj: rozstrzyga prowadzący' }).click();
+  await dialog.getByRole('button', { name: 'Dalej' }).click();
+  await expect(dialog.getByRole('button', { name: 'Wypełnij losowo' })).toBeEnabled();
+  await dialog.getByText('Wymuś remis przy losowaniu', { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Wypełnij losowo' }).click();
+  const sheet = await page.locator('score-pad').evaluate((el) => {
+    const pad = (
+      el as HTMLElement & { pad: { exportConfig(o: { sheet: boolean }): { sheet: unknown } } }
+    ).pad;
+    return pad.exportConfig({ sheet: true }).sheet;
+  });
+  await dialog.getByRole('button', { name: 'Oderwij kartkę', exact: true }).click();
+  await expect(dialog.getByRole('region', { name: 'Rozstrzyga prowadzący' })).toBeVisible();
+  const order = dialog.getByRole('button', { name: /^Kolejność:/ }).first();
+  await order.click();
+  await page.getByRole('option', { name: '2. w grupie', exact: true }).click();
+  await noHorizontalOverflow(page);
+  expect(await axe(page)).toEqual([]);
+  await page.locator('score-pad').evaluate((el, saved) => {
+    (el as HTMLElement & { pad: { setSheet(sheet: unknown): void } }).pad.setSheet(saved);
+  }, sheet);
+  await dialog.getByRole('button', { name: 'Oderwij kartkę', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: /^Kolejność:/ }).first()).toContainText(
+    '1. w grupie',
+  );
+  const request = page.waitForRequest((r) => r.url().includes('/rpc/save_scorepad'));
+  await dialog.getByRole('button', { name: 'Zapisz notes', exact: true }).click();
+  expect((await request).postDataJSON().template.ranking.tiebreak).toEqual([{ type: 'manual' }]);
+});
 const WIZARD = `/?p=game/${GAME.id}/scorepads/new`;
 
 interface Line {

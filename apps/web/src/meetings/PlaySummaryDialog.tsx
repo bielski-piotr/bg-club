@@ -1,10 +1,17 @@
-import type { KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent } from 'react';
+import {
+  manualTieGroups,
+  resolveManualTies,
+  type RankedPlayer,
+  type ScoringTemplate,
+} from '@bg-club/scoring';
+import { ManualTieControls } from '../score-pad/ManualTieControls';
 import { format, t } from '../i18n';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { fullName, type Profile } from '../profile/profiles';
 import { Banner, Button, Dialog } from '../ui';
 import { cx } from '../ui/cx';
-import type { PlaySaveFailure, PlaySummary } from './playSave';
+import { playSummary, type PlaySeats, type PlaySaveFailure, type PlaySummary } from './playSave';
 
 const text = t.meetings.play.summary;
 
@@ -17,7 +24,14 @@ export interface PlaySummaryDialogProps {
   readonly failure: PlaySaveFailure | null;
   /** Wraca do kartki (kartka wraca na wierzch notesu). */
   readonly onCancel: () => void;
-  readonly onConfirm: () => void;
+  readonly onConfirm: (summary: PlaySummary) => void;
+  readonly manual?:
+    | {
+        readonly template: ScoringTemplate;
+        readonly ranked: readonly RankedPlayer[];
+        readonly play: PlaySeats;
+      }
+    | undefined;
 }
 
 /**
@@ -27,13 +41,18 @@ export interface PlaySummaryDialogProps {
  */
 export function PlaySummaryDialog({
   title,
-  summary,
+  summary: original,
   profiles,
   saving,
   failure,
   onCancel,
   onConfirm,
+  manual,
 }: PlaySummaryDialogProps) {
+  const [resolved, setResolved] = useState<readonly RankedPlayer[] | null>(null);
+  const summary =
+    original && resolved && manual ? playSummary(manual.play, original.sheet, resolved) : original;
+  const groups = manual ? manualTieGroups(manual.template, manual.ranked) : [];
   const cancel = () => {
     if (!saving) onCancel();
   };
@@ -55,12 +74,30 @@ export function PlaySummaryDialog({
             <Button variant="secondary" autoFocus disabled={saving} onClick={cancel}>
               {text.cancel}
             </Button>
-            <Button loading={saving} disabled={!summary} onClick={onConfirm}>
+            <Button
+              loading={saving}
+              disabled={!summary}
+              onClick={() => summary && onConfirm(summary)}
+            >
               {text.submit}
             </Button>
           </>
         }
       >
+        {original && manual ? (
+          <ManualTieControls
+            groups={groups}
+            disabled={saving}
+            nameOf={(seat) => {
+              const row = original.rows.find((r) => r.seat === seat + 1);
+              const person = row && profiles.get(row.profileId);
+              return person ? fullName(person) : t.meetings.plays.unknownPlayer;
+            }}
+            onChange={(decisions) =>
+              setResolved(resolveManualTies(manual.template, manual.ranked, decisions))
+            }
+          />
+        ) : null}
         {summary ? (
           <ol className="play-summary__list" aria-label={format(text.listLabel, { title })}>
             {summary.rows.map((row) => {

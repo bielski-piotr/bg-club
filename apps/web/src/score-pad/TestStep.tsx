@@ -7,6 +7,13 @@ import {
 } from '@bg-club/score-pad';
 import type * as TemplateTools from '@bg-club/score-pad/template';
 import type { SheetResult } from '@bg-club/score-pad/template';
+import {
+  hasManualTiebreak,
+  manualTieGroups,
+  resolveManualTies,
+  type RankedPlayer,
+} from '@bg-club/scoring';
+import { ManualTieControls } from './ManualTieControls';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, t } from '../i18n';
 import { Banner, Button, Checkbox, IconButton, Spinner } from '../ui';
@@ -47,6 +54,12 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
   const [ready, setReady] = useState(false);
   const [tie, setTie] = useState(false);
   const [results, setResults] = useState<readonly SheetResult[] | null>(null);
+  const manualRevision = useRef(0);
+  const [manual, setManual] = useState<{
+    ranked: readonly RankedPlayer[];
+    rows: readonly SheetResult[];
+    key: number;
+  } | null>(null);
   // Stabilny plik notesu: nowa referencja utworzyłaby notes od nowa (i wyczyściła kartkę).
   // Kartka startowa ma tylko fikcyjnych graczy „Gracz 1…n”, po jednym na miejsce notesu.
   const config = useMemo<ScorePadFile | null>(() => {
@@ -74,13 +87,19 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
   }, []);
 
   const onSave = (detail: ScorePadSaveDetail) => {
-    if (tools) setResults(tools.sheetResults(template, detail.sheet));
+    if (tools) {
+      const rows = tools.sheetResults(template, detail.sheet);
+      setResults(rows);
+      manualRevision.current += 1;
+      setManual({ ranked: detail.results, rows, key: manualRevision.current });
+    }
   };
 
   const fill = () => {
     const sheet = tools?.testSheet(template, { fill: true, tie });
     if (!sheet) return;
     setResults(null);
+    setManual(null);
     pad.current?.setSheet(sheet);
   };
 
@@ -97,12 +116,16 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
             controls={false}
             help={false}
             test
+            summary={!hasManualTiebreak(template)}
             onReady={() => setReady(true)}
             onLoadState={(state) => {
               if (state !== 'ready') setReady(false);
             }}
             // Każde oderwanie (także pustej kartki) kończy poprzedni wynik testu.
-            onTear={() => setResults(null)}
+            onTear={() => {
+              setResults(null);
+              setManual(null);
+            }}
             onSave={onSave}
             className="wizard-test__pad"
           />
@@ -140,6 +163,22 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
           </Button>
         </div>
         <Checkbox label={text.tie} checked={tie} onCheckedChange={setTie} />
+        {manual ? (
+          <ManualTieControls
+            key={manual.key}
+            groups={manualTieGroups(template, manual.ranked)}
+            nameOf={(seat) => manual.rows.find((row) => row.seat === seat)?.name ?? ''}
+            onChange={(decisions) => {
+              const ranked = resolveManualTies(template, manual.ranked, decisions);
+              setResults(
+                ranked.flatMap((row) => {
+                  const original = manual.rows.find((r) => r.seat === row.seat);
+                  return original ? [{ ...original, place: row.place, tied: row.tied }] : [];
+                }),
+              );
+            }}
+          />
+        ) : null}
         <section className="wizard-result" aria-labelledby="wizard-result-title">
           <h3 id="wizard-result-title" className="wizard-panel__title">
             {text.result}
