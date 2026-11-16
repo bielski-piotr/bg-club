@@ -29,6 +29,9 @@ export default defineConfig({
     trace: 'off',
     // Service worker (NFR-3) mógłby ominąć atrapy `page.route`; włącza go tylko e2e/pwa.spec.ts.
     serviceWorkers: 'block',
+    // Animacje i przejścia (DS §16) kończą się od razu (base.css, prefers-reduced-motion), więc
+    // axe nie mierzy kontrastu w trakcie zanikania popupu ani zmiany koloru przycisku.
+    reducedMotion: 'reduce',
   },
   projects: [
     { name: 'mobile-light', use: { ...mobile, colorScheme: 'light' } },

@@ -110,6 +110,9 @@ async function noHorizontalOverflow(page: Page) {
 }
 
 async function axe(page: Page) {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) => animation.playState !== 'running'),
+  );
   const results = await new AxeBuilder({ page })
     .include('.scorepad-wizard')
     .exclude('score-pad-editor')
