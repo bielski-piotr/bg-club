@@ -131,7 +131,7 @@ describe('rankPlayers', () => {
     ]);
   });
 
-  it('„rozstrzyga prowadzący” na razie zostawia wspólne miejsce (EDT-5 poza MVP)', () => {
+  it('„rozstrzyga prowadzący” zostawia wspólne miejsce do ręcznej decyzji (EDT-5)', () => {
     const manual = {
       ...t,
       ranking: { line: 't', dir: 'desc' as const, tiebreak: [{ type: 'manual' as const }] },

@@ -1,5 +1,10 @@
-import type { ScorePadSaveResult, ScorePadSheet } from '@bg-club/score-pad';
-import { placementPoints, savePlayResults, type SavePlayResult } from '@bg-club/scoring';
+import type { ScorePadSheet } from '@bg-club/score-pad';
+import {
+  placementPoints,
+  savePlayResults,
+  type RankedPlayer,
+  type SavePlayResult,
+} from '@bg-club/scoring';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /*
@@ -48,7 +53,7 @@ export interface PlaySeats {
 export function playSummary(
   play: PlaySeats,
   sheet: ScorePadSheet,
-  ranked: readonly ScorePadSaveResult[],
+  ranked: readonly RankedPlayer[],
 ): PlaySummary | null {
   const players = new Map(play.seats.map((s) => [s.seat, s.profile_id]));
   if (!ranked.some((r) => r.rankingValue !== null)) return null;

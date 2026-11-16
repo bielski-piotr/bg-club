@@ -1,0 +1,38 @@
+.manual-ties {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  margin-bottom: 20px;
+}
+
+.manual-ties__title {
+  margin: 0;
+  font: 700 16px/22px var(--font-display);
+  color: var(--c-ink);
+}
+
+.manual-ties__hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--c-muted);
+}
+
+.manual-ties__group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+}
+
+.manual-ties__group legend {
+  padding-inline: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-muted);
+}

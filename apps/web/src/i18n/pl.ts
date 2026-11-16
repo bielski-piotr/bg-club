@@ -1083,6 +1083,13 @@ export const pl = {
   },
   /** Notesy gry: lista, edytor, import i eksport pliku `.json` (PRD GAME-7, EDT-1, zadanie [015]). */
   scorepads: {
+    manual: {
+      title: 'Rozstrzyga prowadzący',
+      hint: 'Ustal kolejność w każdej grupie. Ta sama kolejność oznacza wspólne miejsce. Wcześniejsze reguły pozostają zachowane.',
+      group: 'Remis {n}',
+      position: 'Kolejność: {name}',
+      order: '{n}. w grupie',
+    },
     count: { one: '{n} notes', few: '{n} notesy', many: '{n} notesów' },
     list: {
       title: 'Notesy',
@@ -1328,7 +1335,8 @@ export const pl = {
         rule: 'Reguła {n}',
         ruleLine: 'Wyższe miejsce: {direction}',
         manual: 'Rozstrzyga prowadzący',
-        manualSub: 'Dodatek z kolejnego etapu; do tego czasu działa jak wspólne miejsce.',
+        manualSub: 'Przy oderwaniu ustalasz kolejność tylko graczy nadal zremisowanych.',
+        addManual: 'Dodaj: rozstrzyga prowadzący',
         shared: 'Wspólne miejsce',
         sharedSub: 'Gracze nadal zremisowani zajmują to samo miejsce.',
         addRule: 'Dodaj regułę',

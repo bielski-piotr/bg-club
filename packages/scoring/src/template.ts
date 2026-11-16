@@ -36,7 +36,7 @@ export type Direction = 'desc' | 'asc';
 /** Reguła rozstrzygania remisu (EDT-4, EDT-5). */
 export type TiebreakRule =
   | { readonly type: 'line'; readonly line: string; readonly dir: Direction }
-  /** „Rozstrzyga prowadzący” (EDT-5, poza MVP): do czasu obsługi działa jak wspólne miejsce. */
+  /** „Rozstrzyga prowadzący” (EDT-5): kończy automatyczne reguły. */
   | { readonly type: 'manual' }
   | { readonly type: 'shared' };
 

@@ -18,6 +18,7 @@
 export * from './template';
 export * from './totals';
 export * from './ranking';
+export * from './manual';
 export * from './points';
 export * from './validate';
 export * from './save';

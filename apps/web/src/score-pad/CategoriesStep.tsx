@@ -560,6 +560,20 @@ function RankingDetails({
         >
           {text.addRule}
         </Button>
+        <Button
+          variant="secondary"
+          icon="plus"
+          className="wizard-panel__action"
+          disabled={implicitTotal || locked || rules.some((r) => r.type === 'manual')}
+          onClick={() =>
+            setRanking({
+              ...ranking,
+              tiebreak: [...rules.filter((r) => r.type === 'line'), { type: 'manual' }],
+            })
+          }
+        >
+          {text.addManual}
+        </Button>
       </div>
     </div>
   );

@@ -348,6 +348,7 @@ function PlayPad({
   const [torn, setTorn] = useState<{
     readonly sheet: ScorePadSheet;
     readonly summary: PlaySummary | null;
+    readonly ranked: ScorePadSaveDetail['results'];
     /** Obraz karteczki wgrywany w tle, zanim użytkownik potwierdzi zapis (PAD-6). */
     readonly image: PendingSheetImage;
   } | null>(null);
@@ -394,7 +395,7 @@ function PlayPad({
           .catch(() => null)
           .then((blob) => uploadSheetImage(client, play, blob))
       : Promise.resolve(null);
-    setTorn({ sheet, summary, image });
+    setTorn({ sheet, summary, image, ranked: detail.results });
   };
 
   const cancelTear = useCallback(() => {
@@ -574,8 +575,11 @@ function PlayPad({
           saving={saveFinal.isPending || saveFinal.isSuccess}
           failure={saveFailure}
           onCancel={cancelTear}
-          onConfirm={() => {
-            if (torn.summary) saveFinal.mutate({ summary: torn.summary, image: torn.image });
+          manual={
+            template.data ? { template: template.data, ranked: torn.ranked, play } : undefined
+          }
+          onConfirm={(summary) => {
+            saveFinal.mutate({ summary, image: torn.image });
           }}
         />
       ) : null}

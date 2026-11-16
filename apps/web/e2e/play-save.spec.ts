@@ -290,3 +290,129 @@ test('pusta kartka wraca na notes z wyjaśnieniem; błąd zapisu zostawia podsum
   await summary.getByRole('button', { name: 'Wróć do kartki' }).click();
   expect((await padSheet(page)).cells.a?.slice(0, 2)).toEqual([5, 8]);
 });
+
+test('manual: podgrupa po kategorii, anulowanie, pozostały remis i odczyt karteczki', async ({
+  page,
+}) => {
+  test.slow();
+  const DAN = member(4, 'Daniel', 'Długi');
+  const manualPad = {
+    ...PAD,
+    template: {
+      ...PAD.template,
+      ranking: {
+        line: 'a',
+        dir: 'desc',
+        tiebreak: [{ type: 'line', line: 'b', dir: 'asc' }, { type: 'manual' }],
+      },
+    },
+  };
+  const mock = await openApp(page, {
+    members: [BEA, CEZARY, DAN],
+    scorepads: [manualPad],
+    meetings: [{ ...RUNNING, participants: [ADA.id, BEA.id, CEZARY.id, DAN.id] }],
+    plays: [
+      draft({
+        play_results: [ADA, BEA, CEZARY, DAN].map((p, i) => ({
+          profile_id: p.id,
+          seat: i + 1,
+          is_win: null,
+        })),
+      }),
+    ],
+  });
+  await write(page, { a: [10, 10, 10, 10], b: [1, 2, 2, 2] });
+  await tear(page);
+  const summary = summaryDialog(page);
+  await expect(summary.getByRole('group', { name: 'Remis 1' })).toBeVisible();
+  // Ada already won on category b. Only the other three can be reordered.
+  await expect(summary.getByRole('button', { name: /^Kolejność:/ })).toHaveCount(3);
+  const chooseOrder = async (name: string, order: number) => {
+    await summary.getByRole('button', { name: `Kolejność: ${name}` }).click();
+    await page.getByRole('option', { name: `${order}. w grupie`, exact: true }).click();
+  };
+  await chooseOrder('Bea Bobrowska', 2);
+  await chooseOrder('Daniel Długi', 2);
+  const results = summary.getByRole('list', { name: 'Wyniki partii Azul' }).getByRole('listitem');
+  await expect(results.nth(1)).toContainText('Cezary Cichy');
+  await expect(results.nth(1)).toContainText('+6 pkt');
+  await expect(results.nth(2)).toContainText('Wspólne miejsce');
+  await expect(results.nth(2)).toContainText('+3 pkt');
+  await check(page);
+  await page.screenshot({
+    path: `test-results/manual-${test.info().project.name}.png`,
+    fullPage: true,
+  });
+  await page.keyboard.press('Escape');
+  await expect(summary).toBeHidden();
+  expect(mock.playSaves).toHaveLength(0);
+  expect((await padSheet(page)).cells.b).toEqual([1, 2, 2, 2]);
+  await tear(page);
+  await expect(summary.getByRole('button', { name: 'Kolejność: Bea Bobrowska' })).toContainText(
+    '1. w grupie',
+  );
+  await chooseOrder('Bea Bobrowska', 2);
+  await chooseOrder('Daniel Długi', 2);
+  await summary.getByRole('button', { name: 'Zapisz partię' }).click();
+  await expect(page.getByText('Partia zapisana: Azul')).toBeVisible();
+  expect(mock.playSaves[0]?.results.map((r) => [r.seat, r.place])).toEqual([
+    [1, 1],
+    [2, 3],
+    [3, 2],
+    [4, 3],
+  ]);
+  const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
+  await meeting.getByRole('button', { name: 'Karteczka partii Azul' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Azul' });
+  const savedRows = sheet.getByRole('list', { name: 'Wyniki partii Azul' }).getByRole('listitem');
+  await expect(savedRows.nth(1)).toContainText('Cezary Cichy');
+  await expect(savedRows.nth(2)).toContainText('Bea Bobrowska');
+  await expect(savedRows.nth(2)).toContainText('+3');
+  await page.reload();
+  await expect(
+    page
+      .getByRole('dialog', { name: 'Azul' })
+      .getByRole('listitem')
+      .filter({ hasText: 'Cezary Cichy' }),
+  ).toContainText('+6');
+  await check(page);
+});
+
+test('manual: pierwsza reguła, dwie niezależne grupy i pozostawienie wspólnego miejsca', async ({
+  page,
+}) => {
+  test.slow();
+  const DAN = member(4, 'Daniel', 'Długi');
+  const mock = await openApp(page, {
+    members: [BEA, CEZARY, DAN],
+    scorepads: [
+      {
+        ...PAD,
+        template: {
+          ...PAD.template,
+          ranking: { line: 'a', dir: 'asc', tiebreak: [{ type: 'manual' }] },
+        },
+      },
+    ],
+    meetings: [{ ...RUNNING, participants: [ADA.id, BEA.id, CEZARY.id, DAN.id] }],
+    plays: [
+      draft({
+        play_results: [ADA, BEA, CEZARY, DAN].map((p, i) => ({
+          profile_id: p.id,
+          seat: i + 1,
+          is_win: null,
+        })),
+      }),
+    ],
+  });
+  await write(page, { a: [5, 5, 10, 10] });
+  await tear(page);
+  const summary = summaryDialog(page);
+  await expect(summary.getByRole('group', { name: 'Remis 2' })).toBeVisible();
+  await summary.getByRole('button', { name: 'Kolejność: Cezary Cichy' }).click();
+  await page.getByRole('option', { name: '2. w grupie', exact: true }).click();
+  await check(page);
+  await summary.getByRole('button', { name: 'Zapisz partię' }).click();
+  await expect(page.getByText('Partia zapisana: Azul')).toBeVisible();
+  expect(mock.playSaves[0]?.results.map((r) => r.place)).toEqual([1, 1, 4, 3]);
+});
