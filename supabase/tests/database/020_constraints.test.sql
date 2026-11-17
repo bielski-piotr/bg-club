@@ -7,7 +7,7 @@ create extension if not exists pgtap with schema extensions;
 -- Odroczone ograniczenia sprawdzamy od razu po każdym poleceniu.
 set constraints all immediate;
 
-select plan(47);
+select plan(51);
 
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe
@@ -151,6 +151,26 @@ select lives_ok(
 select lives_ok(
   $$ insert into public.games (title, min_players, max_players, placement_points) values ('Odwrotna', 2, 3, '{0,5,9}') $$,
   'punktacja rosnąca jest dozwolona (tylko ostrzeżenie w formularzu)'
+);
+select lives_ok(
+  $$ insert into public.games (title, min_players, max_players, placement_points, complexity)
+     values ('Ułamkowa', 2, 3, '{20.5,11.25,2}', 2.75) $$,
+  'punktacja i skomplikowanie z dwoma miejscami po przecinku'
+);
+select throws_like(
+  $$ insert into public.games (title, min_players, max_players, placement_points) values ('Gra', 2, 2, '{3.125,1}') $$,
+  '%games_placement_points_check%',
+  'punkty mają najwyżej dwa miejsca po przecinku'
+);
+select throws_like(
+  $$ insert into public.games (title, min_players, max_players, placement_points, complexity) values ('Gra', 2, 2, '{3,1}', 5.5) $$,
+  '%games_complexity_range%',
+  'skomplikowanie gry 1…5'
+);
+select throws_like(
+  $$ update public.games set complexity = null where title = 'Ułamkowa' $$,
+  '%complexity is required%',
+  'gra ze skomplikowaniem nie może go stracić'
 );
 select throws_like(
   $$ insert into public.games (title, min_players, max_players, placement_points) values ('  ', 2, 2, '{1,0}') $$,

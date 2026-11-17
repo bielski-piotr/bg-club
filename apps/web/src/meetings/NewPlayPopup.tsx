@@ -31,8 +31,11 @@ import {
   scorepadsByGame,
   scorepadSlots,
   scorepadSubtitle,
+  scorepadTeams,
+  seatOf,
   seatedPlayers,
   seatsProblem,
+  toggleTeamMember,
   startPlay,
   StartPlayError,
   type NewPlayStep,
@@ -141,7 +144,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
   const game = games.find((candidate) => candidate.id === gameId) ?? null;
   const gamePads = game ? (byGame.get(game.id) ?? []) : [];
   const pad = gamePads.find((candidate) => candidate.id === scorepadId) ?? null;
-  const bounds = game && pad ? playerBounds(game, scorepadSlots(pad)) : null;
+  const bounds = game && pad ? playerBounds(game, scorepadSlots(pad), scorepadTeams(pad)) : null;
   // Jeden notes gry, który pasuje: krok „Notes” jest pomijany (RUN-2: „gdy gra ma ich kilka”).
   const singlePad =
     game && gamePads.length === 1 && fittingScorepads(game, gamePads).length === 1
@@ -548,6 +551,7 @@ function PlayersStep({
 }) {
   const headingId = useId();
   const [openSeat, setOpenSeat] = useState<number | null>(null);
+  const teams = scorepadTeams(pad);
   const seated = seatedPlayers(seats);
   const full = seated.length >= bounds.max;
   const outside = participants.filter((person) => !seated.includes(person.id));
@@ -568,22 +572,38 @@ function PlayersStep({
           {text.seatsTitle}
         </h3>
         <span className="meeting-view__note" aria-live="polite">
-          {format(text.seatsCount, { n: seated.length, total: seats.length })}
+          {teams
+            ? format(text.teamsCount, {
+                n: seated.length,
+                seats: seats.filter((ids) => ids.length > 0).length,
+                total: seats.length,
+              })
+            : format(text.seatsCount, { n: seated.length, total: seats.length })}
         </span>
       </div>
+      {teams ? <p className="meeting-form__hint">{text.teamsHint}</p> : null}
       <ol className="seat-list" aria-label={text.seatsLabel}>
-        {seats.map((id, index) => (
+        {seats.map((ids, index) => (
           <SeatRow
             key={index}
             index={index}
-            player={id ? (byId.get(id) ?? null) : null}
+            players={ids.flatMap((id) => {
+              const person = byId.get(id);
+              return person ? [person] : [];
+            })}
             seats={seats}
             participants={participants}
+            teams={teams}
             canAdd={!full}
             open={openSeat === index}
             disabled={disabled}
             onToggle={() => setOpenSeat((current) => (current === index ? null : index))}
             onPick={(profileId) => {
+              if (teams && profileId !== null) {
+                // Zespół: lista zostaje otwarta, żeby dodać kolejnych graczy.
+                onChange(toggleTeamMember(seats, index, profileId));
+                return;
+              }
               onChange(assignSeat(seats, index, profileId));
               setOpenSeat(null);
             }}
@@ -619,9 +639,11 @@ function PlayersStep({
           ? plural(bounds.min, text.tooFew)
           : problem === 'tooMany'
             ? plural(bounds.max, text.tooMany)
-            : full && outside.length > 0 && free >= 0
-              ? text.full
-              : ''}
+            : problem === 'sides'
+              ? text.tooFewSides
+              : full && outside.length > 0 && free >= 0
+                ? text.full
+                : ''}
       </p>
     </section>
   );
@@ -634,9 +656,10 @@ function PlayersStep({
  */
 function SeatRow({
   index,
-  player,
+  players,
   seats,
   participants,
+  teams,
   canAdd,
   open,
   disabled,
@@ -645,9 +668,11 @@ function SeatRow({
   onClose,
 }: {
   readonly index: number;
-  readonly player: Profile | null;
+  readonly players: readonly Profile[];
   readonly seats: Seats;
   readonly participants: readonly Profile[];
+  /** Notes z zespołami: lista dodaje i usuwa graczy miejsca zamiast zamieniać jednego. */
+  readonly teams: boolean;
   readonly canAdd: boolean;
   readonly open: boolean;
   readonly disabled: boolean;
@@ -656,6 +681,8 @@ function SeatRow({
   readonly onClose: () => void;
 }) {
   const n = index + 1;
+  const player = players[0] ?? null;
+  const names = players.map(fullName).join(', ');
   const listId = useId();
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -691,8 +718,8 @@ function SeatRow({
           className={cx('seat__field', player ? 'seat__field--filled' : 'seat__field--empty')}
           aria-label={
             player
-              ? format(text.seatFilled, { n, name: fullName(player) })
-              : format(text.seatChoose, { n })
+              ? format(teams ? text.teamFilled : text.seatFilled, { n, name: names })
+              : format(teams ? text.teamChoose : text.seatChoose, { n })
           }
           aria-expanded={open}
           aria-controls={open ? listId : undefined}
@@ -701,14 +728,18 @@ function SeatRow({
         >
           {player ? (
             <>
-              <ProfileAvatar profile={player} size={32} decorative />
-              <span className="seat__name">{fullName(player)}</span>
+              <span className="seat__avatars">
+                {players.map((person) => (
+                  <ProfileAvatar key={person.id} profile={person} size={32} decorative />
+                ))}
+              </span>
+              <span className="seat__name">{names}</span>
               <Icon name="chevron-down" className="seat__chevron" />
             </>
           ) : (
             <>
               <Icon name="plus" className="seat__chevron" />
-              <span className="seat__name">{text.seatEmpty}</span>
+              <span className="seat__name">{teams ? text.teamEmpty : text.seatEmpty}</span>
             </>
           )}
         </button>
@@ -721,10 +752,11 @@ function SeatRow({
           aria-label={format(text.pickerLabel, { n })}
         >
           {participants.map((person) => {
-            const at = seats.indexOf(person.id);
+            const at = seatOf(seats, person.id);
             const here = at === index;
-            // Nowy gracz z listy (nie przesiadka) tylko, gdy partia ma jeszcze wolne miejsce.
-            const blocked = at < 0 && !player && !canAdd;
+            // Nowy gracz z listy (nie przesiadka) tylko, gdy partia ma jeszcze wolne miejsce;
+            // w zespole każdy nowy gracz zwiększa liczbę graczy partii.
+            const blocked = at < 0 && (teams || !player) && !canAdd;
             return (
               <li key={person.id}>
                 <button

@@ -148,7 +148,12 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
   await max.focus();
   await page.keyboard.press('ArrowUp');
   await expect(form.getByLabel(/\. miejsce$/)).toHaveCount(5);
-  for (const [i, value] of ['10', '6', '4', '2', '3'].entries()) {
+  // Skomplikowanie przelicza punkty ze wzoru (GAME-5): M(3) = 2, n = 5.
+  await form.getByLabel('Skomplikowanie').fill('3');
+  await expect(form.getByLabel('1. miejsce')).toHaveValue('43,6');
+  await expect(form.getByLabel('5. miejsce')).toHaveValue('4,4');
+  // Punkty można poprawić ręcznie, także ułamkami.
+  for (const [i, value] of ['10', '6', '4', '2,5', '3'].entries()) {
     await form.getByLabel(`${i + 1}. miejsce`).fill(value);
   }
   // 5. miejsce ma więcej niż 4.: ostrzeżenie bez blokady.
@@ -166,7 +171,8 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
       title: 'Kolejka Górska',
       min_players: 2,
       max_players: 5,
-      placement_points: [10, 6, 4, 2, 3],
+      complexity: 3,
+      placement_points: [10, 6, 4, 2.5, 3],
       cover_path: mock.uploads[0],
     },
   });
@@ -194,6 +200,9 @@ test('admin edytuje i usuwa grę z popupu (GAME-3, GAME-8)', async ({ page }) =>
   await expect(form.getByText('Max. liczba graczy nie może być mniejsza niż min.')).toBeVisible();
   await form.getByRole('spinbutton', { name: 'Max. graczy' }).focus();
   await page.keyboard.press('ArrowUp');
+  // Ze skomplikowaniem zmiana max przelicza punkty ze wzoru; poprawiamy je ręcznie.
+  await expect(form.getByLabel('2. miejsce')).toHaveValue('3');
+  await form.getByLabel('1. miejsce').fill('5');
   await form.getByLabel('2. miejsce').fill('0');
   await form.getByLabel('Tytuł').fill('Łąka i Pszczoły 2');
   await form.getByRole('button', { name: 'Zapisz' }).click();
@@ -201,7 +210,13 @@ test('admin edytuje i usuwa grę z popupu (GAME-3, GAME-8)', async ({ page }) =>
   expect(mock.gameWrites.at(-1)).toMatchObject({
     method: 'PATCH',
     id: LAKA.id,
-    body: { title: 'Łąka i Pszczoły 2', min_players: 2, max_players: 2, placement_points: [5, 0] },
+    body: {
+      title: 'Łąka i Pszczoły 2',
+      min_players: 2,
+      max_players: 2,
+      complexity: 2,
+      placement_points: [5, 0],
+    },
   });
   await expect(dialog.locator('.game-tile__title')).toHaveText([
     'Łąka i Pszczoły 2',

@@ -154,7 +154,7 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 
 ### 5.4 Kolekcja gier
 
-**Model gry:** tytuł, okładka, min. liczba graczy, max. liczba graczy, punktacja za miejsca, notesy (0…n), znacznik usunięcia.
+**Model gry:** tytuł, okładka, min. liczba graczy, max. liczba graczy, skomplikowanie (1–5), punktacja za miejsca, notesy (0…n), znacznik usunięcia.
 
 | ID | Wymaganie | P |
 |---|---|:-:|
@@ -162,7 +162,7 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 | GAME-2 | **Popup kolekcji:** pełna lista gier (siatka okładek) z wyszukiwaniem po tytule, bez rozróżniania wielkości liter i polskich znaków (`unaccent`), filtrowanym na bieżąco. | M |
 | GAME-3 | Admin widzi przycisk **Dodaj grę**, a przy każdej grze **Edytuj** i **Usuń**. Dodanie i edycja otwierają formularz w tym samym popupie (zmiana widoku, ze strzałką „wstecz”). | M |
 | GAME-4 | Walidacja: tytuł wymagany; `1 ≤ min ≤ max`. Aplikacja **nie ma górnego limitu** liczby graczy: o tym, ilu graczy zmieści się w partii, decyduje liczba miejsc dla graczy zdefiniowana w notesie (PAD-3, EDT-8). | M |
-| GAME-5 | **Punktacja za miejsca:** formularz wymaga podania punktów dla **każdego miejsca od 1 do max. liczby graczy**. Zmiana „max” dodaje lub usuwa pola. Wartości to liczby całkowite ≥ 0. Gdy punkty nie są nierosnące, formularz pokazuje ostrzeżenie (bez blokady). W partii z *n* graczami liczą się miejsca 1…*n* z tej listy. | M |
+| GAME-5 | **Skomplikowanie i punktacja za miejsca:** formularz wymaga **skomplikowania gry** *w* od 1 do 5 (do dwóch miejsc po przecinku). Jego wpisanie, a potem każda zmiana skomplikowania albo „max”, przelicza punkty dla **każdego miejsca od 1 do max. liczby graczy** ze wzoru `points = round( M(w) × Z × [0.1 + 0.9 × (n − p) / (n − 1)] × (1 + bonus × (n − 2)), 1 )`, `M(w) = 1 + k × (w − 1) / 4`, gdzie Z = 20, k = 2, bonus = 0,03, *n* = max. liczba graczy, *p* = miejsce (1 = zwycięzca). Punkty można poprawić ręcznie; wartości to liczby ≥ 0 z najwyżej dwoma miejscami po przecinku. Gdy punkty nie są nierosnące, formularz pokazuje ostrzeżenie (bez blokady). W partii z *n* stronami (graczami albo zespołami, PAD-17) liczą się **ostatnie** *n* miejsca listy: zwycięzca dostaje punkty za miejsce max − *n* + 1, ostatni za miejsce max (np. gra 2–6, partia 4 graczy: miejsca 3…6). Gry dodane przed wprowadzeniem skomplikowania wymagają jego uzupełnienia przy najbliższej edycji. | M |
 | GAME-6 | Okładka: upload do Supabase Storage, skalowanie w przeglądarce (np. dłuższy bok 800 px, WebP). Bez okładki gra ma placeholder z monogramem tytułu. | M |
 | GAME-7 | **Notesy gry:** lista notesów przypisanych do gry (nazwa, miniatura). Admin może dodać notes (edytor, §5.5, albo import pliku `.json`), edytować go, zmienić nazwę i usunąć. Liczba notesów na grę jest dowolna. | M |
 | GAME-8 | Usunięcie gry jest miękkie: znika z kolekcji, wyszukiwania i głosowań, ale jej partie, karteczki i punkty zostają w historii i statystykach. W historii pokazuje się z oznaczeniem „(usunięta z kolekcji)”. | M |
@@ -195,6 +195,7 @@ Bazą są istniejące POC: `<score-pad>` (notes 3D, Three.js) i `<score-pad-edit
 | PAD-14 | **Wpisywanie na komputerze.** Kliknięcie pola tylko je zaznacza (podświetlenie na kartce), bez klawiatury ekranowej i bez okna dialogowego. Cyfry wpisywane z **klawiatury sprzętowej** pojawiają się od razu w tym polu na kartce (minus zmienia znak, Backspace kasuje, Esc anuluje zmianę, strzałki góra/dół zmieniają o krok). | M |
 | PAD-15 | **Szybkie wpisywanie kolejnych kategorii.** Zatwierdzenie wyniku (Enter, „Dalej” na klawiaturze systemowej albo Tab) zapisuje wartość i przenosi fokus do **następnej kategorii punktowej tego samego gracza** (pomija pola imion, sumy i pola bez wpisu). Po ostatniej kategorii gracza fokus przechodzi do pierwszej kategorii następnego gracza. Shift+Tab cofa. Na telefonie klawiatura systemowa pozostaje otwarta między polami, a widok przewija się do zaznaczonego pola, jeśli wychodzi ono poza kadr. Wpis spoza zakresu kategorii (min/max, lista wartości) nie przechodzi dalej i pokazuje błąd przy polu. | M |
 | PAD-16 | **Jakość tekstury kartki.** Tekstura jest tworzona z obrazu kartki w **pełnej rozdzielczości zapisanej przez edytor** (EDT-12), bez dodatkowego skalowania w dół przy uruchomieniu notesu. Ograniczeniem jest tylko `maxTextureSize` urządzenia (dłuższy bok do 4096 px na urządzeniach, które to obsługują). Tekstura ma mipmapy i maksymalną anizotropię, a pismo (atrament) jest rysowane w tej samej rozdzielczości. Renderer używa pełnego `devicePixelRatio` urządzenia (limit np. 3 zamiast obecnego 2). W POC obraz jest dziś skalowany kilka razy (§8.4). | M |
+| PAD-17 | **Zespoły.** Kategoria „nazwa gracza” ma opcję **Zespoły** (EDT-13, `team: true` w szablonie). W takim notesie przy rozpoczęciu partii na jednym miejscu notesu można posadzić kilku graczy; pole kartki pokazuje ich imiona. Zespół to jedna strona partii: ma jeden wynik i jedno miejsce, a każdy członek dostaje pełne punkty tego miejsca i wygraną przy 1. miejscu (§5.6.2, §5.6.3); remisu w obrębie zespołu nie ma. Partia ma co najmniej 2 strony i od max(2, min gry) do max gry graczy; miejsc notesu może być mniej niż graczy. | S |
 
 #### 5.5.2 Edytor notesu: kroki i rozszerzenia
 
@@ -220,7 +221,7 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 | EDT-10 | **Krok 2: Obszar kartki.** Obszar jest wielokątem na zdjęciu. Trzy tryby wyboru: **Całe zdjęcie** (prostokąt na całym kadrze, np. dla skanu); **Wykryj automatycznie** (wykrywa także **nieregularne kształty** karteczek: zaokrąglone rogi, wycięcia, kartki nieprostokątne, a nie tylko cztery narożniki); **Ręcznie**: przeciąganie punktów obszaru (z lupą przy przeciąganiu), **dodawanie nowych punktów** (kliknięcie lub dotknięcie krawędzi wstawia punkt) i usuwanie punktów (dwuklik lub przytrzymanie). Wynik automatyczny można poprawiać ręcznie. Opcja **Wygładź krawędzie** (z siłą, np. 0–10) dodaje punkty pośrednie dla płynnych przejść między punktami. Prostowanie perspektywy opiera się na czterech narożnikach wyznaczonych z obszaru. W tym kroku zostają też narzędzia z POC: obrót zdjęcia o 90° w lewo i w prawo, rozmiar kartki w centymetrach, orientacja (gdzie jest grzbiet notesu: u góry albo z lewej) i cofnij (Ctrl+Z). Różdżka i lasso z POC są usuwane. Tu ustawia się też **nazwę notesu** i **kolor grzbietu**. | M |
 | EDT-11 | **Krok 3: Mapowanie pól.** Pola dodaje się w jednym z dwóch **wykluczających się** trybów: **Prostokąty ręczne** (rysowanie prostokątów; po każdym prostokącie edytor przechodzi do następnej kategorii tego samego gracza, a gotowe pola można powielić dla kolejnego gracza) albo **Wykryj tabelę** (wiersze i kolumny wykryte ze zdjęcia, z możliwością poprawy linii i wyboru, czy gracze są w kolumnach czy w wierszach). Trybów nie można mieszać: przełączenie na drugi tryb, gdy są już pola, pokazuje **popup z ostrzeżeniem**, że dotychczasowe pola i kategorie zostaną usunięte, i dopiero po potwierdzeniu je kasuje. Kategorie są w tym kroku **proste**: mają tylko numer i automatyczną nazwę (np. „Kategoria 3”) oraz przypisane pola dla każdego miejsca gracza, bez typu i szczegółów. Edytor pokazuje liczbę miejsc dla graczy i kategorii. | M |
 | EDT-12 | **Rozdzielczość zdjęcia kartki.** Edytor przechowuje i zapisuje wyprostowaną kartkę w rozdzielczości zdjęcia źródłowego, z limitem dłuższego boku 4096 px (zamiast obecnych 2400 px źródła i 1600 px kartki), w WebP lub JPEG o jakości ≥ 0,92. Mniejsze zdjęcie nie jest powiększane. Wymaganie jest podstawą jakości tekstury w notesie (PAD-16). | M |
-| EDT-13 | **Krok 4: Kategorie.** Dla każdej kategorii z kroku 3 admin ustala: **nazwę**, **typ** (nazwa gracza, punktacja, suma, puste pole), opcjonalny opis (chmurka w notesie). Dla **punktacji**: zakres **dowolny** albo ograniczony (min, max, krok) albo lista dozwolonych wartości. Dla **sumy**: z których kategorii jest liczona (także z innych sum, bez cykli). W tym kroku wybiera się też **kategorię decydującą o wygranej** (EDT-2, EDT-3) i **reguły rozstrzygania remisów** (EDT-4, EDT-5). Walidacja: dokładnie jedna kategoria typu „nazwa gracza” i co najmniej jedna kategoria punktowa. | M |
+| EDT-13 | **Krok 4: Kategorie.** Dla każdej kategorii z kroku 3 admin ustala: **nazwę**, **typ** (nazwa gracza, punktacja, suma, puste pole), opcjonalny opis (chmurka w notesie). Dla **punktacji**: zakres **dowolny** albo ograniczony (min, max, krok) albo lista dozwolonych wartości. Dla **sumy**: z których kategorii jest liczona (także z innych sum, bez cykli). Dla **nazwy gracza**: opcja **Zespoły** (kilku graczy w jednym polu, PAD-17). W tym kroku wybiera się też **kategorię decydującą o wygranej** (EDT-2, EDT-3) i **reguły rozstrzygania remisów** (EDT-4, EDT-5). Walidacja: dokładnie jedna kategoria typu „nazwa gracza” i co najmniej jedna kategoria punktowa. | M |
 | EDT-14 | **Krok 5: Test i zapis.** Widok notesu 3D taki jak w partii (PAD-10…PAD-16), z fikcyjnymi graczami „Gracz 1…n” zamiast członków klubu. Przycisk **Wypełnij losowo** wpisuje losowe wartości zgodne z zakresami kategorii (z możliwością wymuszenia remisu, żeby sprawdzić reguły remisów). Można też wpisywać ręcznie i oderwać karteczkę, żeby zobaczyć podsumowanie (miejsca, remisy), ale **oderwane karteczki nie są zapisywane** ani nie trafiają do historii. **Zapisz** zapisuje notes (EDT-1). Test nie jest wymagany: notes można zapisać od razu po wejściu w ten krok. | M |
 
 ### 5.6 Wyliczanie wyników
@@ -233,14 +234,16 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 
 #### 5.6.2 Punkty leaderboardu
 
-- Gracz na miejscu *k* (bez remisu) dostaje `punktacja[k]` ze snapshotu punktacji gry.
-- **Remis:** gracze zremisowani na miejscach *k…k+m−1* dostają `floor( (punktacja[k] + … + punktacja[k+m−1]) / m )`. Kolejny gracz dostaje punkty za miejsce *k+m*.
-- **Przykład** (punktacja 10/6/4/2/0, remis dwóch graczy o 1. miejsce): zremisowani dostają `floor((10+6)/2) = 8`, kolejny gracz (miejsce 3) dostaje 4, następni 2 i 0.
+- Miejsca zajmują **strony** partii: gracze albo zespoły (PAD-17). W partii z *n* stronami i punktacją gry dla *max* miejsc przesunięcie wynosi *s = max − n* (pomijamy najwyżej punktowane miejsca, których partia nie obsadziła).
+- Strona na miejscu *k* (bez remisu) dostaje `punktacja[k + s]` ze snapshotu punktacji gry.
+- **Remis:** strony zremisowane na miejscach *k…k+m−1* dostają średnią `(punktacja[k+s] + … + punktacja[k+m−1+s]) / m` zaokrągloną w dół do setnych. Kolejna strona dostaje punkty za miejsce *k+m*.
+- **Zespół:** każdy członek zespołu dostaje pełne punkty miejsca zespołu (bez dzielenia).
+- **Przykład** (punktacja 10/6/4/2/0, 5 graczy, remis dwóch o 1. miejsce): zremisowani dostają `(10+6)/2 = 8`, kolejny gracz (miejsce 3) dostaje 4, następni 2 i 0. Ta sama punktacja w partii 3 graczy: miejsca 3…5, czyli 4/2/0.
 - Punkty są wyliczane i zapisywane po stronie bazy (funkcja RPC przy zapisie partii) na podstawie miejsc przysłanych przez notes i snapshotu punktacji. Klient nie przysyła punktów.
 
 #### 5.6.3 Wygrane
 
-- **Wygraną** dostaje każdy gracz na miejscu 1, także przy wspólnym 1. miejscu (każdy remisujący dostaje +1).
+- **Wygraną** dostaje każdy gracz na miejscu 1, także przy wspólnym 1. miejscu (każdy remisujący dostaje +1) i każdy członek zwycięskiego zespołu. Kilku zwycięzców daje więc zarówno wspólne 1. miejsce, jak i wygrana zespołu.
 
 #### 5.6.4 Seria zwycięstw
 
@@ -410,11 +413,13 @@ profiles            id (uuid = auth.users.id, bez kaskady), hook (unique), first
                     created_at, deleted_at
 games               id, title, title_search (unaccent + lower, generowana), cover_path,
                     min_players, max_players,
-                    placement_points int[]  -- długość = max_players
+                    complexity numeric(3,2)  -- 1…5, wymagane (NULL tylko w starszych grach)
+                    placement_points numeric[]  -- długość = max_players, ≥ 0, do 0,01
                     created_at, updated_at, deleted_at
 scorepads           id, game_id, name, current_version_id, created_at, deleted_at
 scorepad_versions   id, scorepad_id, version (1, 2, … w notesie), template jsonb
                     (format score-pad v2 + ranking), image_path, player_slots,
+                    teams bool (generowana: kategoria names z team = true),
                     created_at                                     -- niezmienne
 meetings            id, title, starts_at timestamptz, status ('planned'|'in_progress'|'finished'),
                     voting_open bool, host_id (prowadzący, null = admin), created_by,
@@ -424,10 +429,10 @@ game_votes          meeting_id, game_id, profile_id, created_at      PK (meeting
 meeting_games       meeting_id, game_id, position                     -- opublikowane gry
 plays               id, meeting_id, game_id, scorepad_version_id,
                     status ('draft'|'saved'), sheet jsonb, sheet_image_path,
-                    points_snapshot int[], started_by, started_at, saved_at
+                    points_snapshot numeric[], started_by, started_at, saved_at
 play_results        play_id, meeting_id, profile_id, seat, scores jsonb (`values` z PAD-7),
-                    ranking_value numeric, place int, tied bool, points int, is_win bool
-                    PK (play_id, profile_id)
+                    ranking_value numeric, place int, tied bool, points numeric, is_win bool
+                    PK (play_id, profile_id); kilku graczy na seat tylko w notesie z zespołami
 achievement_unlocks profile_id, achievement_id, unlocked_at, meeting_id, play_id
                     PK (profile_id, achievement_id)
 ```

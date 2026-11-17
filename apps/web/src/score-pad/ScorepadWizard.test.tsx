@@ -34,6 +34,7 @@ const GAME: Game = {
   id: '00000000-0000-4000-b000-000000000001',
   title: 'Żółwie Wyścigi',
   cover_path: null,
+  complexity: 2,
   min_players: 2,
   max_players: 5,
   placement_points: [10, 6, 4, 2, 1],
@@ -125,6 +126,7 @@ function category(
     of: [],
     sumOptions: [],
     placed: true,
+    team: false,
     ...extra,
   };
 }

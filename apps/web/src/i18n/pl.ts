@@ -494,9 +494,17 @@ export const pl = {
       minLabel: 'Min. graczy',
       maxLabel: 'Max. graczy',
       playersHint: 'Bez górnego limitu: ilu graczy zmieści się w partii, decyduje notes punktacji.',
+      complexityLabel: 'Skomplikowanie',
+      complexityPlaceholder: 'np. 2,75',
+      complexityHint:
+        'Od 1 do 5, do dwóch miejsc po przecinku. Wpisanie albo zmiana przelicza punkty za miejsca ze wzoru.',
+      complexityMissing:
+        'Ta gra nie ma jeszcze skomplikowania. Uzupełnij je, żeby zapisać zmiany (punkty przeliczą się ze wzoru).',
       pointsLegend: 'Punkty za miejsca',
       pointsHint:
-        'Punkty do rankingu za każde miejsce od 1. do max. liczby graczy. W partii z n graczami liczą się miejsca 1…n.',
+        'Punkty do rankingu za każde miejsce od 1. do max. liczby graczy, wyliczane ze skomplikowania (można je poprawić). W partii z n graczami (albo zespołami) liczą się ostatnie miejsca: zwycięzca dostaje punkty za miejsce max − n + 1, ostatni za miejsce max.',
+      pointsEdited: 'Punkty różnią się od wyliczonych ze wzoru.',
+      pointsReset: 'Przelicz ze wzoru',
       placeLabel: '{n}. miejsce',
       pointsUnit: 'pkt',
       pointsWarning:
@@ -512,7 +520,10 @@ export const pl = {
         minPlayers: 'Gra musi mieć co najmniej 1 gracza.',
         range: 'Max. liczba graczy nie może być mniejsza niż min.',
         pointsRequired: 'Wpisz punkty.',
-        pointsInvalid: 'Wpisz liczbę całkowitą 0 lub większą.',
+        pointsInvalid: 'Wpisz liczbę 0 lub większą, najwyżej z dwoma miejscami po przecinku.',
+        complexityRequired: 'Wpisz skomplikowanie gry.',
+        complexityInvalid: 'Wpisz liczbę, najwyżej z dwoma miejscami po przecinku, np. 2,75.',
+        complexityRange: 'Skomplikowanie musi być od 1 do 5.',
         pointsTooLarge: 'Za duża liczba punktów.',
         invalid: 'Popraw zaznaczone pola.',
         coverType: 'Okładka musi być plikiem WebP, JPEG lub PNG.',
@@ -539,6 +550,7 @@ export const pl = {
     details: {
       lastPlayed: 'Ostatnia partia: {date}',
       neverPlayed: 'Jeszcze nie grana',
+      complexity: 'Skomplikowanie {n} / 5',
       voteTotal: 'Łącznie głosów: {count}',
       gallery: 'Karteczki',
       count: { one: '{n} partia', few: '{n} partie', many: '{n} partii' },
@@ -738,6 +750,14 @@ export const pl = {
       version: 'wersja {n}',
       seatsTitle: 'Gracze i miejsca w notesie',
       seatsCount: 'Zajęte {n} z {total} miejsc',
+      teamsCount: '{n} graczy na {seats} z {total} miejsc',
+      teamsHint:
+        'Ten notes ma zespoły: na jednym miejscu można posadzić kilku graczy. Każdy członek zespołu dostaje punkty za miejsce zespołu i wygraną.',
+      teamEmpty: 'Wybierz gracza lub zespół',
+      teamFilled: 'Miejsce {n}: {name}. Zmień skład',
+      teamChoose: 'Miejsce {n}: wybierz graczy',
+      tooFewSides:
+        'Posadź graczy na co najmniej 2 miejscach: partia potrzebuje co najmniej dwóch stron.',
       seatsIntro: '{title} · {notes} · {range}',
       seatsLabel: 'Miejsca w notesie',
       seat: 'Miejsce {n}',
@@ -1311,6 +1331,9 @@ export const pl = {
           skip: 'Pole bez wpisu, np. nagłówek albo kratka do pominięcia.',
         },
         notPlaced: 'Ta kategoria nie ma pola na kartce, więc notes pokaże ją tylko w podsumowaniu.',
+        team: 'Zespoły: kilku graczy w jednym polu',
+        teamHint:
+          'Przy rozpoczęciu partii na jednym miejscu notesu można posadzić kilku graczy. Grają jako zespół: każdy dostaje punkty za miejsce zespołu i wygraną, bez dzielenia punktów.',
         range: 'Zakres wartości',
         ranges: { free: 'Dowolny', range: 'Min–max', list: 'Lista wartości' },
         rangeHints: {

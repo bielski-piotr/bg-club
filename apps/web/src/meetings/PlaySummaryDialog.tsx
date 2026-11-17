@@ -6,7 +6,7 @@ import {
   type ScoringTemplate,
 } from '@bg-club/scoring';
 import { ManualTieControls } from '../score-pad/ManualTieControls';
-import { format, t } from '../i18n';
+import { format, formatNumber, t } from '../i18n';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { fullName, type Profile } from '../profile/profiles';
 import { Banner, Button, Dialog } from '../ui';
@@ -89,9 +89,14 @@ export function PlaySummaryDialog({
             groups={groups}
             disabled={saving}
             nameOf={(seat) => {
-              const row = original.rows.find((r) => r.seat === seat + 1);
-              const person = row && profiles.get(row.profileId);
-              return person ? fullName(person) : t.meetings.plays.unknownPlayer;
+              // Zespół: wszyscy członkowie miejsca w notesie.
+              const names = original.rows
+                .filter((r) => r.seat === seat + 1)
+                .map((r) => {
+                  const person = profiles.get(r.profileId);
+                  return person ? fullName(person) : t.meetings.plays.unknownPlayer;
+                });
+              return names.length > 0 ? names.join(', ') : t.meetings.plays.unknownPlayer;
             }}
             onChange={(decisions) =>
               setResolved(resolveManualTies(manual.template, manual.ranked, decisions))
@@ -106,7 +111,10 @@ export function PlaySummaryDialog({
                 .filter(Boolean)
                 .join(' · ');
               return (
-                <li key={row.seat} className={cx('play-summary__row', row.win && 'is-first')}>
+                <li
+                  key={`${row.seat}-${row.profileId}`}
+                  className={cx('play-summary__row', row.win && 'is-first')}
+                >
                   <span className="play-summary__place">
                     <span aria-hidden="true">{format(text.place, { n: row.place })}</span>
                     <span className="sr-only">{format(text.placeLabel, { n: row.place })}</span>
@@ -123,7 +131,7 @@ export function PlaySummaryDialog({
                       <span className="play-summary__empty">{text.noValue}</span>
                     ) : (
                       <>
-                        <span aria-hidden="true">{row.value}</span>
+                        <span aria-hidden="true">{formatNumber(row.value)}</span>
                         <span className="sr-only">{format(text.score, { n: row.value })}</span>
                       </>
                     )}

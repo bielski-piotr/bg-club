@@ -1094,6 +1094,21 @@
   color: var(--c-muted);
 }
 
+/* Zespół: awatary członków nachodzą na siebie (pierwszy na wierzchu). */
+.seat__avatars {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.seat__avatars > * + * {
+  margin-left: -10px;
+}
+
+.seat__avatars > * {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--c-surface);
+}
+
 .seat__field--empty .seat__chevron {
   order: -1;
 }

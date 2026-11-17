@@ -70,7 +70,7 @@ select throws_ok($$ select public.test_manual_save(1,array[1,1,3,4]) $$, '23514'
 select is((select status from public.plays where id='00000000-0000-4000-f000-000000000001'), 'draft', 'failed manual decisions roll back atomically');
 select lives_ok($$ select public.test_manual_save(1,array[1,3,2,3]) $$, 'host resolves subgroup and leaves a smaller tie');
 select results_eq($$ select seat,place,tied,points,is_win from public.play_results where play_id='00000000-0000-4000-f000-000000000001' order by seat $$,
- $$ values (1,1,false,10,true),(2,3,true,3,false),(3,2,false,6,false),(4,3,true,3,false) $$, 'saved manual places drive points, ties and wins');
+ $$ values (1,1,false,10::numeric,true),(2,3,true,3::numeric,false),(3,2,false,6::numeric,false),(4,3,true,3::numeric,false) $$, 'saved manual places drive points, ties and wins');
 select lives_ok($$ select public.test_manual_save(1,array[1,3,2,3]) $$, 'identical retry succeeds');
 select is((select sheet->'cells'->'b' from public.plays where id='00000000-0000-4000-f000-000000000001'), '[1,2,2,2]'::jsonb, 'sheet values survive manual ordering');
 select throws_ok($$ select public.test_manual_save(1,array[1,2,3,4]) $$, '23514', null, 'saved manual outcome is immutable');

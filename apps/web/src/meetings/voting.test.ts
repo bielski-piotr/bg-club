@@ -22,6 +22,7 @@ function game(id: string, title: string, min = 2, max = 4): Game {
   return {
     id,
     title,
+    complexity: 2,
     cover_path: null,
     min_players: min,
     max_players: max,

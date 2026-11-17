@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useClub } from '../hub/club';
-import { format, plural, t } from '../i18n';
+import { format, formatNumber, plural, t } from '../i18n';
 import { filterYear, yearFilterValues, type YearFilter } from '../leaderboard/leaderboard';
 import { shortMeetingDate } from '../meetings/datetime';
 import { PopupLink } from '../popups/PopupLink';
@@ -92,7 +92,7 @@ function StatsBody({
     [text.plays, stats.plays],
     [text.wins, stats.wins],
     [text.winRate, rate === null ? text.none : format(text.percent, { n: rate })],
-    [text.points, stats.points],
+    [text.points, formatNumber(stats.points)],
     [text.streakRecord, stats.streak_record],
     [text.streakCurrent, stats.streak_current],
   ];
@@ -165,7 +165,7 @@ function StatsBody({
               }
               trailing={
                 <span className="score">
-                  {play.points}
+                  {formatNumber(play.points)}
                   <span className="score__unit">{text.pointsUnit}</span>
                 </span>
               }

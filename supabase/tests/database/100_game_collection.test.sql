@@ -22,8 +22,8 @@ set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 
 select throws_ok(
-  $$ insert into public.games (title, min_players, max_players, placement_points)
-     values ('Gra Bartka', 2, 2, '{1,0}') $$,
+  $$ insert into public.games (title, min_players, max_players, placement_points, complexity)
+     values ('Gra Bartka', 2, 2, '{1,0}', 2) $$,
   '42501', null, 'gracz: nie dodaje gry');
 
 reset role;
@@ -31,20 +31,20 @@ set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 
 select lives_ok(
-  $$ insert into public.games (id, title, min_players, max_players, placement_points, cover_path) values
-     ('00000000-0000-4000-b000-000000000001', 'Żółwie Wyścigi', 2, 4, '{10,6,4,2}', 'games/zolwie.webp'),
-     ('00000000-0000-4000-b000-000000000002', 'Łąka i Pszczoły', 1, 1, '{5}', null),
-     ('00000000-0000-4000-b000-000000000003', 'Gra 100% losowa', 2, 3, '{3,2,1}', null),
-     ('00000000-0000-4000-b000-000000000004', 'Gra_testowa', 2, 2, '{1,0}', null) $$,
+  $$ insert into public.games (id, title, min_players, max_players, placement_points, cover_path, complexity) values
+     ('00000000-0000-4000-b000-000000000001', 'Żółwie Wyścigi', 2, 4, '{10,6,4,2}', 'games/zolwie.webp', 1.5),
+     ('00000000-0000-4000-b000-000000000002', 'Łąka i Pszczoły', 1, 1, '{5}', null, 2),
+     ('00000000-0000-4000-b000-000000000003', 'Gra 100% losowa', 2, 3, '{3,2,1}', null, 1),
+     ('00000000-0000-4000-b000-000000000004', 'Gra_testowa', 2, 2, '{1,0}', null, 3.25) $$,
   'admin: dodaje gry z okładką i bez (GAME-3, GAME-6)');
 select lives_ok(
-  $$ insert into public.games (id, title, min_players, max_players, placement_points) values
+  $$ insert into public.games (id, title, min_players, max_players, placement_points, complexity) values
      ('00000000-0000-4000-b000-000000000005', 'Wielka Gra', 2, 30,
-      array_fill(0, array[30])) $$,
+      array_fill(0, array[30]), 4) $$,
   'admin: bez górnego limitu graczy (GAME-4)');
 select throws_ok(
-  $$ insert into public.games (title, min_players, max_players, placement_points)
-     values ('Zły zakres', 3, 2, '{1,0}') $$,
+  $$ insert into public.games (title, min_players, max_players, placement_points, complexity)
+     values ('Zły zakres', 3, 2, '{1,0}', 2) $$,
   '23514', null, 'min > max jest odrzucane (GAME-4)');
 select throws_ok(
   $$ update public.games set max_players = 5 where id = '00000000-0000-4000-b000-000000000001' $$,
@@ -243,7 +243,7 @@ select is(
   'zakończone spotkanie zachowuje opublikowaną usuniętą grę');
 select results_eq(
   $$ select status, points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000001' $$,
-  $$ values ('saved', '{10,6,4,2}'::int[]) $$,
+  $$ values ('saved', '{10,6,4,2}'::numeric[]) $$,
   'partia usuniętej gry zostaje z punktacją z chwili rozpoczęcia (GAME-8, GAME-9)');
 
 -- Edycja punktacji grającej gry nie zmienia jej partii (GAME-9).
@@ -252,7 +252,7 @@ select lives_ok(
   'admin: zmienia punktację gry z partiami');
 select results_eq(
   $$ select points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000002' $$,
-  $$ values ('{5}'::int[]) $$,
+  $$ values ('{5}'::numeric[]) $$,
   'zapisana partia zachowuje dawną punktację (GAME-9)');
 
 reset role;

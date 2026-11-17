@@ -297,6 +297,11 @@ export interface HistoryResult {
   readonly points: number;
   /** Wartość kategorii decydującej; `null`, gdy gracz jej nie ma. */
   readonly rankingValue: number | null;
+  /**
+   * Miejsce na kartce (od 1). Członkowie zespołu mają to samo miejsce i liczą się jako jedna
+   * strona (wygrana zespołu to nie „wspólne 1. miejsce”). Brak = każdy gracz osobno.
+   */
+  readonly seat?: number | undefined;
 }
 
 /** Zapisana partia (szkice nie są historią). */
@@ -479,7 +484,10 @@ export function computeAchievements(history: AchievementHistory): AchievementUnl
 
     for (const play of plays) {
       const lastPlace = Math.max(...play.results.map((r) => r.place));
-      const winners = play.results.filter((r) => r.place === 1).length;
+      // Strony (gracze albo zespoły) na 1. miejscu.
+      const winners = new Set(
+        play.results.filter((r) => r.place === 1).map((r) => r.seat ?? r.profileId),
+      ).size;
 
       for (const r of play.results) {
         const state = player(r.profileId);

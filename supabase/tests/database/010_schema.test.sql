@@ -24,12 +24,12 @@ select columns_are('public', 'profiles',
   'kolumny profiles');
 select columns_are('public', 'games',
   array['id', 'title', 'title_search', 'cover_path', 'min_players', 'max_players', 'placement_points',
-        'created_at', 'updated_at', 'deleted_at'], 'kolumny games');
+        'created_at', 'updated_at', 'deleted_at', 'complexity'], 'kolumny games');
 select columns_are('public', 'scorepads',
   array['id', 'game_id', 'name', 'current_version_id', 'created_at', 'updated_at', 'deleted_at'],
   'kolumny scorepads');
 select columns_are('public', 'scorepad_versions',
-  array['id', 'scorepad_id', 'version', 'template', 'image_path', 'player_slots', 'created_at'],
+  array['id', 'scorepad_id', 'version', 'template', 'image_path', 'player_slots', 'created_at', 'teams'],
   'kolumny scorepad_versions');
 select columns_are('public', 'meetings',
   array['id', 'title', 'starts_at', 'status', 'voting_open', 'host_id', 'created_by', 'started_at',
@@ -136,7 +136,7 @@ select is_empty(
           'public.finish_meeting(uuid)'::regprocedure,
           'public.publish_meeting_games(uuid,uuid[])'::regprocedure,
           'public.reopen_voting(uuid)'::regprocedure,
-          'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure,
+          'public.start_play(uuid,uuid,uuid,uuid[],int[])'::regprocedure,
           'public.save_play_draft(uuid,jsonb,int)'::regprocedure,
           'public.discard_play(uuid)'::regprocedure,
           'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
@@ -168,7 +168,7 @@ select ok(
 );
 select ok(
   (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(start_play\.meeting_id\);'
-     from pg_proc where oid = 'public.start_play(uuid,uuid,uuid,uuid[])'::regprocedure),
+     from pg_proc where oid = 'public.start_play(uuid,uuid,uuid,uuid[],int[])'::regprocedure),
   'start_play (security definer) zaczyna od strażnika private.require_meeting_runner()'
 );
 select ok(

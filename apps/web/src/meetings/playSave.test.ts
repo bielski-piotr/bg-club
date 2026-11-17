@@ -31,16 +31,17 @@ const result = (
 });
 
 describe('podsumowanie oderwanej kartki (PAD-5)', () => {
-  it('wiersze w kolejności miejsc z podglądem punktów floor i ładunek bez punktów', () => {
+  it('wiersze w kolejności miejsc z podglądem punktów (ostatnie 3 miejsca punktacji) i ładunek bez punktów', () => {
     const summary = playSummary(play, sheet, [
       result(0, 9, 1, true),
       result(1, 9, 1, true),
       result(3, 4, 3),
     ]);
     expect(summary?.rows).toEqual([
-      { seat: 1, profileId: 'ada', place: 1, tied: true, value: 9, points: 8, win: true },
-      { seat: 2, profileId: 'bea', place: 1, tied: true, value: 9, points: 8, win: true },
-      { seat: 4, profileId: 'cel', place: 3, tied: false, value: 4, points: 4, win: false },
+      // 3 graczy w grze do 4: liczą się miejsca 2…4 punktacji 10/6/4/2, remis (6 + 4) / 2.
+      { seat: 1, profileId: 'ada', place: 1, tied: true, value: 9, points: 5, win: true },
+      { seat: 2, profileId: 'bea', place: 1, tied: true, value: 9, points: 5, win: true },
+      { seat: 4, profileId: 'cel', place: 3, tied: false, value: 4, points: 2, win: false },
     ]);
     expect(summary?.results).toEqual([
       { profile_id: 'ada', seat: 1, place: 1, scores: { a: 9 }, ranking_value: 9 },
@@ -48,6 +49,29 @@ describe('podsumowanie oderwanej kartki (PAD-5)', () => {
       { profile_id: 'cel', seat: 4, place: 3, scores: { a: 4 }, ranking_value: 4 },
     ]);
     expect(summary?.sheet).toBe(sheet);
+  });
+
+  it('zespół: każdy członek ma wiersz z pełnymi punktami miejsca zespołu', () => {
+    const teams = {
+      ...play,
+      seats: [
+        { profile_id: 'ada', seat: 1 },
+        { profile_id: 'bea', seat: 1 },
+        { profile_id: 'cel', seat: 2 },
+      ],
+    };
+    const summary = playSummary(teams, sheet, [result(0, 9, 1), result(1, 4, 2)]);
+    // Dwie strony w grze do 4: miejsca 3 i 4 punktacji.
+    expect(summary?.rows.map((r) => [r.profileId, r.place, r.points, r.win])).toEqual([
+      ['ada', 1, 4, true],
+      ['bea', 1, 4, true],
+      ['cel', 2, 2, false],
+    ]);
+    expect(summary?.results.map((r) => [r.profile_id, r.seat, r.place])).toEqual([
+      ['ada', 1, 1],
+      ['bea', 1, 1],
+      ['cel', 2, 2],
+    ]);
   });
 
   it('kartki z graczem spoza partii, bez gracza albo bez wyników nie da się zapisać', () => {

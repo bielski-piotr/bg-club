@@ -31,6 +31,7 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   await page.getByRole('button', { name: 'Dodaj grę' }).click();
   dialog = page.getByRole('dialog', { name: 'Dodaj grę' });
   await dialog.getByLabel('Tytuł').fill('Gra regresji');
+  await dialog.getByLabel('Skomplikowanie').fill('2');
   for (const [i, points] of ['10', '6', '4', '2'].entries()) {
     await dialog.getByLabel(`${i + 1}. miejsce`).fill(points);
   }
@@ -130,14 +131,15 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   await expect(pad.locator('score-pad .sp.ready')).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Oderwij kartkę i zakończ partię Gra regresji' }).click();
   const summary = page.getByRole('dialog', { name: 'Podsumowanie partii' });
-  await expect(summary).toContainText('+10 pkt');
-  await expect(summary).toContainText('+6 pkt');
+  // 2 graczy w grze do 4: liczą się ostatnie 2 miejsca punktacji 10/6/4/2 (§5.6.2).
+  await expect(summary).toContainText('+4 pkt');
+  await expect(summary).toContainText('+2 pkt');
   await summary.getByRole('button', { name: 'Zapisz partię' }).click();
   await expect(page.getByText('Partia zapisana: Gra regresji')).toBeVisible();
   expect(mock.playSaves).toHaveLength(1);
   const savedPlay = mock.options.plays?.find((p) => p.status === 'saved');
   if (!savedPlay) throw new Error('Missing saved play');
-  expect(savedPlay.play_results?.map((r) => r.points)).toEqual([10, 6]);
+  expect(savedPlay.play_results?.map((r) => r.points)).toEqual([4, 2]);
   await expect(dialog.getByRole('list', { name: 'Zapisane partie' })).toContainText('Gra regresji');
   await dialog.getByRole('button', { name: 'Zakończ spotkanie' }).click();
   await page
@@ -167,7 +169,7 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   await page.goto('/?p=leaderboard/points');
   const ranking = page.getByRole('dialog', { name: 'Ranking' });
   await expect(ranking.getByRole('list', { name: 'Podium' })).toContainText('Ada');
-  await expect(ranking.getByRole('list', { name: 'Podium' })).toContainText('10');
+  await expect(ranking.getByRole('list', { name: 'Podium' })).toContainText('4');
   mock.options.playerAchievements = () => ({
     ...EMPTY_PLAYER_ACHIEVEMENTS,
     unlocks: [

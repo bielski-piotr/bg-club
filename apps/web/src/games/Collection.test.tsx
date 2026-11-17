@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { complexityPoints } from '@bg-club/scoring';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,6 +41,8 @@ function game(n: number, title: string, extra: Partial<Game> = {}): Game {
     min_players: 2,
     max_players: 4,
     placement_points: [10, 6, 4, 2],
+    // Gra sprzed wprowadzenia skomplikowania (GAME-5).
+    complexity: null,
     created_at: `2026-10-${String(n).padStart(2, '0')}T12:00:00Z`,
     last_played_at: null,
     ...extra,
@@ -272,6 +275,7 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
     expect(await within(dialog).findByText('Wpisz tytuł gry.')).toBeInTheDocument();
     expect(within(dialog).getAllByText('Wpisz punkty.')).toHaveLength(4);
+    expect(within(dialog).getByText('Wpisz skomplikowanie gry.')).toBeInTheDocument();
     expect(writes).toEqual([]);
 
     // Max 4 → 3 usuwa ostatnie pole; min > max to błąd zakresu.
@@ -291,10 +295,19 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     fireEvent.change(within(dialog).getByLabelText('Tytuł'), {
       target: { value: '  Kolejka Górska ' },
     });
+    // Skomplikowanie przelicza punkty ze wzoru (GAME-5); można je potem poprawić.
+    fireEvent.change(within(dialog).getByLabelText('Skomplikowanie'), { target: { value: '1' } });
+    expect(within(dialog).getByLabelText('1. miejsce')).toHaveValue('20,6');
+    expect(within(dialog).getByLabelText('3. miejsce')).toHaveValue('2,1');
     fireEvent.change(within(dialog).getByLabelText('1. miejsce'), { target: { value: '5' } });
     fireEvent.change(within(dialog).getByLabelText('2. miejsce'), { target: { value: '-1' } });
     fireEvent.change(within(dialog).getByLabelText('3. miejsce'), { target: { value: '7' } });
-    expect(within(dialog).getByText('Wpisz liczbę całkowitą 0 lub większą.')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'Wpisz liczbę 0 lub większą, najwyżej z dwoma miejscami po przecinku.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/różnią się od wyliczonych ze wzoru/)).toBeInTheDocument();
     // Rosnąca punktacja: ostrzeżenie bez blokady (GAME-5).
     expect(within(dialog).getByText(/Niższe miejsce ma więcej punktów/)).toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText('2. miejsce'), { target: { value: '3' } });
@@ -308,6 +321,7 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
         title: 'Kolejka Górska',
         min_players: 2,
         max_players: 3,
+        complexity: 1,
         placement_points: [5, 3, 7],
         cover_path: null,
       },
@@ -330,7 +344,7 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     expect(within(dialog).getByText('Wpisz tytuł gry.')).toBeInTheDocument();
   });
 
-  it('admin edytuje grę z menu ⋯; zwiększenie max dodaje puste pole', async () => {
+  it('admin edytuje starszą grę z menu ⋯: max dodaje puste pole, skomplikowanie przelicza punkty', async () => {
     const { writes } = renderHub([ZOLWIE], ADA, '?p=games');
     const dialog = await screen.findByRole('dialog', { name: 'Kolekcja' });
     fireEvent.click(
@@ -347,7 +361,11 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     const maxStepper = within(form).getAllByRole('spinbutton')[1] as HTMLElement;
     fireEvent.keyDown(maxStepper as HTMLElement, { key: 'ArrowUp' });
     expect(within(form).getByLabelText('5. miejsce')).toHaveValue('');
-    fireEvent.change(within(form).getByLabelText('5. miejsce'), { target: { value: '0' } });
+    // Gra bez skomplikowania: zapis wymaga jego uzupełnienia.
+    expect(within(form).getByText(/nie ma jeszcze skomplikowania/)).toBeInTheDocument();
+    fireEvent.change(within(form).getByLabelText('Skomplikowanie'), { target: { value: '1' } });
+    expect(within(form).getByLabelText('1. miejsce')).toHaveValue('21,8');
+    expect(within(form).getByLabelText('5. miejsce')).toHaveValue('2,2');
     fireEvent.click(within(form).getByRole('button', { name: 'Zapisz' }));
 
     expect(await screen.findByText('Zapisano zmiany w grze Żółwie Wyścigi')).toBeInTheDocument();
@@ -358,7 +376,8 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
           title: 'Żółwie Wyścigi',
           min_players: 2,
           max_players: 5,
-          placement_points: [10, 6, 4, 2, 0],
+          complexity: 1,
+          placement_points: complexityPoints(1, 5),
           cover_path: null,
         },
         filters: { id: ZOLWIE.id, 'deleted_at is': null },

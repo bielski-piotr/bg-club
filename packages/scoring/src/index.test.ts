@@ -4,9 +4,11 @@ import {
   FINAL_TOTAL,
   RankingError,
   compareByDirection,
+  complexityPoints,
   computeTotals,
   cyclicLines,
   finalTotalIndex,
+  isValidComplexity,
   isValidPlacing,
   parseRanking,
   placementPoints,
@@ -181,7 +183,44 @@ describe('placementPoints i isValidPlacing', () => {
   it('odrzuca miejsca niecałkowite i zerowe', () => {
     expect(isValidPlacing([0, 1])).toBe(false);
     expect(isValidPlacing([1, 1.5])).toBe(false);
-    expect(() => placementPoints([1, 2], [3, 1.5])).toThrow(RangeError);
+    expect(() => placementPoints([1, 2], [3, 1.555])).toThrow(RangeError);
+  });
+
+  it('przyjmuje punkty ułamkowe do setnych', () => {
+    expect(placementPoints([1, 2], [3.5, 1.25])).toEqual([3.5, 1.25]);
+    expect(placementPoints([1, 1], [3.5, 1.25])).toEqual([2.37, 2.37]);
+  });
+
+  it('w mniejszej partii pomija najwyżej punktowane miejsca', () => {
+    // Gra 2–6, partia 4 graczy: zwycięzca za 3. miejsce, ostatni za 6.
+    expect(placementPoints([1, 2, 3, 4], [10, 8, 6, 4, 2, 1])).toEqual([6, 4, 2, 1]);
+    expect(placementPoints([1, 2], [10, 8, 6, 4, 2, 1])).toEqual([2, 1]);
+    // Remis liczony na przesuniętych miejscach: (6 + 4) / 2.
+    expect(placementPoints([1, 1, 3, 4], [10, 8, 6, 4, 2, 1])).toEqual([5, 5, 2, 1]);
+  });
+});
+
+describe('complexityPoints: punktacja ze skomplikowania gry', () => {
+  it('liczy wzór dla każdego miejsca 1…max', () => {
+    // M(1) = 1, n = 2: [20 · 1 · 1, 20 · 0.1] · (1 + 0).
+    expect(complexityPoints(1, 2)).toEqual([20, 2]);
+    // M(5) = 3, n = 6: 60 · share · 1.12.
+    expect(complexityPoints(5, 6)).toEqual([67.2, 55.1, 43, 30.9, 18.8, 6.7]);
+    // M(2.5) = 1.75, n = 4: 35 · share · 1.06.
+    expect(complexityPoints(2.5, 4)).toEqual([37.1, 26, 14.8, 3.7]);
+  });
+
+  it('gra z jednym miejscem dostaje pełne punkty zwycięzcy', () => {
+    expect(complexityPoints(3, 1)).toEqual([38.8]);
+  });
+
+  it('odrzuca skomplikowanie spoza 1…5 i z więcej niż dwoma miejscami po przecinku', () => {
+    expect(isValidComplexity(1)).toBe(true);
+    expect(isValidComplexity(4.75)).toBe(true);
+    expect(isValidComplexity(0.99)).toBe(false);
+    expect(isValidComplexity(5.01)).toBe(false);
+    expect(isValidComplexity(2.125)).toBe(false);
+    expect(() => complexityPoints(6, 4)).toThrow(RangeError);
   });
 });
 

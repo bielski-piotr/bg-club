@@ -5,6 +5,7 @@
  * wartości kategorii i wartość kategorii decydującej. Punkty, remisy i wygrane liczy baza
  * ze snapshotu punktacji partii, więc w ładunku ich nie ma (baza odrzuca inne klucze).
  */
+import { placementPoints } from './points';
 import type { LineValues } from './template';
 
 /** Wynik gracza z miejscami (np. `RankedPlayer` albo wynik `scorepad:save`). */
@@ -36,32 +37,60 @@ const finite = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
 
 /**
- * Ładunek `results` dla `save_play`. `players` mapuje miejsce w notesie (od 1) na gracza partii;
- * każdy gracz musi mieć wynik, a każdy wynik gracza. Kolejność: według miejsca w notesie.
+ * Ładunek `results` dla `save_play`. `players` mapuje miejsce w notesie (od 1) na gracza partii
+ * albo, w notesie z zespołami, na członków zespołu: każdy członek dostaje osobny wynik z tym
+ * samym miejscem i wartościami. Każde miejsce z graczami musi mieć wynik, a każdy wynik
+ * gracza. Kolejność: według miejsca w notesie, w zespole według kolejności członków.
  */
 export function savePlayResults(
   ranked: readonly RankedEntry[],
-  players: ReadonlyMap<number, string>,
+  players: ReadonlyMap<number, string | readonly string[]>,
 ): SavePlayResult[] {
   const bySeat = new Map(ranked.map((r) => [r.seat + 1, r]));
   if (bySeat.size !== ranked.length)
     throw new SavePlayResultsError('Miejsce na kartce występuje dwa razy.');
+  const members = (seat: number): readonly string[] => {
+    const value = players.get(seat);
+    return value === undefined ? [] : typeof value === 'string' ? [value] : value;
+  };
   for (const seat of bySeat.keys())
-    if (!players.has(seat)) throw new SavePlayResultsError(`Brak gracza na miejscu ${seat}.`);
-  return [...players.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([seat, profileId]) => {
+    if (members(seat).length === 0)
+      throw new SavePlayResultsError(`Brak gracza na miejscu ${seat}.`);
+  return [...players.keys()]
+    .sort((a, b) => a - b)
+    .flatMap((seat) => {
+      const ids = members(seat);
+      if (ids.length === 0) return [];
       const r = bySeat.get(seat);
       if (!r) throw new SavePlayResultsError(`Brak wyniku gracza na miejscu ${seat}.`);
       const scores: Record<string, number | null> = {};
       for (const [line, value] of Object.entries(r.values))
         if (value !== undefined) scores[line] = finite(value);
-      return {
+      return ids.map((profileId) => ({
         profile_id: profileId,
         seat,
         place: r.place,
         scores,
         ranking_value: finite(r.rankingValue),
-      };
+      }));
     });
+}
+
+/**
+ * Punkty leaderboardu każdego wyniku `results` (w tej samej kolejności): miejsca liczą się
+ * po stronach (miejscach na kartce), więc zespół zajmuje jedno miejsce, a każdy jego członek
+ * dostaje pełne punkty tego miejsca.
+ */
+export function resultPoints(
+  results: readonly Pick<SavePlayResult, 'seat' | 'place'>[],
+  points: readonly number[],
+): number[] {
+  const seats = [...new Set(results.map((r) => r.seat))].sort((a, b) => a - b);
+  const placeOf = new Map(results.map((r) => [r.seat, r.place]));
+  const perSeat = placementPoints(
+    seats.map((s) => placeOf.get(s) ?? 0),
+    points,
+  );
+  const bySeat = new Map(seats.map((s, i) => [s, perSeat[i] ?? 0]));
+  return results.map((r) => bySeat.get(r.seat) ?? 0);
 }

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { invalidPlacings, playCases, type PlayCase } from './cases';
+import { caseSeats, invalidPlacings, playCases, type PlayCase } from './cases';
 import { achievementCases } from './cases/achievements';
 import { rankPlayers } from './ranking';
 import { savePlayResults } from './save';
@@ -16,17 +16,12 @@ import {
 
 const path = (relative: string) => fileURLToPath(new URL(`../../../${relative}`, import.meta.url));
 
-/** Wyniki `save_play` z miejsc policzonych w TypeScripcie; gracz miejsca k to „gracz k”. */
+/**
+ * Wyniki `save_play` z miejsc policzonych w TypeScripcie; gracz miejsca k to „gracz k”, a członkowie
+ * zespołu mają kolejne identyfikatory (`caseMemberId`).
+ */
 const tsResults = (c: PlayCase) =>
-  savePlayResults(
-    rankPlayers(c.template, c.players),
-    new Map(
-      c.players.map((p) => [
-        p.seat + 1,
-        `00000000-0000-4000-a000-${String(100 + p.seat).padStart(12, '0')}`,
-      ]),
-    ),
-  );
+  savePlayResults(rankPlayers(c.template, c.players), caseSeats(c));
 
 function expectFresh(relative: string, expected: string) {
   const file = path(relative);
@@ -57,6 +52,7 @@ describe('testy pgTAP ze wspólnych przypadków', () => {
     expect(sql).toContain("'gra ''A'''");
     expect(sql).toContain("'zła ''B'''");
     expect(sql).toContain("'{}'::int[]");
+    expect(sql).toContain("'{}'::numeric[]");
     const save = renderSavePlaySqlTest([{ ...first, name: "gra 'A'" }], tsResults);
     expect(save).toContain("'gra ''A'': punkty, remisy i wygrane z bazy'");
   });

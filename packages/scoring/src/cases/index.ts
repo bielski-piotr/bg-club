@@ -20,6 +20,11 @@ export interface PlayCase {
   /** Punktacja miejsc gry (snapshot partii). */
   readonly points: readonly number[];
   readonly players: readonly PlayerEntry[];
+  /**
+   * Notes z zespołami: liczba członków zespołu na miejscu kartki (klucz: miejsce od 0). Brak
+   * klucza = jeden gracz.
+   */
+  readonly teams?: Readonly<Record<string, number>>;
   /** Wyniki w kolejności miejsc. */
   readonly expected: readonly ExpectedResult[];
 }
@@ -35,6 +40,9 @@ export interface InvalidPlacingCase {
 export const playCases = data.cases as unknown as readonly PlayCase[];
 export const invalidPlacings = data.invalidPlacings as readonly InvalidPlacingCase[];
 
+/** Liczba graczy na miejscu kartki `seat` (od 0). */
+export const teamSize = (c: PlayCase, seat: number): number => c.teams?.[String(seat)] ?? 1;
+
 /** Miejsca i oczekiwane punkty w kolejności graczy z `players` (nie w kolejności miejsc). */
 export function placesInSeatOrder(c: PlayCase): { places: number[]; points: number[] } {
   const bySeat = new Map(c.expected.map((e) => [e.seat, e]));
@@ -44,4 +52,18 @@ export function placesInSeatOrder(c: PlayCase): { places: number[]; points: numb
     return e;
   });
   return { places: rows.map((e) => e.place), points: rows.map((e) => e.points) };
+}
+
+/** Identyfikator `k`-tego (od 0) gracza na miejscu kartki `seat` (od 0) w testach SQL. */
+export const caseMemberId = (seat: number, k = 0): string =>
+  `00000000-0000-4000-a000-${String(k === 0 ? 100 + seat : 200 + seat * 10 + k).padStart(12, '0')}`;
+
+/** Gracze na miejscach kartki przypadku: miejsce (od 1) → członkowie. */
+export function caseSeats(c: PlayCase): Map<number, string[]> {
+  return new Map(
+    c.players.map((p) => [
+      p.seat + 1,
+      Array.from({ length: teamSize(c, p.seat) }, (_, k) => caseMemberId(p.seat, k)),
+    ]),
+  );
 }

@@ -113,9 +113,9 @@ select lives_ok('select pg_temp.add_play(6, 1, true)', 'prowadzący zapisuje now
 select is((select count(*) from public.plays where meeting_id = pg_temp.mid(1)), 4::bigint, 'cztery partie w tym samym spotkaniu');
 select public.finish_meeting(pg_temp.mid(1));
 select is((select wins from public.meeting_summary(pg_temp.mid(1)) where profile_id = '00000000-0000-4000-a000-000000000002'), 1, 'podsumowanie obejmuje dograną wygraną');
-select is((select points from public.meeting_summary(pg_temp.mid(1)) where profile_id = '00000000-0000-4000-a000-000000000002'), 28, 'podsumowanie punktów po dograniu: 3 * 6 + 10');
+select is((select points from public.meeting_summary(pg_temp.mid(1)) where profile_id = '00000000-0000-4000-a000-000000000002'), 10::numeric, 'podsumowanie punktów po dograniu: 3 * 2 + 4 (partia 2 graczy w grze do 4 liczy ostatnie 2 miejsca punktacji)');
 select is((select streak_after from public.meeting_summary(pg_temp.mid(3)) where profile_id = '00000000-0000-4000-a000-000000000002'), 3, 'starsza wygrana przelicza późniejszą serię');
-select is((select value from public.leaderboard('streak', null) where profile_id = '00000000-0000-4000-a000-000000000002'), 3, 'ranking serii po dograniu');
+select is((select value from public.leaderboard('streak', null) where profile_id = '00000000-0000-4000-a000-000000000002'), 3::numeric, 'ranking serii po dograniu');
 select ok(exists(select 1 from public.achievement_unlocks where achievement_id = 'streak-3'
   and profile_id = '00000000-0000-4000-a000-000000000002' and meeting_id = pg_temp.mid(3)), 'streak-3 na właściwym późniejszym spotkaniu');
 select ok(not exists(select 1 from public.achievement_unlocks where achievement_id = 'flawless'), 'przegrana odbiera flawless po ponownym zakończeniu');

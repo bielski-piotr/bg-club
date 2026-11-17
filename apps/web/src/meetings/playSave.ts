@@ -1,6 +1,6 @@
 import type { ScorePadSheet } from '@bg-club/score-pad';
 import {
-  placementPoints,
+  resultPoints,
   savePlayResults,
   type RankedPlayer,
   type SavePlayResult,
@@ -59,7 +59,9 @@ export function playSummary(
   sheet: ScorePadSheet,
   ranked: readonly RankedPlayer[],
 ): PlaySummary | null {
-  const players = new Map(play.seats.map((s) => [s.seat, s.profile_id]));
+  // Miejsce w notesie → gracze (zespół ma kilku).
+  const players = new Map<number, string[]>();
+  for (const s of play.seats) players.set(s.seat, [...(players.get(s.seat) ?? []), s.profile_id]);
   if (!ranked.some((r) => r.rankingValue !== null)) return null;
   // Notes liczy wyniki graczy z imieniem albo wpisem; każdy musi być graczem partii i odwrotnie.
   let results: SavePlayResult[];
@@ -71,10 +73,8 @@ export function playSummary(
   const tied = new Map(ranked.map((r) => [r.seat + 1, r.tied]));
   let points: number[] | null = null;
   try {
-    points = placementPoints(
-      results.map((r) => r.place),
-      play.points_snapshot,
-    );
+    // Miejsca liczą się po stronach: zespół zajmuje jedno, każdy członek ma punkty strony.
+    points = resultPoints(results, play.points_snapshot);
   } catch {
     points = null;
   }

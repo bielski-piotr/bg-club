@@ -61,6 +61,11 @@ export function GameDetailsPopup({ id }: { readonly id: string }) {
           />
           <div className="game-details__facts">
             <p className="game-details__fact">{playersLabel(data)}</p>
+            {data.complexity !== null ? (
+              <p className="game-details__fact">
+                {format(text.complexity, { n: data.complexity })}
+              </p>
+            ) : null}
             <p className="game-details__fact game-details__fact--muted">
               {data.last_played_at
                 ? format(text.lastPlayed, {

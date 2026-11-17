@@ -13,6 +13,7 @@ import { useId, useState } from 'react';
 import { format, t } from '../i18n';
 import {
   Button,
+  Checkbox,
   ChipGroup,
   IconButton,
   SegmentedControl,
@@ -208,6 +209,16 @@ function LineForm({
           <p className="wizard-hint">{text.notPlaced}</p>
         ) : null}
       </div>
+      {line.kind === 'names' ? (
+        <div className="wizard-field">
+          <Checkbox
+            label={text.team}
+            checked={line.team}
+            onCheckedChange={(team) => onPatch({ team })}
+          />
+          <p className="wizard-hint">{text.teamHint}</p>
+        </div>
+      ) : null}
       {line.kind === 'input' ? (
         <RangeFields line={line} error={errors[0]} onPatch={onPatch} />
       ) : null}

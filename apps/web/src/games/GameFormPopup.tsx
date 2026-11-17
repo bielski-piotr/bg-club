@@ -13,9 +13,12 @@ import {
   GAME_TITLE_MAX,
   gameFormFrom,
   hasErrors,
+  pointsEdited,
   pointsIncrease,
-  resizePoints,
   validateGameForm,
+  withComplexity,
+  withMaxPlayers,
+  type ComplexityError,
   type GameFormValues,
   type PointsError,
 } from './form';
@@ -79,6 +82,12 @@ const SAVE_ERRORS: Readonly<Record<GameSaveFailure, string>> = {
   upload: form.errors.upload,
   save: form.errors.save,
   gone: form.errors.gone,
+};
+
+const COMPLEXITY_ERRORS: Readonly<Record<ComplexityError, string>> = {
+  required: form.errors.complexityRequired,
+  invalid: form.errors.complexityInvalid,
+  range: form.errors.complexityRange,
 };
 
 const POINTS_ERRORS: Readonly<Record<PointsError, string>> = {
@@ -165,11 +174,8 @@ function GameForm({ game }: { readonly game: Game | null }) {
   };
 
   const setMax = (maxPlayers: number) =>
-    setValues((current) => ({
-      ...current,
-      maxPlayers,
-      points: resizePoints(current.points, maxPlayers),
-    }));
+    setValues((current) => withMaxPlayers(current, maxPlayers));
+  const complexityError = errors.complexity && (showErrors || values.complexity !== '');
   const setPoint = (index: number, text: string) =>
     setValues((current) => ({
       ...current,
@@ -327,6 +333,31 @@ function GameForm({ game }: { readonly game: Game | null }) {
           <p className="game-form__hint">{form.playersHint}</p>
         </fieldset>
 
+        <div className="game-form__group">
+          {game && game.complexity === null && values.complexity === '' ? (
+            <Banner variant="warning">{form.complexityMissing}</Banner>
+          ) : null}
+          <TextField
+            label={form.complexityLabel}
+            placeholder={form.complexityPlaceholder}
+            value={values.complexity}
+            inputMode="decimal"
+            autoComplete="off"
+            numeric
+            required
+            hint={form.complexityHint}
+            error={
+              complexityError && errors.complexity
+                ? COMPLEXITY_ERRORS[errors.complexity]
+                : undefined
+            }
+            onChange={(event) => {
+              const complexity = event.target.value;
+              setValues((current) => withComplexity(current, complexity));
+            }}
+          />
+        </div>
+
         <fieldset className="game-form__group">
           <legend className="game-form__legend">{form.pointsLegend}</legend>
           <p className="game-form__hint">
@@ -347,8 +378,7 @@ function GameForm({ game }: { readonly game: Game | null }) {
                   key={index}
                   label={format(form.placeLabel, { n: index + 1 })}
                   value={text}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  inputMode="decimal"
                   autoComplete="off"
                   numeric
                   required
@@ -359,6 +389,18 @@ function GameForm({ game }: { readonly game: Game | null }) {
               );
             })}
           </div>
+          {pointsEdited(values) ? (
+            <p className="game-form__hint">
+              {form.pointsEdited}{' '}
+              <button
+                type="button"
+                className="club-form__link"
+                onClick={() => setValues((current) => withComplexity(current, current.complexity))}
+              >
+                {form.pointsReset}
+              </button>
+            </p>
+          ) : null}
           {pointsIncrease(values.points) ? (
             <Banner variant="warning" className="game-form__warning">
               {form.pointsWarning}
