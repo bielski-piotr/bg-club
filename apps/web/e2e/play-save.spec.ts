@@ -181,9 +181,10 @@ test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów (
   await expect(rows.nth(0)).toContainText('Bea Bobrowska');
   await expect(rows.nth(0)).toContainText('Wygrana');
   await expect(rows.nth(0)).toContainText('15');
-  await expect(rows.nth(0)).toContainText('+10 pkt');
+  // 2 graczy w grze do 4: liczą się ostatnie 2 miejsca punktacji 10/6/4/2.
+  await expect(rows.nth(0)).toContainText('+4 pkt');
   await expect(rows.nth(1)).toContainText('Cezary Cichy');
-  await expect(rows.nth(1)).toContainText('+6 pkt');
+  await expect(rows.nth(1)).toContainText('+2 pkt');
   await check(page);
 
   // „Wróć do kartki”: kartka wraca na notes z wpisami i numerem partii, nic nie trafia do bazy.
@@ -229,12 +230,12 @@ test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów (
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
   const results = meeting.getByRole('list', { name: 'Wyniki partii Azul' });
   await expect(results.getByRole('listitem').first()).toContainText('Bea Bobrowska');
-  await expect(results.getByRole('listitem').first()).toContainText('+10');
+  await expect(results.getByRole('listitem').first()).toContainText('+4');
   expect(await localCopy(page)).toBeNull();
   await check(page);
 });
 
-test('remis: wspólne 1. miejsce, każdy wygrywa, floor((10+6)/2) = 8 (§5.6.2, §5.6.3)', async ({
+test('remis: wspólne 1. miejsce, każdy wygrywa, (4+2)/2 = 3 w partii 2 graczy gry do 4 (§5.6.2, §5.6.3)', async ({
   page,
 }) => {
   test.slow();
@@ -245,7 +246,7 @@ test('remis: wspólne 1. miejsce, każdy wygrywa, floor((10+6)/2) = 8 (§5.6.2, 
   await expect(rows).toHaveCount(2);
   for (const row of [rows.nth(0), rows.nth(1)]) {
     await expect(row).toContainText('Wygrana · Wspólne miejsce');
-    await expect(row).toContainText('+8 pkt');
+    await expect(row).toContainText('+3 pkt');
   }
   await check(page);
 });
@@ -263,7 +264,7 @@ test('przekroczony czas po zapisie: ponowienie tej samej treści, partia zapisan
   expect(mock.playSaves[1]).toEqual(mock.playSaves[0]);
   const saved = (mock.options.plays ?? []).filter((p) => p.status === 'saved');
   expect(saved).toHaveLength(1);
-  expect(saved[0]?.play_results.map((r) => r.points)).toEqual([10, 6]);
+  expect(saved[0]?.play_results.map((r) => r.points)).toEqual([4, 2]);
 });
 
 test('pusta kartka wraca na notes z wyjaśnieniem; błąd zapisu zostawia podsumowanie', async ({

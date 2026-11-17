@@ -165,13 +165,14 @@ select is(public.test_unlocks(),
   array['2:meet-1:2', '3:beginners-luck:2', '3:meet-1:2', '3:win-1:2'],
   'przeliczenie po usunięciu: wygrane Bartka cofnięte, pierwsza partia Celiny to teraz f002');
 
--- Rankingi liczą się z wyników: zostaje tylko f002 (Celina 10 pkt i 1 wygrana, Bartek 6 pkt).
+-- Rankingi liczą się z wyników: zostaje tylko f002 (Celina 4 pkt i 1 wygrana, Bartek 2 pkt:
+-- partia 2 graczy w grze do 4 liczy ostatnie 2 miejsca punktacji 10/6/4/2).
 select results_eq(
   $$ select profile_id::text, sum(points)::int, count(*) filter (where is_win)::int
        from public.play_results r join public.plays p on p.id = r.play_id
       where p.status = 'saved' group by profile_id order by profile_id $$,
-  $$ values ('00000000-0000-4000-a000-000000000002', 6, 0),
-            ('00000000-0000-4000-a000-000000000003', 10, 1) $$,
+  $$ values ('00000000-0000-4000-a000-000000000002', 2, 0),
+            ('00000000-0000-4000-a000-000000000003', 4, 1) $$,
   'punkty i wygrane bez usuniętej partii');
 select is((select count(*) from public.play_results where play_id = '00000000-0000-4000-f000-000000000002'), 2::bigint,
   'inna partia spotkania bez zmian');

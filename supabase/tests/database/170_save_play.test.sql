@@ -227,15 +227,16 @@ select is(
 );
 
 -- Poprawny zapis: punkty z snapshotu punktacji z rozpoczęcia (10/6/4/2), nie z bieżącej gry.
+-- Partia 3 graczy w grze do 4: liczą się ostatnie 3 miejsca punktacji (6/4/2).
 select is(public.test_save(1, 1, (select sheet from good), (select results from good)), 'ok',
   'prowadzący zapisuje partię');
 select results_eq(
   $$ select r.seat, r.place, r.tied, r.points, r.is_win, r.ranking_value, r.scores
        from public.play_results r where r.play_id = '00000000-0000-4000-f000-000000000001' order by r.seat $$,
-  $$ values (1, 1, false, 10, true, 12::numeric, '{"a": 12}'::jsonb),
-            (2, 2, true, 5, false, 7::numeric, '{"a": 7}'::jsonb),
-            (3, 2, true, 5, false, 7::numeric, '{"a": 7, "b": null}'::jsonb) $$,
-  'baza liczy punkty floor((6+4)/2) = 5, remis i wygraną ze snapshotu punktacji (GAME-9, §5.6)'
+  $$ values (1, 1, false, 6::numeric, true, 12::numeric, '{"a": 12}'::jsonb),
+            (2, 2, true, 3::numeric, false, 7::numeric, '{"a": 7}'::jsonb),
+            (3, 2, true, 3::numeric, false, 7::numeric, '{"a": 7, "b": null}'::jsonb) $$,
+  'baza liczy punkty (4+2)/2 = 3, remis i wygraną ze snapshotu punktacji przesuniętego o pominięte miejsce (GAME-9, §5.6)'
 );
 select results_eq(
   $$ select status, sheet, saved_at is not null, scorepad_version_id::text from public.plays
@@ -287,8 +288,8 @@ select is(public.test_save(3, 2, '{"game": 1, "names": [], "cells": {}}',
 select results_eq(
   $$ select r.seat, r.points, r.is_win from public.play_results r
       where r.play_id = '00000000-0000-4000-f000-000000000003' order by r.seat $$,
-  $$ values (1, 6, false), (2, 10, true) $$,
-  'punkty i wygrana przy „mniej = lepiej”'
+  $$ values (1, 2::numeric, false), (2, 4::numeric, true) $$,
+  'punkty (ostatnie 2 miejsca punktacji) i wygrana przy „mniej = lepiej”'
 );
 
 -- Admin dokończy partię prowadzącego (PAD-4); partia z wolnym miejscem 1 w notesie.
@@ -300,8 +301,8 @@ select is(public.test_save(2, 1, '{"game": 1, "names": [], "cells": {}}',
 select results_eq(
   $$ select r.seat, r.place, r.tied, r.points, r.is_win from public.play_results r
       where r.play_id = '00000000-0000-4000-f000-000000000002' order by r.seat $$,
-  $$ values (2, 1, true, 8, true), (3, 1, true, 8, true) $$,
-  'wspólne 1. miejsce: każdy wygrywa, floor((10+6)/2) = 8'
+  $$ values (2, 1, true, 3::numeric, true), (3, 1, true, 3::numeric, true) $$,
+  'wspólne 1. miejsce 2 graczy w grze do 4: każdy wygrywa, (4+2)/2 = 3'
 );
 
 -- Po zakończeniu spotkania ponowienie nadal zwraca zapisaną partię, a szkicu się nie zapisze.

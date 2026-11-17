@@ -5,6 +5,7 @@ Aplikacja webowa dla jednego klubu planszówkowego: spotkania, głosowanie na gr
 - Wymagania produktowe: [PRD.md](PRD.md)
 - Wygląd: [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md)
 - Ręczne rozstrzyganie remisów: [docs/manual-tiebreaks.md](docs/manual-tiebreaks.md)
+- Skomplikowanie gry, punkty ułamkowe i zespoły: [docs/complexity-and-teams.md](docs/complexity-and-teams.md)
 
 Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres, Auth, Storage, Edge Functions), hosting statyczny na Cloudflare Pages.
 

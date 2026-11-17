@@ -28,6 +28,11 @@ export interface ScoringLine {
   /** Premia: próg sumy i wartość premii. */
   readonly threshold?: number | undefined;
   readonly bonus?: number | undefined;
+  /**
+   * Nazwa gracza: pole przyjmuje kilku graczy, którzy grają jako zespół (jedno miejsce na
+   * kartce, wspólny wynik; każdy członek dostaje pełne punkty i wygraną, bez dzielenia).
+   */
+  readonly team?: boolean | undefined;
 }
 
 /** Kierunek kategorii: `desc` = więcej lepiej (domyślnie), `asc` = mniej lepiej (EDT-3). */
@@ -70,3 +75,7 @@ export const isComputed = (kind: LineKind): boolean =>
 
 /** Kategoria z wartością liczbową, czyli taka, która może decydować o miejscu. */
 export const isNumeric = (kind: LineKind): boolean => kind === 'input' || isComputed(kind);
+
+/** Czy notes pozwala sadzać kilku graczy (zespół) na jednym miejscu kartki. */
+export const hasTeams = (t: { readonly lines: readonly ScoringLine[] }): boolean =>
+  t.lines.some((l) => l.kind === 'names' && l.team === true);

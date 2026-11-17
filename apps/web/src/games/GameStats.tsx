@@ -1,5 +1,5 @@
 import { useAuth } from '../auth/authContext';
-import { format, plural, t } from '../i18n';
+import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
 import { PopupLink } from '../popups/PopupLink';
 import { QueryStatus } from '../popups/QueryStatus';
@@ -123,7 +123,7 @@ function StatsBody({
               })}
               trailing={
                 <span className="score">
-                  {entry.points}
+                  {formatNumber(entry.points)}
                   <span className="score__unit">{text.points}</span>
                 </span>
               }

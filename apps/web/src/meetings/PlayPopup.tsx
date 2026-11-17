@@ -157,14 +157,27 @@ function LiveInfo({
   );
 }
 
-/** Imiona graczy na miejscach notesu (indeks = miejsce − 1); wolne miejsca to `null`. */
+/**
+ * Imiona graczy na miejscach notesu (indeks = miejsce − 1); wolne miejsca to `null`. Zespół
+ * (kilku graczy na miejscu) ma imiona z inicjałem nazwiska połączone „+”, żeby zmieściły się
+ * w polu kartki.
+ */
 function seatNames(play: PlayDetail, profiles: ReadonlyMap<string, Profile>): (string | null)[] {
-  const names: (string | null)[] = Array.from({ length: play.scorepad.slots }, () => null);
+  const bySeat: Profile[][] = Array.from({ length: play.scorepad.slots }, () => []);
+  const unknown = new Set<number>();
   for (const seat of play.seats) {
     const person = profiles.get(seat.profile_id);
-    names[seat.seat - 1] = person ? fullName(person) : t.meetings.plays.unknownPlayer;
+    if (person) bySeat[seat.seat - 1]?.push(person);
+    else unknown.add(seat.seat - 1);
   }
-  return names;
+  return bySeat.map((people, i) => {
+    if (people.length === 0) return unknown.has(i) ? t.meetings.plays.unknownPlayer : null;
+    if (people.length === 1 && !unknown.has(i)) return fullName(people[0] as Profile);
+    return people
+      .map((p) => `${p.first_name} ${p.last_name.slice(0, 1)}.`.trim())
+      .concat(unknown.has(i) ? [t.meetings.plays.unknownPlayer] : [])
+      .join(' + ');
+  });
 }
 
 interface DraftRow {

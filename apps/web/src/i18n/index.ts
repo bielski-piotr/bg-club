@@ -14,8 +14,17 @@ export type FormatParams = Readonly<Record<string, string | number>>;
 export function format(template: string, params: FormatParams): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) => {
     const value = params[key];
-    return value === undefined ? match : String(value);
+    return value === undefined ? match : typeof value === 'number' ? formatNumber(value) : value;
   });
+}
+
+/**
+ * Liczba do wyświetlenia: całkowita bez zmian („12”, „-3”), ułamkowa z polskim przecinkiem
+ * i najwyżej dwoma miejscami po przecinku („17,55”), np. punkty za miejsca (GAME-5).
+ */
+export function formatNumber(n: number): string {
+  if (Number.isInteger(n) || !Number.isFinite(n)) return String(n);
+  return String(Math.round(n * 100) / 100).replace('.', ',');
 }
 
 export interface PluralForms {

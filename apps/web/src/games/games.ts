@@ -16,15 +16,17 @@ export interface Game {
   readonly cover_path: string | null;
   readonly min_players: number;
   readonly max_players: number;
-  /** Punkty za miejsca 1…max_players (GAME-5). */
+  /** Punkty za miejsca 1…max_players (GAME-5), do dwóch miejsc po przecinku. */
   readonly placement_points: readonly number[];
+  /** Skomplikowanie 1…5; `null` tylko w grach dodanych przed wprowadzeniem pola. */
+  readonly complexity: number | null;
   readonly created_at: string;
   /** `saved_at` ostatniej zapisanej partii; `null` = jeszcze nie grana. */
   readonly last_played_at: string | null;
 }
 
 export const GAME_COLUMNS =
-  'id, title, cover_path, min_players, max_players, placement_points, created_at, last_played_at';
+  'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at, last_played_at';
 
 /** Ile gier pokazuje widżet (GAME-1: domyślnie 5). */
 export const COLLECTION_WIDGET_SIZE = 5;
@@ -147,7 +149,7 @@ export interface GameDraft {
 }
 
 const SAVED_COLUMNS =
-  'id, title, cover_path, min_players, max_players, placement_points, created_at';
+  'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at';
 
 /**
  * Dodaje grę (gdy `existing` = `null`) albo zapisuje zmiany (GAME-3). Nowa okładka trafia do

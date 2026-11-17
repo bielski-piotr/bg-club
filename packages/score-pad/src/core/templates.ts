@@ -58,6 +58,8 @@ export interface LineDef {
   threshold?: number;
   bonus?: number;
   icon?: IconKind;
+  /** Nazwa gracza: pole przyjmuje zespół (kilku graczy na jednym miejscu kartki). */
+  team?: boolean;
 }
 
 /**
@@ -507,6 +509,7 @@ export function validateTemplate(raw: unknown): PadTemplate | null {
       threshold: l.threshold,
       bonus: l.bonus,
       icon: l.icon,
+      ...(l.kind === 'names' && l.team === true ? { team: true } : {}),
     })),
   };
   // kategorii może być więcej niż pasów siatki: nadmiarowe mają tylko pola dowolne

@@ -1,5 +1,5 @@
 import { useAuth } from '../auth/authContext';
-import { format, t } from '../i18n';
+import { format, formatNumber, t } from '../i18n';
 import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
@@ -80,7 +80,8 @@ export function MeetingSummarySection({ meetingId }: { readonly meetingId: strin
                     <span className="summary-row__name">{name}</span>
                     <span className="summary-row__points">
                       <span aria-hidden="true">
-                        {entry.points} <span className="summary-row__unit">{text.points}</span>
+                        {formatNumber(entry.points)}{' '}
+                        <span className="summary-row__unit">{text.points}</span>
                       </span>
                       <span className="sr-only">
                         {format(text.pointsLabel, { n: entry.points })}

@@ -426,6 +426,7 @@ export interface MockGame {
   readonly min_players: number;
   readonly max_players: number;
   readonly placement_points: readonly number[];
+  readonly complexity: number | null;
   readonly created_at: string;
   readonly last_played_at: string | null;
   readonly deleted_at: string | null;
@@ -440,6 +441,7 @@ export function mockGame(n: number, title: string, extra: Partial<MockGame> = {}
     min_players: 2,
     max_players: 4,
     placement_points: [10, 6, 4, 2],
+    complexity: 2,
     created_at: `2026-10-${String(n).padStart(2, '0')}T12:00:00Z`,
     last_played_at: null,
     deleted_at: null,
@@ -1144,7 +1146,11 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
           return fail(400, '23514', 'plays_results_invalid');
         }
         const snapshot = play.points_snapshot ?? [10, 6, 4, 2];
-        const places = body.results.map((r) => r.place);
+        // Jak `public.play_points`: miejsca po stronach (miejscach w notesie), n stron liczy
+        // ostatnie n pozycji punktacji, remis = średnia w dół do setnych.
+        const sides = new Map(body.results.map((r) => [r.seat, r.place]));
+        const places = [...sides.values()];
+        const shift = snapshot.length - places.length;
         saved = {
           ...play,
           status: 'saved',
@@ -1153,13 +1159,16 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
           saved_payload: payload,
           play_results: body.results.map((r) => {
             const tied = places.filter((p) => p === r.place).length;
-            const sum = snapshot.slice(r.place - 1, r.place - 1 + tied).reduce((a, b) => a + b, 0);
+            const start = shift + r.place - 1;
+            const sum = snapshot
+              .slice(start, start + tied)
+              .reduce((a, b) => a + Math.round(b * 100), 0);
             return {
               profile_id: r.profile_id,
               seat: r.seat,
               place: r.place,
               ranking_value: r.ranking_value,
-              points: Math.floor(sum / tied),
+              points: Math.floor(sum / tied) / 100,
               is_win: r.place === 1,
             };
           }),

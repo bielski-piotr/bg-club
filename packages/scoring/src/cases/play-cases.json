@@ -100,7 +100,7 @@
       ]
     },
     {
-      "name": "floor: trzech graczy remisuje o 2. miejsce, (7+4+2)/3 → 4",
+      "name": "floor: trzech graczy remisuje o 2. miejsce, (7+4+2)/3 → 4,33 (floor do setnych)",
       "template": {
         "lines": [
           {
@@ -165,21 +165,21 @@
           "rankingValue": 20,
           "place": 2,
           "tiedWith": [2, 3],
-          "points": 4
+          "points": 4.33
         },
         {
           "seat": 2,
           "rankingValue": 20,
           "place": 2,
           "tiedWith": [1, 3],
-          "points": 4
+          "points": 4.33
         },
         {
           "seat": 3,
           "rankingValue": 20,
           "place": 2,
           "tiedWith": [1, 2],
-          "points": 4
+          "points": 4.33
         }
       ]
     },
@@ -247,14 +247,14 @@
           "rankingValue": -2,
           "place": 2,
           "tiedWith": [3],
-          "points": 2
+          "points": 2.5
         },
         {
           "seat": 3,
           "rankingValue": -2,
           "place": 2,
           "tiedWith": [1],
-          "points": 2
+          "points": 2.5
         },
         {
           "seat": 0,
@@ -329,14 +329,14 @@
           "rankingValue": -2,
           "place": 2,
           "tiedWith": [3],
-          "points": 2
+          "points": 2.5
         },
         {
           "seat": 3,
           "rankingValue": -2,
           "place": 2,
           "tiedWith": [1],
-          "points": 2
+          "points": 2.5
         },
         {
           "seat": 2,
@@ -559,7 +559,7 @@
       ]
     },
     {
-      "name": "wspólne miejsce trzech graczy: 1, 1, 1, 4, (10+6+4)/3 → 6",
+      "name": "wspólne miejsce trzech graczy: 1, 1, 1, 4, (10+6+4)/3 → 6,66 (floor do setnych)",
       "template": {
         "lines": [
           {
@@ -634,21 +634,21 @@
           "rankingValue": 30,
           "place": 1,
           "tiedWith": [1, 2],
-          "points": 6
+          "points": 6.66
         },
         {
           "seat": 1,
           "rankingValue": 30,
           "place": 1,
           "tiedWith": [0, 2],
-          "points": 6
+          "points": 6.66
         },
         {
           "seat": 2,
           "rankingValue": 30,
           "place": 1,
           "tiedWith": [0, 1],
-          "points": 6
+          "points": 6.66
         },
         {
           "seat": 3,
@@ -857,14 +857,14 @@
           "rankingValue": 8,
           "place": 2,
           "tiedWith": [2],
-          "points": 1
+          "points": 1.5
         },
         {
           "seat": 2,
           "rankingValue": 8,
           "place": 2,
           "tiedWith": [0],
-          "points": 1
+          "points": 1.5
         }
       ]
     },
@@ -920,14 +920,14 @@
           "rankingValue": null,
           "place": 2,
           "tiedWith": [2],
-          "points": 0
+          "points": 0.5
         },
         {
           "seat": 2,
           "rankingValue": null,
           "place": 2,
           "tiedWith": [0],
-          "points": 0
+          "points": 0.5
         }
       ]
     },
@@ -986,6 +986,230 @@
           "points": 2
         }
       ]
+    },
+    {
+      "name": "gra 2–6, partia 4 graczy: zwycięzca dostaje punkty za 3. miejsce, ostatni za 6. (10/8/6/4/2/1 → 6/4/2/1)",
+      "template": {
+        "lines": [
+          {
+            "id": "names",
+            "kind": "names"
+          },
+          {
+            "id": "total",
+            "kind": "input"
+          }
+        ],
+        "ranking": {
+          "line": "total",
+          "dir": "desc",
+          "tiebreak": []
+        }
+      },
+      "points": [10, 8, 6, 4, 2, 1],
+      "players": [
+        {
+          "seat": 0,
+          "values": {
+            "total": 30
+          }
+        },
+        {
+          "seat": 1,
+          "values": {
+            "total": 20
+          }
+        },
+        {
+          "seat": 2,
+          "values": {
+            "total": 40
+          }
+        },
+        {
+          "seat": 3,
+          "values": {
+            "total": 10
+          }
+        }
+      ],
+      "expected": [
+        {
+          "seat": 2,
+          "rankingValue": 40,
+          "place": 1,
+          "tiedWith": [],
+          "points": 6
+        },
+        {
+          "seat": 0,
+          "rankingValue": 30,
+          "place": 2,
+          "tiedWith": [],
+          "points": 4
+        },
+        {
+          "seat": 1,
+          "rankingValue": 20,
+          "place": 3,
+          "tiedWith": [],
+          "points": 2
+        },
+        {
+          "seat": 3,
+          "rankingValue": 10,
+          "place": 4,
+          "tiedWith": [],
+          "points": 1
+        }
+      ]
+    },
+    {
+      "name": "punkty ułamkowe: remis o 2. miejsce, (7,25 + 3,1) / 2 → 5,17 (floor do setnych)",
+      "template": {
+        "lines": [
+          {
+            "id": "names",
+            "kind": "names"
+          },
+          {
+            "id": "total",
+            "kind": "input"
+          }
+        ],
+        "ranking": {
+          "line": "total",
+          "dir": "desc",
+          "tiebreak": []
+        }
+      },
+      "points": [12.5, 7.25, 3.1, 0.5],
+      "players": [
+        {
+          "seat": 0,
+          "values": {
+            "total": 9
+          }
+        },
+        {
+          "seat": 1,
+          "values": {
+            "total": 5
+          }
+        },
+        {
+          "seat": 2,
+          "values": {
+            "total": 5
+          }
+        },
+        {
+          "seat": 3,
+          "values": {
+            "total": 1
+          }
+        }
+      ],
+      "expected": [
+        {
+          "seat": 0,
+          "rankingValue": 9,
+          "place": 1,
+          "tiedWith": [],
+          "points": 12.5
+        },
+        {
+          "seat": 1,
+          "rankingValue": 5,
+          "place": 2,
+          "tiedWith": [2],
+          "points": 5.17
+        },
+        {
+          "seat": 2,
+          "rankingValue": 5,
+          "place": 2,
+          "tiedWith": [1],
+          "points": 5.17
+        },
+        {
+          "seat": 3,
+          "rankingValue": 1,
+          "place": 4,
+          "tiedWith": [],
+          "points": 0.5
+        }
+      ]
+    },
+    {
+      "name": "zespoły: 3 strony w grze do 6 graczy, każdy członek zespołu dostaje pełne punkty miejsca (10/6/4/2/1/0 → 2/1/0)",
+      "template": {
+        "lines": [
+          {
+            "id": "names",
+            "kind": "names",
+            "team": true
+          },
+          {
+            "id": "total",
+            "kind": "input"
+          }
+        ],
+        "ranking": {
+          "line": "total",
+          "dir": "desc",
+          "tiebreak": []
+        }
+      },
+      "points": [10, 6, 4, 2, 1, 0],
+      "teams": {
+        "0": 2,
+        "1": 2,
+        "2": 1
+      },
+      "players": [
+        {
+          "seat": 0,
+          "values": {
+            "total": 15
+          }
+        },
+        {
+          "seat": 1,
+          "values": {
+            "total": 25
+          }
+        },
+        {
+          "seat": 2,
+          "values": {
+            "total": 5
+          }
+        }
+      ],
+      "expected": [
+        {
+          "seat": 1,
+          "rankingValue": 25,
+          "place": 1,
+          "tiedWith": [],
+          "points": 2
+        },
+        {
+          "seat": 0,
+          "rankingValue": 15,
+          "place": 2,
+          "tiedWith": [],
+          "points": 1
+        },
+        {
+          "seat": 2,
+          "rankingValue": 5,
+          "place": 3,
+          "tiedWith": [],
+          "points": 0
+        }
+      ]
     }
   ],
   "invalidPlacings": [
@@ -1013,6 +1237,11 @@
       "name": "ujemna punktacja",
       "places": [1, 2],
       "points": [3, -1]
+    },
+    {
+      "name": "punktacja z trzema miejscami po przecinku",
+      "places": [1, 2],
+      "points": [3.125, 1]
     }
   ]
 }

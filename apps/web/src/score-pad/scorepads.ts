@@ -41,6 +41,8 @@ export interface ScorepadVersion {
   readonly version: number;
   readonly image_path: string | null;
   readonly player_slots: number;
+  /** Notes z zespołami: kilku graczy na jednym miejscu kartki (`scorepad_versions.teams`). */
+  readonly teams?: boolean | undefined;
   readonly created_at: string;
 }
 
@@ -54,7 +56,7 @@ export interface Scorepad {
 }
 
 const SCOREPAD_COLUMNS =
-  'id, game_id, name, created_at, current:scorepad_versions!scorepads_current_version_fkey(id, version, image_path, player_slots, created_at)';
+  'id, game_id, name, created_at, current:scorepad_versions!scorepads_current_version_fkey(id, version, image_path, player_slots, teams, created_at)';
 
 export const scorepadsKey = ['scorepads'] as const;
 export const gameScorepadsKey = (gameId: string) => [...scorepadsKey, 'game', gameId] as const;

@@ -174,17 +174,17 @@ select is(public.test_board('streak'),
   array['1 Lucyna 2 podium', '1 Łukasz 2 podium', '3 Mateusz 1 podium', '4 Celina 1 usunięty'],
   'seria: remis 1, 1, 3 alfabetycznie po polsku (L przed Ł, LB-6); usunięta bez podium (LB-7)');
 select is(
-  (select value from public.leaderboard('points', null) where first_name = 'Celina'), 16,
+  (select value from public.leaderboard('points', null) where first_name = 'Celina'), 16::numeric,
   'brak roku = cała historia: punkty z 2025 (10) i 2026 (6)');
 
 -- Seria Lucyny: m1 bez wygranej (0), m2 dwie wygrane (+1 raz), m3 nieobecna (bez zmian),
 -- m4 wygrana (2), m5 bez wygranej (0) → rekord 2. Łukasz: m3 i m4 → 2 mimo braku w m5.
 select is(
-  (select value from public.leaderboard('streak') where first_name = 'Lucyna'), 2,
+  (select value from public.leaderboard('streak') where first_name = 'Lucyna'), 2::numeric,
   'seria rośnie najwyżej raz na spotkanie, nieobecność jej nie przerywa');
 -- Po lokalnej godzinie m5 (02:10) byłoby przed m4 (02:30) i rekord Lucyny wyniósłby 1.
 select is(
-  (select value from public.leaderboard('streak', 2026) where first_name = 'Lucyna'), 2,
+  (select value from public.leaderboard('streak', 2026) where first_name = 'Lucyna'), 2::numeric,
   'kolejność spotkań według chwili (starts_at), także w nocy zmiany czasu (§5.6.6)');
 select is(
   (select array_agg(l.profile_id::text order by l.profile_id) from public.leaderboard('points') l),

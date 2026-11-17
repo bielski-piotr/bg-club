@@ -195,7 +195,7 @@ select throws_ok(
   $$ insert into public.club (name) values ('Klub Bartka') $$,
   '42501', null, 'gracz: nie zakłada klubu');
 select throws_ok(
-  $$ insert into public.games (title, min_players, max_players, placement_points) values ('Gra Bartka', 2, 2, '{1,0}') $$,
+  $$ insert into public.games (title, min_players, max_players, placement_points, complexity) values ('Gra Bartka', 2, 2, '{1,0}', 2) $$,
   '42501', null, 'gracz: nie dodaje gier');
 select results_eq(
   $$ with u as (update public.games set title = 'Zmieniona' returning 1) select count(*)::int from u $$,
@@ -435,8 +435,8 @@ select lives_ok(
   'admin: zakłada klub'
 );
 select lives_ok(
-  $$ insert into public.games (id, title, min_players, max_players, placement_points) values
-     ('00000000-0000-4000-b000-000000000009', 'Nowa Gra', 2, 3, '{5,3,1}') $$,
+  $$ insert into public.games (id, title, min_players, max_players, placement_points, complexity) values
+     ('00000000-0000-4000-b000-000000000009', 'Nowa Gra', 2, 3, '{5,3,1}', 2.5) $$,
   'admin: dodaje grę'
 );
 select lives_ok(

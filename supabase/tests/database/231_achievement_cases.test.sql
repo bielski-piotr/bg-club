@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(20);
 
 insert into public.profiles (id, hook, first_name, last_name, role) values
   ('00000000-0000-4000-a000-000000000001', 'ada-adminowska-a001', 'Ada', 'Adminowska', 'admin'),
@@ -174,6 +174,30 @@ select results_eq(
              ('00000000-0000-4000-a000-000000000102'::uuid, 'tie-top', '00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-f000-000000001001'::uuid, '2025-01-07T18:00:00.000Z'::timestamptz),
              ('00000000-0000-4000-a000-000000000102'::uuid, 'win-1', '00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-f000-000000001001'::uuid, '2025-01-07T18:00:00.000Z'::timestamptz) $$,
   'remis o 1. miejsce: ex aequo i wygrana dla obu, ostatnie miejsce wspólne');
+delete from public.achievement_unlocks;
+delete from private.meeting_voters;
+delete from public.play_results;
+delete from public.plays;
+delete from public.meetings;
+
+-- zespół: wygrana zespołu to wygrana każdego członka, ale nie ex aequo
+insert into public.meetings (id, title, starts_at, status, voting_open, created_by, started_at, finished_at) values
+  ('00000000-0000-4000-c000-000000000001', 'Spotkanie', '2025-01-07T18:00:00.000Z'::timestamptz, 'finished', false, '00000000-0000-4000-a000-000000000001', '2025-01-07T18:00:00.000Z'::timestamptz, '2025-01-07T18:00:00.000Z'::timestamptz);
+insert into public.plays (id, meeting_id, game_id, scorepad_version_id, status, points_snapshot, started_by, saved_at) values
+  ('00000000-0000-4000-f000-000000001001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-e000-000000000011', 'saved', '{10,6,4,2,1,0,0,0}', '00000000-0000-4000-a000-000000000001', '2025-01-07T18:01:00.000Z'::timestamptz);
+insert into public.play_results (play_id, meeting_id, profile_id, seat, place, tied, points, is_win, ranking_value) values
+  ('00000000-0000-4000-f000-000000001001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000101', 1, 1, false, 8, true, null),
+  ('00000000-0000-4000-f000-000000001001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000102', 1, 1, false, 8, true, null),
+  ('00000000-0000-4000-f000-000000001001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000103', 2, 2, false, 4, false, null),
+  ('00000000-0000-4000-f000-000000001001', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000104', 2, 2, false, 4, false, null);
+select private.recalculate_achievements();
+select results_eq(
+  $$ select profile_id, achievement_id, meeting_id, play_id, unlocked_at from public.achievement_unlocks
+      where achievement_id = any (array['tie-top', 'win-1'])
+      order by profile_id, achievement_id $$,
+  $$ values ('00000000-0000-4000-a000-000000000101'::uuid, 'win-1', '00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-f000-000000001001'::uuid, '2025-01-07T18:00:00.000Z'::timestamptz),
+             ('00000000-0000-4000-a000-000000000102'::uuid, 'win-1', '00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-f000-000000001001'::uuid, '2025-01-07T18:00:00.000Z'::timestamptz) $$,
+  'zespół: wygrana zespołu to wygrana każdego członka, ale nie ex aequo');
 delete from public.achievement_unlocks;
 delete from private.meeting_voters;
 delete from public.play_results;

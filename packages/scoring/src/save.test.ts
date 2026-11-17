@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { playCases } from './cases';
 import { rankPlayers } from './ranking';
-import { SavePlayResultsError, savePlayResults } from './save';
+import { SavePlayResultsError, resultPoints, savePlayResults } from './save';
 
 const players = new Map([
   [1, 'p-ada'],
@@ -46,6 +46,27 @@ describe('wyniki dla save_play (PAD-7, §5.6.2)', () => {
     expect(() =>
       savePlayResults([{ seat: 0, values: {}, rankingValue: 1, place: 1 }], players),
     ).toThrow(/miejscu 3/);
+  });
+
+  it('zespół: każdy członek dostaje wynik z tym samym miejscem i pełne punkty strony', () => {
+    const teams = new Map<number, readonly string[]>([
+      [1, ['p-ada', 'p-bartek']],
+      [2, ['p-celina']],
+    ]);
+    const results = savePlayResults(
+      [
+        { seat: 0, values: { a: 9 }, rankingValue: 9, place: 1 },
+        { seat: 1, values: { a: 4 }, rankingValue: 4, place: 2 },
+      ],
+      teams,
+    );
+    expect(results.map((r) => [r.profile_id, r.seat, r.place])).toEqual([
+      ['p-ada', 1, 1],
+      ['p-bartek', 1, 1],
+      ['p-celina', 2, 2],
+    ]);
+    // Dwie strony w grze do 4 graczy: miejsca 3 i 4 punktacji.
+    expect(resultPoints(results, [10, 6, 4, 2])).toEqual([4, 4, 2]);
   });
 
   it.each(playCases)('wspólny przypadek: $name', (c) => {

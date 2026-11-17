@@ -3,11 +3,16 @@ import {
   emptyGameForm,
   gameFormFrom,
   gameRow,
+  formatDecimal,
   hasErrors,
+  parseComplexity,
   parsePoints,
+  pointsEdited,
   pointsIncrease,
   resizePoints,
   validateGameForm,
+  withComplexity,
+  withMaxPlayers,
   type GameFormValues,
 } from './form';
 import { playersLabel } from './labels';
@@ -16,6 +21,7 @@ const valid: GameFormValues = {
   title: '  Żółwie Wyścigi ',
   minPlayers: 2,
   maxPlayers: 4,
+  complexity: '2,5',
   points: ['10', '6', '4', '2'],
 };
 
@@ -52,15 +58,47 @@ describe('formularz gry: punkty za miejsca (GAME-5)', () => {
     expect(resizePoints(['10'], 0)).toEqual([]);
   });
 
-  it('przyjmuje tylko liczby całkowite ≥ 0', () => {
+  it('przyjmuje liczby ≥ 0 z najwyżej dwoma miejscami po przecinku', () => {
     expect(parsePoints('0')).toBe(0);
     expect(parsePoints(' 12 ')).toBe(12);
+    expect(parsePoints('1.5')).toBe(1.5);
+    expect(parsePoints('17,25')).toBe(17.25);
     expect(parsePoints('')).toBe('required');
     expect(parsePoints('-1')).toBe('invalid');
-    expect(parsePoints('1.5')).toBe('invalid');
+    expect(parsePoints('1,555')).toBe('invalid');
     expect(parsePoints('1e3')).toBe('invalid');
     expect(parsePoints('abc')).toBe('invalid');
     expect(parsePoints('99999999999')).toBe('tooLarge');
+  });
+
+  it('wymaga skomplikowania 1…5 z najwyżej dwoma miejscami po przecinku', () => {
+    expect(parseComplexity('1')).toBe(1);
+    expect(parseComplexity('4,75')).toBe(4.75);
+    expect(parseComplexity('')).toBe('required');
+    expect(parseComplexity('0,5')).toBe('range');
+    expect(parseComplexity('5,01')).toBe('range');
+    expect(parseComplexity('2,125')).toBe('invalid');
+    expect(validateGameForm({ ...valid, complexity: '' }).complexity).toBe('required');
+    expect(hasErrors(validateGameForm({ ...valid, complexity: '7' }))).toBe(true);
+  });
+
+  it('skomplikowanie i zmiana max przeliczają punkty ze wzoru', () => {
+    // M(2,5) = 1,75; n = 4: 35 · udział miejsca · 1,06.
+    const next = withComplexity(valid, '2,5');
+    expect(next.points).toEqual(['37,1', '26', '14,8', '3,7']);
+    expect(pointsEdited(next)).toBe(false);
+    expect(withMaxPlayers(next, 2).points).toEqual(['35', '3,5']);
+    // Niepoprawne skomplikowanie: pola zostają, zmiana max tylko je dodaje albo usuwa.
+    expect(withComplexity(valid, '9').points).toEqual(valid.points);
+    expect(withMaxPlayers({ ...valid, complexity: '' }, 5).points).toEqual([
+      '10',
+      '6',
+      '4',
+      '2',
+      '',
+    ]);
+    // Ręczna poprawka punktów jest dozwolona.
+    expect(pointsEdited({ ...next, points: ['40', '26', '14,8', '3,7'] })).toBe(true);
   });
 
   it('każde miejsce 1…max musi mieć punkty', () => {
@@ -87,8 +125,12 @@ describe('formularz gry: wiersz games', () => {
       title: 'Żółwie Wyścigi',
       min_players: 2,
       max_players: 4,
+      complexity: 2.5,
       placement_points: [10, 6, 4, 2],
     });
+    expect(gameRow({ ...valid, points: ['10,5', '6', '4', '0,25'] }).placement_points).toEqual([
+      10.5, 6, 4, 0.25,
+    ]);
   });
 
   it('nowa gra: 2–4 graczy i puste pola; edycja: wartości gry', () => {
@@ -96,11 +138,35 @@ describe('formularz gry: wiersz games', () => {
       title: '',
       minPlayers: 2,
       maxPlayers: 4,
+      complexity: '',
       points: ['', '', '', ''],
     });
     expect(
-      gameFormFrom({ title: 'Łąka', min_players: 1, max_players: 2, placement_points: [3, 0] }),
-    ).toEqual({ title: 'Łąka', minPlayers: 1, maxPlayers: 2, points: ['3', '0'] });
+      gameFormFrom({
+        title: 'Łąka',
+        min_players: 1,
+        max_players: 2,
+        complexity: 1.75,
+        placement_points: [3.5, 0],
+      }),
+    ).toEqual({
+      title: 'Łąka',
+      minPlayers: 1,
+      maxPlayers: 2,
+      complexity: '1,75',
+      points: ['3,5', '0'],
+    });
+    // Gra sprzed wprowadzenia skomplikowania: puste pole do uzupełnienia.
+    expect(
+      gameFormFrom({
+        title: 'Stara',
+        min_players: 2,
+        max_players: 2,
+        complexity: null,
+        placement_points: [1, 0],
+      }).complexity,
+    ).toBe('');
+    expect(formatDecimal(12.5)).toBe('12,5');
   });
 
   it('opisuje liczbę graczy', () => {

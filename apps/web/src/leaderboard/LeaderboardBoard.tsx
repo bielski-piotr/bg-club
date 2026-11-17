@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { format, plural, t } from '../i18n';
+import { format, formatNumber, plural, t } from '../i18n';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { fullName, type Profile } from '../profile/profiles';
@@ -51,7 +51,7 @@ function Score({ kind, value }: { readonly kind: LeaderboardKind; readonly value
   const unit = plural(value, t.leaderboard.units[kind]);
   return (
     <span className="score leaderboard__score">
-      {value}
+      {formatNumber(value)}
       <span className="score__unit">{unit}</span>
     </span>
   );

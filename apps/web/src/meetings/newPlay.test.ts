@@ -15,11 +15,14 @@ import {
   scorepadReason,
   scorepadsByGame,
   scorepadSubtitle,
+  seatOf,
   seatedPlayers,
   seatsProblem,
   startPlay,
+  startPlayArgs,
   startPlayFailure,
   StartPlayError,
+  toggleTeamMember,
 } from './newPlay';
 
 function game(n: number, title: string, min = 2, max = 4): Game {
@@ -30,6 +33,7 @@ function game(n: number, title: string, min = 2, max = 4): Game {
     min_players: min,
     max_players: max,
     placement_points: Array.from({ length: max }, (_, i) => max - i),
+    complexity: 2,
     created_at: '2026-10-01T00:00:00Z',
     last_played_at: null,
   };
@@ -167,33 +171,53 @@ describe('kolejność gier (RUN-2: najpierw opublikowane)', () => {
 
 describe('miejsca w notesie (PAD-2)', () => {
   it('puste miejsca według liczby miejsc notesu', () => {
-    expect(emptySeats(3)).toEqual([null, null, null]);
+    expect(emptySeats(3)).toEqual([[], [], []]);
   });
 
   it('sadza gracza i przesadza go bez duplikatów', () => {
     let seats = assignSeat(emptySeats(3), 0, A);
     seats = assignSeat(seats, 2, B);
-    expect(seats).toEqual([A, null, B]);
+    expect(seats).toEqual([[A], [], [B]]);
     seats = assignSeat(seats, 1, A);
-    expect(seats).toEqual([null, A, B]);
+    expect(seats).toEqual([[], [A], [B]]);
     expect(seatedPlayers(seats)).toEqual([A, B]);
-    expect(assignSeat(seats, 1, null)).toEqual([null, null, B]);
+    expect(assignSeat(seats, 1, null)).toEqual([[], [], [B]]);
   });
 
   it('zamiana gracza na miejscu nie rusza pozostałych', () => {
-    expect(assignSeat([A, B, null], 0, C)).toEqual([C, B, null]);
+    expect(assignSeat([[A], [B], []], 0, C)).toEqual([[C], [B], []]);
+  });
+
+  it('zespół: dodaje i usuwa członków, przesiadając ich z innych miejsc', () => {
+    let seats = toggleTeamMember(emptySeats(2), 0, A);
+    seats = toggleTeamMember(seats, 0, B);
+    seats = toggleTeamMember(seats, 1, C);
+    expect(seats).toEqual([[A, B], [C]]);
+    expect(seatOf(seats, B)).toBe(0);
+    seats = toggleTeamMember(seats, 1, B);
+    expect(seats).toEqual([[A], [C, B]]);
+    expect(toggleTeamMember(seats, 1, B)).toEqual([[A], [C]]);
+    expect(assignSeat([[A, B], [C]], 0, null)).toEqual([[], [C]]);
   });
 
   it('pierwsze wolne miejsce', () => {
-    expect(firstFreeSeat([A, null, null])).toBe(1);
-    expect(firstFreeSeat([A, B])).toBe(-1);
+    expect(firstFreeSeat([[A], [], []])).toBe(1);
+    expect(firstFreeSeat([[A], [B]])).toBe(-1);
   });
 
-  it('sprawdza liczbę graczy', () => {
+  it('sprawdza liczbę graczy i stron', () => {
     const bounds = { min: 2, max: 3 };
-    expect(seatsProblem([A, null, null, null], bounds)).toBe('tooFew');
-    expect(seatsProblem([A, null, B, null], bounds)).toBeNull();
-    expect(seatsProblem([A, B, C, 'd'], bounds)).toBe('tooMany');
+    expect(seatsProblem([[A], [], [], []], bounds)).toBe('tooFew');
+    expect(seatsProblem([[A], [], [B], []], bounds)).toBeNull();
+    expect(seatsProblem([[A], [B], [C], ['d']], bounds)).toBe('tooMany');
+    // Wszyscy w jednym zespole: partia potrzebuje co najmniej dwóch stron.
+    expect(seatsProblem([[A, B], []], bounds)).toBe('sides');
+  });
+
+  it('notes z zespołami: graczy może być więcej niż miejsc notesu', () => {
+    const game = { min_players: 2, max_players: 6 };
+    expect(playerBounds(game, 2)).toEqual({ min: 2, max: 2 });
+    expect(playerBounds(game, 2, true)).toEqual({ min: 2, max: 6 });
   });
 });
 
@@ -210,11 +234,18 @@ describe('startPlay (RPC start_play)', () => {
       playId: 'p',
       meetingId: 'm',
       scorepadId: 's',
-      seats: [null, A, B],
+      seats: [[], [A], [B]],
     });
     expect(calls).toEqual([
       ['start_play', { play_id: 'p', meeting_id: 'm', scorepad_id: 's', player_ids: [null, A, B] }],
     ]);
+  });
+
+  it('zespoły: płaska lista graczy z numerami miejsc', () => {
+    expect(startPlayArgs([[A, B], [], [C]])).toEqual({
+      player_ids: [A, B, C],
+      seat_numbers: [1, 1, 3],
+    });
   });
 
   it('zamienia błąd bazy na powód z komunikatem', async () => {

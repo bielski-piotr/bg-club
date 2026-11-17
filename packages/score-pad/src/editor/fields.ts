@@ -120,6 +120,8 @@ export interface CategoryState {
   readonly sumOptions: readonly string[];
   /** Kategoria ma pola na kartce (wiersz tabeli albo prostokąty). */
   readonly placed: boolean;
+  /** Nazwa gracza: pole przyjmuje zespół (kilku graczy na jednym miejscu). */
+  readonly team: boolean;
 }
 
 /** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4). */
@@ -150,6 +152,8 @@ export interface CategoryPatch {
   readonly values?: readonly number[];
   /** Suma: sumowane kategorie (zastępuje domyślną listę). */
   readonly of?: readonly string[];
+  /** Nazwa gracza: zespoły (kilku graczy na jednym miejscu kartki). */
+  readonly team?: boolean;
 }
 
 /** Zmiana kroku 4 z panelu kreatora. */
@@ -1470,6 +1474,7 @@ export class FieldsStep {
         of: isComputed(l.kind) ? effectiveOf(t, i) : [],
         sumOptions: isComputed(l.kind) ? this.sumOptions(i).map((x) => x.id) : [],
         placed: this.placed(i),
+        team: l.kind === 'names' && l.team === true,
       };
     });
     return {
@@ -1555,6 +1560,11 @@ export class FieldsStep {
       if (!isNumeric(l.kind))
         for (const x of this.draft.lines) if (x.of) x.of = x.of.filter((id) => id !== l.id);
     }
+    if (p.team !== undefined) {
+      if (p.team && l.kind === 'names') l.team = true;
+      else delete l.team;
+    }
+    if (l.kind !== 'names') delete l.team;
     if (p.range !== undefined) {
       const b = bounds({ ...l, free: false });
       if (p.range === 'free') l.free = true;
@@ -2100,6 +2110,7 @@ export class FieldsStep {
       const out: LineDef = { ...l, label: l.label.trim() || 'Kategoria' };
       if (l.hint?.trim() && l.kind !== 'skip') out.hint = l.hint.trim();
       else delete out.hint;
+      if (l.kind !== 'names' || !l.team) delete out.team;
       if (l.kind === 'input') {
         if (l.free) {
           out.free = true;

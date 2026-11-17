@@ -138,7 +138,7 @@ values ('00000000-0000-4000-f000-000000000001', '00000000-0000-4000-c000-0000000
 
 select is(
   (select points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000001'),
-  '{10,6,4,2}'::int[],
+  '{10,6,4,2}'::numeric[],
   'snapshot punktacji pochodzi z bazy, nie od klienta (GAME-9)'
 );
 
@@ -151,7 +151,7 @@ update public.scorepads set current_version_id = '00000000-0000-4000-e000-000000
 
 select is(
   (select points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000001'),
-  '{10,6,4,2}'::int[],
+  '{10,6,4,2}'::numeric[],
   'zmiana punktacji gry nie zmienia rozpoczętej partii (Q1, Q23)'
 );
 select is(

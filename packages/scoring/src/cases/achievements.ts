@@ -30,6 +30,11 @@ export interface CasePlay {
   /** Kierunek kategorii decydującej wersji notesu (domyślnie `desc`). */
   readonly dir?: 'asc' | 'desc';
   readonly results: readonly CaseResult[];
+  /**
+   * Miejsca na kartce (od 1) kolejnych wyników; równe miejsca to zespół. Domyślnie każdy
+   * gracz na własnym miejscu (1, 2, 3…).
+   */
+  readonly seats?: readonly number[];
 }
 
 export interface CaseMeeting {
@@ -91,11 +96,12 @@ export function achievementHistory(c: AchievementCase): AchievementHistory {
         gameId: caseGameId(p.game ?? 1),
         savedAt: caseSavedAt(m, i + 1, j + 1),
         dir: p.dir ?? 'desc',
-        results: p.results.map(([player, place, points, value]) => ({
+        results: p.results.map(([player, place, points, value], k) => ({
           profileId: caseProfileId(player),
           place,
           points: points ?? defaultPoints(place),
           rankingValue: value ?? null,
+          ...(p.seats ? { seat: p.seats[k] ?? k + 1 } : {}),
         })),
       })),
     ),
@@ -203,6 +209,29 @@ export const achievementCases: readonly AchievementCase[] = [
       { player: 1, id: 'tie-top', meeting: 1, play: 1 },
       { player: 1, id: 'win-1', meeting: 1, play: 1 },
       { player: 2, id: 'tie-top', meeting: 1, play: 1 },
+      { player: 2, id: 'win-1', meeting: 1, play: 1 },
+    ],
+  },
+  {
+    name: 'zespół: wygrana zespołu to wygrana każdego członka, ale nie ex aequo',
+    only: ['tie-top', 'win-1'],
+    meetings: [
+      {
+        plays: [
+          {
+            results: [
+              [1, 1, 8],
+              [2, 1, 8],
+              [3, 2, 4],
+              [4, 2, 4],
+            ],
+            seats: [1, 1, 2, 2],
+          },
+        ],
+      },
+    ],
+    expected: [
+      { player: 1, id: 'win-1', meeting: 1, play: 1 },
       { player: 2, id: 'win-1', meeting: 1, play: 1 },
     ],
   },

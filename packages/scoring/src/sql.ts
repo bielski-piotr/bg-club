@@ -7,7 +7,7 @@
  */
 import { ACHIEVEMENT_IDS } from './achievements';
 import type { InvalidPlacingCase, PlayCase } from './cases';
-import { placesInSeatOrder } from './cases';
+import { caseMemberId, caseSeats, placesInSeatOrder, teamSize } from './cases';
 import {
   type AchievementCase,
   achievementHistory,
@@ -23,6 +23,8 @@ export const SQL_TEST_PATH = 'supabase/tests/database/110_scoring.test.sql';
 const literal = (s: string): string => `'${s.replaceAll("'", "''")}'`;
 const intArray = (xs: readonly number[]): string =>
   xs.length ? `array[${xs.join(', ')}]::int[]` : `'{}'::int[]`;
+const numArray = (xs: readonly number[]): string =>
+  xs.length ? `array[${xs.join(', ')}]::numeric[]` : `'{}'::numeric[]`;
 
 export function renderSqlTest(
   cases: readonly PlayCase[],
@@ -40,25 +42,25 @@ export function renderSqlTest(
     `select plan(${cases.length + invalid.length + 3});`,
     '',
     '-- Funkcja jest pomocnicza dla RPC zapisu partii: klient jej nie wywołuje.',
-    "select ok(not has_function_privilege('anon', 'public.play_points(int[], int[])', 'execute'),",
+    "select ok(not has_function_privilege('anon', 'public.play_points(int[], numeric[])', 'execute'),",
     "  'anon nie wykona play_points');",
-    "select ok(not has_function_privilege('authenticated', 'public.play_points(int[], int[])', 'execute'),",
+    "select ok(not has_function_privilege('authenticated', 'public.play_points(int[], numeric[])', 'execute'),",
     "  'authenticated nie wykona play_points');",
-    "select is(public.play_points('{}'::int[], array[3, 1]::int[]), '{}'::int[], 'brak graczy: brak punktów');",
+    "select is(public.play_points('{}'::int[], array[3, 1]::numeric[]), '{}'::numeric[], 'brak graczy: brak punktów');",
     '',
     '-- Przypadki poprawne: miejsca i punkty w kolejności graczy z przypadku.',
   ];
   for (const c of cases) {
     const { places, points } = placesInSeatOrder(c);
     lines.push(
-      `select is(public.play_points(${intArray(places)}, ${intArray(c.points)}), ${intArray(points)},`,
+      `select is(public.play_points(${intArray(places)}, ${numArray(c.points)}), ${numArray(points)},`,
       `  ${literal(c.name)});`,
     );
   }
   lines.push('', '-- Miejsca albo punktacja, z których nie da się policzyć punktów.');
   for (const c of invalid) {
     lines.push(
-      `select throws_ok($$ select public.play_points(${intArray(c.places)}, ${intArray(c.points)}) $$,`,
+      `select throws_ok($$ select public.play_points(${intArray(c.places)}, ${numArray(c.points)}) $$,`,
       `  '22023', null, ${literal(c.name)});`,
     );
   }
@@ -85,7 +87,16 @@ export function renderSavePlaySqlTest(
 ): string {
   const players = Math.max(...cases.map((c) => Math.max(...c.players.map((p) => p.seat + 1))));
   const admin = uuid('a000', 1);
-  const player = (seat: number): string => uuid('a000', 100 + seat);
+  // Dodatkowi członkowie zespołów (pierwszy członek to gracz miejsca).
+  const members = [
+    ...new Set(
+      cases.flatMap((c) =>
+        c.players.flatMap((p) =>
+          Array.from({ length: teamSize(c, p.seat) - 1 }, (_, k) => caseMemberId(p.seat, k + 1)),
+        ),
+      ),
+    ),
+  ].sort();
   const lines: string[] = [
     '-- [029] Zapis partii (PRD PAD-5, §5.6, §8.3): public.save_play na wspólnych przypadkach.',
     '-- PLIK GENEROWANY z packages/scoring/src/cases/play-cases.json — nie edytować ręcznie.',
@@ -104,7 +115,11 @@ export function renderSavePlaySqlTest(
       ...Array.from(
         { length: players },
         (_, seat) =>
-          `  (${literal(player(seat))}, ${literal(`gracz-${seat + 1}-testowy-${(0xa100 + seat).toString(16)}`)}, 'Gracz', ${literal(`Testowy ${seat + 1}`)}, 'player')`,
+          `  (${literal(caseMemberId(seat))}, ${literal(`gracz-${seat + 1}-testowy-${(0xa100 + seat).toString(16)}`)}, 'Gracz', ${literal(`Testowy ${seat + 1}`)}, 'player')`,
+      ),
+      ...members.map(
+        (id, i) =>
+          `  (${literal(id)}, ${literal(`czlonek-${i + 1}-zespolu-${(0xb100 + i).toString(16)}`)}, 'Członek', ${literal(`Zespołu ${i + 1}`)}, 'player')`,
       ),
     ].join(',\n') + ';',
     '',
@@ -122,7 +137,7 @@ export function renderSavePlaySqlTest(
     lines.push(
       `-- ${c.name}`,
       'insert into public.games (id, title, min_players, max_players, placement_points) values',
-      `  (${literal(uuid('b000', n))}, ${literal(`Gra ${n}`)}, 2, ${c.points.length}, ${intArray(c.points)});`,
+      `  (${literal(uuid('b000', n))}, ${literal(`Gra ${n}`)}, 2, ${c.points.length}, ${numArray(c.points)});`,
       'insert into public.scorepads (id, game_id, name) values',
       `  (${literal(uuid('d000', n))}, ${literal(uuid('b000', n))}, ${literal(`Notes ${n}`)});`,
       'insert into public.scorepad_versions (id, scorepad_id, template, player_slots) values',
@@ -139,30 +154,41 @@ export function renderSavePlaySqlTest(
   cases.forEach((c, index) => {
     const n = index + 1;
     const slots = Math.max(...c.players.map((p) => p.seat + 1));
+    const seated = [...caseSeats(c)].sort(([a], [b]) => a - b);
+    const ids = seated.flatMap(([, list]) => list.map(literal));
+    const seatNumbers = seated.flatMap(([seat, list]) => list.map(() => seat));
     const seats = Array.from({ length: slots }, (_, seat) =>
-      c.players.some((p) => p.seat === seat) ? literal(player(seat)) : 'null',
+      c.players.some((p) => p.seat === seat) ? literal(caseMemberId(seat)) : 'null',
     );
+    // Zespoły: płaska lista graczy z numerami miejsc; inaczej gracz miejsca i (NULL = wolne).
+    const startArgs = c.teams
+      ? `array[${ids.join(', ')}]::uuid[], array[${seatNumbers.join(', ')}]::int[]`
+      : `array[${seats.join(', ')}]::uuid[]`;
     const payload = JSON.stringify(results(c));
     const sheet = JSON.stringify({ game: n, names: [], cells: {} });
     const call = [
       `select public.start_play(${literal(uuid('f000', n))}, ${literal(uuid('c000', 1))}, ${literal(uuid('d000', n))},`,
-      `       array[${seats.join(', ')}]::uuid[]);`,
+      `       ${startArgs});`,
       `     select public.save_play(${literal(uuid('f000', n))}, ${literal(uuid('e000', n))},`,
       `       ${literal(sheet)}::jsonb,`,
       `       ${literal(payload)}::jsonb);`,
     ].join('\n');
     const expected = [...c.expected]
       .sort((a, b) => a.seat - b.seat)
-      .map(
-        (e) =>
-          `(${e.seat + 1}, ${e.place}, ${bool(e.tiedWith.length > 0)}, ${e.points}, ${bool(e.place === 1)})`,
+      .flatMap((e) =>
+        Array.from({ length: teamSize(c, e.seat) }, (_, k) => caseMemberId(e.seat, k))
+          .sort()
+          .map(
+            (id) =>
+              `(${e.seat + 1}, ${literal(id)}::uuid, ${e.place}, ${bool(e.tiedWith.length > 0)}, ${e.points}::numeric, ${bool(e.place === 1)})`,
+          ),
       );
     lines.push(
       `select lives_ok($$ ${call} $$,`,
       `  ${literal(`${c.name}: baza przyjmuje miejsca z TypeScriptu`)});`,
       `select results_eq(`,
-      `  $$ select seat, place, tied, points, is_win from public.play_results`,
-      `      where play_id = ${literal(uuid('f000', n))} order by seat $$,`,
+      `  $$ select seat, profile_id, place, tied, points, is_win from public.play_results`,
+      `      where play_id = ${literal(uuid('f000', n))} order by seat, profile_id $$,`,
       `  $$ values ${expected.join(', ')} $$,`,
       `  ${literal(`${c.name}: punkty, remisy i wygrane z bazy`)});`,
       '',
@@ -271,10 +297,14 @@ export function renderAchievementSqlTest(cases: readonly AchievementCase[]): str
         'insert into public.play_results (play_id, meeting_id, profile_id, seat, place, tied, points, is_win, ranking_value) values',
         h.plays
           .flatMap((p) =>
-            p.results.map((r, seat) => {
-              const tied = p.results.filter((o) => o.place === r.place).length > 1;
+            p.results.map((r, k) => {
+              const seat = r.seat ?? k + 1;
+              // Remis: inna strona (miejsce na kartce) na tym samym miejscu w partii.
+              const tied = p.results.some(
+                (o, j) => o.place === r.place && (o.seat ?? j + 1) !== seat,
+              );
               const value = r.rankingValue === null ? 'null' : String(r.rankingValue);
-              return `  (${literal(p.id)}, ${literal(p.meetingId)}, ${literal(r.profileId)}, ${seat + 1}, ${r.place}, ${bool(tied)}, ${r.points}, ${bool(r.place === 1)}, ${value})`;
+              return `  (${literal(p.id)}, ${literal(p.meetingId)}, ${literal(r.profileId)}, ${seat}, ${r.place}, ${bool(tied)}, ${r.points}, ${bool(r.place === 1)}, ${value})`;
             }),
           )
           .join(',\n') + ';',

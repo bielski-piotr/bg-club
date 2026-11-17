@@ -303,6 +303,8 @@ export interface ScorePadEditorCategory {
   readonly sumOptions: readonly string[];
   /** Kategoria ma pola na kartce. */
   readonly placed: boolean;
+  /** Nazwa gracza: pole przyjmuje zespół (kilku graczy na jednym miejscu kartki). */
+  readonly team: boolean;
 }
 
 /** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4). */
@@ -334,6 +336,8 @@ export interface ScorePadEditorCategoryPatch {
   readonly step?: number;
   readonly values?: readonly number[];
   readonly of?: readonly string[];
+  /** Nazwa gracza: zespoły (tylko kategoria `names`). */
+  readonly team?: boolean;
 }
 
 /** Zmiana kroku 4 (`editCategories`). */

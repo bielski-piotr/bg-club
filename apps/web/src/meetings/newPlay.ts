@@ -28,14 +28,25 @@ export function minPlayers(game: GameRange): number {
   return Math.max(2, game.min_players);
 }
 
-/** max(2, min gry) ≤ n ≤ min(max gry, miejsca notesu) (PAD-3). */
-export function playerBounds(game: GameRange, slots: number): PlayerBounds {
-  return { min: minPlayers(game), max: Math.min(game.max_players, slots) };
+/**
+ * max(2, min gry) ≤ n ≤ min(max gry, miejsca notesu) (PAD-3). W notesie z zespołami na miejscu
+ * może siedzieć kilku graczy, więc górną granicą jest tylko max gry.
+ */
+export function playerBounds(game: GameRange, slots: number, teams = false): PlayerBounds {
+  return {
+    min: minPlayers(game),
+    max: teams ? game.max_players : Math.min(game.max_players, slots),
+  };
 }
 
 /** Miejsca dla graczy bieżącej wersji notesu; 0 = notes bez wersji (chwilowo przy tworzeniu). */
 export function scorepadSlots(pad: Scorepad): number {
   return pad.current?.player_slots ?? 0;
+}
+
+/** Notes z zespołami (kategoria nazwy gracza przyjmuje kilku graczy). */
+export function scorepadTeams(pad: Scorepad): boolean {
+  return pad.current?.teams === true;
 }
 
 /**
@@ -46,7 +57,8 @@ export function scorepadReason(game: GameRange, pad: Scorepad): string | null {
   const text = t.meetings.newPlay.reasons;
   const slots = scorepadSlots(pad);
   if (slots === 0) return text.scorepadNotReady;
-  const need = minPlayers(game);
+  // Zespoły: wystarczą dwa miejsca (dwie strony), graczy może być więcej niż miejsc.
+  const need = scorepadTeams(pad) ? 2 : minPlayers(game);
   if (slots < need) {
     return format(text.scorepadTooSmall, {
       slots: plural(slots, text.slots),
@@ -149,40 +161,65 @@ export function scorepadsByGame(pads: readonly Scorepad[]): ReadonlyMap<string, 
 }
 
 /**
- * Miejsca notesu: `seats[i]` to gracz na miejscu i + 1, `null` = wolne. Długość = liczba
- * miejsc notesu, więc kolejność odpowiada kolumnom albo wierszom kartki (PAD-2).
+ * Miejsca notesu: `seats[i]` to gracze na miejscu i + 1 (pusta lista = wolne; więcej niż jeden
+ * tylko w notesie z zespołami). Długość = liczba miejsc notesu, więc kolejność odpowiada
+ * kolumnom albo wierszom kartki (PAD-2).
  */
-export type Seats = readonly (string | null)[];
+export type Seats = readonly (readonly string[])[];
 
 export function emptySeats(slots: number): Seats {
-  return Array.from({ length: slots }, () => null);
+  return Array.from({ length: slots }, () => []);
 }
 
 /**
- * Sadza gracza na miejscu `index` (`null` zwalnia miejsce). Gracz siedzący już gdzie indziej
- * przesiada się, więc nikt nie zajmuje dwóch miejsc.
+ * Sadza gracza na miejscu `index` zamiast dotychczasowych (`null` zwalnia miejsce). Gracz
+ * siedzący już gdzie indziej przesiada się, więc nikt nie zajmuje dwóch miejsc.
  */
 export function assignSeat(seats: Seats, index: number, profileId: string | null): Seats {
   return seats.map((current, i) => {
-    if (i === index) return profileId;
-    return profileId !== null && current === profileId ? null : current;
+    if (i === index) return profileId === null ? [] : [profileId];
+    return profileId === null ? current : current.filter((id) => id !== profileId);
+  });
+}
+
+/**
+ * Zespół: dodaje gracza do miejsca `index` (przesiadając go z innego) albo usuwa go z tego
+ * miejsca, gdy już na nim siedzi.
+ */
+export function toggleTeamMember(seats: Seats, index: number, profileId: string): Seats {
+  const here = seats[index]?.includes(profileId) ?? false;
+  return seats.map((current, i) => {
+    const without = current.filter((id) => id !== profileId);
+    return i === index && !here ? [...without, profileId] : without;
   });
 }
 
 /** Pierwsze wolne miejsce; -1 = notes jest pełny. */
 export function firstFreeSeat(seats: Seats): number {
-  return seats.indexOf(null);
+  return seats.findIndex((ids) => ids.length === 0);
+}
+
+/** Miejsce gracza (indeks od 0); -1 = poza partią. */
+export function seatOf(seats: Seats, profileId: string): number {
+  return seats.findIndex((ids) => ids.includes(profileId));
 }
 
 export function seatedPlayers(seats: Seats): string[] {
-  return seats.filter((id): id is string => id !== null);
+  return seats.flat();
 }
 
-/** Za mało albo za dużo graczy; `null` = można rozpocząć. */
-export function seatsProblem(seats: Seats, bounds: PlayerBounds): 'tooFew' | 'tooMany' | null {
+/**
+ * Za mało albo za dużo graczy albo tylko jedna strona (wszyscy w jednym zespole); `null` =
+ * można rozpocząć.
+ */
+export function seatsProblem(
+  seats: Seats,
+  bounds: PlayerBounds,
+): 'tooFew' | 'tooMany' | 'sides' | null {
   const n = seatedPlayers(seats).length;
   if (n < bounds.min) return 'tooFew';
   if (n > bounds.max) return 'tooMany';
+  if (seats.filter((ids) => ids.length > 0).length < 2) return 'sides';
   return null;
 }
 
@@ -219,6 +256,7 @@ const HINTS: Readonly<Record<string, StartPlayFailure>> = {
   play_results_seat_within_slots: 'seats',
   plays_players_unique: 'duplicate',
   plays_players_count: 'count',
+  plays_teams_unavailable: 'count',
   plays_player_participant: 'participant',
 };
 
@@ -238,13 +276,27 @@ export interface NewPlay {
   readonly seats: Seats;
 }
 
+/**
+ * Argumenty `start_play` dla miejsc: bez zespołów `player_ids[i]` to gracz miejsca i + 1
+ * (`null` = wolne); z zespołem płaska lista graczy i `seat_numbers` z ich miejscami (od 1).
+ */
+export function startPlayArgs(seats: Seats): {
+  readonly player_ids: readonly (string | null)[];
+  readonly seat_numbers?: readonly number[];
+} {
+  if (seats.every((ids) => ids.length <= 1))
+    return { player_ids: seats.map((ids) => ids[0] ?? null) };
+  const seated = seats.flatMap((ids, i) => ids.map((id) => ({ id, seat: i + 1 })));
+  return { player_ids: seated.map((s) => s.id), seat_numbers: seated.map((s) => s.seat) };
+}
+
 /** Rozpoczyna partię (szkic) z bieżącą wersją notesu i graczami w miejscach (RUN-2). */
 export async function startPlay(client: SupabaseClient, play: NewPlay): Promise<void> {
   const { error } = await client.rpc('start_play', {
     play_id: play.playId,
     meeting_id: play.meetingId,
     scorepad_id: play.scorepadId,
-    player_ids: play.seats,
+    ...startPlayArgs(play.seats),
   });
   if (error) throw new StartPlayError(startPlayFailure(error));
 }
