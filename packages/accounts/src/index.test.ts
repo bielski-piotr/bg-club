@@ -27,7 +27,7 @@ function sequence(values: readonly number[]): RandomSource {
   };
 }
 
-describe('hook i techniczny e-mail (AUTH-1)', () => {
+describe('hook i techniczny e-mail', () => {
   it('mapuje hook na e-mail w domenie .invalid i z powrotem', () => {
     expect(hookToEmail('jan-kowalski-3f9a')).toBe('jan-kowalski-3f9a@users.bgclub.invalid');
     expect(emailToHook('jan-kowalski-3f9a@users.bgclub.invalid')).toBe('jan-kowalski-3f9a');
@@ -60,7 +60,7 @@ describe('hook i techniczny e-mail (AUTH-1)', () => {
   });
 });
 
-describe('tworzenie hooka (USR-1)', () => {
+describe('tworzenie hooka', () => {
   it('transliteruje polskie znaki', () => {
     expect(slugifyName('Łukasz', 'Żółw')).toBe('lukasz-zolw');
     expect(slugifyName('Zażółć', 'Gęślą Jaźń')).toBe('zazolc-gesla-jazn');
@@ -76,7 +76,7 @@ describe('tworzenie hooka (USR-1)', () => {
     expect(slugifyName('李', '雷')).toBe('gracz');
   });
 
-  it('tworzy hook z przykładu w PRD', () => {
+  it('tworzy hook z przykładu', () => {
     expect(createHook('Łukasz', 'Żółw', '7c1e')).toBe('lukasz-zolw-7c1e');
     expect(isValidHook(createHook('Łukasz', 'Żółw', '7c1e'))).toBe(true);
   });
@@ -101,7 +101,7 @@ describe('tworzenie hooka (USR-1)', () => {
   });
 });
 
-describe('generowane hasło (AUTH-4)', () => {
+describe('generowane hasło', () => {
   it('ma domyślnie 16 znaków z alfabetu bez znaków łatwych do pomylenia', () => {
     const password = generatePassword();
     expect(password).toHaveLength(16);

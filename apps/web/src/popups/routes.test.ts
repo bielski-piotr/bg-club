@@ -3,7 +3,7 @@ import { MAX_STACK_DEPTH, parseRoute, parseStack, routeKey, stackSearch } from '
 
 const ID = '00000000-0000-4000-a000-000000000001';
 
-describe('adresy popupów (PRD §4)', () => {
+describe('adresy popupów', () => {
   it('czyta stos od dołu do góry', () => {
     expect(parseStack(`?p=members&p=profile/${ID}`)).toEqual([
       { kind: 'members' },
@@ -21,7 +21,7 @@ describe('adresy popupów (PRD §4)', () => {
     expect(stackSearch('?x=1&p=members', [])).toBe('?x=1');
   });
 
-  it('zna kalendarz i popup spotkania (CAL-1, MTG-3)', () => {
+  it('zna kalendarz i popup spotkania', () => {
     expect(parseStack(`?p=calendar&p=meeting/${ID.toUpperCase()}`)).toEqual([
       { kind: 'calendar' },
       { kind: 'meeting', id: ID },
@@ -34,7 +34,7 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna ranking z zakładką (LB-3)', () => {
+  it('zna ranking z zakładką', () => {
     expect(parseStack('?p=leaderboard&p=leaderboard/streak')).toEqual([
       { kind: 'leaderboard' },
       { kind: 'leaderboard', tab: 'streak' },
@@ -46,7 +46,7 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna rozpoczęcie, zakończenie i ponowne otwarcie spotkania (RUN-1, RUN-4, RUN-5)', () => {
+  it('zna rozpoczęcie, zakończenie i ponowne otwarcie spotkania', () => {
     const stack = [
       { kind: 'meeting', id: ID },
       { kind: 'start-meeting', id: ID },
@@ -58,7 +58,7 @@ describe('adresy popupów (PRD §4)', () => {
     expect(stackSearch('', stack)).toBe(search);
   });
 
-  it('zna kreator nowej partii (RUN-2)', () => {
+  it('zna kreator nowej partii', () => {
     const stack = [
       { kind: 'meeting', id: ID },
       { kind: 'new-play', meetingId: ID },
@@ -72,7 +72,7 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna partię w toku i jej porzucenie (PAD-4, PAD-8)', () => {
+  it('zna partię w toku i jej porzucenie', () => {
     const stack = [
       { kind: 'meeting', id: ID },
       { kind: 'play', id: ID },
@@ -87,7 +87,7 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna usunięcie zapisanej partii (VIEW-6)', () => {
+  it('zna usunięcie zapisanej partii', () => {
     const stack = [
       { kind: 'meeting', id: ID },
       { kind: 'delete-play', id: ID },
@@ -101,7 +101,7 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna planowanie, edycję i usuwanie spotkania (PLAN-1, PLAN-3)', () => {
+  it('zna planowanie, edycję i usuwanie spotkania', () => {
     expect(parseStack(`?p=meetings/new&p=meeting/${ID}/edit&p=meeting/${ID}/delete`)).toEqual([
       { kind: 'add-meeting' },
       { kind: 'edit-meeting', id: ID },
@@ -125,7 +125,7 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna popup spotkania i publikację gier (VIEW-1, VOTE-5)', () => {
+  it('zna popup spotkania i publikację gier', () => {
     expect(parseStack(`?p=meeting/${ID}&p=meeting/${ID.toUpperCase()}/publish`)).toEqual([
       { kind: 'meeting', id: ID },
       { kind: 'publish-games', id: ID },
@@ -141,13 +141,13 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna formularz klubu (CLUB-2)', () => {
+  it('zna formularz klubu', () => {
     expect(parseStack('?p=club')).toEqual([{ kind: 'club' }]);
     expect(stackSearch('', [{ kind: 'club' }])).toBe('?p=club');
     expect(parseRoute('club/1')).toEqual({ kind: 'invalid', raw: 'club/1' });
   });
 
-  it('zna ustawienia, zmianę hasła i pierwsze logowanie (USR-5, AUTH-6)', () => {
+  it('zna ustawienia, zmianę hasła i pierwsze logowanie', () => {
     expect(parseStack(`?p=profile/${ID}&p=settings&p=settings/password`)).toEqual([
       { kind: 'profile', id: ID },
       { kind: 'settings' },
@@ -162,7 +162,7 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute(`settings/${ID}`)).toEqual({ kind: 'invalid', raw: `settings/${ID}` });
   });
 
-  it('zna kolekcję gier, formularze i usuwanie gry (GAME-2, GAME-3, GAME-8)', () => {
+  it('zna kolekcję gier, formularze i usuwanie gry', () => {
     expect(parseStack(`?p=games&p=games/new`)).toEqual([{ kind: 'games' }, { kind: 'add-game' }]);
     expect(parseStack(`?p=games&p=game/${ID.toUpperCase()}/edit`)).toEqual([
       { kind: 'games' },
@@ -174,7 +174,7 @@ describe('adresy popupów (PRD §4)', () => {
     );
     expect(stackSearch('', [{ kind: 'delete-game', id: ID }])).toBe(`?p=game/${ID}/delete`);
     expect(stackSearch('', [{ kind: 'add-game' }])).toBe('?p=games/new');
-    // Szczegóły gry z galerią karteczek i karteczka partii (GAME-10, PAD-6, VIEW-3).
+    // Szczegóły gry z galerią karteczek i karteczka partii.
     expect(parseStack(`?p=games&p=game/${ID.toUpperCase()}&p=sheet/${ID}`)).toEqual([
       { kind: 'games' },
       { kind: 'game', id: ID },
@@ -193,7 +193,7 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute('games/edit')).toEqual({ kind: 'invalid', raw: 'games/edit' });
   });
 
-  it('zna notesy gry, edytor, zmianę nazwy i usuwanie notesu (GAME-7)', () => {
+  it('zna notesy gry, edytor, zmianę nazwy i usuwanie notesu', () => {
     const PAD = '00000000-0000-4000-d000-000000000001';
     expect(parseStack(`?p=games&p=game/${ID}/scorepads&p=game/${ID}/scorepads/new`)).toEqual([
       { kind: 'games' },
@@ -223,7 +223,7 @@ describe('adresy popupów (PRD §4)', () => {
     });
   });
 
-  it('zna formularz dodawania członka (MEM-3)', () => {
+  it('zna formularz dodawania członka', () => {
     expect(parseStack('?p=members&p=members/new')).toEqual([
       { kind: 'members' },
       { kind: 'add-member' },
@@ -232,7 +232,7 @@ describe('adresy popupów (PRD §4)', () => {
     expect(parseRoute('members/nowy')).toEqual({ kind: 'invalid', raw: 'members/nowy' });
   });
 
-  it('zna potwierdzenia usunięcia członka i własnego konta (MEM-4, USR-6)', () => {
+  it('zna potwierdzenia usunięcia członka i własnego konta', () => {
     expect(parseStack(`?p=members&p=profile/${ID}&p=profile/${ID}/delete`)).toEqual([
       { kind: 'members' },
       { kind: 'profile', id: ID },

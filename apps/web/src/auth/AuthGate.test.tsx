@@ -49,7 +49,7 @@ interface FakeOptions {
   readonly signInError?: AuthError;
 }
 
-/** Założony klub (CLUB-2); pierwsze uruchomienie sprawdza Hub.test.tsx. */
+/** Założony klub; pierwsze uruchomienie sprawdza Hub.test.tsx. */
 const CLUB = { name: 'Klub Testowy', logo_path: null, timezone: 'Europe/Warsaw' };
 
 /**
@@ -127,7 +127,7 @@ async function submit(hook: string, password: string) {
   });
 }
 
-describe('logowanie hookiem (AUTH-1)', () => {
+describe('logowanie hookiem', () => {
   it('bez sesji pokazuje polski ekran logowania', async () => {
     renderGate(fakeSupabase());
     expect(
@@ -208,7 +208,7 @@ describe('logowanie hookiem (AUTH-1)', () => {
   });
 });
 
-describe('sesja (AUTH-5, AUTH-7)', () => {
+describe('sesja', () => {
   it('przywraca zapamiętaną sesję i nie miga przy odświeżeniu tokenu', async () => {
     const session = sessionFor(ADA.id);
     const fake = fakeSupabase({ session });

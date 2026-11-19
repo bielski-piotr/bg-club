@@ -5,7 +5,7 @@ import { png } from './support/png';
 import { mockGame, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
- * Kreator edytora notesu (PRD §5.5.2, EDT-1, EDT-9, DS §18, zadanie [016]): pięć kroków,
+ * Kreator edytora notesu: pięć kroków,
  * walidacja przejścia, powrót bez utraty danych, zdjęcie z pliku, przeciągnięcia, schowka,
  * aparatu telefonu i kamery komputera, import `.json` i ochrona przed utratą zmian.
  * API Supabase jest atrapą; każdy test przechodzi na 360 px i na desktopie, w obu motywach.

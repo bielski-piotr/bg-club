@@ -2,7 +2,7 @@ import type { Profile } from '../profile/profiles';
 import { normalizeSearch } from '../ui';
 
 /**
- * Członkowie pasujący do wyszukiwania (MEM-2): każde słowo zapytania musi wystąpić w imieniu,
+ * Członkowie pasujący do wyszukiwania: każde słowo zapytania musi wystąpić w imieniu,
  * nazwisku albo hooku, bez rozróżniania wielkości liter i polskich znaków („lukasz zol”
  * znajdzie Łukasza Żółwia, „7c1e” jego hook). Puste zapytanie zwraca wszystkich.
  */

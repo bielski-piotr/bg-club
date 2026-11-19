@@ -1,26 +1,25 @@
--- [005] Konta Auth: bootstrap administratora, logowanie hookiem i blokada usuniętych kont
--- (PRD AUTH-1…AUTH-3, AUTH-5, AUTH-7, §6.1).
+-- Konta Auth: bootstrap administratora, logowanie hookiem i blokada usuniętych kont.
 --
 -- Zasady:
--- - Konto Supabase Auth ma techniczny e-mail `<hook>@users.bgclub.invalid` (AUTH-1). Domena
+-- - Konto Supabase Auth ma techniczny e-mail `<hook>@users.bgclub.invalid`. Domena
 --   `.invalid` jest zarezerwowana (RFC 2606), więc żadna wiadomość nie wychodzi poza Auth.
 -- - Konto Auth i profil powstają razem, w jednej transakcji: wyzwalacz na `auth.users` tworzy
 --   profil z `app_metadata.bg_club`, które ustawia wyłącznie klucz service role (Edge Functions,
 --   skrypt bootstrapu). Błąd profilu wycofuje też konto Auth, więc nie zostaje niespójne konto.
--- - Rejestracja samodzielna jest wyłączona w Auth (`enable_signup = false`, AUTH-2), a baza
+-- - Rejestracja samodzielna jest wyłączona w Auth (`enable_signup = false`), a baza
 --   dodatkowo odrzuca każde konto bez `app_metadata.bg_club`: nawet włączony przez pomyłkę
 --   signup ani ręcznie dodany w panelu użytkownik nie dostaje profilu ani dostępu.
--- - Pierwszym kontem jest zawsze administrator (AUTH-3): rola `admin` tylko na pustej instalacji,
+-- - Pierwszym kontem jest zawsze administrator: rola `admin` tylko na pustej instalacji,
 --   konto gracza dopiero wtedy, gdy administrator istnieje. Ponowiony bootstrap nie utworzy
 --   drugiego administratora (także przy równoległych próbach: unikalny indeks
 --   `profiles_single_admin`).
--- - Hook jest niezmienny (USR-1), więc techniczny e-mail też: zmiana e-maila jest blokowana.
--- - Auth wydaje i odświeża sesję tylko kontu z aktywnym profilem (AUTH-5, AUTH-7): hook
+-- - Hook jest niezmienny, więc techniczny e-mail też: zmiana e-maila jest blokowana.
+-- - Auth wydaje i odświeża sesję tylko kontu z aktywnym profilem: hook
 --   `custom_access_token` odmawia kontu usuniętemu i kontu bez profilu. Wydany wcześniej token
---   dostępu (najwyżej `jwt_expiry`) nie daje danych, bo RLS wymaga aktywnego profilu ([004]).
+--   dostępu (najwyżej `jwt_expiry`) nie daje danych, bo RLS wymaga aktywnego profilu.
 
 -- ---------------------------------------------------------------------------------------------
--- Techniczny e-mail i hook (AUTH-1, USR-1)
+-- Techniczny e-mail i hook
 -- ---------------------------------------------------------------------------------------------
 -- Hook z technicznego e-maila albo NULL, gdy adres nie należy do domeny aplikacji.
 -- Ta sama domena jest w `packages/accounts` (TECHNICAL_EMAIL_DOMAIN).
@@ -35,10 +34,10 @@ return case
 end;
 
 comment on function private.hook_from_email(text) is
-  'Hook z technicznego e-maila <hook>@users.bgclub.invalid (AUTH-1); NULL dla innej domeny.';
+  'Hook z technicznego e-maila <hook>@users.bgclub.invalid; NULL dla innej domeny.';
 
 -- ---------------------------------------------------------------------------------------------
--- auth.users → profiles: konto i profil w jednej transakcji (AUTH-2, AUTH-3, MEM-3)
+-- auth.users → profiles: konto i profil w jednej transakcji
 -- ---------------------------------------------------------------------------------------------
 -- `app_metadata.bg_club` = { "first_name": "…", "last_name": "…", "role": "admin" | "player" }.
 -- Hook profilu pochodzi z e-maila, więc login i profil nie mogą się rozjechać.
@@ -108,7 +107,7 @@ create constraint trigger on_auth_user_created
   deferrable initially deferred
   for each row execute function public.handle_auth_user_created();
 
--- Techniczny e-mail jest niezmienny (hook jest niezmienny, Q5). Blokujemy też zgłoszenie
+-- Techniczny e-mail jest niezmienny (hook jest niezmienny). Blokujemy też zgłoszenie
 -- zmiany (`email_change`): Auth wysłałby wtedy wiadomości na adresy `.invalid`.
 create function public.auth_users_guard_email()
 returns trigger
@@ -117,7 +116,7 @@ set search_path = ''
 as $$
 begin
   -- Miękkie usunięcie konta w Auth (`auth.admin.deleteUser(id, true)`) zaciera e-mail i ustawia
-  -- `deleted_at`; tej zmiany nie blokujemy. Profil oznacza jako usunięty Edge Function ([011]).
+  -- `deleted_at`; tej zmiany nie blokujemy. Profil oznacza jako usunięty Edge Function.
   if new.deleted_at is not null then
     return new;
   end if;
@@ -131,19 +130,19 @@ end;
 $$;
 
 comment on function public.auth_users_guard_email() is
-  'Blokuje zmianę technicznego e-maila konta (hook jest niezmienny, AUTH-1, USR-1).';
+  'Blokuje zmianę technicznego e-maila konta (hook jest niezmienny).';
 
 create trigger auth_users_guard_email before update of email, email_change on auth.users
   for each row execute function public.auth_users_guard_email();
 
 -- ---------------------------------------------------------------------------------------------
--- Hook Auth `custom_access_token`: sesja tylko dla aktywnego profilu (AUTH-5, AUTH-7)
+-- Hook Auth `custom_access_token`: sesja tylko dla aktywnego profilu
 -- ---------------------------------------------------------------------------------------------
 -- Auth wywołuje go przy każdym wydaniu tokenu: logowaniu hasłem i odświeżeniu sesji. Odmowa
--- logowania oznacza, że konto usunięte (MEM-4, USR-6) nie zaloguje się ponownie, a jego
+-- logowania oznacza, że konto usunięte nie zaloguje się ponownie, a jego
 -- zapamiętana sesja wygaśnie przy najbliższym odświeżeniu. Claims zostają bez zmian.
 -- Lokalnie włącza go `supabase/config.toml`; w projekcie Supabase trzeba go włączyć w panelu
--- (README, sekcja „Wdrożenie”).
+-- (sekcja „Wdrożenie”).
 create function public.custom_access_token_hook(event jsonb)
 returns jsonb
 language plpgsql
@@ -167,7 +166,7 @@ end;
 $$;
 
 comment on function public.custom_access_token_hook(jsonb) is
-  'Hook Auth: odmawia tokenu (logowanie, odświeżenie) kontu bez aktywnego profilu (AUTH-7).';
+  'Hook Auth: odmawia tokenu (logowanie, odświeżenie) kontu bez aktywnego profilu.';
 
 -- ---------------------------------------------------------------------------------------------
 -- Prawa: funkcje nie są API. Hook wywołuje tylko rola usługi Auth (`supabase_auth_admin`);

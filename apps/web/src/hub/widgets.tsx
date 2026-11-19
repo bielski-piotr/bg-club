@@ -62,18 +62,18 @@ import '../meetings/meetings.css';
 import '../meetings/calendar.css';
 
 /*
- * Widżety huba (PRD §4, DS §6, §17): Spotkanie (MTG-1, od [023], przebieg w [026]), Ranking
- * (LB-1…LB-7, [033], moduł `leaderboard`), Timeline (MTG-3, [025]), Kolekcja (GAME-1)
- * i Członkowie (MEM-1).
+ * Widżety huba: Spotkanie, Ranking
+ * (moduł `leaderboard`), Timeline, Kolekcja
+ * i Członkowie.
  */
 
 /**
- * Widżet spotkania (MTG-1, DS §15 „Widget meeting block”, „Widget header”, „Widget tray head”):
+ * Widżet spotkania:
  * trwające spotkanie, a gdy go nie ma, najbliższe zaplanowane, z datą w strefie klubu,
  * uczestnikami i stanem. W nagłówku odliczanie albo chip „Trwa”; pod spodem taca stanu:
  * najwięcej głosów (głosowanie otwarte), „Gramy w” (gry wybrane) albo partie (w trakcie).
- * Menu ma akcje zależne od roli (DS §15 „Meeting menus”), a pusty stan dla administratora
- * „Zaplanuj spotkanie” (CLUB-4, PLAN-1).
+ * Menu ma akcje zależne od roli, a pusty stan dla administratora
+ * „Zaplanuj spotkanie”.
  */
 export function MeetingWidget({ me }: { readonly me: Profile }) {
   const { client } = useAuth();
@@ -88,7 +88,7 @@ export function MeetingWidget({ me }: { readonly me: Profile }) {
 
   const items: MenuItem[] = data
     ? [
-        // Kolejne spotkanie z menu widżetu (PLAN-1); kalendarz ma też własny przycisk (CAL-3).
+        // Kolejne spotkanie z menu widżetu; kalendarz ma też własny przycisk.
         ...(isAdmin
           ? [
               {
@@ -245,7 +245,7 @@ function MeetingBlock({
 const TRAY_ROWS = 3;
 
 /**
- * Taca stanu widżetu (MTG-1, DS §15 „Widget tray head”, „Voter mini-stack + count”): chip stanu
+ * Taca stanu widżetu: chip stanu
  * z notatką po prawej i najwyżej trzy wiersze h54.
  */
 function MeetingStateTray({
@@ -485,12 +485,12 @@ function PlaysTray({
   );
 }
 
-/** Ranking (LB-1…LB-7) ma własny moduł; hub importuje wszystkie widżety stąd. */
+/** Ranking ma własny moduł; hub importuje wszystkie widżety stąd. */
 export { RankingWidget } from '../leaderboard/RankingWidget';
 
 /**
- * Timeline (MTG-3, DS §15.1): najwyżej 2 najbliższe nadchodzące spotkania (od dalszego), divider
- * „Dziś” i najwyżej 4 ostatnie zakończone (od najnowszego), z datami w strefie klubu (NFR-10).
+ * Timeline: najwyżej 2 najbliższe nadchodzące spotkania (od dalszego), divider
+ * „Dziś” i najwyżej 4 ostatnie zakończone (od najnowszego), z datami w strefie klubu.
  * Zakończone mają liczbę partii i zwycięzców. Wiersz otwiera popup spotkania, a „Zobacz więcej”
  * kalendarz. Bez spotkań: pusty stan bez CTA (planowanie startuje z widżetu Spotkanie).
  */
@@ -640,9 +640,9 @@ function TimelineRow({
 }
 
 /**
- * Widżet kolekcji (GAME-1, DS §6 „Collection”): kilka gier w kolejności Q11 (ostatnio grane,
+ * Widżet kolekcji: kilka gier w kolejności widżetu (ostatnio grane,
  * potem ostatnio dodane). Pierwsza ma dużą okładkę, kolejne są wierszami tacy z miniaturą.
- * „Zobacz więcej” otwiera popup kolekcji; pusty stan administratora ma „Dodaj grę” (CLUB-4).
+ * „Zobacz więcej” otwiera popup kolekcji; pusty stan administratora ma „Dodaj grę”.
  */
 export function CollectionWidget({ isAdmin }: { readonly isAdmin: boolean }) {
   const { client } = useAuth();
@@ -744,8 +744,8 @@ export function CollectionWidget({ isAdmin }: { readonly isAdmin: boolean }) {
 }
 
 /**
- * Widżet członków (MEM-1, DS §6). Każdy awatar otwiera profil, licznik `+N` i „Zobacz więcej”
- * otwierają popup członków. Pusty stan administratora ma CTA „Dodaj członka” (MEM-3).
+ * Widżet członków. Każdy awatar otwiera profil, licznik `+N` i „Zobacz więcej”
+ * otwierają popup członków. Pusty stan administratora ma CTA „Dodaj członka”.
  */
 export function MembersWidget({ me }: { readonly me: Profile }) {
   const { client } = useAuth();

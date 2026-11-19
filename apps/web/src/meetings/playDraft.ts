@@ -2,7 +2,7 @@ import type { ScorePadSheet } from '@bg-club/score-pad';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /*
- * Szkic partii w toku (PRD PAD-4, PAD-8, RUN-3, migracja [028]): wpisy kartki trafiają do bazy
+ * Szkic partii w toku: wpisy kartki trafiają do bazy
  * (`save_play_draft`) z opóźnieniem i od razu do `localStorage`. Odświeżenie strony, awaria
  * przeglądarki i utrata sieci nie gubią wpisów, a admin albo prowadzący może dokończyć partię
  * na innym urządzeniu (bez synchronizacji na żywo).
@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * zamiast cicho nadpisać cudze wpisy.
  */
 
-/** Opóźnienie zapisu szkicu w bazie po ostatniej zmianie (PAD-4: 1–2 s). */
+/** Opóźnienie zapisu szkicu w bazie po ostatniej zmianie (1–2 s). */
 export const DRAFT_SAVE_DELAY_MS = 1500;
 /** Ponowienie zapisu po błędzie sieci (oprócz zdarzenia `online`). */
 export const DRAFT_RETRY_MS = 5000;
@@ -106,7 +106,7 @@ export function writeLocalDraft(storage: DraftStorage | null, draft: LocalDraft)
   }
 }
 
-/** Usuwa kopie szkicu partii ze wszystkich kont na tym urządzeniu (porzucenie, PAD-8). */
+/** Usuwa kopie szkicu partii ze wszystkich kont na tym urządzeniu (porzucenie). */
 export function removeLocalDrafts(storage: DraftStorage | null, playId: string): void {
   try {
     if (!storage) return;
@@ -157,7 +157,7 @@ export function hasEntries(sheet: ScorePadSheet | null): boolean {
 }
 
 /**
- * Kartka z imionami graczy na ich miejscach w notesie (PAD-2: gracze z wyboru, nie z klawiatury).
+ * Kartka z imionami graczy na ich miejscach w notesie (gracze z wyboru, nie z klawiatury).
  * Wpisy szkicu zostają; bez szkicu: czysta kartka partii nr 1.
  */
 export function sheetWithPlayers(
@@ -168,7 +168,7 @@ export function sheetWithPlayers(
   return { ...base, names: [...names] };
 }
 
-/** Od czego zaczyna notes partii po otwarciu (wznowienie, PAD-4). */
+/** Od czego zaczyna notes partii po otwarciu (wznowienie). */
 export type DraftStart =
   /** Wpisy z bazy (brak kopii lokalnej albo kopia jest już w bazie). */
   | { readonly kind: 'server'; readonly sheet: ScorePadSheet | null; readonly version: number }
@@ -229,7 +229,7 @@ const HINTS: Readonly<Record<string, DraftFailure>> = {
   plays_draft_too_large: 'invalid',
 };
 
-/** Błąd PostgREST → powód (HINT z migracji [028]); bez kodu to błąd sieci. */
+/** Błąd PostgREST → powód (HINT); bez kodu to błąd sieci. */
 export function draftFailure(error: PostgrestLikeError): DraftFailure {
   const byHint = error.hint ? HINTS[error.hint] : undefined;
   if (byHint) return byHint;
@@ -261,7 +261,7 @@ export async function saveDraft(
   return { version: data.draft_version, savedAt: data.draft_saved_at };
 }
 
-/** Porzuca partię w toku (PAD-8). Partii, której już nie ma, nie trzeba porzucać. */
+/** Porzuca partię w toku. Partii, której już nie ma, nie trzeba porzucać. */
 export async function discardPlay(client: SupabaseClient, playId: string): Promise<void> {
   const { error } = await client.rpc('discard_play', { play_id: playId });
   if (!error) return;

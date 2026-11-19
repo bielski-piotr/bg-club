@@ -1,5 +1,5 @@
 /**
- * Leniwe ładowanie web componentów notesu i edytora (NFR-2, PRD §8.5).
+ * Leniwe ładowanie web componentów notesu i edytora.
  *
  * Moduły pakietu `@bg-club/score-pad` razem z Three.js i fontami kartki trafiają do osobnych
  * chunków, pobieranych dopiero przy pierwszym otwarciu notesu lub edytora. Nieudane pobranie

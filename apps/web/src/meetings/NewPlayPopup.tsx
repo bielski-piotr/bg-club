@@ -49,8 +49,8 @@ import './meetings.css';
 const text = t.meetings.newPlay;
 
 /**
- * Nowa partia (RUN-2, RUN-3, PAD-2, PAD-3, PAD-9): kreator w trzech krokach (DS §15 „Step
- * pills”). Gra: najpierw opublikowane, potem reszta kolekcji; gry bez pasującego notesu albo
+ * Nowa partia: kreator w trzech krokach
+ * Gra: najpierw opublikowane, potem reszta kolekcji; gry bez pasującego notesu albo
  * z większym minimum niż liczba uczestników są wyłączone z wyjaśnieniem. Notes: gdy gra ma
  * jeden pasujący notes, krok jest pomijany. Gracze: uczestnicy spotkania w miejscach notesu,
  * każdy najwyżej raz. Rozpoczęcie tworzy szkic partii (`start_play`); kilka partii może trwać
@@ -135,7 +135,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
   const [scorepadId, setScorepadId] = useState<string | null>(null);
   const [seats, setSeats] = useState<Seats>([]);
 
-  // Gracze: aktywni uczestnicy (usunięty z klubu zostaje w historii, ale nie zagra, MEM-5).
+  // Gracze: aktywni uczestnicy (usunięty z klubu zostaje w historii, ale nie zagra).
   const participants = meeting.participants
     .map((id) => profiles.get(id))
     .filter((person): person is Profile => person !== undefined && person.deleted_at === null)
@@ -145,7 +145,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
   const gamePads = game ? (byGame.get(game.id) ?? []) : [];
   const pad = gamePads.find((candidate) => candidate.id === scorepadId) ?? null;
   const bounds = game && pad ? playerBounds(game, scorepadSlots(pad), scorepadTeams(pad)) : null;
-  // Jeden notes gry, który pasuje: krok „Notes” jest pomijany (RUN-2: „gdy gra ma ich kilka”).
+  // Jeden notes gry, który pasuje: krok „Notes” jest pomijany („gdy gra ma ich kilka”).
   const singlePad =
     game && gamePads.length === 1 && fittingScorepads(game, gamePads).length === 1
       ? gamePads[0]
@@ -163,7 +163,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
     },
     onSuccess: () => {
       toast.show(format(t.meetings.toasts.playStarted, { title: game?.title ?? '' }), 'success');
-      // Kreator ustępuje notesowi partii (PAD-4); Wstecz wraca do spotkania.
+      // Kreator ustępuje notesowi partii; Wstecz wraca do spotkania.
       if (mounted.current) replace({ kind: 'play', id: playId });
     },
     // Także po błędzie: notes, gra albo spotkanie mogły się zmienić w innej karcie.
@@ -293,7 +293,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
 }
 
 /**
- * Pigułki kroków (DS §15 „Step pills”): bieżący „N. Nazwa” na ciemnym tle, ukończony
+ * Pigułki kroków: bieżący „N. Nazwa” na ciemnym tle, ukończony
  * z ptaszkiem w kolorze akcentu (przycisk powrotu do kroku), kolejny z obramowaniem.
  * Pominięty krok (jedyny pasujący notes) jest ukończony, ale bez powrotu.
  */
@@ -355,7 +355,7 @@ function StepPills({
   );
 }
 
-/** Wiersz wyboru h64 (gra) albo h72 (notes) z radiem i powodem wyłączenia (DS §15). */
+/** Wiersz wyboru h64 (gra) albo h72 (notes) z radiem i powodem wyłączenia. */
 function PickRow({
   name,
   value,
@@ -650,9 +650,9 @@ function PlayersStep({
 }
 
 /**
- * Miejsce w notesie (DS §15 „Seat row”): numer i pole h48. Zajęte: awatar, imię i nazwisko,
+ * Miejsce w notesie: numer i pole h48. Zajęte: awatar, imię i nazwisko,
  * strzałka; wolne: przerywane obramowanie „Wybierz gracza”. Pole rozwija listę uczestników
- * (PAD-2: wybór zamiast wpisywania imion); gracz z innego miejsca przesiada się.
+ * (wybór zamiast wpisywania imion); gracz z innego miejsca przesiada się.
  */
 function SeatRow({
   index,

@@ -30,7 +30,7 @@ function color(tokens: Tokens, name: string): string {
   return value;
 }
 
-/** Pary tekst/tło używane w komponentach; tekst wymaga 4,5:1 (WCAG AA, NFR-6). */
+/** Pary tekst/tło używane w komponentach; tekst wymaga 4,5:1 (WCAG AA). */
 const textPairs: ReadonlyArray<readonly [string, string]> = [
   ['c-ink', 'c-page'],
   ['c-ink', 'c-surface'],
@@ -85,7 +85,7 @@ describe('tokeny motywów', () => {
     }
   });
 
-  it('jasny motyw zachowuje kluczowe wartości hex z DS §3', () => {
+  it('jasny motyw zachowuje kluczowe wartości hex design systemu', () => {
     expect(light['c-page']).toBe('#f3f4f8');
     expect(light['c-surface']).toBe('#ffffff');
     expect(light['c-border']).toBe('#e4e7f0');

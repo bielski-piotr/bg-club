@@ -20,8 +20,8 @@ vi.mock('../club/image', async (original) => ({
 }));
 
 /*
- * Zapis, import i eksport notesu (PRD GAME-7, GAME-9, EDT-1, EDT-6…EDT-8, NFR-7, zadanie
- * [015]). Supabase jest atrapą: sprawdzamy kolejność (upload, potem RPC), szablon bez zdjęcia
+ * Zapis, import i eksport notesu.
+ * Supabase jest atrapą: sprawdzamy kolejność (upload, potem RPC), szablon bez zdjęcia
  * w bazie i sprzątanie pliku po nieudanym zapisie. Dane są fikcyjne.
  */
 
@@ -93,7 +93,7 @@ const file = (content: unknown) =>
     type: 'application/json',
   });
 
-describe('saveScorepad (GAME-9, EDT-1)', () => {
+describe('saveScorepad', () => {
   it('wysyła zdjęcie do Storage, a do bazy szablon bez zdjęcia', async () => {
     const fake = fakeClient();
     const saved = await saveScorepad(fake.client, {
@@ -134,7 +134,7 @@ describe('saveScorepad (GAME-9, EDT-1)', () => {
     expect(fake.calls).toEqual([`upload ${path}`, 'rpc save_scorepad', `remove ${path}`]);
   });
 
-  it('wysyła miniaturę obok zdjęcia i sprząta obie po nieudanym zapisie (NFR-2, [040])', async () => {
+  it('wysyła miniaturę obok zdjęcia i sprząta obie po nieudanym zapisie', async () => {
     const thumb = new Blob(['t'], { type: 'image/webp' });
     vi.mocked(scaleImage).mockResolvedValueOnce({
       blob: thumb,
@@ -237,7 +237,7 @@ describe('saveScorepad (GAME-9, EDT-1)', () => {
   });
 });
 
-describe('import i eksport pliku .json (EDT-1, EDT-7)', () => {
+describe('import i eksport pliku .json', () => {
   it('czyta plik notesu v2 z eksportu edytora i z eksportu aplikacji', async () => {
     const fromEditor = { format: 'score-pad', version: 2, template: sampleTemplate() };
     expect(await readImportFile(file(fromEditor))).toMatchObject({ name: 'Turniejowy' });
@@ -303,7 +303,7 @@ describe('pomocnicze', () => {
     expect(scorepadName('   ')).toBe('Notes');
   });
 
-  it('ostrzeżenie EDT-6 tylko, gdy miejsc jest mniej niż max. graczy', () => {
+  it('ostrzeżenie o liczbie miejsc tylko, gdy miejsc jest mniej niż max. graczy', () => {
     expect(fewerSeatsMessage(4, 4)).toBeUndefined();
     expect(fewerSeatsMessage(5, 4)).toBeUndefined();
     expect(fewerSeatsMessage(3, 5)).toBe(

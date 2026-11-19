@@ -2,7 +2,7 @@ import { pl, type Messages } from './pl';
 
 export type { Messages };
 
-/** Aktywny słownik tekstów. Aplikacja jest po polsku (PRD §1.1, D16). */
+/** Aktywny słownik tekstów. Aplikacja jest po polsku. */
 export const t: Messages = pl;
 
 export type FormatParams = Readonly<Record<string, string | number>>;
@@ -20,7 +20,7 @@ export function format(template: string, params: FormatParams): string {
 
 /**
  * Liczba do wyświetlenia: całkowita bez zmian („12”, „-3”), ułamkowa z polskim przecinkiem
- * i najwyżej dwoma miejscami po przecinku („17,55”), np. punkty za miejsca (GAME-5).
+ * i najwyżej dwoma miejscami po przecinku („17,55”), np. punkty za miejsca.
  */
 export function formatNumber(n: number): string {
   if (Number.isInteger(n) || !Number.isFinite(n)) return String(n);

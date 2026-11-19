@@ -81,7 +81,7 @@ const TIED = [
   entry(99, 11, 'Zoja', 40, true),
 ];
 
-describe('ranking: podium i lista (LB-2, LB-3, LB-6, LB-7)', () => {
+describe('ranking: podium i lista', () => {
   it('remisujący stoją razem; widżet skraca stopień i pokazuje 4 kolejne miejsca', () => {
     renderBoard(TIED, 'widget', id(10));
     const podium = screen.getByRole('list', { name: 'Podium' });

@@ -12,7 +12,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Widżet i popup rankingu (PRD LB-1…LB-7, DS §6, §8). Ranking liczy baza (`leaderboard`, test
+ * Widżet i popup rankingu. Ranking liczy baza (`leaderboard`, test
  * SQL `200`); tu atrapa zwraca gotowe wiersze, a test sprawdza układ: zakładki, podium z remisami,
  * miejsca 4–7 w widżecie, pełną listę i filtr roku w popupie, wyróżnienie bieżącego użytkownika,
  * wyszarzonych usuniętych na końcu, linki do profili, długie nazwiska i brak poziomego przewijania
@@ -72,7 +72,7 @@ async function openApp(page: Page, options: MockOptions = {}, path = '/') {
   const mock = await mockSupabase(page, {
     club: CLUB,
     members: [...PEOPLE, ZOJA],
-    // Klasyfikowani są ci sami gracze we wszystkich zakładkach (LB-5); rok 2025 ma tylko punkty.
+    // Klasyfikowani są ci sami gracze we wszystkich zakładkach; rok 2025 ma tylko punkty.
     leaderboard: (kind, year) =>
       year === 2025 ? (kind === 'points' ? POINTS_2025 : []) : kind === 'wins' ? WINS : POINTS,
     leaderboardYears: [2026, 2025],
@@ -123,7 +123,7 @@ test('widżet: podium z remisem, miejsca 4–7 i własny wiersz z całej histori
   await expect(rows.nth(4).locator('.row--highlighted')).toHaveCount(1);
   await expect(list).not.toContainText('Igor');
   await expect(widget).not.toContainText('Zoja');
-  // Widżet nie ma filtru roku: zawsze cała historia (LB-4).
+  // Widżet nie ma filtru roku: zawsze cała historia.
   await expect(widget.getByRole('button', { name: 'Zakres rankingu' })).toHaveCount(0);
   expect(mock.leaderboardCalls.every((call) => call.year === null)).toBe(true);
 

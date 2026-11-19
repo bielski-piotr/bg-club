@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockGame, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
- * Krok 3 kreatora „Mapowanie pól” (EDT-11, EDT-6, EDT-8), zadanie [018]. Próbki to skany
+ * Krok 3 kreatora „Mapowanie pól”. Próbki to skany
  * kartki (cała kartka w kadrze): z tabelą 1 + 4 kolumny × 6 wierszy albo pusta. Na telefonie
  * prostokąty rysuje dotyk (CDP), na desktopie mysz. Każdy test przechodzi na 360 px
  * i na desktopie, w obu motywach.
@@ -143,9 +143,7 @@ async function axe(page: Page) {
 
 const tiles = (dialog: Locator) => dialog.locator('.wizard-stat__number');
 
-test('prostokąty ręczne: kolejne kategorie, powielanie dla ponad 8 miejsc, EDT-6', async ({
-  page,
-}) => {
+test('prostokąty ręczne: kolejne kategorie, powielanie dla ponad 8 miejsc', async ({ page }) => {
   test.setTimeout(60_000);
   const dialog = await openMapping(page, false);
   const next = dialog.getByRole('button', { name: 'Dalej' });
@@ -182,7 +180,7 @@ test('prostokąty ręczne: kolejne kategorie, powielanie dla ponad 8 miejsc, EDT
   await expect.poll(async () => (await mapping(page)).categories).toBe(2);
   await drawRect(page, 0.05, 0.3);
 
-  // Powielenie dla kolejnych miejsc (EDT-8: ponad 8).
+  // Powielenie dla kolejnych miejsc (ponad 8).
   for (let n = 2; n <= 10; n++) {
     await dialog.getByRole('button', { name: `Powiel dla miejsca ${n}` }).click();
     await expect.poll(async () => (await mapping(page)).seats).toBe(n);

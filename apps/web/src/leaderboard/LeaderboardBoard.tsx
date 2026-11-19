@@ -14,7 +14,7 @@ import {
 } from './leaderboard';
 import './leaderboard.css';
 
-/** Ile awatarów remisującego stopnia widać w widżecie; resztę skrót „i N więcej” (LB-6). */
+/** Ile awatarów remisującego stopnia widać w widżecie; resztę skrót „i N więcej”. */
 const WIDGET_TIED_AVATARS = 3;
 
 const DESKTOP = '(min-width: 768px)';
@@ -26,7 +26,7 @@ function subscribe(onChange: () => void) {
   return () => query.removeEventListener('change', onChange);
 }
 
-/** Szerokość od 768 px: większe awatary podium (DS §8: 104 i 80; na telefonie 80 i 64). */
+/** Szerokość od 768 px: większe awatary podium (104 i 80; na telefonie 80 i 64). */
 function useDesktop(): boolean {
   return useSyncExternalStore(
     subscribe,
@@ -35,7 +35,7 @@ function useDesktop(): boolean {
   );
 }
 
-/** Profil do awatara: hook z listy profili (kolor monogramu, USR-2), reszta z wiersza rankingu. */
+/** Profil do awatara: hook z listy profili (kolor monogramu), reszta z wiersza rankingu. */
 function avatarProfile(entry: LeaderboardEntry, profiles: ReadonlyMap<string, Profile>) {
   return {
     hook: profiles.get(entry.profile_id)?.hook ?? entry.profile_id,
@@ -47,7 +47,7 @@ function avatarProfile(entry: LeaderboardEntry, profiles: ReadonlyMap<string, Pr
 }
 
 function Score({ kind, value }: { readonly kind: LeaderboardKind; readonly value: number }) {
-  // Formy jednostki nie zawierają `{n}`: liczba stoi osobno, większą czcionką (DS §6).
+  // Formy jednostki nie zawierają `{n}`: liczba stoi osobno, większą czcionką.
   const unit = plural(value, t.leaderboard.units[kind]);
   return (
     <span className="score leaderboard__score">
@@ -62,15 +62,15 @@ interface BoardProps {
   readonly kind: LeaderboardKind;
   readonly meId: string;
   readonly profiles: ReadonlyMap<string, Profile>;
-  /** Widżet: miejsca 4–7 (+ własny wiersz) i skrócone remisy; popup: pełna lista (LB-3). */
+  /** Widżet: miejsca 4–7 (+ własny wiersz) i skrócone remisy; popup: pełna lista. */
   readonly variant: 'widget' | 'popup';
 }
 
 /**
- * Wspólny układ rankingu widżetu i popupu (LB-2, LB-3, DS §6, §8): podium z awatarami w ringu,
+ * Wspólny układ rankingu widżetu i popupu: podium z awatarami w ringu,
  * odznaką miejsca i koroną, a pod nim taca z kolejnymi miejscami. Remisujący stoją razem na
- * jednym stopniu (LB-6), usunięci są wyszarzeni na końcu listy (LB-7), bieżący użytkownik ma
- * wiersz akcentu i odznakę „Ty”. Każdy awatar prowadzi do profilu (PRD §4).
+ * jednym stopniu, usunięci są wyszarzeni na końcu listy, bieżący użytkownik ma
+ * wiersz akcentu i odznakę „Ty”. Każdy awatar prowadzi do profilu.
  */
 export function LeaderboardBoard({ entries, kind, meId, profiles, variant }: BoardProps) {
   const { steps, rows } = leaderboardLayout(entries);
@@ -134,7 +134,7 @@ function PodiumColumn({
 }) {
   const first = index === 0;
   const tied = step.entries.length > 1;
-  // Pojedyncza osoba: DS §8 (104 i 80, na telefonie 80 i 64); remis: mniejsze, żeby się zmieściły.
+  // Pojedyncza osoba: (104 i 80, na telefonie 80 i 64); remis: mniejsze, żeby się zmieściły.
   const size: AvatarSize = tied
     ? first && desktop
       ? 56

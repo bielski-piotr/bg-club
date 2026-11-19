@@ -15,7 +15,7 @@ const VIEW = 280;
 const LANDSCAPE = { width: 1200, height: 800 };
 const PORTRAIT = { width: 600, height: 900 };
 
-describe('kadrowanie awatara (USR-3)', () => {
+describe('kadrowanie awatara', () => {
   it('na starcie krótszy bok wypełnia kadr, a kadr jest na środku', () => {
     expect(sourceRect(INITIAL_CROP, LANDSCAPE, VIEW)).toEqual({ sx: 200, sy: 0, side: 800 });
     expect(sourceRect(INITIAL_CROP, PORTRAIT, VIEW)).toEqual({ sx: 0, sy: 150, side: 600 });

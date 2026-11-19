@@ -12,7 +12,7 @@ export interface SwitchProps {
 }
 
 /**
- * Przełącznik 40×24 (DS §18, ma pierwszeństwo przed §10 wg Q19): etykieta po lewej,
+ * Przełącznik 40×24: etykieta po lewej,
  * przełącznik po prawej. `role="switch"`; Spacja i Enter przełączają.
  */
 export function Switch({
@@ -67,7 +67,7 @@ export interface SliderProps extends Omit<
 }
 
 /**
- * Suwak (DS §18): etykieta, tor h4 z wypełnieniem akcentu, gałka 20, wartość po prawej.
+ * Suwak: etykieta, tor h4 z wypełnieniem akcentu, gałka 20, wartość po prawej.
  * Natywny `input type="range"`: strzałki, PageUp/PageDown, Home i End.
  */
 export function Slider({

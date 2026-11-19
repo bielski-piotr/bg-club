@@ -13,7 +13,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Statystyki gry i podsumowanie spotkania (PRD GAME-11, VIEW-4, zadanie [035]). Liczby liczy
+ * Statystyki gry i podsumowanie spotkania. Liczby liczy
  * baza (`game_stats`, `meeting_summary`, test SQL 210: remisy, gry „mniej = lepiej”, wersje
  * notesów, szkice, usunięcie partii); tu atrapa zwraca gotowe wyniki, a test sprawdza widok:
  * kafle, rekord z wszystkimi rekordzistami i linkiem do spotkania, ranking gry z usuniętym na
@@ -160,7 +160,7 @@ async function check(page: Page) {
   ).toEqual([]);
 }
 
-test('statystyki gry: kafle, rekord z rekordzistami, ranking gry (GAME-11)', async ({ page }) => {
+test('statystyki gry: kafle, rekord z rekordzistami, ranking gry', async ({ page }) => {
   await openApp(page, `/?p=game/${AZUL.id}`);
   const details = page.getByRole('dialog', { name: 'Azul' });
   const stats = details.getByRole('region', { name: 'Statystyki' });
@@ -168,7 +168,7 @@ test('statystyki gry: kafle, rekord z rekordzistami, ranking gry (GAME-11)', asy
   await expect(stats).toContainText('Bea Bobrowska, Cezary Cichy5 wygranych');
   await expect(stats).toContainText('Średni wynik zwycięzcy28,8');
 
-  // Rekord „mniej = lepiej” z dwoma rekordzistami (Q25): kto i kiedy, z linkiem do spotkania.
+  // Rekord „mniej = lepiej” z dwoma rekordzistami: kto i kiedy, z linkiem do spotkania.
   await expect(stats).toContainText('Rekord gry');
   await expect(stats).toContainText('38mniej = lepiej');
   const holder = stats.getByRole('link', {
@@ -204,9 +204,7 @@ test('gra bez partii: pusty stan statystyk', async ({ page }) => {
   await check(page);
 });
 
-test('podsumowanie spotkania: punkty z rozbiciem na gry, wygrane i seria (VIEW-4)', async ({
-  page,
-}) => {
+test('podsumowanie spotkania: punkty z rozbiciem na gry, wygrane i seria', async ({ page }) => {
   await openApp(page, `/?p=meeting/${FINISHED.id}`);
   const dialog = page.getByRole('dialog', { name: 'Listopadowe granie' });
   const summary = dialog.getByRole('list', {

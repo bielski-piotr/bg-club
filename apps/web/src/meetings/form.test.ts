@@ -22,7 +22,7 @@ const valid: MeetingFormValues = {
   hostId: 'b2',
 };
 
-describe('formularz spotkania (PLAN-1)', () => {
+describe('formularz spotkania', () => {
   it('nowe spotkanie: dziś w strefie klubu o 18:00, uczestnikiem jest admin', () => {
     expect(emptyMeetingForm(WARSAW, ADA, undefined, new Date('2026-11-14T23:30:00Z'))).toEqual({
       title: '',

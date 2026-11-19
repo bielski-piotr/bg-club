@@ -53,13 +53,13 @@ import { PlaySummaryDialog } from './PlaySummaryDialog';
 const text = t.meetings.play;
 
 /**
- * Partia w toku (PAD-4, PAD-8, PAD-9, RUN-3): notes 3D z szablonem wersji, z którą partia się
+ * Partia w toku: notes 3D z szablonem wersji, z którą partia się
  * zaczęła, i graczami na ich miejscach. Wpisy zapisują się jako szkic w bazie (po 1,5 s)
  * i w `localStorage`, więc odświeżenie, awaria i utrata sieci ich nie gubią, a admin albo
  * prowadzący może dokończyć partię na innym urządzeniu. Nowszy szkic z innego urządzenia daje
  * konflikt do rozstrzygnięcia zamiast cichego nadpisania.
  *
- * Oderwanie karteczki kończy partię (PAD-5): podsumowanie z miejscami i punktami, po
+ * Oderwanie karteczki kończy partię: podsumowanie z miejscami i punktami, po
  * potwierdzeniu zapis kartki i wyników w jednej transakcji (`save_play`), a „Wróć do kartki”
  * kładzie kartkę z powrotem na notes.
  *
@@ -87,8 +87,8 @@ export function PlayPopup({ id, me }: { readonly id: string; readonly me: OwnPro
       </PopupModal>
     );
   }
-  // Notes zaczyna od świeżego szkicu z bazy, nie z pamięci podręcznej (inne urządzenie
-  // mogło go w międzyczasie zmienić, PAD-4).
+  // Notes zaczyna od świeżego szkicu z bazy, nie z pamięci podręcznej (inne urządzenie mogło go w
+  // międzyczasie zmienić).
   if (!play.data || !play.isFetchedAfterMount || !meeting.data || !profiles.data) {
     return (
       <PopupModal title={title}>
@@ -133,7 +133,7 @@ export function PlayPopup({ id, me }: { readonly id: string; readonly me: OwnPro
   );
 }
 
-/** PAD-9: zamiast notesu „Trwa partia: {gra}” z graczami i powodem. */
+/** Zamiast notesu „Trwa partia: {gra}” z graczami i powodem. */
 function LiveInfo({
   play,
   profiles,
@@ -220,7 +220,7 @@ function PlayPad({
   const namesRef = useRef(names);
 
   // Start notesu liczony raz, przy otwarciu: wpisy z bazy, niezapisana kopia z tego
-  // urządzenia albo konflikt między nimi (wznowienie, PAD-4).
+  // urządzenia albo konflikt między nimi (wznowienie).
   const [start] = useState(() =>
     resolveDraftStart(readLocalDraft(draftStorage(), me.id, play.id), fromDraftRow(play)),
   );
@@ -296,7 +296,7 @@ function PlayPad({
     };
   }, [initial, client, me.id, play.id, queryClient]);
 
-  // Aktualizacja aplikacji czeka, aż wpisy będą w bazie (NFR-3, PAD-4).
+  // Aktualizacja aplikacji czeka, aż wpisy będą w bazie.
   // Po zamknięciu notesu blokadę zdejmuje dopiero koniec zapisu (`dispose` wyżej).
   useEffect(() => {
     pwa.setDraft(play.id, status.state !== 'saved' && status.state !== 'failed');
@@ -356,7 +356,7 @@ function PlayPad({
     setInitial({ sheet: chosen, version: server.version, dirty: keep === 'local' });
   };
 
-  // Oderwana kartka czeka na decyzję (PAD-5): podsumowanie albo powrót na notes. Notes po
+  // Oderwana kartka czeka na decyzję: podsumowanie albo powrót na notes. Notes po
   // oderwaniu kładzie na wierzch czystą kartkę; jej wpisów nie zapisujemy jako szkicu.
   const tearing = useRef(false);
   const tornRef = useRef(false);
@@ -364,7 +364,7 @@ function PlayPad({
     readonly sheet: ScorePadSheet;
     readonly summary: PlaySummary | null;
     readonly ranked: ScorePadSaveDetail['results'];
-    /** Obraz karteczki wgrywany w tle, zanim użytkownik potwierdzi zapis (PAD-6). */
+    /** Obraz karteczki wgrywany w tle, zanim użytkownik potwierdzi zapis. */
     readonly image: PendingSheetImage;
   } | null>(null);
   const [tearNotice, setTearNotice] = useState<'empty' | 'conflict' | 'restoreFailed' | null>(null);
@@ -443,7 +443,7 @@ function PlayPad({
     },
     onSuccess: (unlocks, { image }) => {
       // Obraz karteczki dołączamy w tle: zapis wyników na niego nie czeka, a jego brak nie psuje
-      // historii (PAD-6). Po dołączeniu lista partii pokazuje miniaturę.
+      // historii. Po dołączeniu lista partii pokazuje miniaturę.
       void finishSheetImage(client, play, image)
         .catch(() => null)
         .then(() => queryClient.invalidateQueries({ queryKey: meetingsKey }));
@@ -460,7 +460,7 @@ function PlayPad({
           { rich: true, duration: 10_000, key: `achievement:${saveRequestId}` },
         );
       }
-      // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane” (§5.6.5).
+      // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane”.
       void invalidatePlayData(queryClient);
       if (mounted.current) back();
     },
@@ -561,7 +561,7 @@ function PlayPad({
                   onChange={({ sheet }) => {
                     // Po oderwaniu na wierzchu jest czysta kartka: to nie są wpisy partii.
                     if (tearing.current) return;
-                    // Imiona graczy wynikają z miejsc partii (PAD-2), nie z klawiatury.
+                    // Imiona graczy wynikają z miejsc partii, nie z klawiatury.
                     const next = sheetWithPlayers(sheet, namesRef.current);
                     lastSheet.current = next;
                     saverRef.current?.change(next);

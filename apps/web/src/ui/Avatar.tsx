@@ -4,10 +4,10 @@ import { paletteColor, paletteIndex, monogram } from './avatarUtils';
 import { cx } from './cx';
 import './Avatar.css';
 
-/** Rozmiary z DS §8 (38 = awatar w chipie użytkownika w nagłówku, §17). */
+/** Rozmiary z (38 = awatar w chipie użytkownika w nagłówku). */
 export type AvatarSize = 20 | 24 | 28 | 32 | 36 | 38 | 40 | 56 | 64 | 80 | 88 | 104;
 
-/** Monogram skaluje się z awatarem (DS §8): [rozmiar fontu, wysokość linii]. */
+/** Monogram skaluje się z awatarem: [rozmiar fontu, wysokość linii]. */
 const MONOGRAM: Readonly<Record<AvatarSize, readonly [number, number]>> = {
   20: [9, 12],
   24: [10, 12],
@@ -24,19 +24,19 @@ const MONOGRAM: Readonly<Record<AvatarSize, readonly [number, number]>> = {
 };
 
 export interface AvatarPerson {
-  /** Stały klucz koloru (hook profilu, USR-2; id gry). Bez niego kolor wynika z imienia. */
+  /** Stały klucz koloru (hook profilu, id gry). Bez niego kolor wynika z imienia. */
   readonly id?: string | undefined;
-  /** Imię i nazwisko; także tekst alternatywny (NFR-6). */
+  /** Imię i nazwisko; także tekst alternatywny. */
   readonly name: string;
   /** Zdjęcie profilowe (Storage). Bez niego monogram. */
   readonly src?: string | undefined;
-  /** Usunięty członek: szary awatar (DS §8). */
+  /** Usunięty członek: szary awatar. */
   readonly removed?: boolean | undefined;
 }
 
 export interface AvatarProps extends AvatarPerson {
   readonly size?: AvatarSize | undefined;
-  /** Obwódka (np. biała w wierszu bieżącego użytkownika, DS §6). */
+  /** Obwódka (np. biała w wierszu bieżącego użytkownika). */
   readonly ring?: 'white' | 'accent' | undefined;
   /** `true`, gdy obok jest już widoczne imię: awatar jest wtedy dekoracyjny. */
   readonly decorative?: boolean | undefined;
@@ -44,7 +44,7 @@ export interface AvatarProps extends AvatarPerson {
   readonly style?: CSSProperties | undefined;
 }
 
-/** Okrągły awatar: zdjęcie albo biały monogram na kolorze palety (DS §8). */
+/** Okrągły awatar: zdjęcie albo biały monogram na kolorze palety. */
 export function Avatar({
   id,
   name,
@@ -93,11 +93,11 @@ export function Avatar({
 export interface AvatarStackProps {
   readonly people: readonly AvatarPerson[];
   readonly size?: 20 | 24 | 28 | 36 | 56 | 64 | undefined;
-  /** Zakładka sąsiednich awatarów w px; domyślnie wg DS §8. */
+  /** Zakładka sąsiednich awatarów w px; domyślnie wg. */
   readonly overlap?: number | undefined;
   /** Ile awatarów pokazać; reszta trafia do bąbla „+N” (gdy `showOverflow`). */
   readonly max?: number | undefined;
-  /** Bąbel „+N” (stos członków, DS §8). Stosy na Spotkaniach go nie mają. */
+  /** Bąbel „+N” (stos członków). Stosy na Spotkaniach go nie mają. */
   readonly showOverflow?: boolean | undefined;
   readonly className?: string | undefined;
 }
@@ -112,7 +112,7 @@ const DEFAULT_OVERLAP: Readonly<Record<NonNullable<AvatarStackProps['size']>, nu
 };
 
 /**
- * Nachodzące na siebie awatary (DS §8). Dla czytnika ekranu stos to jeden obraz
+ * Nachodzące na siebie awatary. Dla czytnika ekranu stos to jeden obraz
  * z listą imion („Ania, Bartek i 8 innych osób”).
  */
 export function AvatarStack({

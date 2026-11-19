@@ -1,4 +1,4 @@
--- [004] Kontrakt uprawnień w katalogu bazy: prawa ról klienta, EXECUTE funkcji, polityki RLS,
+-- Kontrakt uprawnień w katalogu bazy: prawa ról klienta, EXECUTE funkcji, polityki RLS,
 -- search_path funkcji SECURITY DEFINER i buckety Storage.
 -- Nowa tabela, kolumna z prawem zapisu albo funkcja dostępna dla klienta wymaga świadomej
 -- zmiany oczekiwań w tym pliku.
@@ -9,7 +9,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(18);
 
 -- ---------------------------------------------------------------------------------------------
--- anon: żadnych praw (PRD §6.1: odczyt tylko dla zalogowanych)
+-- anon: żadnych praw (odczyt tylko dla zalogowanych)
 -- ---------------------------------------------------------------------------------------------
 select is_empty(
   $$ select table_name || ' ' || privilege_type from information_schema.role_table_grants
@@ -178,7 +178,7 @@ select results_eq(
        ('profiles', 'SELECT,UPDATE'),
        ('scorepad_versions', 'INSERT,SELECT'),
        ('scorepads', 'INSERT,SELECT,UPDATE') $$,
-  'polityki według macierzy uprawnień (PRD §2.1, §6.1)'
+  'polityki według macierzy uprawnień'
 );
 
 -- ---------------------------------------------------------------------------------------------
@@ -205,7 +205,7 @@ select results_eq(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Storage: prywatne buckety z limitami (PRD §6, NFR-7)
+-- Storage: prywatne buckety z limitami
 -- ---------------------------------------------------------------------------------------------
 select results_eq(
   $$ select id collate "default", public, file_size_limit, allowed_mime_types

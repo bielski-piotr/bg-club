@@ -9,7 +9,7 @@ const chunk = (fileName: string, extra: Partial<ShellChunk> = {}): ShellChunk =>
   ...extra,
 });
 
-describe('shellFiles (NFR-3)', () => {
+describe('shellFiles', () => {
   it('bierze wejście z importami statycznymi i CSS, bez leniwych części i map', () => {
     const files = shellFiles({
       'assets/index.js': chunk('assets/index.js', {

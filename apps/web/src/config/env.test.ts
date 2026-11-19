@@ -45,7 +45,7 @@ describe('parseConfig', () => {
     });
   });
 
-  it('odrzuca sekretny klucz serwera w miejscu klucza anon (NFR-9)', () => {
+  it('odrzuca sekretny klucz serwera w miejscu klucza anon', () => {
     expect(
       parseConfig({
         VITE_SUPABASE_URL: 'https://abc.supabase.co',

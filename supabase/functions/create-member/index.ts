@@ -1,9 +1,9 @@
 /**
- * Edge Function `create-member`: administrator dodaje członka klubu (PRD MEM-3, AUTH-2,
- * AUTH-4). Konto Auth z technicznym e-mailem i `app_metadata.bg_club`; profil zakłada wyzwalacz
+ * Edge Function `create-member`: administrator dodaje członka klubu. Konto Auth z technicznym
+ * e-mailem i `app_metadata.bg_club`; profil zakłada wyzwalacz
  * w bazie w tej samej transakcji (migracja `20261113000500_accounts_and_login.sql`).
  *
- * Klucz service role jest tylko tutaj (PRD §6.1). Logika żądania: `handler.ts`.
+ * Klucz service role jest tylko tutaj. Logika żądania: `handler.ts`.
  */
 import { accountStore, serviceClient } from '../_shared/supabase.ts';
 import { handleCreateMember } from './handler.ts';
@@ -35,7 +35,7 @@ Deno.serve((request) =>
           password,
           // Techniczny adres nie przyjmuje poczty; konto jest od razu potwierdzone.
           email_confirm: true,
-          // Hasło jest wygenerowane: przy pierwszym logowaniu aplikacja proponuje zmianę (AUTH-6).
+          // Hasło jest wygenerowane: przy pierwszym logowaniu aplikacja proponuje zmianę.
           app_metadata: {
             bg_club: {
               first_name: firstName,

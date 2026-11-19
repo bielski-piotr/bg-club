@@ -1,7 +1,7 @@
--- [028] Trwałe szkice i wznawianie partii (PRD PAD-4, PAD-8, PAD-9, RUN-3).
+-- Trwałe szkice i wznawianie partii.
 --
 -- Zasady:
--- - Szkic partii to wiersz `plays` w statusie `draft` ([027], `start_play`). Wpisy kartki
+-- - Szkic partii to wiersz `plays` w statusie `draft` (`start_play`). Wpisy kartki
 --   (`plays.sheet`, format `sheet` pliku notesu v2) zapisuje `save_play_draft(play_id, sheet,
 --   base_version)`: notes wysyła je z opóźnieniem 1–2 s, a aplikacja trzyma kopię także
 --   w `localStorage` (odświeżenie, awaria, utrata sieci).
@@ -11,14 +11,14 @@
 --   `plays_draft_conflict` (SQLSTATE PT409: PostgREST odpowiada 409; nie 40001, który
 --   sterowniki ponawiają same), a aplikacja pokazuje konflikt zamiast cicho
 --   nadpisać wpisy. Świadome nadpisanie to zapis z bieżącą wersją z bazy.
--- - Szkic może dokończyć admin albo prowadzący na innym urządzeniu (PAD-4): wczytuje wpisy
+-- - Szkic może dokończyć admin albo prowadzący na innym urządzeniu: wczytuje wpisy
 --   z bazy, bez synchronizacji na żywo. Uprawnienia jak przy rozpoczęciu partii
---   (`private.require_meeting_runner`), zapis tylko w spotkaniu w trakcie (PAD-9).
--- - `discard_play(play_id)` porzuca partię w toku (PAD-8): usuwa szkic razem z graczami.
+--   (`private.require_meeting_runner`), zapis tylko w spotkaniu w trakcie.
+-- - `discard_play(play_id)` porzuca partię w toku: usuwa szkic razem z graczami.
 --   Szkice nie liczą się do statystyk, więc nie ma czego przeliczać. Zapisanej partii ta
---   funkcja nie usunie (usuwanie partii: [031]).
+--   funkcja nie usunie.
 -- - Błędy reguł mają SQLSTATE 23514 (brak partii: P0002, konflikt: PT409) i nazwę reguły
---   w HINT, jak w migracjach [023], [024] i [027].
+--   w HINT, jak we wcześniejszych migracjach.
 
 alter table public.plays
   add column draft_version int not null default 0
@@ -29,9 +29,9 @@ alter table public.plays
 create index plays_draft_saved_by_idx on public.plays (draft_saved_by);
 
 comment on column public.plays.draft_version is
-  'Wersja szkicu kartki (PAD-4): 0 po rozpoczęciu partii, +1 przy każdym zapisie save_play_draft.';
-comment on column public.plays.draft_saved_at is 'Czas ostatniego zapisu szkicu kartki (PAD-4).';
-comment on column public.plays.draft_saved_by is 'Kto ostatnio zapisał szkic kartki (PAD-4).';
+  'Wersja szkicu kartki: 0 po rozpoczęciu partii, +1 przy każdym zapisie save_play_draft.';
+comment on column public.plays.draft_saved_at is 'Czas ostatniego zapisu szkicu kartki.';
+comment on column public.plays.draft_saved_by is 'Kto ostatnio zapisał szkic kartki.';
 
 -- Największy szkic kartki (tekst JSON). Kartka z dziesiątkami graczy i kategorii ma kilka KB;
 -- limit chroni bazę przed przypadkowo ogromnym żądaniem.
@@ -44,7 +44,7 @@ return 262144;
 
 revoke execute on function private.play_draft_max_bytes() from public, anon, authenticated;
 
--- Strażnik zmian partii z [003] z polami szkicu: w zapisanej partii są niezmienne (jak kartka),
+-- Strażnik zmian partii z polami szkicu: w zapisanej partii są niezmienne (jak kartka),
 -- a wersja szkicu nie maleje. Jedna funkcja pilnuje niezmienności całej partii.
 create or replace function public.plays_before_update()
 returns trigger
@@ -177,7 +177,7 @@ end;
 $$;
 
 comment on function public.save_play_draft(uuid, jsonb, int) is
-  'Zapisuje szkic kartki partii w toku z kontrolą wersji (PAD-4). Admin lub prowadzący, tylko spotkanie w trakcie.';
+  'Zapisuje szkic kartki partii w toku z kontrolą wersji. Admin lub prowadzący, tylko spotkanie w trakcie.';
 
 revoke execute on function public.save_play_draft(uuid, jsonb, int) from public, anon;
 grant execute on function public.save_play_draft(uuid, jsonb, int) to authenticated;
@@ -211,7 +211,7 @@ end;
 $$;
 
 comment on function public.discard_play(uuid) is
-  'Porzuca partię w toku: usuwa szkic i jego graczy, bez wpływu na statystyki (PAD-8). Admin lub prowadzący.';
+  'Porzuca partię w toku: usuwa szkic i jego graczy, bez wpływu na statystyki. Admin lub prowadzący.';
 
 revoke execute on function public.discard_play(uuid) from public, anon;
 grant execute on function public.discard_play(uuid) to authenticated;

@@ -17,11 +17,11 @@ export interface MockProfile {
   readonly last_name: string;
   readonly role: 'admin' | 'player';
   readonly deleted_at: string | null;
-  /** Zdjęcie w buckecie `avatars` (USR-3); brak = monogram. */
+  /** Zdjęcie w buckecie `avatars`; brak = monogram. */
   readonly avatar_path?: string | null;
-  /** Motyw z profilu (USR-8); brak = `system`. */
+  /** Motyw z profilu; brak = `system`. */
   readonly theme?: 'light' | 'dark' | 'system';
-  /** Propozycja zmiany wygenerowanego hasła (AUTH-6); brak = `false`. */
+  /** Propozycja zmiany wygenerowanego hasła; brak = `false`. */
   readonly password_change_suggested?: boolean;
 }
 
@@ -120,86 +120,86 @@ export interface MockOptions {
    */
   clubConflict?: MockClub;
   /**
-   * Odpowiedź Edge Function `create-member` (MEM-3). Domyślnie: członek utworzony z hookiem
+   * Odpowiedź Edge Function `create-member`. Domyślnie: członek utworzony z hookiem
    * z imienia i nazwiska, dopisany do `members`; inaczej podany status i treść błędu.
    */
   createMember?: { readonly status: number; readonly body: unknown };
   /**
-   * Odpowiedź Auth na zmianę hasła (`PUT /auth/v1/user`, USR-5): kod błędu GoTrue, np.
+   * Odpowiedź Auth na zmianę hasła (`PUT /auth/v1/user`): kod błędu GoTrue, np.
    * `current_password_invalid`. Domyślnie: hasło zmienione.
    */
   updateUserError?: { readonly status: number; readonly code: string } | undefined;
   /**
-   * Odpowiedź Edge Function `delete-member` (MEM-4). Domyślnie: członek z `members` dostaje
+   * Odpowiedź Edge Function `delete-member`. Domyślnie: członek z `members` dostaje
    * `deleted_at` i odpowiedź 200; inaczej podany status i treść błędu.
    */
   deleteMember?: { readonly status: number; readonly body: unknown } | undefined;
   /**
-   * Odpowiedź Edge Function `delete-own-account` (USR-6). Domyślnie: hasło
+   * Odpowiedź Edge Function `delete-own-account`. Domyślnie: hasło
    * {@link OWN_ACCOUNT_PASSWORD} usuwa konto (RLS przestaje zwracać profil), inne daje
    * `wrong_password`; inaczej podany status i treść błędu.
    */
   deleteOwnAccount?: { readonly status: number; readonly body: unknown } | undefined;
   /** Gry kolekcji, także usunięte (`deleted_at`). Zapis z aplikacji zmienia tę listę. */
   games?: MockGame[];
-  /** Notesy gier (GAME-7) z aktualną wersją; domyślnie brak. */
+  /** Notesy gier z aktualną wersją; domyślnie brak. */
   scorepads?: MockScorepad[];
-  /** Spotkania (§5.8). Zapis z aplikacji (`save_meeting`, DELETE) zmienia tę listę. */
+  /** Spotkania. Zapis z aplikacji (`save_meeting`, DELETE) zmienia tę listę. */
   meetings?: MockMeeting[];
-  /** Partie spotkań osadzane w timeline i kalendarzu (MTG-3): liczba partii i zwycięzcy. */
+  /** Partie spotkań osadzane w timeline i kalendarzu: liczba partii i zwycięzcy. */
   plays?: readonly MockPlay[];
-  /** Gracze z partią w spotkaniu (`play_results`, PLAN-4). */
+  /** Gracze z partią w spotkaniu (`play_results`). */
   playResults?: readonly { readonly meeting_id: string; readonly profile_id: string }[];
   /** Błąd PostgREST zwracany przez `save_meeting` (np. reguła z HINT). */
   saveMeetingError?: { readonly code: string; readonly hint?: string; readonly message: string };
-  /** Głosy (`game_votes`, VOTE-2). Głos i cofnięcie z aplikacji zmieniają tę listę. */
+  /** Głosy (`game_votes`). Głos i cofnięcie z aplikacji zmieniają tę listę. */
   votes?: MockVote[];
-  /** Opublikowane gry (`meeting_games`, VOTE-5) w kolejności `position`. */
+  /** Opublikowane gry (`meeting_games`) w kolejności `position`. */
   meetingGames?: { readonly meeting_id: string; readonly game_id: string }[];
   /** Błąd PostgREST zwracany przez `start_play` (np. reguła z HINT). */
   startPlayError?: { readonly code: string; readonly hint?: string; readonly message: string };
-  /** Brak sieci przy zapisie szkicu (`save_play_draft` przerwane jak offline, PAD-4). */
+  /** Brak sieci przy zapisie szkicu (`save_play_draft` przerwane jak offline). */
   draftOffline?: boolean;
   /**
-   * Zapis partii (`save_play`, PAD-5): tyle pierwszych żądań baza wykonuje, ale odpowiedź nie
+   * Zapis partii (`save_play`): tyle pierwszych żądań baza wykonuje, ale odpowiedź nie
    * dociera (przekroczony czas po zatwierdzeniu transakcji).
    */
   savePlayLostReplies?: number;
   /** Błąd PostgREST zwracany przez `save_play` (np. reguła z HINT). */
   savePlayError?: { readonly code: string; readonly hint?: string; readonly message: string };
-  /** Upload obrazu karteczki (bucket `sheets`, PAD-6) przerwany jak offline. */
+  /** Upload obrazu karteczki (bucket `sheets`) przerwany jak offline. */
   sheetUploadOffline?: boolean;
   /** Osierocone obrazy spotkania zwracane przez `orphan_sheet_images`. */
   orphanSheets?: readonly string[];
   /** Tyle pierwszych usunięć plików z bucketu `sheets` kończy się błędem Storage (500). */
   sheetRemoveFailures?: number;
   /**
-   * Wynik `leaderboard(kind, year)` (LB-1, LB-4) w kolejności z bazy; `year` `null` = cała
+   * Wynik `leaderboard(kind, year)` w kolejności z bazy; `year` `null` = cała
    * historia. Domyślnie pusty ranking.
    */
   leaderboard?: (kind: string, year: number | null) => readonly MockLeaderboardRow[];
   /** Wynik `leaderboard_years()`; domyślnie brak lat. */
   leaderboardYears?: readonly number[];
   /**
-   * Wynik `game_stats(game_id)` (GAME-11, migracja `20261113001800_game_stats.sql`); domyślnie
+   * Wynik `game_stats(game_id)` (migracja `20261113001800_game_stats.sql`); domyślnie
    * statystyki bez partii.
    */
   gameStats?: (gameId: string) => unknown;
-  /** Wiersze `meeting_summary(meeting_id)` (VIEW-4); domyślnie puste podsumowanie. */
+  /** Wiersze `meeting_summary(meeting_id)`; domyślnie puste podsumowanie. */
   meetingSummary?: (meetingId: string) => readonly unknown[];
   /**
-   * Wynik `player_stats(profile_id, year)` (STAT-1–STAT-3, migracja
-   * `20261115223700_player_stats.sql`); `year` `null` = cała historia. Domyślnie zero partii.
+   * Wynik `player_stats(profile_id, year)` (migracja `20261115223700_player_stats.sql`); `year`
+   * `null` = cała historia. Domyślnie zero partii.
    */
   playerStats?: (profileId: string, year: number | null) => unknown;
   /**
-   * Wynik `player_achievements(profile_id)` (ACH-3, migracja
-   * `20261116000000_achievement_showcase.sql`); domyślnie pusta gablota.
+   * Wynik `player_achievements(profile_id)` (migracja `20261116000000_achievement_showcase.sql`);
+   * domyślnie pusta gablota.
    */
   playerAchievements?: (profileId: string) => unknown;
-  /** Nowe odblokowania zwracane wyłącznie pierwszemu żądaniu zapisu (ACH-4). */
+  /** Nowe odblokowania zwracane wyłącznie pierwszemu żądaniu zapisu. */
   savePlayUnlocks?: readonly { readonly profile_id: string; readonly achievement_id: string }[];
-  /** Wiersze `meeting_achievements(meeting_id)` (VIEW-5); domyślnie brak odblokowań. */
+  /** Wiersze `meeting_achievements(meeting_id)`; domyślnie brak odblokowań. */
   meetingAchievements?: (meetingId: string) => readonly unknown[];
 }
 
@@ -257,7 +257,7 @@ export interface MockLeaderboardRow {
   readonly value: number;
 }
 
-/** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
+/** Wywołanie `save_play`: kartka i wyniki graczy bez punktów. */
 export interface PlaySave {
   readonly request_id?: string;
   readonly play_id: string;
@@ -272,14 +272,14 @@ export interface PlaySave {
   }[];
 }
 
-/** Wywołanie `save_play_draft` (PAD-4): wpisy kartki i wersja, od której zaczyna zapis. */
+/** Wywołanie `save_play_draft`: wpisy kartki i wersja, od której zaczyna zapis. */
 export interface DraftSave {
   readonly play_id: string;
   readonly sheet: Record<string, unknown>;
   readonly base_version: number;
 }
 
-/** Wywołanie `start_play` (RUN-2): miejsca notesu z NULL dla wolnych. */
+/** Wywołanie `start_play`: miejsca notesu z NULL dla wolnych. */
 export interface PlayStart {
   readonly play_id: string;
   readonly meeting_id: string;
@@ -294,8 +294,8 @@ export interface MockVote {
 }
 
 /**
- * Partia spotkania z wynikami: osadzona w wierszu `meetings` (MTG-3) i zwracana przez
- * `GET /rest/v1/plays` (VIEW-3). Pola karty partii są opcjonalne (domyślne w `playRow`).
+ * Partia spotkania z wynikami: osadzona w wierszu `meetings` i zwracana przez
+ * `GET /rest/v1/plays`. Pola karty partii są opcjonalne (domyślne w `playRow`).
  */
 export interface MockPlay {
   readonly id: string;
@@ -304,18 +304,18 @@ export interface MockPlay {
   readonly saved_at: string | null;
   readonly started_at?: string;
   readonly game_id?: string;
-  /** Szkic kartki (PAD-4): wpisy, wersja i kto ją zapisał. Zapis z aplikacji je zmienia. */
+  /** Szkic kartki: wpisy, wersja i kto ją zapisał. Zapis z aplikacji je zmienia. */
   readonly sheet?: Record<string, unknown> | null;
   readonly draft_version?: number;
   readonly draft_saved_at?: string | null;
   readonly draft_saved_by?: string | null;
   /** Notes partii (`options.scorepads`): szablon i liczba miejsc notesu partii. */
   readonly scorepad_id?: string;
-  /** Snapshot punktacji z rozpoczęcia partii (GAME-9); domyślnie 10/6/4/2. */
+  /** Snapshot punktacji z rozpoczęcia partii; domyślnie 10/6/4/2. */
   readonly points_snapshot?: readonly number[];
   /** Treść ostatniego `save_play` (ponowienie z tą samą treścią zwraca zapisaną partię). */
   readonly saved_payload?: string;
-  /** Obraz oderwanej karteczki w buckecie `sheets` (PAD-6). */
+  /** Obraz oderwanej karteczki w buckecie `sheets`. */
   readonly sheet_image_path?: string | null;
   readonly play_results: readonly {
     readonly profile_id: string;
@@ -359,7 +359,7 @@ export function mockMeeting(
   };
 }
 
-/** Treść wywołania `save_meeting` (PLAN-1). */
+/** Treść wywołania `save_meeting`. */
 export interface MeetingSave {
   readonly meeting_id: string;
   readonly title: string;
@@ -415,10 +415,10 @@ export interface MockScorepad {
   readonly image: Buffer;
 }
 
-/** Wywołanie RPC `save_scorepad` (EDT-1) z treścią żądania. */
+/** Wywołanie RPC `save_scorepad` z treścią żądania. */
 export type ScorepadSave = Record<string, unknown>;
 
-/** Wiersz `games` z datą ostatniej partii z widoku `game_collection` (GAME-1). */
+/** Wiersz `games` z datą ostatniej partii z widoku `game_collection`. */
 export interface MockGame {
   readonly id: string;
   readonly title: string;
@@ -456,12 +456,12 @@ export interface GameWrite {
   readonly id: string | null;
 }
 
-/** Jak `search_text` w bazie: małe litery, bez polskich znaków (GAME-2). */
+/** Jak `search_text` w bazie: małe litery, bez polskich znaków. */
 function searchText(value: string): string {
   return value.toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/\p{M}/gu, '');
 }
 
-/** Kolejność widżetu kolekcji (GAME-1, Q11): ostatnio grane, potem ostatnio dodane. */
+/** Kolejność widżetu kolekcji: ostatnio grane, potem ostatnio dodane. */
 function byWidgetOrder(a: MockGame, b: MockGame): number {
   const played = (b.last_played_at ?? '').localeCompare(a.last_played_at ?? '');
   if (played !== 0) return played;
@@ -491,7 +491,7 @@ const PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
-/** Obraz karteczki w historii (PAD-6): w atrapie ten sam piksel. */
+/** Obraz karteczki w historii: w atrapie ten sam piksel. */
 const SHEET_PNG = PIXEL_PNG;
 
 export interface SupabaseMock {
@@ -527,20 +527,20 @@ export interface SupabaseMock {
   /** Wywołania `publish_meeting_games` i `reopen_voting` (treść żądania). */
   readonly publishes: { meeting_id: string; game_ids: string[] }[];
   readonly reopens: string[];
-  /** Wywołania `start_meeting` i `finish_meeting` (RUN-1, RUN-4). */
+  /** Wywołania `start_meeting` i `finish_meeting`. */
   readonly runs: { action: 'start' | 'finish' | 'reopen'; meeting_id: string }[];
-  /** Wywołania `start_play` (RUN-2). */
+  /** Wywołania `start_play`. */
   readonly playStarts: PlayStart[];
-  /** Wywołania `save_play_draft` (PAD-4) i `discard_play` (PAD-8, id partii). */
+  /** Wywołania `save_play_draft` i `discard_play` (id partii). */
   readonly draftSaves: DraftSave[];
   readonly discards: string[];
-  /** Wywołania `save_play` (PAD-5), także ponowienia. */
+  /** Wywołania `save_play`, także ponowienia. */
   readonly playSaves: PlaySave[];
-  /** Obrazy karteczek (PAD-6): wgrane pliki, dołączenia do partii i usunięte pliki. */
+  /** Obrazy karteczek: wgrane pliki, dołączenia do partii i usunięte pliki. */
   readonly sheetUploads: { readonly path: string; readonly type: string; readonly size: number }[];
   readonly sheetAttaches: { readonly play_id: string; readonly image_path: string }[];
   readonly sheetRemoved: string[];
-  /** Wywołania `delete_play` (VIEW-6, id partii), także odrzucone. */
+  /** Wywołania `delete_play` (id partii), także odrzucone. */
   readonly playDeletes: string[];
   /** Wywołania `leaderboard` (rodzaj i rok). */
   readonly leaderboardCalls: { readonly kind: string; readonly year: number | null }[];
@@ -649,7 +649,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return route.fulfill({ json: session().user });
     }
     if (url.pathname === '/rest/v1/profiles' && request.method() === 'PATCH') {
-      // RLS: tylko własny wiersz (USR-7). Atrapa zmienia profil Ady.
+      // RLS: tylko własny wiersz. Atrapa zmienia profil Ady.
       const body = request.postDataJSON() as Record<string, unknown>;
       mock.profileWrites.push(body);
       const own = mock.options.profile === undefined ? ADA : mock.options.profile;
@@ -745,7 +745,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       const club = mock.options.club ?? null;
       return route.fulfill({ json: club ? [{ timezone: 'Europe/Warsaw', ...club }] : [] });
     }
-    // Spotkania (PLAN-1…PLAN-5): odczyt z osadzonymi uczestnikami, zapis RPC, usunięcie.
+    // Spotkania: odczyt z osadzonymi uczestnikami, zapis RPC, usunięcie.
     if (url.pathname === '/rest/v1/meetings' && request.method() === 'GET') {
       let rows = [...(mock.options.meetings ?? [])];
       const id = url.searchParams.get('id')?.replace(/^eq\./, '');
@@ -860,7 +860,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       const { participants, ...row } = saved;
       return route.fulfill({ json: { ...row, participant_count: participants.length } });
     }
-    // Głosowanie (VOTE-1…VOTE-6): głosy jak RLS i wyzwalacze, publikacja i ponowne otwarcie.
+    // Głosowanie: głosy jak RLS i wyzwalacze, publikacja i ponowne otwarcie.
     const meetingById = (id: string | undefined) =>
       (mock.options.meetings ?? []).find((row) => row.id === id);
     const setMeeting = (next: MockMeeting) => {
@@ -976,7 +976,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       setMeeting(saved);
       return route.fulfill({ json: saved });
     }
-    // Partia z kartką i szkicem (PAD-4), jak `plays?id=eq.…&select=…scorepad_versions(…)`.
+    // Partia z kartką i szkicem, jak `plays?id=eq.…&select=…scorepad_versions(…)`.
     const playId = url.searchParams.get('id')?.replace(/^eq\./, '');
     if (url.pathname === '/rest/v1/plays' && request.method() === 'GET' && playId) {
       const play = (mock.options.plays ?? []).find((p) => p.id === playId);
@@ -1035,7 +1035,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         ],
       });
     }
-    // Galeria karteczek gry (GAME-10): zapisane partie gry od najnowszej.
+    // Galeria karteczek gry: zapisane partie gry od najnowszej.
     const galleryGame = url.searchParams.get('game_id')?.replace(/^eq\./, '');
     if (url.pathname === '/rest/v1/plays' && request.method() === 'GET' && galleryGame) {
       const json = (mock.options.plays ?? [])
@@ -1056,7 +1056,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         }));
       return route.fulfill({ json });
     }
-    // Obraz karteczki (PAD-6) jak `attach_play_sheet_image`: tylko zapisana partia, pierwszy
+    // Obraz karteczki jak `attach_play_sheet_image`: tylko zapisana partia, pierwszy
     // obraz zostaje; `orphan_sheet_images` podaje pliki do sprzątania.
     if (url.pathname === '/rest/v1/rpc/attach_play_sheet_image' && request.method() === 'POST') {
       const body = request.postDataJSON() as { play_id: string; image_path: string };
@@ -1078,7 +1078,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     if (url.pathname === '/rest/v1/rpc/orphan_sheet_images' && request.method() === 'POST') {
       return route.fulfill({ json: mock.options.orphanSheets ?? [] });
     }
-    // Szkic kartki (PAD-4) z kontrolą wersji jak `save_play_draft`.
+    // Szkic kartki z kontrolą wersji jak `save_play_draft`.
     if (url.pathname === '/rest/v1/rpc/save_play_draft' && request.method() === 'POST') {
       const body = request.postDataJSON() as DraftSave;
       mock.draftSaves.push(body);
@@ -1110,7 +1110,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         },
       });
     }
-    // Zapis partii (PAD-5) jak `save_play`: punkty i wygrane liczy „baza” ze snapshotu,
+    // Zapis partii jak `save_play`: punkty i wygrane liczy „baza” ze snapshotu,
     // ponowienie z tą samą treścią zwraca zapisaną partię, inna treść jest odrzucana.
     if (
       ['/rest/v1/rpc/save_play', '/rest/v1/rpc/save_play_with_achievements'].includes(
@@ -1187,7 +1187,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         },
       });
     }
-    // Porzucenie partii w toku (PAD-8): szkic znika razem z graczami.
+    // Porzucenie partii w toku: szkic znika razem z graczami.
     if (url.pathname === '/rest/v1/rpc/discard_play' && request.method() === 'POST') {
       const { play_id } = request.postDataJSON() as { play_id: string };
       mock.discards.push(play_id);
@@ -1207,7 +1207,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.options.plays = (mock.options.plays ?? []).filter((p) => p.id !== play_id);
       return route.fulfill({ status: 204, body: '' });
     }
-    // Usunięcie zapisanej partii przez admina (VIEW-6): partia znika z wynikami, RPC zwraca
+    // Usunięcie zapisanej partii przez admina: partia znika z wynikami, RPC zwraca
     // ścieżkę obrazu karteczki do usunięcia przez API Storage.
     if (url.pathname === '/rest/v1/rpc/delete_play' && request.method() === 'POST') {
       const { play_id } = request.postDataJSON() as { play_id: string };
@@ -1231,7 +1231,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.options.plays = (mock.options.plays ?? []).filter((p) => p.id !== play_id);
       return route.fulfill({ json: play.sheet_image_path ?? null });
     }
-    // Partie spotkania z grą i wynikami (VIEW-3), jak `plays?meeting_id=eq.…&select=…games(…)`.
+    // Partie spotkania z grą i wynikami, jak `plays?meeting_id=eq.…&select=…games(…)`.
     if (url.pathname === '/rest/v1/plays' && request.method() === 'GET') {
       const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
       const json = (mock.options.plays ?? [])
@@ -1260,7 +1260,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         });
       return route.fulfill({ json });
     }
-    // Rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4, MTG-2) z regułami jak w bazie.
+    // Rozpoczęcie i zakończenie spotkania z regułami jak w bazie.
     const run = /^\/rest\/v1\/rpc\/(start|finish|reopen)_meeting$/.exec(url.pathname);
     if (run && request.method() === 'POST') {
       const action = run[1] as 'start' | 'finish' | 'reopen';
@@ -1309,7 +1309,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       setMeeting(saved);
       return route.fulfill({ json: saved });
     }
-    // Nowa partia (RUN-2, PAD-3): szkic z graczami w miejscach, reguły jak `start_play`.
+    // Nowa partia: szkic z graczami w miejscach, reguły jak `start_play`.
     if (url.pathname === '/rest/v1/rpc/start_play' && request.method() === 'POST') {
       const body = request.postDataJSON() as PlayStart;
       mock.playStarts.push(body);
@@ -1348,7 +1348,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         .map((row) => ({ profile_id: row.profile_id }));
       return route.fulfill({ json: rows });
     }
-    // Kolekcja gier (GAME-1…GAME-8): widok, wyszukiwanie i zapis jak RLS dla admina.
+    // Kolekcja gier: widok, wyszukiwanie i zapis jak RLS dla admina.
     const activeGames = () => (mock.options.games ?? []).filter((g) => g.deleted_at === null);
     if (url.pathname === '/rest/v1/game_collection') {
       let rows = [...activeGames()].sort(byWidgetOrder);
@@ -1371,7 +1371,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         },
       });
     }
-    // Notesy gry (GAME-7): lista z `options.scorepads` (filtr `id` albo `game_id`).
+    // Notesy gry: lista z `options.scorepads` (filtr `id` albo `game_id`).
     if (url.pathname === '/rest/v1/scorepads' && request.method() === 'GET') {
       const id = url.searchParams.get('id')?.replace(/^eq\./, '');
       const gameId = url.searchParams.get('game_id')?.replace(/^eq\./, '');
@@ -1400,7 +1400,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         ? route.fulfill({ json: { template: pad.template, image_path: pad.current.image_path } })
         : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } });
     }
-    // Zapis nowej wersji notesu (EDT-1): numer wersji po istniejącej.
+    // Zapis nowej wersji notesu: numer wersji po istniejącej.
     if (url.pathname === '/rest/v1/rpc/save_scorepad' && request.method() === 'POST') {
       const body = request.postDataJSON() as ScorepadSave;
       mock.scorepadSaves.push(body);
@@ -1508,7 +1508,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.removed.push(...prefixes);
       return route.fulfill({ json: [] });
     }
-    // Bucket `scorepads` (EDT-1): wysyłka zdjęcia kartki i pobranie zdjęcia wersji.
+    // Bucket `scorepads`: wysyłka zdjęcia kartki i pobranie zdjęcia wersji.
     if (url.pathname.startsWith(`${objectPrefix}scorepads/`) && request.method() === 'POST') {
       mock.scorepadUploads.push(
         decodeURIComponent(url.pathname.slice(`${objectPrefix}scorepads/`.length)),
@@ -1525,7 +1525,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         ? route.fulfill({ contentType: 'image/png', body: pad.image })
         : route.fulfill({ status: 400, json: { statusCode: '404', error: 'not_found' } });
     }
-    // Bucket `sheets` (PAD-6): obrazy karteczek, podpisane adresy (też hurtem) i usuwanie.
+    // Bucket `sheets`: obrazy karteczek, podpisane adresy (też hurtem) i usuwanie.
     if (url.pathname.startsWith(`${objectPrefix}sheets/`) && request.method() === 'POST') {
       if (mock.options.sheetUploadOffline) return route.abort('internetdisconnected');
       const path = decodeURIComponent(url.pathname.slice(`${objectPrefix}sheets/`.length));
@@ -1568,7 +1568,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.sheetRemoved.push(...prefixes);
       return route.fulfill({ json: [] });
     }
-    // Bucket `avatars` (USR-3): to samo dla zdjęć profilowych.
+    // Bucket `avatars`: to samo dla zdjęć profilowych.
     if (url.pathname.startsWith(`${objectPrefix}sign/avatars/`)) {
       const path = url.pathname.slice(`${objectPrefix}sign/avatars/`.length);
       if (request.method() === 'GET') {
@@ -1596,7 +1596,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
 export async function storeSession(page: Page, value: ReturnType<typeof session>) {
   await page.addInitScript(
     ([key, json]) => {
-      // Tylko przy pierwszym wczytaniu: przeładowanie strony ma widzieć stan zapisany przez aplikację.
+      // Tylko przy pierwszym wczytaniu: przeładowanie strony ma widzieć stan zapisany przez
+      // aplikację.
       if (!sessionStorage.getItem('e2e-session-seeded')) {
         sessionStorage.setItem('e2e-session-seeded', '1');
         localStorage.setItem(key, json);

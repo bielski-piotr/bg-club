@@ -1,4 +1,4 @@
--- [003] Ograniczenia: jeden klub, jeden admin, profile, gry, spotkania, głosy.
+-- Ograniczenia: jeden klub, jeden admin, profile, gry, spotkania, głosy.
 -- Dane testowe są fikcyjne.
 begin;
 
@@ -23,7 +23,7 @@ insert into public.games (id, title, min_players, max_players, placement_points)
   ('00000000-0000-4000-b000-000000000002', 'Łąka i Pszczoły', 1, 5, '{8,5,3,1,0}');
 
 -- ---------------------------------------------------------------------------------------------
--- club: jeden klub (CLUB-2)
+-- club: jeden klub
 -- ---------------------------------------------------------------------------------------------
 select lives_ok(
   $$ insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw') $$,
@@ -55,7 +55,7 @@ select throws_like(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- profiles: jeden admin, hook (AUTH-3, USR-1, MEM-4)
+-- profiles: jeden admin, hook
 -- ---------------------------------------------------------------------------------------------
 select throws_like(
   $$ insert into public.profiles (id, hook, first_name, last_name, role)
@@ -97,7 +97,7 @@ select lives_ok(
 select is(
   (select hook from public.profiles where first_name = 'Bartłomiej'),
   'bartek-testowy-b002',
-  'hook został bez zmian po zmianie imienia (Q5)'
+  'hook został bez zmian po zmianie imienia'
 );
 select throws_like(
   $$ update public.profiles set theme = 'blue' where hook = 'bartek-testowy-b002' $$,
@@ -106,7 +106,7 @@ select throws_like(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- games: zakres graczy i punktacja (GAME-4, GAME-5)
+-- games: zakres graczy i punktacja
 -- ---------------------------------------------------------------------------------------------
 select throws_like(
   $$ insert into public.games (title, min_players, max_players, placement_points) values ('Gra', 0, 2, '{1,0}') $$,
@@ -181,17 +181,17 @@ select results_eq(
   $$ select title from public.games
       where title_search like '%' || public.search_text('ZOLW') || '%' $$,
   array['Żółwie Wyścigi'],
-  'wyszukiwanie bez polskich znaków i wielkości liter (GAME-2)'
+  'wyszukiwanie bez polskich znaków i wielkości liter'
 );
 select results_eq(
   $$ select title from public.games
       where title_search like '%' || public.search_text('łąka') || '%' $$,
   array['Łąka i Pszczoły'],
-  'wyszukiwanie z polskimi znakami w zapytaniu (GAME-2)'
+  'wyszukiwanie z polskimi znakami w zapytaniu'
 );
 
 -- ---------------------------------------------------------------------------------------------
--- meetings: jedno spotkanie w trakcie, prowadzący (MTG-2, PLAN-1, MEM-6)
+-- meetings: jedno spotkanie w trakcie, prowadzący
 -- ---------------------------------------------------------------------------------------------
 insert into public.meetings (id, title, starts_at, created_by) values
   ('00000000-0000-4000-c000-000000000001', 'Spotkanie A', '2026-11-20 18:00+01', '00000000-0000-4000-a000-000000000001'),
@@ -212,7 +212,7 @@ select throws_like(
   $$ update public.meetings set status = 'in_progress', voting_open = false, started_at = now()
       where id = '00000000-0000-4000-c000-000000000002' $$,
   '%meetings_single_in_progress%',
-  'drugie spotkanie w trakcie jest odrzucane (MTG-2)'
+  'drugie spotkanie w trakcie jest odrzucane'
 );
 select throws_like(
   $$ update public.meetings set voting_open = true where id = '00000000-0000-4000-c000-000000000001' $$,
@@ -261,7 +261,7 @@ delete from public.meeting_participants
 select is(
   (select host_id from public.meetings where id = '00000000-0000-4000-c000-000000000001'),
   null,
-  'usunięcie prowadzącego z uczestników oddaje prowadzenie adminowi (MEM-6)'
+  'usunięcie prowadzącego z uczestników oddaje prowadzenie adminowi'
 );
 
 update public.profiles set deleted_at = now() where id = '00000000-0000-4000-a000-000000000004';
@@ -269,11 +269,11 @@ select throws_like(
   $$ insert into public.meeting_participants (meeting_id, profile_id)
      values ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-a000-000000000004') $$,
   '%deleted profile cannot join%',
-  'usuniętego członka nie można dodać do spotkania (MEM-6)'
+  'usuniętego członka nie można dodać do spotkania'
 );
 
 -- ---------------------------------------------------------------------------------------------
--- game_votes i meeting_games (VOTE-2, GAME-8)
+-- game_votes i meeting_games
 -- ---------------------------------------------------------------------------------------------
 insert into public.meeting_participants (meeting_id, profile_id) values
   ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-a000-000000000003');
@@ -298,7 +298,7 @@ delete from public.meeting_participants
 select is(
   (select count(*)::int from public.game_votes where profile_id = '00000000-0000-4000-a000-000000000003'),
   0,
-  'usunięcie uczestnika kasuje jego głosy (MEM-6)'
+  'usunięcie uczestnika kasuje jego głosy'
 );
 
 update public.games set deleted_at = now() where id = '00000000-0000-4000-b000-000000000002';
@@ -306,10 +306,10 @@ select throws_like(
   $$ insert into public.meeting_games (meeting_id, game_id, position) values
      ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-b000-000000000002', 0) $$,
   '%is deleted%',
-  'gry usuniętej z kolekcji nie da się opublikować (GAME-8)'
+  'gry usuniętej z kolekcji nie da się opublikować'
 );
 
--- MEM-6: usunięcie członka, który prowadzi zaplanowane spotkanie i ma w nim głosy.
+-- usunięcie członka, który prowadzi zaplanowane spotkanie i ma w nim głosy.
 insert into public.meeting_participants (meeting_id, profile_id) values
   ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-a000-000000000003');
 insert into public.game_votes (meeting_id, game_id, profile_id) values
@@ -325,30 +325,30 @@ select is(
   (select count(*)::int from public.meeting_participants
     where meeting_id = '00000000-0000-4000-c000-000000000002' and profile_id = '00000000-0000-4000-a000-000000000003'),
   0,
-  'usunięty członek znika z zaplanowanych spotkań (MEM-6)'
+  'usunięty członek znika z zaplanowanych spotkań'
 );
 select is(
   (select count(*)::int from public.game_votes where profile_id = '00000000-0000-4000-a000-000000000003'),
   0,
-  'razem ze swoimi głosami (MEM-6)'
+  'razem ze swoimi głosami'
 );
 select results_eq(
   $$ select host_id from public.meetings order by title $$,
   array[null::uuid, null::uuid],
-  'prowadzenie zaplanowanego i trwającego spotkania wraca do admina (MEM-6, Q22)'
+  'prowadzenie zaplanowanego i trwającego spotkania wraca do admina'
 );
 select is(
   (select count(*)::int from public.meeting_participants
     where meeting_id = '00000000-0000-4000-c000-000000000001' and profile_id = '00000000-0000-4000-a000-000000000003'),
   1,
-  'w spotkaniu w trakcie uczestnictwo usuniętego członka zostaje (MEM-6)'
+  'w spotkaniu w trakcie uczestnictwo usuniętego członka zostaje'
 );
 
 delete from public.meetings where id = '00000000-0000-4000-c000-000000000002';
 select is(
   (select count(*)::int from public.meeting_participants where meeting_id = '00000000-0000-4000-c000-000000000002'),
   0,
-  'usunięcie spotkania bez partii kasuje uczestników i głosy (PLAN-3)'
+  'usunięcie spotkania bez partii kasuje uczestników i głosy'
 );
 
 select * from finish();

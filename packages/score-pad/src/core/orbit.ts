@@ -1,9 +1,9 @@
-// Kamera orbitująca wokół notesu (PAD-10…PAD-12): obrót bez ograniczeń, zoom względem punktu
+// Kamera orbitująca wokół notesu: obrót bez ograniczeń, zoom względem punktu
 // pod kursorem albo palcami i płynny powrót do widoku z góry. Sama matematyka, bez sceny i DOM.
 
 import * as THREE from 'three';
 
-/** Najmocniejsze przybliżenie względem widoku domyślnego (PAD-11 wymaga co najmniej 6×). */
+/** Najmocniejsze przybliżenie względem widoku domyślnego (co najmniej 6×). */
 export const MAX_ZOOM = 8;
 /** Najdalsze oddalenie względem widoku domyślnego. */
 export const MIN_ZOOM = 0.8;

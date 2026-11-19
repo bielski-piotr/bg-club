@@ -1,6 +1,6 @@
--- [027] Rozpoczęcie partii (`start_play`): uprawnienia admina i prowadzącego, status
+-- Rozpoczęcie partii (`start_play`): uprawnienia admina i prowadzącego, status
 -- spotkania, notes, liczba graczy, miejsca, uczestnicy i kilka partii w toku naraz
--- (PRD RUN-2, RUN-3, PAD-2, PAD-3, PAD-9, Q2). Dane testowe są fikcyjne.
+--. Dane testowe są fikcyjne.
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -17,7 +17,7 @@ insert into public.profiles (id, hook, first_name, last_name, role) values
   ('00000000-0000-4000-a000-000000000005', 'ewa-usunieta-e005', 'Ewa', 'Usunięta', 'player'),
   ('00000000-0000-4000-a000-000000000006', 'filip-obcy-f006', 'Filip', 'Obcy', 'player');
 
--- b001: min 1 (partia i tak ma ≥ 2 graczy, Q2), max 4; b002: 3–5; b003: usunięta później.
+-- b001: min 1 (partia i tak ma ≥ 2 graczy), max 4; b002: 3–5; b003: usunięta później.
 insert into public.games (id, title, min_players, max_players, placement_points) values
   ('00000000-0000-4000-b000-000000000001', 'Żółwie Wyścigi', 1, 4, '{10,6,4,2}'),
   ('00000000-0000-4000-b000-000000000002', 'Łąka i Pszczoły', 3, 5, '{8,5,3,1,0}'),
@@ -51,7 +51,7 @@ select m.id, p.id
  cross join public.profiles p
  where p.id <> '00000000-0000-4000-a000-000000000006';
 update public.meetings set host_id = '00000000-0000-4000-a000-000000000002';
--- Tylko jedno spotkanie naraz jest w trakcie (MTG-2): najpierw zakończone, potem bieżące.
+-- Tylko jedno spotkanie naraz jest w trakcie: najpierw zakończone, potem bieżące.
 update public.meetings set status = 'in_progress', voting_open = false, started_at = now()
  where id = '00000000-0000-4000-c000-000000000003';
 update public.meetings set status = 'finished', finished_at = now()
@@ -59,7 +59,7 @@ update public.meetings set status = 'finished', finished_at = now()
 update public.meetings set status = 'in_progress', voting_open = false, started_at = now()
  where id = '00000000-0000-4000-c000-000000000001';
 
--- Ewa odchodzi z klubu (zostaje w historii spotkań, MEM-5); gra b003 zostaje usunięta.
+-- Ewa odchodzi z klubu (zostaje w historii spotkań); gra b003 zostaje usunięta.
 update public.profiles set deleted_at = now() where id = '00000000-0000-4000-a000-000000000005';
 update public.games set deleted_at = now() where id = '00000000-0000-4000-b000-000000000003';
 
@@ -85,14 +85,14 @@ grant execute on function public.test_failure(text) to authenticated;
 set local role authenticated;
 
 -- =============================================================================================
--- Uprawnienia (PAD-9): tylko admin i prowadzący
+-- Uprawnienia: tylko admin i prowadzący
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000003", "role": "authenticated"}';
 select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
     array['00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000004']::uuid[]) $$),
-  '42501', 'gracz nie rozpocznie partii, także z sobą w składzie (PAD-9)');
+  '42501', 'gracz nie rozpocznie partii, także z sobą w składzie');
 
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000006", "role": "authenticated"}';
 select is(
@@ -108,7 +108,7 @@ select throws_ok(
   '42501', null, 'bezpośredni zapis partii jest zablokowany (tylko RPC)');
 
 -- =============================================================================================
--- Prowadzący rozpoczyna partię (RUN-2, PAD-2)
+-- Prowadzący rozpoczyna partię
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 select is(
@@ -147,14 +147,14 @@ select is(
   '23502', 'bez identyfikatora partii: odrzucone (bez reguły notesu w HINT)');
 
 -- =============================================================================================
--- Kilka partii w toku (RUN-3), wolne miejsca, admin
+-- Kilka partii w toku, wolne miejsca, admin
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select is(
   (select status from public.start_play('00000000-0000-4000-f000-000000000002',
      '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
      array[null, '00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000004']::uuid[])),
-  'draft', 'admin: druga partia w toku w tym samym spotkaniu (RUN-3)');
+  'draft', 'admin: druga partia w toku w tym samym spotkaniu');
 select results_eq(
   $$ select seat, profile_id from public.play_results
       where play_id = '00000000-0000-4000-f000-000000000002' order by seat $$,
@@ -171,13 +171,13 @@ select is(
   '23505/plays_already_exists', 'cudzy identyfikator partii: odrzucony, nie zwraca cudzej partii');
 
 -- =============================================================================================
--- Liczba graczy i miejsca (PAD-3, Q2)
+-- Liczba graczy i miejsca
 -- =============================================================================================
 select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
     array['00000000-0000-4000-a000-000000000001']::uuid[]) $$),
-  '23514/plays_players_count', 'jeden gracz: odrzucony, także gdy gra ma min = 1 (Q2)');
+  '23514/plays_players_count', 'jeden gracz: odrzucony, także gdy gra ma min = 1');
 select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
@@ -188,7 +188,7 @@ select is(
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
     array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002',
           '00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000004']::uuid[]) $$),
-  '23514/play_results_seat_within_slots', 'czterech graczy w notesie z 3 miejscami: odrzuceni (PAD-3)');
+  '23514/play_results_seat_within_slots', 'czterech graczy w notesie z 3 miejscami: odrzuceni');
 select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
@@ -209,10 +209,10 @@ select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000002',
     array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002']::uuid[]) $$),
-  '23514/plays_scorepad_fits_game', 'notes z 1 miejscem: niepasujący (PAD-3)');
+  '23514/plays_scorepad_fits_game', 'notes z 1 miejscem: niepasujący');
 
 -- =============================================================================================
--- Gracze: bez duplikatów, tylko aktywni uczestnicy (PAD-2)
+-- Gracze: bez duplikatów, tylko aktywni uczestnicy
 -- =============================================================================================
 select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
@@ -228,10 +228,10 @@ select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000001',
     array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000005']::uuid[]) $$),
-  '23514/plays_player_participant', 'uczestniczka usunięta z klubu: nie zagra (MEM-5)');
+  '23514/plays_player_participant', 'uczestniczka usunięta z klubu: nie zagra');
 
 -- =============================================================================================
--- Notes i gra (RUN-2: bez notesu nie ma partii)
+-- Notes i gra (bez notesu nie ma partii)
 -- =============================================================================================
 select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
@@ -253,10 +253,10 @@ select ok(
     '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000005',
     array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002']::uuid[]) $$)
     in ('P0002/plays_scorepad_unavailable', '23514/plays_game_active'),
-  'notes usuniętej gry: odrzucony (GAME-8)');
+  'notes usuniętej gry: odrzucony');
 
 -- =============================================================================================
--- Status spotkania (PAD-9)
+-- Status spotkania
 -- =============================================================================================
 select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
@@ -267,7 +267,7 @@ select is(
   public.test_failure($$ select public.start_play('00000000-0000-4000-f000-000000000009',
     '00000000-0000-4000-c000-000000000003', '00000000-0000-4000-d000-000000000001',
     array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000002']::uuid[]) $$),
-  '23514/plays_meeting_in_progress', 'admin: po zakończeniu spotkania nie można dodać partii (RUN-4)');
+  '23514/plays_meeting_in_progress', 'admin: po zakończeniu spotkania nie można dodać partii');
 
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 select is(

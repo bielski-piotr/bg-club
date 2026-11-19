@@ -30,7 +30,7 @@ const result = (
   tiedWith: [],
 });
 
-describe('podsumowanie oderwanej kartki (PAD-5)', () => {
+describe('podsumowanie oderwanej kartki', () => {
   it('wiersze w kolejności miejsc z podglądem punktów (ostatnie 3 miejsca punktacji) i ładunek bez punktów', () => {
     const summary = playSummary(play, sheet, [
       result(0, 9, 1, true),

@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockGame, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
- * Krok 2 kreatora „Obszar kartki” (EDT-10) i pełna jakość obrazu (EDT-12), zadanie [017].
+ * Krok 2 kreatora „Obszar kartki” i pełna jakość obrazu.
  * Próbki zdjęć rysuje przeglądarka (bez plików w repozytorium): kartka z zaokrąglonymi rogami,
  * kartka z wycięciem i kartka sfotografowana pod kątem, każda na ciemnym blacie.
  * Każdy test przechodzi na 360 px i na desktopie, w obu motywach.
@@ -94,7 +94,7 @@ async function settings(page: Page) {
 async function openArea(page: Page, kind: Sample, size?: [number, number]) {
   await mockSupabase(page, { club: { name: 'Planszówki', logo_path: null }, games: [GAME] });
   await storeSession(page, session());
-  // Zapis kartki: jakość i format każdego kodowania (EDT-12).
+  // Zapis kartki: jakość i format każdego kodowania.
   await page.addInitScript(() => {
     const calls: { type: string; quality: unknown; width: number; height: number }[] = [];
     (window as unknown as { __encodes: typeof calls }).__encodes = calls;
@@ -151,7 +151,7 @@ test('zaokrąglone rogi: wykryty nieregularny obszar, wygładzanie i panel kroku
   // Proporcje kartki 700×900 z wykrytych narożników.
   expect(s.size.w / s.size.h).toBeCloseTo(700 / 900, 1);
 
-  // Panel (DS §18): nazwa, kolor grzbietu, tryb obszaru, wygładzanie, rozmiar, grzbiet.
+  // Panel: nazwa, kolor grzbietu, tryb obszaru, wygładzanie, rozmiar, grzbiet.
   await expect(dialog.getByRole('textbox', { name: 'Nazwa notesu' })).toHaveValue('Mój notes');
   await expect(dialog.getByRole('radio', { name: 'Granatowy' })).toBeChecked();
   await expect(dialog.getByRole('radio', { name: 'Wykryj automatycznie' })).toBeChecked();

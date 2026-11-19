@@ -1,5 +1,4 @@
--- [004] Uprawnienia: RLS, prawa ról klienta, funkcje sprawdzające role i buckety Storage
--- (PRD §2, §6.1, NFR-9).
+-- Uprawnienia: RLS, prawa ról klienta, funkcje sprawdzające role i buckety Storage.
 --
 -- Zasady:
 -- - Odmowa domyślna. Rola `anon` nie ma żadnych praw do tabel i funkcji aplikacji. Rola
@@ -7,10 +6,10 @@
 --   je do wierszy. Konto usunięte (`profiles.deleted_at`) z ważnym jeszcze tokenem nie widzi
 --   niczego i niczego nie zapisze.
 -- - `service_role` (Edge Functions) omija RLS i jest jedyną drogą do pól `role`, `hook`,
---   `deleted_at` oraz do tworzenia i usuwania profili (§6.1). Ten klucz nie trafia do SPA.
+--   `deleted_at` oraz do tworzenia i usuwania profili. Ten klucz nie trafia do SPA.
 -- - Zapis i usuwanie partii i wyników (`plays`, `play_results`), rozpoczęcie i zakończenie
 --   spotkania oraz przeliczenie osiągnięć idą przez RPC SECURITY DEFINER z kolejnych zadań
---   (jedna transakcja: zmiana + przeliczenie, §5.6.5). Każde takie RPC zaczyna od
+--   (jedna transakcja: zmiana + przeliczenie). Każde takie RPC zaczyna od
 --   `private.require_admin()` albo `private.require_meeting_runner(meeting_id)`.
 -- - Funkcje sprawdzające role są w schemacie `private`, którego PostgREST nie udostępnia, więc
 --   klient nie wywoła ich przez /rpc. Są SECURITY DEFINER z pustym search_path: czytają
@@ -29,7 +28,7 @@ revoke all on schema private from public;
 -- Polityki RLS wywołują funkcje z prawami użytkownika, który wykonuje zapytanie.
 grant usage on schema private to authenticated;
 
--- Czy zalogowany użytkownik ma aktywny profil (nie jest usunięty, MEM-4, AUTH-7).
+-- Czy zalogowany użytkownik ma aktywny profil (nie jest usunięty).
 -- Token usuniętego konta bywa ważny jeszcze do godziny (jwt_expiry); ta funkcja go odcina.
 create function private.is_active_member()
 returns boolean
@@ -44,9 +43,9 @@ return exists (
 );
 
 comment on function private.is_active_member() is
-  'Czy auth.uid() ma aktywny (nieusunięty) profil. Warunek odczytu wszystkich danych (§6.1).';
+  'Czy auth.uid() ma aktywny (nieusunięty) profil. Warunek odczytu wszystkich danych.';
 
--- Czy zalogowany użytkownik jest administratorem (AUTH-3). Admina nie da się usunąć, ale
+-- Czy zalogowany użytkownik jest administratorem. Admina nie da się usunąć, ale
 -- warunek deleted_at zostaje na wypadek ręcznej zmiany w bazie.
 create function private.is_admin()
 returns boolean
@@ -61,13 +60,13 @@ return exists (
      and p.deleted_at is null
 );
 
-comment on function private.is_admin() is 'Czy auth.uid() jest aktywnym administratorem (§2).';
+comment on function private.is_admin() is 'Czy auth.uid() jest aktywnym administratorem.';
 
--- Czy zalogowany użytkownik może prowadzić istniejące spotkanie (§2.1): admin zawsze (także
--- zakończone, żeby cofnąć zakończenie, RUN-5), prowadzący (`host_id`) tylko w swoim
+-- Czy zalogowany użytkownik może prowadzić istniejące spotkanie: admin zawsze (także zakończone,
+-- żeby cofnąć zakończenie), prowadzący (`host_id`) tylko w swoim
 -- niezakończonym spotkaniu. Zakończone spotkanie zachowuje prowadzącego w historii, ale ten
 -- traci uprawnienia; gdy admin cofnie zakończenie, prowadzący znów prowadzi spotkanie w
--- trakcie (admin może go wcześniej zmienić, PLAN-4). Nieistniejące spotkanie i NULL: false.
+-- trakcie (admin może go wcześniej zmienić). Nieistniejące spotkanie i NULL: false.
 create function private.is_meeting_runner(target_meeting_id uuid)
 returns boolean
 language sql
@@ -89,7 +88,7 @@ return exists (
 );
 
 comment on function private.is_meeting_runner(uuid) is
-  'Admin albo prowadzący (host_id) niezakończonego spotkania. Kontrola „admin lub host_id” z §6.1.';
+  'Admin albo prowadzący (host_id) niezakończonego spotkania. Kontrola „admin lub host_id”.';
 
 -- Tekst → uuid bez wyjątku (NULL dla złego formatu). Ścieżki plików w Storage pochodzą od
 -- klienta, a błąd rzutowania w polityce przerwałby żądanie komunikatem bazy.
@@ -105,7 +104,7 @@ end;
 
 comment on function private.try_uuid(text) is 'Rzutowanie tekstu na uuid; NULL zamiast błędu dla złego formatu.';
 
--- Czy w spotkaniu trwa głosowanie (VOTE-1). Flaga jest dozwolona tylko w statusie planned.
+-- Czy w spotkaniu trwa głosowanie. Flaga jest dozwolona tylko w statusie planned.
 create function private.is_voting_open(target_meeting_id uuid)
 returns boolean
 language sql
@@ -188,8 +187,8 @@ alter default privileges for role postgres in schema public revoke all on tables
 alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated;
 alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated;
 
--- Funkcje czyste z migracji [003] (wyszukiwanie, walidacja). Używają ich kolumna generowana,
--- CHECK i wyzwalacz klubu, więc zostają dla authenticated; anon traci dostęp.
+-- Funkcje czyste z wcześniejszej migracji (wyszukiwanie, walidacja). Używają ich kolumna
+-- generowana, CHECK i wyzwalacz klubu, więc zostają dla authenticated; anon traci dostęp.
 revoke execute on function
   public.f_unaccent(text),
   public.search_text(text),
@@ -204,7 +203,7 @@ grant execute on function
 to authenticated;
 
 -- Odczyt: wszystko dla zalogowanych (RLS: tylko aktywne konta). Gracz przegląda cały klub,
--- także historię z usuniętymi grami i członkami (§2.1, MEM-5, GAME-8).
+-- także historię z usuniętymi grami i członkami.
 grant select on all tables in schema public to authenticated;
 
 -- Zapis: tylko kolumny, które klient może ustawić. Identyfikatory, znaczniki czasu, numery
@@ -222,8 +221,8 @@ grant update (name, current_version_id, deleted_at) on public.scorepads to authe
 
 grant insert (id, scorepad_id, template, image_path, player_slots) on public.scorepad_versions to authenticated;
 
--- Status spotkania i jego znaczniki czasu zmieniają RPC rozpoczęcia i zakończenia (RUN-1,
--- RUN-4, RUN-5), bo robi to także prowadzący. created_by ustawia baza (domyślnie auth.uid()).
+-- Status spotkania i jego znaczniki czasu zmieniają RPC rozpoczęcia i zakończenia, bo robi to także
+-- prowadzący. created_by ustawia baza (domyślnie auth.uid()).
 grant insert (id, title, starts_at, voting_open, host_id) on public.meetings to authenticated;
 grant update (title, starts_at, voting_open, host_id) on public.meetings to authenticated;
 grant delete on public.meetings to authenticated;
@@ -240,7 +239,7 @@ grant delete on public.meeting_games to authenticated;
 
 -- plays, play_results, achievement_unlocks: tylko odczyt. Tworzenie, zapis i usuwanie partii
 -- (także porzucenie szkicu) robi RPC, bo usunięcie musi w tej samej transakcji przeliczyć
--- statystyki, serie, rekordy i osiągnięcia (§5.6.5).
+-- statystyki, serie, rekordy i osiągnięcia.
 
 -- Autor spotkania z tokenu, a nie z treści żądania.
 alter table public.meetings alter column created_by set default auth.uid();
@@ -256,7 +255,7 @@ alter table public.profiles
 -- `(select …)` wokół funkcji bez argumentów: Postgres liczy ją raz na zapytanie, nie na wiersz.
 -- ---------------------------------------------------------------------------------------------
 
--- club: odczyt aktywni, zapis admin (CLUB-2). Klubu nie usuwa nikt.
+-- club: odczyt aktywni, zapis admin. Klubu nie usuwa nikt.
 create policy club_select on public.club for select to authenticated
   using ((select private.is_active_member()));
 create policy club_insert_admin on public.club for insert to authenticated
@@ -265,8 +264,8 @@ create policy club_update_admin on public.club for update to authenticated
   using ((select private.is_admin()))
   with check ((select private.is_admin()));
 
--- profiles: odczyt aktywni (także profile usuniętych, MEM-5). Edycja tylko własnego wiersza
--- (USR-5, USR-7: admin też nie edytuje cudzych kont); dozwolone kolumny wyznacza GRANT.
+-- profiles: odczyt aktywni (także profile usuniętych). Edycja tylko własnego wiersza
+-- (admin też nie edytuje cudzych kont); dozwolone kolumny wyznacza GRANT.
 -- Tworzenie i usuwanie profili: Edge Functions (service_role).
 create policy profiles_select on public.profiles for select to authenticated
   using ((select private.is_active_member()));
@@ -274,7 +273,7 @@ create policy profiles_update_own on public.profiles for update to authenticated
   using (id = (select auth.uid()) and (select private.is_active_member()))
   with check (id = (select auth.uid()));
 
--- games, scorepads, scorepad_versions: odczyt aktywni, zapis admin (GAME-3, GAME-7).
+-- games, scorepads, scorepad_versions: odczyt aktywni, zapis admin.
 -- Usuwanie miękkie (UPDATE deleted_at), więc bez polityk DELETE; wersje są niezmienne.
 create policy games_select on public.games for select to authenticated
   using ((select private.is_active_member()));
@@ -297,10 +296,10 @@ create policy scorepad_versions_select on public.scorepad_versions for select to
 create policy scorepad_versions_insert_admin on public.scorepad_versions for insert to authenticated
   with check ((select private.is_admin()));
 
--- meetings, meeting_participants, meeting_games: odczyt aktywni, zapis admin (PLAN-1…PLAN-5,
--- VOTE-5, PLAN-4). Prowadzący nie edytuje spotkania ani uczestników (Q14). Skład uczestników
--- zmienia się tylko przed zakończeniem spotkania (PLAN-3, PLAN-4); usunięcia uczestnika z
--- partią i spotkania z partiami blokują klucze obce (PLAN-4, PLAN-5).
+-- meetings, meeting_participants, meeting_games: odczyt aktywni, zapis admin. Prowadzący nie
+-- edytuje spotkania ani uczestników. Skład uczestników
+-- zmienia się tylko przed zakończeniem spotkania; usunięcia uczestnika z
+-- partią i spotkania z partiami blokują klucze obce.
 create policy meetings_select on public.meetings for select to authenticated
   using ((select private.is_active_member()));
 create policy meetings_insert_admin on public.meetings for insert to authenticated
@@ -334,8 +333,8 @@ create policy meeting_games_update_admin on public.meeting_games for update to a
 create policy meeting_games_delete_admin on public.meeting_games for delete to authenticated
   using ((select private.is_admin()));
 
--- game_votes: jawne (VOTE-3). Własny głos, tylko uczestnik (klucz obcy do uczestników),
--- tylko przy otwartym głosowaniu (VOTE-1, VOTE-2). Usunięcie uczestnika lub spotkania kasuje
+-- game_votes: jawne. Własny głos, tylko uczestnik (klucz obcy do uczestników),
+-- tylko przy otwartym głosowaniu. Usunięcie uczestnika lub spotkania kasuje
 -- głosy kaskadą, która nie podlega RLS.
 create policy game_votes_select on public.game_votes for select to authenticated
   using ((select private.is_active_member()));
@@ -352,7 +351,7 @@ create policy game_votes_delete_own on public.game_votes for delete to authentic
     and private.is_voting_open(meeting_id)
   );
 
--- Głos dodany równolegle z zamknięciem głosowania (VOTE-5) nie może się prześlizgnąć: blokada
+-- Głos dodany równolegle z zamknięciem głosowania nie może się prześlizgnąć: blokada
 -- współdzielona wiersza spotkania czeka na transakcję, która zamyka głosowanie, i widzi jej
 -- wynik. Dotyczy też service_role. Usuwanie głosów tylko przez RLS, bo kaskada (usunięcie
 -- uczestnika lub spotkania) musi działać także po zamknięciu głosowania.
@@ -377,7 +376,7 @@ create trigger game_votes_require_open_voting
 
 revoke execute on function public.game_votes_require_open_voting() from public, anon, authenticated;
 
--- plays, play_results: odczyt aktywni; zapis i usuwanie przez RPC (§6.1, §5.6.5).
+-- plays, play_results: odczyt aktywni; zapis i usuwanie przez RPC.
 create policy plays_select on public.plays for select to authenticated
   using ((select private.is_active_member()));
 
@@ -389,9 +388,9 @@ create policy achievement_unlocks_select on public.achievement_unlocks for selec
   using ((select private.is_active_member()));
 
 -- ---------------------------------------------------------------------------------------------
--- Storage: prywatne buckety (PRD §6, NFR-7)
+-- Storage: prywatne buckety
 -- ---------------------------------------------------------------------------------------------
--- Obrazy są skalowane w przeglądarce (WebP), więc limity mają duży zapas względem NFR-7.
+-- Obrazy są skalowane w przeglądarce (WebP), więc limity mają duży zapas względem docelowego ≈ 150 KB.
 -- Prywatny bucket: pliki tylko przez zalogowane żądanie lub podpisany URL, nigdy publicznie.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
   ('avatars', 'avatars', false, 1048576, array['image/webp', 'image/jpeg', 'image/png']),
@@ -405,13 +404,13 @@ on conflict (id) do update
 
 -- Ścieżki:
 -- - avatars:   `<profile_id>/<plik>` (bez podfolderów, jak profiles.avatar_path): właściciel
---              profilu (USR-3),
--- - covers:    okładki gier i logo klubu: admin (GAME-6, CLUB-2),
--- - scorepads: zdjęcia szablonów notesów: admin (GAME-7),
+--              profilu,
+-- - covers:    okładki gier i logo klubu: admin,
+-- - scorepads: zdjęcia szablonów notesów: admin,
 -- - sheets:    `<meeting_id>/<play_id>-<losowy sufiks>.webp`: obraz karteczki zapisuje admin
---              lub prowadzący spotkania (PAD-6), bez nadpisywania. Każda próba zapisu ma nową
+--              lub prowadzący spotkania, bez nadpisywania. Każda próba zapisu ma nową
 --              nazwę, więc ponowienie po błędzie nie trafia na istniejący plik; ścieżkę wpisuje
---              do partii RPC zapisu. Usuwa admin razem z partią (§5.6.5).
+--              do partii RPC zapisu. Usuwa admin razem z partią.
 create policy bg_club_objects_select on storage.objects for select to authenticated
   using (
     bucket_id in ('avatars', 'covers', 'scorepads', 'sheets')

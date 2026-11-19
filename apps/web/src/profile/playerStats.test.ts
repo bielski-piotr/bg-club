@@ -4,7 +4,7 @@ import { yearFilterValues } from '../leaderboard/leaderboard';
 import { playerStatsKey, winRate } from './playerStatsData';
 import { isOwnProfileKey, profilesKey } from './profiles';
 
-describe('winRate (STAT-1)', () => {
+describe('winRate', () => {
   it('zaokrągla procent wygranych do całości', () => {
     expect(winRate(2, 3)).toBe(67);
     expect(winRate(1, 3)).toBe(33);
@@ -17,7 +17,7 @@ describe('winRate (STAT-1)', () => {
   });
 });
 
-describe('yearFilterValues (STAT-3)', () => {
+describe('yearFilterValues', () => {
   it('zaczyna od całej historii, potem lata gracza od najnowszego', () => {
     expect(yearFilterValues([2026, 2025], 'all')).toEqual(['all', '2026', '2025']);
   });
@@ -28,7 +28,7 @@ describe('yearFilterValues (STAT-3)', () => {
   });
 });
 
-describe('playerStatsKey (§5.6.5)', () => {
+describe('playerStatsKey', () => {
   it('jest w kluczach odświeżanych po zapisie i usunięciu partii', () => {
     const key = playerStatsKey('00000000-0000-4000-a000-000000000011', 2026);
     expect(key.slice(0, profilesKey.length)).toEqual([...profilesKey]);

@@ -1,5 +1,5 @@
 /**
- * Wspólny zestaw przypadków wyników (PRD §8.3): TypeScript liczy z nich miejsca i punkty,
+ * Wspólny zestaw przypadków wyników: TypeScript liczy z nich miejsca i punkty,
  * a baza punkty (`public.play_points`, test pgTAP generowany przez `../sql.ts`).
  */
 import type { PlayerEntry } from '../ranking';

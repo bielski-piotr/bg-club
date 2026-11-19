@@ -1,4 +1,4 @@
--- [005] Konta Auth i logowanie (PRD AUTH-1…AUTH-3, AUTH-7): profil powstaje razem z kontem
+-- Konta Auth i logowanie: profil powstaje razem z kontem
 -- Auth z `app_metadata.bg_club`, pierwszym kontem jest administrator, drugi administrator nie
 -- powstanie, techniczny e-mail jest niezmienny, a hook `custom_access_token` odmawia sesji
 -- kontu bez aktywnego profilu. Ścieżkę przez prawdziwe API Auth sprawdzają testy integracyjne
@@ -33,7 +33,7 @@ select ok(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Pusta instalacja: pierwszym kontem jest administrator (AUTH-2, AUTH-3)
+-- Pusta instalacja: pierwszym kontem jest administrator
 -- ---------------------------------------------------------------------------------------------
 select throws_ok(
   $$ insert into auth.users (id, email) values
@@ -54,7 +54,7 @@ select throws_like(
        ('00000000-0000-4000-a000-000000000001', 'ada@example.com',
         '{"bg_club": {"first_name": "Ada", "last_name": "Adminowska", "role": "admin"}}') $$,
   '%<hook>@users.bgclub.invalid%',
-  'konto musi mieć techniczny e-mail <hook>@users.bgclub.invalid (AUTH-1)'
+  'konto musi mieć techniczny e-mail <hook>@users.bgclub.invalid'
 );
 select lives_ok(
   $$ insert into auth.users (id, email, raw_app_meta_data) values
@@ -90,7 +90,7 @@ select throws_like(
        ('00000000-0000-4000-a000-0000000000f3', 'zly_hook-f003@users.bgclub.invalid',
         '{"bg_club": {"first_name": "Zły", "last_name": "Hook"}}') $$,
   '%profiles_hook_format%',
-  'hook z e-maila musi mieć format z USR-1'
+  'hook z e-maila musi mieć poprawny format'
 );
 select is(
   (select count(*)::int from auth.users where id::text like '00000000-0000-4000-a000-0000000000f%'),
@@ -99,7 +99,7 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Techniczny e-mail jest niezmienny (AUTH-1, USR-1)
+-- Techniczny e-mail jest niezmienny
 -- ---------------------------------------------------------------------------------------------
 select throws_like(
   $$ update auth.users set email = 'ada-adminowska-a001@users.bgclub.invalid'
@@ -125,7 +125,7 @@ select lives_ok(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Hook custom_access_token: sesja tylko dla aktywnego profilu (AUTH-5, AUTH-7)
+-- Hook custom_access_token: sesja tylko dla aktywnego profilu
 -- ---------------------------------------------------------------------------------------------
 create function pg_temp.token_event(user_id text)
 returns jsonb

@@ -14,8 +14,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Nowa partia (PRD RUN-2, RUN-3, PAD-2, PAD-3, PAD-9, DS §15 „Step pills”, „Game / notes
- * pick row”, „Seat row”): gry opublikowane przed resztą, gry i notesy wyłączone z wyjaśnieniem,
+ * Nowa partia: gry opublikowane przed resztą, gry i notesy wyłączone z wyjaśnieniem,
  * gracze z uczestników bez duplikatów, awatar i pełne imię i nazwisko w miejscu, kilka partii
  * w toku naraz, dostęp tylko dla admina i prowadzącego w trwającym spotkaniu. API Supabase
  * jest atrapą; reguły bazy sprawdza test SQL 150_play_setup. Każdy test przechodzi na 360 px
@@ -124,9 +123,7 @@ async function check(page: Page) {
 
 const search = (page: Page) => page.evaluate(() => decodeURIComponent(window.location.search));
 
-test('admin: gra, notes i gracze; partia w toku obok drugiej (RUN-2, RUN-3, PAD-2, PAD-3)', async ({
-  page,
-}) => {
+test('admin: gra, notes i gracze; partia w toku obok drugiej', async ({ page }) => {
   const mock = await openApp(page, { plays: [DRAFT] });
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
   await meeting.getByRole('button', { name: 'Nowa partia' }).click();
@@ -160,7 +157,7 @@ test('admin: gra, notes i gracze; partia w toku obok drugiej (RUN-2, RUN-3, PAD-
   await wizard.getByText('Azul', { exact: true }).click();
   await next.click();
 
-  // Notes z jednym miejscem nie pasuje do partii (min 2 graczy, Q2).
+  // Notes z jednym miejscem nie pasuje do partii (min 2 graczy).
   await expect(steps.getByRole('listitem').nth(1)).toHaveText('2. Notes');
   const notes = wizard.getByRole('list', { name: 'Notesy gry Azul' });
   await expect(notes.getByRole('listitem')).toHaveCount(2);
@@ -229,22 +226,20 @@ test('admin: gra, notes i gracze; partia w toku obok drugiej (RUN-2, RUN-3, PAD-
     scorepad_id: AZUL_PAD.id,
     player_ids: [null, CEZARY.id, null, BEA.id],
   });
-  // Kreator ustępuje notesowi nowej partii (PAD-4); Wstecz wraca do spotkania.
+  // Kreator ustępuje notesowi nowej partii; Wstecz wraca do spotkania.
   const playId = mock.playStarts[0]?.play_id ?? '';
   await expect(page.getByRole('dialog', { name: 'Azul' })).toBeVisible();
   expect(await search(page)).toBe(`?p=meeting/${RUNNING.id}&p=play/${playId}`);
   await page.getByRole('dialog', { name: 'Azul' }).getByRole('button', { name: 'Wróć' }).click();
   await expect(page.getByRole('dialog', { name: 'Azul' })).toHaveCount(0);
-  // Dwie partie w toku w tym samym spotkaniu (RUN-3).
+  // Dwie partie w toku w tym samym spotkaniu.
   await expect(meeting.getByText('2 w toku')).toBeVisible();
   await expect(
     meeting.getByRole('list', { name: 'Partie w toku' }).getByRole('listitem'),
   ).toHaveCount(2);
 });
 
-test('prowadzący: jeden notes pomija krok, limit graczy gry, błąd bazy (PAD-3, PAD-9)', async ({
-  page,
-}) => {
+test('prowadzący: jeden notes pomija krok, limit graczy gry, błąd bazy', async ({ page }) => {
   const mock = await openApp(
     page,
     {
@@ -304,9 +299,7 @@ test('prowadzący: jeden notes pomija krok, limit graczy gry, błąd bazy (PAD-3
   await check(page);
 });
 
-test('gracz i spotkanie poza trwaniem: bez akcji, link pokazuje wyjaśnienie (PAD-9)', async ({
-  page,
-}) => {
+test('gracz i spotkanie poza trwaniem: bez akcji, link pokazuje wyjaśnienie', async ({ page }) => {
   await openApp(page, { profile: { ...ADA, role: 'player' } });
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
   await expect(meeting.getByText('Trwa', { exact: true })).toBeVisible();

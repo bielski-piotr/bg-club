@@ -1,5 +1,5 @@
 /**
- * Generatory testów pgTAP ze wspólnych przypadków (PRD §8.3): `110_scoring` (punkty,
+ * Generatory testów pgTAP ze wspólnych przypadków: `110_scoring` (punkty,
  * `public.play_points`), `171_save_play_cases` (pełny zapis partii, `public.save_play`)
  * i `231_achievement_cases` (przeliczenie osiągnięć, `private.recalculate_achievements`).
  * Pliki SQL są wynikiem tych funkcji; `sql.test.ts` pilnuje, że są aktualne,
@@ -31,7 +31,7 @@ export function renderSqlTest(
   invalid: readonly InvalidPlacingCase[],
 ): string {
   const lines: string[] = [
-    '-- [014] Punkty leaderboardu za miejsca (PRD §5.6.2, §8.3): public.play_points.',
+    '-- Punkty leaderboardu za miejsca: public.play_points.',
     '-- PLIK GENEROWANY z packages/scoring/src/cases/play-cases.json — nie edytować ręcznie.',
     '-- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.',
     '-- Te same przypadki przechodzi implementacja TypeScript (packages/scoring).',
@@ -98,7 +98,7 @@ export function renderSavePlaySqlTest(
     ),
   ].sort();
   const lines: string[] = [
-    '-- [029] Zapis partii (PRD PAD-5, §5.6, §8.3): public.save_play na wspólnych przypadkach.',
+    '-- Zapis partii: public.save_play na wspólnych przypadkach.',
     '-- PLIK GENEROWANY z packages/scoring/src/cases/play-cases.json — nie edytować ręcznie.',
     '-- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.',
     '-- Miejsca liczy TypeScript (rankPlayers, savePlayResults), punkty i wygrane baza.',
@@ -237,7 +237,7 @@ export function renderAchievementSqlTest(cases: readonly AchievementCase[]): str
     });
 
   const lines: string[] = [
-    '-- [036] Przeliczanie osiągnięć (PRD §5.10, ACH-2, §5.6.6, NFR-11) na wspólnych przypadkach.',
+    '-- Przeliczanie osiągnięć na wspólnych przypadkach.',
     '-- PLIK GENEROWANY z packages/scoring/src/cases/achievements.ts — nie edytować ręcznie.',
     '-- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.',
     '-- Te same przypadki przechodzi implementacja TypeScript (computeAchievements).',

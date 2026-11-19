@@ -11,7 +11,7 @@ import { ToastProvider } from '../ui';
 import type { Scorepad } from './scorepads';
 
 /*
- * Popup notesów gry (PRD GAME-7, EDT-6, zadanie [015]): lista z liczbą miejsc i wersją,
+ * Popup notesów gry: lista z liczbą miejsc i wersją,
  * ostrzeżenie o zbyt małej liczbie miejsc, import pliku `.json`, zmiana nazwy i usuwanie.
  * Supabase jest atrapą. Dane są fikcyjne.
  */
@@ -182,8 +182,8 @@ async function loaded(name: string, text: string | RegExp) {
   return screen.getByRole('dialog', { name });
 }
 
-describe('notesy gry (GAME-7)', () => {
-  it('lista: nazwa, miejsca, wersja i ostrzeżenie EDT-6', async () => {
+describe('notesy gry', () => {
+  it('lista: nazwa, miejsca, wersja i ostrzeżenie o liczbie miejsc', async () => {
     renderPopup([TURNIEJ, MALY]);
     const dialog = await loaded('Notesy', 'Turniejowy');
     const list = within(dialog).getByRole('list', { name: 'Notesy gry Żółwie Wyścigi' });
@@ -214,7 +214,7 @@ describe('notesy gry (GAME-7)', () => {
     expect(within(dialog).queryByRole('button', { name: /Akcje notesu/ })).not.toBeInTheDocument();
   });
 
-  it('import pliku .json: nowy notes, toast i ostrzeżenie EDT-6', async () => {
+  it('import pliku .json: nowy notes, toast i ostrzeżenie o liczbie miejsc', async () => {
     const fake = renderPopup([TURNIEJ]);
     const dialog = await loaded('Notesy', 'Turniejowy');
     const input = within(dialog).getByLabelText('Plik notesu (.json)');

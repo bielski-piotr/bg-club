@@ -26,19 +26,19 @@ export interface ScorePadViewProps {
   readonly controls?: boolean | undefined;
   /** Karta wskazówek notesu (domyślnie według notesu). */
   readonly help?: boolean | undefined;
-  /** Notes testowy kreatora (EDT-14): podsumowanie mówi, że karteczki nie zapisano. */
+  /** Notes testowy kreatora: podsumowanie mówi, że karteczki nie zapisano. */
   readonly test?: boolean | undefined;
   /** `false`: kartki nie da się oderwać (np. partia bez zapisu wyników). */
   readonly tear?: boolean | undefined;
   /** `false`: po oderwaniu bez karteczki z wynikiem notesu (podsumowanie pokazuje aplikacja). */
   readonly summary?: boolean | undefined;
-  /** Podgląd zapisanej karteczki (PAD-6): bez wpisów i odrywania; obrót i zoom działają. */
+  /** Podgląd zapisanej karteczki: bez wpisów i odrywania; obrót i zoom działają. */
   readonly readOnly?: boolean | undefined;
   readonly onReady?: (() => void) | undefined;
   readonly onSave?: ((detail: ScorePadSaveDetail) => void) | undefined;
   /** Kartka oderwana, także pusta (wtedy bez `onSave`); wywoływane przed `onSave`. */
   readonly onTear?: (() => void) | undefined;
-  /** Zmiana stanu notesu z bieżącymi wpisami kartki (szkic partii, PAD-4). */
+  /** Zmiana stanu notesu z bieżącymi wpisami kartki (szkic partii). */
   readonly onChange?: ((detail: ScorePadChangeDetail) => void) | undefined;
   /** Stan ładowania modułu notesu (np. żeby wyłączyć przyciski do czasu wczytania). */
   readonly onLoadState?: ((state: ScorePadLoadState) => void) | undefined;
@@ -53,16 +53,16 @@ export interface ScorePadHandle {
   /** Odrywa wierzchnią kartkę (wynik w `onSave`). */
   tear(): void;
   /**
-   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania, PAD-5); `false`,
+   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania); `false`,
    * gdy notesu nie ma albo nie jest gotowy.
    */
   restoreSheet(sheet: ScorePadSheet): boolean;
-  /** Płynnie wraca do widoku z góry (PAD-12). */
+  /** Płynnie wraca do widoku z góry. */
   resetView(): void;
 }
 
 /**
- * Notes 3D `<score-pad>` w trybie klubowym (PAD-1, PRD §8.5): szablony tylko z propsów,
+ * Notes 3D `<score-pad>` w trybie klubowym: szablony tylko z propsów,
  * bez lokalnej biblioteki i historii POC. Motyw idzie za motywem aplikacji.
  * Nowy `config`, `templates` lub `template` (inna referencja) tworzy notes od nowa i czyści
  * kartkę, więc rodzic przekazuje stabilne obiekty (dane z zapytania albo `useMemo`).

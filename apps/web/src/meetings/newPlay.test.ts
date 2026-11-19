@@ -62,7 +62,7 @@ const A = 'a';
 const B = 'b';
 const C = 'c';
 
-describe('liczba graczy (PAD-3, Q2)', () => {
+describe('liczba graczy', () => {
   it('partia ma co najmniej 2 graczy, także gdy gra ma min = 1', () => {
     expect(minPlayers(game(1, 'Pasjans', 1, 4))).toBe(2);
     expect(minPlayers(game(1, 'Łąka', 3, 5))).toBe(3);
@@ -79,7 +79,7 @@ describe('liczba graczy (PAD-3, Q2)', () => {
   });
 });
 
-describe('notesy i gry z wyjaśnieniem wyłączenia (RUN-2, PAD-3)', () => {
+describe('notesy i gry z wyjaśnieniem wyłączenia', () => {
   const zolwie = game(1, 'Żółwie', 1, 4);
 
   it('notes z mniejszą liczbą miejsc niż minimum jest niepasujący', () => {
@@ -98,7 +98,7 @@ describe('notesy i gry z wyjaśnieniem wyłączenia (RUN-2, PAD-3)', () => {
     );
   });
 
-  it('gra jednoosobowa nie ma partii (Q2)', () => {
+  it('gra jednoosobowa nie ma partii', () => {
     const solo = game(3, 'Pasjans', 1, 1);
     expect(gameReason(solo, [pad(1, solo.id, 4)], 4)).toBe(
       'Gra jednoosobowa: partia w klubie wymaga co najmniej 2 graczy.',
@@ -141,7 +141,7 @@ describe('notesy i gry z wyjaśnieniem wyłączenia (RUN-2, PAD-3)', () => {
   });
 });
 
-describe('kolejność gier (RUN-2: najpierw opublikowane)', () => {
+describe('kolejność gier (najpierw opublikowane)', () => {
   const azul = game(1, 'Azul');
   const zolwie = game(2, 'Żółwie Wyścigi');
   const brzdek = game(3, 'Brzdęk');
@@ -169,7 +169,7 @@ describe('kolejność gier (RUN-2: najpierw opublikowane)', () => {
   });
 });
 
-describe('miejsca w notesie (PAD-2)', () => {
+describe('miejsca w notesie', () => {
   it('puste miejsca według liczby miejsc notesu', () => {
     expect(emptySeats(3)).toEqual([[], [], []]);
   });

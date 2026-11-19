@@ -1,23 +1,22 @@
--- [012] Kolekcja gier: widżet, wyszukiwanie, formularze i miękkie usuwanie (PRD GAME-1…GAME-6,
--- GAME-8, GAME-9).
+-- Kolekcja gier: widżet, wyszukiwanie, formularze i miękkie usuwanie.
 --
 -- Zasady:
--- - `game_collection` to aktywne gry (bez usuniętych, GAME-8) z datą ostatniej zapisanej partii.
+-- - `game_collection` to aktywne gry (bez usuniętych) z datą ostatniej zapisanej partii.
 --   Widżet sortuje po niej malejąco (gry bez partii na końcu), potem po dacie dodania malejąco
---   i `id` (GAME-1, Q11, Q24). Widok działa z uprawnieniami wołającego (`security_invoker`),
+--   i `id`. Widok działa z uprawnieniami wołającego (`security_invoker`),
 --   więc obowiązuje RLS tabel `games` i `plays`.
 -- - `search_games(query)` filtruje kolekcję po tytule bez rozróżniania wielkości liter
---   i polskich znaków (GAME-2): ta sama funkcja `search_text` (unaccent + lower) buduje kolumnę
+--   i polskich znaków: ta sama funkcja `search_text` (unaccent + lower) buduje kolumnę
 --   `title_search` i zapytanie, a znaki `%`, `_` i `\` w zapytaniu są dosłowne.
--- - Usunięcie gry jest miękkie i nieodwracalne (GAME-8): `deleted_at` ustawia baza (`now()`),
+-- - Usunięcie gry jest miękkie i nieodwracalne: `deleted_at` ustawia baza (`now()`),
 --   a usuniętej gry nie da się już edytować ani przywrócić. Gra znika z głosowań i list gier
---   zaplanowanych spotkań; partie, wyniki i snapshoty punktacji zostają (GAME-9). Strażnik
+--   zaplanowanych spotkań; partie, wyniki i snapshoty punktacji zostają. Strażnik
 --   aktywnej gry blokuje jej wiersz, więc głos dodany w chwili usuwania nie przetrwa.
 -- - Edycja punktacji nie zmienia rozegranych partii: partia ma snapshot `points_snapshot`
---   ustawiany wyzwalaczem przy rozpoczęciu (migracja [003], GAME-9, Q23).
+--   ustawiany wyzwalaczem przy rozpoczęciu.
 
 -- ---------------------------------------------------------------------------------------------
--- games: strażnik edycji i skutki miękkiego usunięcia (GAME-8)
+-- games: strażnik edycji i skutki miękkiego usunięcia
 -- ---------------------------------------------------------------------------------------------
 create function public.games_guard_update()
 returns trigger
@@ -41,7 +40,7 @@ create trigger games_guard_update before update on public.games
   for each row execute function public.games_guard_update();
 
 -- Gra usunięta z kolekcji znika z głosowań i z opublikowanych list zaplanowanych spotkań
--- (jak usunięty członek, MEM-6). Spotkania w trakcie i zakończone zachowują historię.
+-- (jak usunięty członek). Spotkania w trakcie i zakończone zachowują historię.
 create function public.games_after_soft_delete()
 returns trigger
 language plpgsql
@@ -71,7 +70,7 @@ create trigger games_after_soft_delete
   when (old.deleted_at is null and new.deleted_at is not null)
   execute function public.games_after_soft_delete();
 
--- Strażnik z migracji [003] (głosy, publikacja, nowe partie) blokuje teraz wiersz gry
+-- Strażnik z wcześniejszej migracji (głosy, publikacja, nowe partie) blokuje teraz wiersz gry
 -- (FOR SHARE). Bez blokady głos dodany w chwili usuwania gry mógłby przetrwać: wyzwalacz
 -- powyżej nie widzi niezatwierdzonego głosu, a strażnik głosu widzi grę jeszcze aktywną.
 -- Z blokadą usunięcie czeka na zatwierdzenie głosu (i go skasuje), a głos dodany po
@@ -98,7 +97,7 @@ $$;
 revoke execute on function public.require_active_game() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- game_collection: aktywne gry z datą ostatniej partii (GAME-1, GAME-2)
+-- game_collection: aktywne gry z datą ostatniej partii
 -- ---------------------------------------------------------------------------------------------
 create view public.game_collection
 with (security_invoker = true)
@@ -121,11 +120,11 @@ from public.games g
 where g.deleted_at is null;
 
 comment on view public.game_collection is
-  'Aktywne gry kolekcji (GAME-8) z datą ostatniej zapisanej partii (kolejność widżetu, GAME-1, Q11).';
+  'Aktywne gry kolekcji z datą ostatniej zapisanej partii (kolejność widżetu).';
 comment on column public.game_collection.last_played_at is
   'saved_at ostatniej zapisanej partii gry; NULL = gra jeszcze nie grana.';
 
--- Wyszukiwanie po tytule (GAME-2). Zapytanie puste albo z samych spacji zwraca całą kolekcję.
+-- Wyszukiwanie po tytule. Zapytanie puste albo z samych spacji zwraca całą kolekcję.
 create function public.search_games(query text default null)
 returns setof public.game_collection
 language sql
@@ -142,7 +141,7 @@ as $$
 $$;
 
 comment on function public.search_games(text) is
-  'Aktywne gry, których tytuł zawiera zapytanie (bez wielkości liter i polskich znaków, GAME-2).';
+  'Aktywne gry, których tytuł zawiera zapytanie (bez wielkości liter i polskich znaków).';
 
 -- ---------------------------------------------------------------------------------------------
 -- Uprawnienia

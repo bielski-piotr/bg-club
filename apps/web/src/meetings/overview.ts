@@ -5,8 +5,8 @@ import { gridRange, monthKey, type YearMonth } from './calendar';
 import { MEETING_COLUMNS, fromRow, meetingsKey, type Meeting, type MeetingRow } from './meetings';
 
 /**
- * Spotkania z podsumowaniem partii dla timeline i kalendarza (MTG-3, CAL-1, CAL-2): liczba
- * zapisanych partii i zwycięzcy. Szkice (partie w toku) nie liczą się do statystyk (§5.6).
+ * Spotkania z podsumowaniem partii dla timeline i kalendarza: liczba
+ * zapisanych partii i zwycięzcy. Szkice (partie w toku) nie liczą się do statystyk.
  */
 export interface MeetingOverview extends Meeting {
   /** Zapisane partie spotkania. */
@@ -14,7 +14,7 @@ export interface MeetingOverview extends Meeting {
   /**
    * Zwycięzcy spotkania: gracze z co najmniej jedną wygraną partią (miejsce 1, także wspólne),
    * od największej liczby wygranych, a przy równej liczbie według pierwszej wygranej
-   * (kolejność partii z §5.6.6: `saved_at`, potem `id`), na koniec po `id` profilu.
+   * (kolejność partii ustalonej: `saved_at`, potem `id`), na koniec po `id` profilu.
    */
   readonly winners: readonly string[];
 }
@@ -71,7 +71,7 @@ function fromOverviewRow(row: OverviewRow): MeetingOverview {
   return { ...fromRow(meeting), ...summarizePlays(plays) };
 }
 
-/** Pozycje timeline (MTG-3, DS §15.1). */
+/** Pozycje timeline. */
 export interface Timeline {
   /** Najwyżej 2 najbliższe niezakończone spotkania, od dalszego (kolejność wyświetlania). */
   readonly upcoming: readonly MeetingOverview[];
@@ -86,8 +86,8 @@ export const timelineKey = [...meetingsKey, 'timeline'] as const;
 export const calendarKey = (ym: YearMonth) => [...meetingsKey, 'calendar', monthKey(ym)] as const;
 
 /**
- * Timeline: nadchodzące to zaplanowane i trwające (najbliższe według `starts_at`, potem `id`,
- * Q24), odbyte to zakończone (najnowsze najpierw).
+ * Timeline: nadchodzące to zaplanowane i trwające (najbliższe według `starts_at`, potem `id`),
+ * odbyte to zakończone (najnowsze najpierw).
  */
 export function useTimeline(client: SupabaseClient) {
   return useQuery({

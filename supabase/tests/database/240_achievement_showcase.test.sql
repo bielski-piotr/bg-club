@@ -1,4 +1,4 @@
--- [037] Gablota osiągnięć i osiągnięcia spotkania (PRD ACH-3, VIEW-5, USR-4, MEM-5):
+-- Gablota osiągnięć i osiągnięcia spotkania:
 -- `player_achievements` (odblokowania ze spotkaniem i liczniki postępu) i `meeting_achievements`
 -- (kolejność partii, odświeżenie po usunięciu partii), uprawnienia. Dane testowe są fikcyjne.
 begin;
@@ -98,7 +98,7 @@ select ok(
     and not has_function_privilege('anon', 'public.meeting_achievements(uuid)', 'execute'),
   'anon nie czyta gabloty ani osiągnięć spotkania');
 
--- Bartek głosuje na spotkaniach 1 i 2 (publikacja zamyka głosowanie, Q18).
+-- Bartek głosuje na spotkaniach 1 i 2 (publikacja zamyka głosowanie).
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 insert into public.game_votes (meeting_id, game_id, profile_id)
@@ -152,7 +152,7 @@ select is(
   'odblokowanie ma datę i tytuł spotkania oraz partię');
 
 -- =============================================================================================
--- Osiągnięcia spotkania (VIEW-5): kolejność partii
+-- Osiągnięcia spotkania: kolejność partii
 -- =============================================================================================
 select is(public.test_meeting(1),
   array['2:beginners-luck/1', '2:meet-1/1', '2:win-1/1', '3:meet-1/1', '3:beginners-luck/3', '3:win-1/3'],
@@ -161,7 +161,7 @@ select is(public.test_meeting(2), '{}'::text[], 'spotkanie 2 nic nowego nie odbl
 select is(public.test_meeting(3), '{}'::text[], 'spotkanie bez partii: pusta lista');
 
 -- =============================================================================================
--- Usunięcie partii odświeża gablotę i listę spotkania (§5.6.5)
+-- Usunięcie partii odświeża gablotę i listę spotkania
 -- =============================================================================================
 select public.delete_play(pg_temp.play(1));
 select is(public.test_meeting(1),
@@ -174,7 +174,7 @@ select is(public.test_meeting(1), array['2:meet-1/3', '3:beginners-luck/3', '3:m
   'po usunięciu obu wygranych Bartka znikają jego nieaktualne odznaki');
 
 -- =============================================================================================
--- Usunięty członek ma gablotę tylko do odczytu (MEM-5) i sam jej nie odczyta
+-- Usunięty członek ma gablotę tylko do odczytu i sam jej nie odczyta
 -- =============================================================================================
 reset role;
 update public.profiles set deleted_at = now() where id = pg_temp.player(3);

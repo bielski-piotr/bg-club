@@ -11,13 +11,13 @@ function entry(place: number, first: string, value: number, deleted = false): Le
     last_name: 'Testowa',
     avatar_path: null,
     deleted,
-    // Jak w SQL: podium to miejsca 1–3 aktywnych członków (LB-7).
+    // Jak w SQL: podium to miejsca 1–3 aktywnych członków.
     podium: !deleted && place <= 3,
     value,
   };
 }
 
-describe('układ rankingu (LB-2, LB-6, LB-7)', () => {
+describe('układ rankingu', () => {
   it('bez graczy nie ma podium ani listy', () => {
     expect(leaderboardLayout([])).toEqual({ steps: [], rows: [] });
   });
@@ -56,7 +56,7 @@ describe('układ rankingu (LB-2, LB-6, LB-7)', () => {
   });
 });
 
-describe('lista w widżecie (LB-3)', () => {
+describe('lista w widżecie', () => {
   const rows = [4, 5, 6, 7, 8, 9].map((place) => entry(place, `Gracz${place}`, 10 - place));
 
   it('pokazuje miejsca 4–7', () => {
@@ -72,7 +72,7 @@ describe('lista w widżecie (LB-3)', () => {
   });
 });
 
-describe('filtr roku (LB-4)', () => {
+describe('filtr roku', () => {
   it('„Cała historia” to brak roku', () => {
     expect(filterYear('all')).toBeNull();
     expect(filterYear('2025')).toBe(2025);

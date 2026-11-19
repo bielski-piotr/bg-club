@@ -1,5 +1,5 @@
 /**
- * Ograniczenia GPU (NFR-2, PAD-16, zadanie [040]). Notes rysuje w pełnej gęstości ekranu (do
+ * Ograniczenia GPU. Notes rysuje w pełnej gęstości ekranu (do
  * 3), a tekstura kartki ma pełną rozdzielczość z edytora. Na słabym GPU pełna gęstość może
  * zejść poniżej 30 kl./s; wtedy obniżamy tylko gęstość renderu (devicePixelRatio płótna)
  * stopniami do 1, nigdy rozdzielczość tekstury. Obniżamy, gdy średni czas klatki w dwóch
@@ -9,7 +9,7 @@
  * shaderów, wgrywanie tekstur, `restart`) są pomijane.
  */
 
-/** Budżet klatki dla minimum 30 kl./s (NFR-2), z małym zapasem na pomiar. */
+/** Budżet klatki dla minimum 30 kl./s, z małym zapasem na pomiar. */
 export const FRAME_BUDGET_MS = 1000 / 30 + 2;
 /** Liczba kolejnych klatek, z których liczymy średnią. */
 export const FRAME_WINDOW = 45;

@@ -1,16 +1,16 @@
 /**
- * Skalowanie obrazów w przeglądarce przed wysłaniem do Storage (GAME-6, CLUB-2): dłuższy bok
- * najwyżej `maxSide` px, format WebP (albo JPEG lub PNG, gdy przeglądarka nie koduje WebP). Mniejszy
- * obraz nie jest powiększany. Jakość spada stopniowo, aż plik zmieści się w ok. 100 KB
- * (NFR-7); bucket przyjmuje WebP, JPEG i PNG do 2 MiB. Logo może zamiast JPEG dostać PNG, żeby
+ * Skalowanie obrazów w przeglądarce przed wysłaniem do Storage: dłuższy bok
+ * najwyżej `maxSide` px, format WebP (albo JPEG lub PNG, gdy przeglądarka nie koduje WebP).
+ * Mniejszy obraz nie jest powiększany. Jakość spada stopniowo, aż plik zmieści się w ok. 100 KB;
+ * bucket przyjmuje WebP, JPEG i PNG do 2 MiB. Logo może zamiast JPEG dostać PNG, żeby
  * zachować przezroczystość.
  */
 
-/** Dłuższy bok okładki gry i logo klubu (GAME-6). */
+/** Dłuższy bok okładki gry i logo klubu. */
 export const IMAGE_MAX_SIDE = 800;
 /** Limit bucketu `covers` (migracja access_control). */
 export const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
-/** Docelowy rozmiar okładki i logo (NFR-7: okładka ≈ 100 KB). */
+/** Docelowy rozmiar okładki i logo (okładka ≈ 100 KB). */
 export const IMAGE_TARGET_BYTES = 100 * 1024;
 /** Kolejne jakości kodowania: pierwsza, przy której plik mieści się w celu, wygrywa. */
 export const IMAGE_QUALITIES = [0.86, 0.78, 0.7, 0.62, 0.54, 0.46] as const;

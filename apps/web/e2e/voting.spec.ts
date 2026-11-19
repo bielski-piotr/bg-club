@@ -12,7 +12,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Głosowanie, publikacja gier i ponowne otwarcie (PRD VOTE-1…VOTE-6, DS §15): popup
+ * Głosowanie, publikacja gier i ponowne otwarcie: popup
  * spotkania z listą głosowania, przełącznik głosu uczestnika, „Opublikuj gry” i „Otwórz
  * głosowanie ponownie” administratora. API Supabase jest atrapą; reguły (duplikaty, głos po
  * zamknięciu, usunięte gry i uczestnicy) sprawdzają testy SQL (140_voting). Każdy test
@@ -95,12 +95,12 @@ test('uczestnik głosuje i cofa głos; lista jest jawna, sortowana i ma wyszukiw
   // Gracz nie ma akcji administratora.
   await expect(dialog.getByRole('button', { name: 'Opublikuj gry' })).toHaveCount(0);
 
-  // Malejąco po głosach, potem alfabetycznie (VOTE-3).
+  // Malejąco po głosach, potem alfabetycznie.
   expect(await voteNames(page)).toEqual(['Żółwie Wyścigi', 'Brzdęk', 'Azul', 'Pasjans Klubowy']);
   const zolwie = dialog.getByRole('listitem').filter({ hasText: 'Żółwie Wyścigi' });
   await expect(zolwie.getByText('2 głosy')).toBeVisible();
   await expect(zolwie.getByRole('img', { name: 'Bea Bobrowska, Cezary Cichy' })).toBeVisible();
-  // Gra dla 1 gracza nie pasuje do 3 uczestników, ale przyjmuje głosy (VOTE-4).
+  // Gra dla 1 gracza nie pasuje do 3 uczestników, ale przyjmuje głosy.
   const pasjans = dialog.getByRole('listitem').filter({ hasText: 'Pasjans Klubowy' });
   await expect(pasjans.getByText('Dla 1 gracza')).toBeVisible();
   await expect(pasjans.getByText('Brak głosów')).toBeVisible();
@@ -116,7 +116,7 @@ test('uczestnik głosuje i cofa głos; lista jest jawna, sortowana i ma wyszukiw
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(pasjans.getByText('1 głos')).toBeVisible();
   await expect(dialog.getByText('Twoje głosy: 1')).toBeVisible();
-  // Drugi głos na inną grę (bez limitu, VOTE-2).
+  // Drugi głos na inną grę (bez limitu).
   await zolwie.getByRole('button', { name: 'Zagłosuj na Żółwie Wyścigi' }).click();
   await expect(zolwie.getByText('3 głosy')).toBeVisible();
   await expect(dialog.getByText('Twoje głosy: 2')).toBeVisible();
@@ -158,9 +158,7 @@ test('głos po zamknięciu w innej karcie: komunikat i odświeżony widok „Gra
   expect(mock.options.votes ?? []).toEqual([]);
 });
 
-test('admin publikuje dowolne gry, potem otwiera głosowanie ponownie (VOTE-5, VOTE-6)', async ({
-  page,
-}) => {
+test('admin publikuje dowolne gry, potem otwiera głosowanie ponownie', async ({ page }) => {
   const mock = await openApp(
     page,
     {

@@ -19,7 +19,7 @@ const unlocks = ['meet-1', 'win-1', 'beginners-luck', 'hattrick'].map((achieveme
   achievement_id,
 }));
 
-describe('powiadomienia osiągnięć (ACH-4)', () => {
+describe('powiadomienia osiągnięć', () => {
   it('odrzuca nieznane i błędne odznaki oraz duplikaty, zachowuje różnych graczy', () => {
     const another = { ...unlocks[0], profile_id: '00000000-0000-4000-a000-000000000002' };
     expect(

@@ -6,7 +6,7 @@ import { FieldsStep } from './editor/fields';
 import { readTemplate } from './template-tools';
 
 /*
- * Krok 4 kreatora „Kategorie” (EDT-13, EDT-2…EDT-4, EDT-7), zadanie [019]: nazwa, typ, opis,
+ * Krok 4 kreatora „Kategorie”: nazwa, typ, opis,
  * zakres punktacji, sumy bez cykli, kategoria decydująca z kierunkiem i uporządkowane reguły
  * remisów. Zmiany trafiają od razu do `template.ranking` i przechodzą walidator zapisu.
  */
@@ -88,7 +88,7 @@ describe('kategorie', () => {
       ['Suma', 'total', true],
     ]);
     expect(state.lines[1]).toMatchObject({ range: 'range', min: 0, max: 50, step: 1 });
-    // EDT-2: domyślnie decyduje suma, której nie sumuje żadna inna suma
+    // Domyślnie decyduje suma, której nie sumuje żadna inna suma
     expect(state.ranking).toEqual({ line: 's', dir: 'desc', tiebreak: [] });
     expect(state.explicit).toBe(false);
     expect(state.issues).toEqual([]);
@@ -177,7 +177,7 @@ describe('kategorie', () => {
     // suma 4 sumuje sumę 3, więc 3 nie może już sumować 4
     expect(state.lines[4]?.sumOptions).toEqual(['a', 'b', 'c']);
     expect(state.lines[3]?.sumOptions).toEqual(['a', 'b']);
-    // domyślnie decyduje suma, której nie sumuje żadna inna
+    // Domyślnie decyduje suma, której nie sumuje żadna inna
     expect(state.ranking.line).toBe('s');
     expect(state.issues).toEqual([]);
     expect(validateScoring(saved(step))).toEqual([]);

@@ -12,8 +12,8 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Statystyki gracza w profilu (PRD STAT-1–STAT-3, USR-4, MEM-5): liczniki, miejsca w trzech
- * rankingach, ulubiona i najlepsza gra (Q21), ostatnie partie z linkami do spotkań i filtr
+ * Statystyki gracza w profilu: liczniki, miejsca w trzech
+ * rankingach, ulubiona i najlepsza gra, ostatnie partie z linkami do spotkań i filtr
  * roku. Wyniki liczy baza (`player_stats`, testy pgTAP `220`); tu API Supabase jest atrapą.
  * Każdy test przechodzi na 360 px i na desktopie, w motywie jasnym i ciemnym.
  */
@@ -74,7 +74,7 @@ const BEA_2025 = {
   recent_plays: [recent(1, AZUL, 1, 10)],
 };
 
-/** Usunięta Zoja: statystyki z historii, bez miejsc w rankingach (LB-7). */
+/** Usunięta Zoja: statystyki z historii, bez miejsc w rankingach. */
 const ZOJA_ALL = {
   ...EMPTY_PLAYER_STATS,
   years: [2026],
@@ -131,7 +131,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
 const tile = (scope: ReturnType<Page['getByRole']>, label: string) =>
   scope.locator('.player-stats__tile', { has: scope.page().getByText(label, { exact: true }) });
 
-test('statystyki gracza: liczniki, miejsca, ulubiona i najlepsza gra, ostatnie partie (STAT-1, STAT-2)', async ({
+test('statystyki gracza: liczniki, miejsca, ulubiona i najlepsza gra, ostatnie partie', async ({
   page,
 }) => {
   const { mock, dialog } = await openProfile(page, BEA.id);
@@ -163,7 +163,7 @@ test('statystyki gracza: liczniki, miejsca, ulubiona i najlepsza gra, ostatnie p
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);
 
-  // Link partii otwiera spotkanie, a link gry jej szczegóły (PRD §4).
+  // Link partii otwiera spotkanie, a link gry jej szczegóły.
   await recentPlays
     .first()
     .getByRole('link', { name: 'Otwórz spotkanie: Marcowe granie, 10 mar 2026' })
@@ -174,9 +174,7 @@ test('statystyki gracza: liczniki, miejsca, ulubiona i najlepsza gra, ostatnie p
   await expect(page.getByRole('dialog', { name: /Azul/ })).toBeVisible();
 });
 
-test('filtr roku: rok z partiami, pusta najlepsza gra i rok bez partii (STAT-3, Q21)', async ({
-  page,
-}) => {
+test('filtr roku: rok z partiami, pusta najlepsza gra i rok bez partii', async ({ page }) => {
   const { mock, dialog } = await openProfile(page, BEA.id);
   const filter = dialog.getByRole('button', { name: /Zakres statystyk/ });
   await expect(filter).toContainText('Cała historia');
@@ -200,9 +198,7 @@ test('filtr roku: rok z partiami, pusta najlepsza gra i rok bez partii (STAT-3, 
   expect(await axe(page)).toEqual([]);
 });
 
-test('usunięty członek: profil tylko do odczytu ze statystykami z historii (MEM-5, LB-7)', async ({
-  page,
-}) => {
+test('usunięty członek: profil tylko do odczytu ze statystykami z historii', async ({ page }) => {
   const { dialog } = await openProfile(page, ZOJA.id);
   await expect(dialog).toContainText('Zoja Zawada');
   await expect(dialog).toContainText('Profil jest tylko do odczytu.');

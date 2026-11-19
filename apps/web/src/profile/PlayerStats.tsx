@@ -19,11 +19,11 @@ import {
 const text = t.profile.stats;
 
 /**
- * Statystyki gracza w profilu (PRD STAT-1–STAT-3, USR-4, DS „Profil / Popup”, „Profil / Filtr
- * roku”): liczniki w kafelkach (DS „Stat tile”), miejsca w trzech rankingach, ulubiona i najlepsza
+ * Statystyki gracza w profilu:
+ * liczniki w kafelkach, miejsca w trzech rankingach, ulubiona i najlepsza
  * gra oraz ostatnie partie z linkami do spotkań. Filtr roku działa jak w rankingu („Cała
  * historia” albo rok w strefie klubu). Usunięty członek ma te same statystyki z historii, tylko
- * bez miejsc w rankingach (MEM-5, LB-7).
+ * bez miejsc w rankingach.
  */
 export function PlayerStatsSection({ profileId }: { readonly profileId: string }) {
   const { client } = useAuth();

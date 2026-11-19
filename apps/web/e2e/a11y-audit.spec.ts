@@ -3,7 +3,7 @@ import { axeViolations, expectNoHorizontalOverflow } from './support/a11y';
 import { ADA, member, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
- * Audyt dostępności całej aplikacji (#42; NFR-4–NFR-6; DS §0–18). Przegląd głównych popupów
+ * Audyt dostępności całej aplikacji (#42). Przegląd głównych popupów
  * z długimi nazwami i ponad 8 członkami (brak globalnego limitu): axe WCAG 2.1 A/AA na całej
  * stronie i brak poziomego przewijania przy 360 px (projekty mobilne), 375 px i na desktopie,
  * w obu motywach.
@@ -58,7 +58,7 @@ for (const width of [null, 375] as const) {
       await page.goto(`/?p=${popup}`);
       const dialog = page.getByRole('dialog').last();
       await expect(dialog).toBeVisible();
-      // Audyt dotyczy treści, nie szkieletu ładowania (DS §12).
+      // Audyt dotyczy treści, nie szkieletu ładowania.
       await expect(page.locator('.skeleton, [aria-busy="true"]')).toHaveCount(0);
       expect(await audit(page), popup).toEqual([]);
     }
@@ -76,8 +76,8 @@ test('lista członków pokazuje wszystkich (ponad 8), a długie nazwy nie rozpyc
   await expect(list.getByRole('link', { name: /Ada Adminowska/ })).toBeVisible();
   const row = list.getByRole('link', { name: new RegExp(`${LONG_FIRST} ${LONG_LAST}`) });
   await expect(row).toBeVisible();
-  // Wiersz listy ucina długą nazwę wielokropkiem (DS §6, §8), ale pełna nazwa zostaje
-  // w nazwie dostępnej linku dla czytnika ekranu (NFR-6).
+  // Wiersz listy ucina długą nazwę wielokropkiem, ale pełna nazwa zostaje
+  // w nazwie dostępnej linku dla czytnika ekranu.
   await expect(row).toHaveAccessibleName(new RegExp(`${LONG_FIRST} ${LONG_LAST}`));
   const box = await row.boundingBox();
   const dialogBox = await list.boundingBox();

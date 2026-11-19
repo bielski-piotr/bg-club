@@ -1,4 +1,4 @@
-/* Ranking: podium i lista (PRD LB-2, LB-3, LB-6, LB-7; DS §4, §6, §8). */
+/* Ranking: podium i lista. */
 .leaderboard {
   display: flex;
   flex-direction: column;
@@ -64,12 +64,12 @@
   gap: 10px;
   max-width: 100%;
   margin: 0;
-  /* Miejsce na ring awatara (3 px przerwy + 3 px akcentu, DS §8). */
+  /* Miejsce na ring awatara (3 px przerwy + 3 px akcentu). */
   padding: 6px;
   list-style: none;
 }
 
-/* W widżecie remisujący nachodzą na siebie jak w stosie awatarów (DS §8). */
+/* W widżecie remisujący nachodzą na siebie jak w stosie awatarów. */
 .leaderboard--widget .podium__avatars {
   flex-wrap: nowrap;
   gap: 0;
@@ -101,7 +101,7 @@
   font: 700 13px/16px var(--font-display);
 }
 
-/* Odznaka miejsca na dole ringu (DS §8): biała z ramką akcentu, 1. miejsce pełny akcent. */
+/* Odznaka miejsca na dole ringu: biała z ramką akcentu, 1. miejsce pełny akcent. */
 .podium__badge {
   position: relative;
   z-index: 1;
@@ -177,7 +177,7 @@
   background: var(--c-accent-tint);
 }
 
-/* Lista: wiersze tacy h54 (DS §6). */
+/* Lista: wiersze tacy h54. */
 .leaderboard__row {
   gap: 12px;
 }
@@ -222,7 +222,7 @@
   margin-top: 6px;
 }
 
-/* Popup: zakładki i filtr roku w jednym wierszu (DS §7), na telefonie filtr pod zakładkami. */
+/* Popup: zakładki i filtr roku w jednym wierszu, na telefonie filtr pod zakładkami. */
 .leaderboard-controls {
   display: flex;
   flex-wrap: wrap;

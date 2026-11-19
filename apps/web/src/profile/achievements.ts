@@ -13,13 +13,13 @@ import { meetingsKey } from '../meetings/meetings';
 import { isUuid } from '../popups/routes';
 
 /**
- * Gablota osiągnięć (PRD ACH-3, USR-4) i osiągnięcia spotkania (VIEW-5). Katalog jest w kodzie
- * (`ACHIEVEMENTS`, ACH-1); odblokowania zapisuje przeliczenie w bazie ([036]), a aplikacja je
+ * Gablota osiągnięć i osiągnięcia spotkania. Katalog jest w kodzie
+ * (`ACHIEVEMENTS`); odblokowania zapisuje przeliczenie w bazie, a aplikacja je
  * tylko czyta: `player_achievements(profile_id)` i `meeting_achievements(meeting_id)` (migracja
  * `20261116000000_achievement_showcase.sql`).
  */
 
-/** Odblokowanie gracza z terminem i tytułem spotkania (data = termin spotkania, ACH-2). */
+/** Odblokowanie gracza z terminem i tytułem spotkania (data = termin spotkania). */
 export interface PlayerUnlock {
   readonly achievement_id: string;
   readonly unlocked_at: string;
@@ -28,13 +28,13 @@ export interface PlayerUnlock {
   readonly play_id: string | null;
 }
 
-/** Liczniki z całej historii do postępu „7/10” (ACH-3). */
+/** Liczniki z całej historii do postępu „7/10”. */
 export interface AchievementProgress {
   readonly meetings: number;
   readonly plays: number;
   readonly wins: number;
   readonly points: number;
-  /** Bieżąca seria zwycięstw (§5.6.4). */
+  /** Bieżąca seria zwycięstw. */
   readonly streak: number;
   /** Różne zagrane gry. */
   readonly games: number;
@@ -43,7 +43,7 @@ export interface AchievementProgress {
   /** Najwięcej wygranych w jednej grze. */
   readonly game_wins: number;
   readonly last_places: number;
-  /** Zaliczone głosowania (Q18). */
+  /** Zaliczone głosowania. */
   readonly votes: number;
 }
 
@@ -123,7 +123,7 @@ export function showcaseItem(data: PlayerAchievements, id: string): ShowcaseItem
 }
 
 /**
- * Cały katalog w kolejności z PRD §5.10, pogrupowany jak w `ACHIEVEMENT_GROUPS` (ACH-3).
+ * Cały katalog w kolejności katalogu, pogrupowany jak w `ACHIEVEMENT_GROUPS`.
  * Odblokowania spoza katalogu (np. po usunięciu pozycji z kodu) są pomijane.
  */
 export function showcaseGroups(data: PlayerAchievements): ShowcaseGroup[] {
@@ -155,8 +155,8 @@ export function unlockedCount(data: PlayerAchievements): number {
 /**
  * Oba klucze są w `meetingsKey`, bo osiągnięcia przelicza baza przy zdarzeniach partii i spotkań
  * (zapis i usunięcie partii, rozpoczęcie, zakończenie, publikacja gier, zmiana terminu,
- * usunięcie spotkania, [036]), a każda z tych mutacji unieważnia `meetingsKey` (partie przez
- * `PLAY_DEPENDENT_KEYS`, §5.6.5). Gablota i lista spotkania nie zostają więc z nieaktualnymi
+ * usunięcie spotkania), a każda z tych mutacji unieważnia `meetingsKey` (partie przez
+ * `PLAY_DEPENDENT_KEYS`). Gablota i lista spotkania nie zostają więc z nieaktualnymi
  * odznakami.
  */
 export const playerAchievementsKey = (id: string) =>
@@ -176,7 +176,7 @@ export function usePlayerAchievements(client: SupabaseClient, id: string) {
   });
 }
 
-/** Osiągnięcia odblokowane na spotkaniu (VIEW-5), tylko z katalogu, w kolejności partii. */
+/** Osiągnięcia odblokowane na spotkaniu, tylko z katalogu, w kolejności partii. */
 export function useMeetingAchievements(client: SupabaseClient, meetingId: string) {
   return useQuery({
     queryKey: meetingAchievementsKey(meetingId),

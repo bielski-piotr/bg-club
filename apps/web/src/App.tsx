@@ -20,7 +20,7 @@ export function App({ config }: AppProps) {
   );
 }
 
-/** Widok według stanu sesji: wczytywanie, logowanie albo aplikacja (AUTH-1, AUTH-5). */
+/** Widok według stanu sesji: wczytywanie, logowanie albo aplikacja. */
 export function AuthGate() {
   const { state } = useAuth();
   switch (state.status) {

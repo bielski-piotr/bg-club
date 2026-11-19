@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Plugin } from 'vite';
 
-/** Pliki z `public/` należące do powłoki (manifest i ikony, NFR-3). */
+/** Pliki z `public/` należące do powłoki (manifest i ikony). */
 export const PUBLIC_SHELL = [
   '/manifest.webmanifest',
   '/favicon.svg',
@@ -28,8 +28,9 @@ export interface ShellAsset {
 }
 
 /**
- * Pliki powłoki do wstępnego cache: strona `/` (hosting przekierowuje `/index.html` na `/`), wejście aplikacji z importami statycznymi i ich CSS.
- * Leniwe części (galeria komponentów, notes) i fonty trafiają do cache przy pierwszym użyciu.
+ * Pliki powłoki do wstępnego cache: strona `/` (hosting przekierowuje `/index.html` na `/`),
+ * wejście aplikacji z importami statycznymi i ich CSS.
+ * Leniwe części (notes, edytor notesu) i fonty trafiają do cache przy pierwszym użyciu.
  */
 export function shellFiles(bundle: Readonly<Record<string, ShellChunk | ShellAsset>>): string[] {
   const files = new Set<string>(['/', ...PUBLIC_SHELL]);
@@ -64,7 +65,7 @@ export function renderServiceWorker(template: string, files: readonly string[], 
 }
 
 /**
- * Generuje `dist/sw.js` przy buildzie (PRD NFR-3). Wersja zależy od listy plików (nazwy
+ * Generuje `dist/sw.js` przy buildzie. Wersja zależy od listy plików (nazwy
  * z hashem treści), treści `index.html`, manifestu i ikon oraz szablonu workera, więc każde
  * wdrożenie ze zmianą daje nową wersję.
  */

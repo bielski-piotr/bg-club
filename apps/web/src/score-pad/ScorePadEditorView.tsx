@@ -18,11 +18,11 @@ import './scorePad.css';
 export interface ScorePadEditorViewProps {
   /** Notes do poprawienia; bez niego edytor zaczyna od zdjęcia. */
   readonly template?: ScorePadTemplate | undefined;
-  /** Plik notesu po „Zapisz do pliku” lub „Kopiuj do schowka” (zapis w bazie: EDT-1). */
+  /** Plik notesu po „Zapisz do pliku” lub „Kopiuj do schowka” (zapis w bazie osobno). */
   readonly onExport?: ((config: ScorePadFile, via: 'file' | 'clipboard') => void) | undefined;
   readonly className?: string | undefined;
   /**
-   * Tryb kreatora (EDT-9): bez własnych kroków i wczytywania zdjęcia; kroki prowadzi aplikacja
+   * Tryb kreatora: bez własnych kroków i wczytywania zdjęcia; kroki prowadzi aplikacja
    * przez uchwyt (`goStep`, `loadPhoto`, `loadTemplate`). Zmiana nie tworzy edytora od nowa.
    */
   readonly wizard?: boolean | undefined;
@@ -30,7 +30,7 @@ export interface ScorePadEditorViewProps {
   readonly onStatus?: ((status: ScorePadEditorStatus) => void) | undefined;
   /** Stan ładowania modułu edytora z ponowieniem (kreator pokazuje błąd w kroku zdjęcia). */
   readonly onLoadState?: ((state: ScorePadLoadState, retry: () => void) => void) | undefined;
-  /** Uchwyt do bieżącego notesu z edytora (zapis w bazie, EDT-1). */
+  /** Uchwyt do bieżącego notesu z edytora (zapis w bazie). */
   readonly ref?: Ref<ScorePadEditorHandle> | undefined;
 }
 
@@ -45,19 +45,19 @@ export interface ScorePadEditorHandle {
   loadTemplate(template: ScorePadTemplate): Promise<void>;
   /** Krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola, 4 kategorie na kartce. */
   goStep(step: 1 | 2 | 3 | 4): void;
-  /** Ustawienia kroku 2 (EDT-10): nazwa, kolor grzbietu, obszar, wygładzanie, rozmiar, grzbiet. */
+  /** Ustawienia kroku 2: nazwa, kolor grzbietu, obszar, wygładzanie, rozmiar, grzbiet. */
   setArea(patch: ScorePadEditorAreaPatch): void;
   /** Obrót zdjęcia o 90° (1 w prawo, -1 w lewo). */
   rotatePhoto(dir: 1 | -1): void;
   /** Cofa ostatnią zmianę obszaru. */
   undoArea(): void;
-  /** Zmienia mapowanie pól w kroku 3 (EDT-11). */
+  /** Zmienia mapowanie pól w kroku 3. */
   editMapping(action: ScorePadEditorMappingAction): void;
-  /** Zmienia kategorie i regułę miejsc w kroku 4 (EDT-13, EDT-2…EDT-4). */
+  /** Zmienia kategorie i regułę miejsc w kroku 4. */
   editCategories(action: ScorePadEditorCategoriesAction): void;
 }
 
-/** Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). */
+/** Edytor `<score-pad-editor>` z motywem aplikacji. */
 export function ScorePadEditorView({
   template,
   onExport,

@@ -4,7 +4,7 @@ import { profilesKey } from '../profile/profiles';
 import type { LeaderboardKind } from './kinds';
 
 /**
- * Dane rankingu (PRD LB-1…LB-7) z funkcji SQL `leaderboard(kind, year)` i `leaderboard_years()`
+ * Dane rankingu z funkcji SQL `leaderboard(kind, year)` i `leaderboard_years()`
  * (migracja `20261113001700_leaderboard.sql`). Baza liczy miejsca, remisy (1, 1, 3, alfabetycznie)
  * i usuniętych na końcu bez podium; tu tylko dzielimy wynik na stopnie podium i listę.
  */
@@ -23,7 +23,7 @@ export interface LeaderboardEntry {
   readonly value: number;
 }
 
-/** Jeden stopień podium: miejsce i wszyscy, którzy je dzielą (LB-6), alfabetycznie. */
+/** Jeden stopień podium: miejsce i wszyscy, którzy je dzielą, alfabetycznie. */
 export interface PodiumStep {
   readonly place: number;
   readonly entries: readonly LeaderboardEntry[];
@@ -32,12 +32,12 @@ export interface PodiumStep {
 export interface LeaderboardLayout {
   /** Stopnie od najlepszego; najwyżej trzy (miejsca 1–3), mniej przy 1–2 graczach albo remisie. */
   readonly steps: readonly PodiumStep[];
-  /** Pozostali od 4. miejsca, a na końcu usunięci członkowie (LB-7). */
+  /** Pozostali od 4. miejsca, a na końcu usunięci członkowie. */
   readonly rows: readonly LeaderboardEntry[];
 }
 
 /**
- * Dzieli ranking na podium i listę (LB-2, LB-6). Flagę `podium` ustawia baza (miejsce ≤ 3,
+ * Dzieli ranking na podium i listę. Flagę `podium` ustawia baza (miejsce ≤ 3,
  * nigdy usunięty), więc remis 1, 1, 3 daje dwa stopnie: dwie osoby na 1. i jedną na 3.
  */
 export function leaderboardLayout(entries: readonly LeaderboardEntry[]): LeaderboardLayout {
@@ -56,7 +56,7 @@ export function leaderboardLayout(entries: readonly LeaderboardEntry[]): Leaderb
   return { steps, rows };
 }
 
-/** Widżet pokazuje pod podium najwyżej tyle wierszy (domyślnie miejsca 4–7, LB-3). */
+/** Widżet pokazuje pod podium najwyżej tyle wierszy (domyślnie miejsca 4–7). */
 export const WIDGET_ROWS = 4;
 
 /**
@@ -72,7 +72,7 @@ export function widgetRows(
   return { shown, own };
 }
 
-/** Wartość filtru roku: `all` = cała historia (LB-4, domyślnie) albo rok, np. `2026`. */
+/** Wartość filtru roku: `all` = cała historia (domyślnie) albo rok, np. `2026`. */
 export type YearFilter = 'all' | `${number}`;
 
 export function filterYear(filter: YearFilter): number | null {
@@ -80,7 +80,7 @@ export function filterYear(filter: YearFilter): number | null {
 }
 
 /**
- * Opcje filtru roku (LB-4, STAT-3): „Cała historia”, potem lata od najnowszego.
+ * Opcje filtru roku: „Cała historia”, potem lata od najnowszego.
  * Wybrany rok, który zniknął z listy (np. po usunięciu jego jedynej partii), zostaje na końcu.
  */
 export function yearFilterValues(
@@ -94,7 +94,7 @@ export function yearFilterValues(
 
 /**
  * Klucze w `profilesKey`: zapis i usunięcie partii odświeżają ranking razem z profilami
- * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
+ * (`PLAY_DEPENDENT_KEYS`).
  */
 export const leaderboardRootKey = [...profilesKey, 'leaderboard'] as const;
 export const leaderboardKey = (kind: LeaderboardKind, year: number | null) =>
@@ -119,7 +119,7 @@ export function useLeaderboard(
   });
 }
 
-/** Lata z zapisanymi partiami (w strefie klubu, NFR-10), od najnowszego: opcje filtru roku. */
+/** Lata z zapisanymi partiami (w strefie klubu), od najnowszego: opcje filtru roku. */
 export function useLeaderboardYears(client: SupabaseClient) {
   return useQuery({
     queryKey: leaderboardYearsKey,

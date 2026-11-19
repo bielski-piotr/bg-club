@@ -1,5 +1,5 @@
 /**
- * Wyniki partii dla RPC `save_play` (PRD PAD-5, PAD-7, §5.6.2, migracja `…_save_play.sql`).
+ * Wyniki partii dla RPC `save_play` (migracja `…_save_play.sql`).
  *
  * Klient przysyła tylko to, co wynika z kartki: gracza, miejsce w notesie, miejsce w partii,
  * wartości kategorii i wartość kategorii decydującej. Punkty, remisy i wygrane liczy baza
@@ -23,7 +23,7 @@ export interface SavePlayResult {
   /** Miejsce w notesie, od 1 (`play_results.seat`). */
   readonly seat: number;
   readonly place: number;
-  /** Wartości punktacji (`values` z PAD-7); puste pole to `null`. */
+  /** Wartości punktacji (`values` zdarzenia zapisu kartki); puste pole to `null`. */
   readonly scores: Readonly<Record<string, number | null>>;
   readonly ranking_value: number | null;
 }

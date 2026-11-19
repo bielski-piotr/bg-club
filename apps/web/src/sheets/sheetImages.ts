@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /*
- * Obraz oderwanej karteczki (PRD PAD-6, NFR-7, migracja [030]). Notes robi obraz kartki
+ * Obraz oderwanej karteczki. Notes robi obraz kartki
  * z pismem w chwili oderwania; aplikacja wgrywa go do bucketu `sheets` od razu, gdy
  * użytkownik ogląda podsumowanie, a po zapisie partii (`save_play`) dołącza go RPC
  * `attach_play_sheet_image`.
@@ -15,7 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const SHEETS_BUCKET = 'sheets';
 
-/** Dłuższy bok i rozmiar obrazu karteczki (NFR-7: karteczka ≈ 150 KB). */
+/** Dłuższy bok i rozmiar obrazu karteczki (karteczka ≈ 150 KB). */
 export const SHEET_IMAGE_MAX_SIDE = 1200;
 export const SHEET_IMAGE_MAX_BYTES = 150 * 1024;
 

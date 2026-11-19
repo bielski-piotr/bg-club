@@ -72,8 +72,8 @@ function blocked(meeting: Meeting, me: OwnProfile, action: Action): string | nul
 }
 
 /**
- * Potwierdzenie „Rozpocznij spotkanie” (RUN-1, DS §15 „Dialog variants”: ikona play na tle
- * akcentu). Rozpoczęcie zamyka głosowanie; drugie trwające spotkanie odrzuca baza (MTG-2).
+ * Potwierdzenie „Rozpocznij spotkanie” (ikona play na tle akcentu). Rozpoczęcie zamyka głosowanie;
+ * drugie trwające spotkanie odrzuca baza.
  */
 export function StartMeetingDialog({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
   const { client } = useAuth();
@@ -121,8 +121,8 @@ export function StartMeetingDialog({ id, me }: { readonly id: string; readonly m
 }
 
 /**
- * „Zakończ spotkanie” (RUN-4). Partie w toku blokują zakończenie: zamiast potwierdzenia dialog
- * ostrzeżenia z ich listą (DS §15: ikona alert na żółtym tle i taca z wierszami h56). Gdy
+ * „Zakończ spotkanie”. Partie w toku blokują zakończenie: zamiast potwierdzenia dialog
+ * ostrzeżenia z ich listą (ikona alert na żółtym tle i taca z wierszami h56). Gdy
  * szkic pojawi się w międzyczasie, baza odrzuci zakończenie, a odświeżona lista go pokaże.
  */
 export function FinishMeetingDialog({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
@@ -199,7 +199,7 @@ export function FinishMeetingDialog({ id, me }: { readonly id: string; readonly 
   );
 }
 
-/** Cofnięcie zakończenia wymaga potwierdzenia admina, także przy wejściu z linku (RUN-5). */
+/** Cofnięcie zakończenia wymaga potwierdzenia admina, także przy wejściu z linku. */
 export function ReopenMeetingDialog({ id }: { readonly id: string }) {
   const { client } = useAuth();
   const { back } = usePopups();

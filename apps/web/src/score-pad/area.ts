@@ -2,8 +2,9 @@ import type { ScorePadEditorArea } from '@bg-club/score-pad';
 import { t } from '../i18n';
 
 /**
- * Kolory grzbietu notesu (DS §18 „Color swatches”): paleta awatarów (DS §3, wartości źródłowe)
- * i granat #161A2B. Wartość trafia do szablonu notesu (`tape`), więc to dosłowne kolory, nie tokeny.
+ * Kolory grzbietu notesu: paleta awatarów (wartości źródłowe)
+ * i granat #161A2B. Wartość trafia do szablonu notesu (`tape`), więc to dosłowne kolory, nie
+ * tokeny.
  */
 export const SPINE_COLORS: readonly string[] = [
   '#e09f1f',

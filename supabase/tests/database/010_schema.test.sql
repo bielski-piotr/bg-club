@@ -1,11 +1,11 @@
--- [003] Struktura schematu: encje PRD §6, typy czasu, indeksy, rozszerzenia, RLS.
+-- Struktura schematu: encje, typy czasu, indeksy, rozszerzenia, RLS.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
 select plan(45);
 
--- Wszystkie encje z PRD §6.
+-- Wszystkie encje modelu danych.
 select tables_are(
   'public',
   array[
@@ -13,7 +13,7 @@ select tables_are(
     'meeting_participants', 'game_votes', 'meeting_games', 'plays', 'play_results',
     'achievement_unlocks'
   ],
-  'schemat public ma dokładnie encje z PRD §6'
+  'schemat public ma dokładnie encje z modelu danych'
 );
 
 select columns_are('public', 'club',
@@ -50,17 +50,17 @@ select columns_are('public', 'play_results',
 select columns_are('public', 'achievement_unlocks',
   array['profile_id', 'achievement_id', 'unlocked_at', 'meeting_id', 'play_id'], 'kolumny achievement_unlocks');
 
--- NFR-10: żadnej kolumny `timestamp without time zone` ani `date` w schemacie public.
+-- żadnej kolumny `timestamp without time zone` ani `date` w schemacie public.
 select is_empty(
   $$ select table_name || '.' || column_name
        from information_schema.columns
       where table_schema = 'public'
         and data_type in ('timestamp without time zone', 'date', 'time without time zone') $$,
-  'wszystkie znaczniki czasu to timestamptz (NFR-10)'
+  'wszystkie znaczniki czasu to timestamptz'
 );
 select col_type_is('public', 'meetings', 'starts_at', 'timestamp with time zone', 'meetings.starts_at to timestamptz');
 
--- Klucze główne zgodne z PRD §6.
+-- Klucze główne zgodne z modelu danych.
 select col_is_pk('public', 'meeting_participants', array['meeting_id', 'profile_id'], 'PK meeting_participants');
 select col_is_pk('public', 'game_votes', array['meeting_id', 'game_id', 'profile_id'], 'PK game_votes');
 select col_is_pk('public', 'play_results', array['play_id', 'profile_id'], 'PK play_results');
@@ -76,8 +76,8 @@ select is_empty(
 -- Indeksy.
 select has_index('public', 'profiles', 'profiles_single_admin', 'indeks: jeden admin');
 select has_index('public', 'meetings', 'meetings_single_in_progress', 'indeks: jedno spotkanie w trakcie');
-select has_index('public', 'meetings', 'meetings_starts_at_idx', 'indeks: kolejność spotkań (Q24)');
-select has_index('public', 'plays', 'plays_meeting_order_idx', 'indeks: kolejność partii (Q24)');
+select has_index('public', 'meetings', 'meetings_starts_at_idx', 'indeks: kolejność spotkań');
+select has_index('public', 'plays', 'plays_meeting_order_idx', 'indeks: kolejność partii');
 select has_index('public', 'games', 'games_title_search_trgm', 'indeks trigramowy wyszukiwania gier');
 -- Każdy klucz obcy ma pełny (nie częściowy) indeks zaczynający się od pierwszej kolumny klucza,
 -- żeby usuwanie wierszy nadrzędnych i złączenia nie skanowały całych tabel.
@@ -95,7 +95,7 @@ select is_empty(
   'każdy klucz obcy ma indeks'
 );
 
--- Rozszerzenia i wyszukiwanie bez polskich znaków (GAME-2).
+-- Rozszerzenia i wyszukiwanie bez polskich znaków.
 select has_extension('extensions', 'unaccent', 'unaccent w schemacie extensions');
 select has_extension('extensions', 'pg_trgm', 'pg_trgm w schemacie extensions');
 select is(public.search_text('Łąka ŻÓŁW Ćma'), 'laka zolw cma', 'search_text usuwa polskie znaki i wielkość liter');
@@ -123,8 +123,8 @@ select is(
   (select prosecdef from pg_proc where oid = 'public.handle_auth_user_deleted()'::regprocedure),
   true, 'handle_auth_user_deleted jest security definer'
 );
--- Wyjątek: RPC klienta `security definer`, które zaczynają od strażnika roli (README,
--- „Uprawnienia”); lista jest jawna, a każde z nich sprawdza test poniżej.
+-- Wyjątek: RPC klienta `security definer`, które zaczynają od strażnika roli;
+-- lista jest jawna, a każde z nich sprawdza test poniżej.
 select is_empty(
   $$ select p.oid::regprocedure::text from pg_proc p
       where p.pronamespace = 'public'::regnamespace
@@ -196,7 +196,7 @@ select ok(
 
 -- Wartości domyślne.
 select col_default_is('public', 'club', 'timezone', 'Europe/Warsaw', 'domyślna strefa klubu Europe/Warsaw');
-select col_default_is('public', 'meetings', 'voting_open', 'true', 'zapis spotkania otwiera głosowanie (PLAN-2)');
+select col_default_is('public', 'meetings', 'voting_open', 'true', 'zapis spotkania otwiera głosowanie');
 
 select * from finish();
 

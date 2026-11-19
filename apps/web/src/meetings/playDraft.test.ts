@@ -78,7 +78,7 @@ describe('kopia szkicu w localStorage', () => {
     expect(writeLocalDraft(full, local())).toBe(false);
   });
 
-  it('porzucenie usuwa kopie partii ze wszystkich kont, a innych partii nie (PAD-8)', () => {
+  it('porzucenie usuwa kopie partii ze wszystkich kont, a innych partii nie', () => {
     const other = '00000000-0000-4000-a000-000000000002';
     const otherPlay = '00000000-0000-4000-f000-000000000002';
     writeLocalDraft(localStorage, local());
@@ -127,7 +127,7 @@ describe('wpisy kartki', () => {
     expect(hasEntries({ game: 1, names: [], cells: {}, free: { f: 'x' } })).toBe(true);
   });
 
-  it('wstawia graczy z miejsc partii, zostawiając wpisy (PAD-2)', () => {
+  it('wstawia graczy z miejsc partii, zostawiając wpisy', () => {
     expect(sheetWithPlayers(null, ['Ada Adamska', null, 'Bea Bobrowska'])).toEqual({
       game: 1,
       names: ['Ada Adamska', null, 'Bea Bobrowska'],
@@ -141,7 +141,7 @@ describe('wpisy kartki', () => {
   });
 });
 
-describe('wznowienie partii (PAD-4)', () => {
+describe('wznowienie partii', () => {
   it('bez kopii lokalnej albo z kopią już w bazie: wpisy z bazy', () => {
     expect(resolveDraftStart(null, server(3, sheet(1)))).toEqual({
       kind: 'server',
@@ -179,7 +179,7 @@ describe('wznowienie partii (PAD-4)', () => {
 });
 
 describe('błędy zapisu szkicu', () => {
-  it('HINT z migracji [028] → powód', () => {
+  it('HINT → powód', () => {
     expect(draftFailure({ code: 'PT409', hint: 'plays_draft_conflict' })).toBe('conflict');
     expect(draftFailure({ code: 'P0002', hint: 'plays_not_found' })).toBe('gone');
     expect(draftFailure({ code: '23514', hint: 'plays_not_draft' })).toBe('gone');
@@ -427,7 +427,7 @@ describe('DraftSaver', () => {
     expect(statuses).toHaveLength(shown);
   });
 
-  it('obietnica zamknięcia spełnia się dopiero po zapisie w bazie albo błędzie (NFR-3)', async () => {
+  it('obietnica zamknięcia spełnia się dopiero po zapisie w bazie albo błędzie', async () => {
     let finish: (value: SavedDraft) => void = () => undefined;
     const { saver } = setup(() => new Promise((resolve) => (finish = resolve)));
     saver.change(sheet(1));

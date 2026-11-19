@@ -11,7 +11,7 @@ import {
 
 const WARSAW = 'Europe/Warsaw';
 
-describe('daty spotkań w strefie klubu (NFR-10)', () => {
+describe('daty spotkań w strefie klubu', () => {
   it('czyta datę i godzinę w strefie klubu, także po zmianie czasu', () => {
     expect(localDateTime('2026-11-28T17:00:00Z', WARSAW)).toEqual({
       date: '2026-11-28',
@@ -52,7 +52,7 @@ describe('daty spotkań w strefie klubu (NFR-10)', () => {
     expect(TIME_SLOTS.at(-1)).toBe('23:30');
   });
 
-  it('formatuje datę jak w DS §15', () => {
+  it('formatuje datę jak w design systemie', () => {
     expect(formatMeetingDate('2026-11-28T17:00:00Z', WARSAW)).toBe('sobota, 28 lis 2026 · 18:00');
     expect(dateTile('2026-11-28T17:00:00Z', WARSAW)).toEqual({ month: 'LIS', day: '28' });
     expect(dateTile('2026-11-28T23:30:00Z', WARSAW)).toEqual({ month: 'LIS', day: '29' });

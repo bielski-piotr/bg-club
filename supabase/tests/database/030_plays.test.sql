@@ -1,4 +1,4 @@
--- [003] Notesy, partie i wyniki: niezmienne wersje, snapshot w bazie, liczba graczy,
+-- Notesy, partie i wyniki: niezmienne wersje, snapshot w bazie, liczba graczy,
 -- profil po usunięciu konta Auth. Dane testowe są fikcyjne.
 begin;
 
@@ -11,7 +11,7 @@ select plan(49);
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe
 -- ---------------------------------------------------------------------------------------------
--- Konta Auth tworzą profile (wyzwalacz z [005]): admin jako pierwszy, potem gracz.
+-- Konta Auth tworzą profile (wyzwalacz): admin jako pierwszy, potem gracz.
 insert into auth.users (id, email, raw_app_meta_data) values
   ('00000000-0000-4000-a000-000000000001', 'ada-adminowska-a001@users.bgclub.invalid',
    '{"bg_club": {"first_name": "Ada", "last_name": "Adminowska", "role": "admin"}}'),
@@ -51,7 +51,7 @@ update public.meetings set status = 'in_progress', voting_open = false, started_
  where id = '00000000-0000-4000-c000-000000000001';
 
 -- ---------------------------------------------------------------------------------------------
--- scorepad_versions: niezmienne, numerowane w bazie (GAME-9)
+-- scorepad_versions: niezmienne, numerowane w bazie
 -- ---------------------------------------------------------------------------------------------
 select is(
   (select version from public.scorepad_versions where id = '00000000-0000-4000-e000-000000000001'),
@@ -67,7 +67,7 @@ select is(
 );
 select ok(
   (select player_slots from public.scorepad_versions where id = '00000000-0000-4000-e000-000000000002') = 12,
-  'notes może mieć więcej niż 8 miejsc dla graczy (EDT-8)'
+  'notes może mieć więcej niż 8 miejsc dla graczy'
 );
 select throws_like(
   $$ update public.scorepad_versions set template = '{"hacked": true}'
@@ -95,7 +95,7 @@ select throws_like(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- plays: szkic i snapshot w bazie (GAME-9, Q23, PAD-9)
+-- plays: szkic i snapshot w bazie
 -- ---------------------------------------------------------------------------------------------
 select throws_like(
   $$ insert into public.plays (meeting_id, game_id, scorepad_version_id, points_snapshot, started_by)
@@ -126,7 +126,8 @@ select throws_like(
   'partia powstaje jako szkic'
 );
 
--- Wersja 2 jest teraz bieżąca, ale przy 12 miejscach liczbę graczy i tak ogranicza punktacja gry (4).
+-- Wersja 2 jest teraz bieżąca, ale przy 12 miejscach liczbę graczy i tak ogranicza punktacja gry
+-- (4).
 update public.scorepads set current_version_id = '00000000-0000-4000-e000-000000000002'
  where id = '00000000-0000-4000-d000-000000000001';
 
@@ -139,7 +140,7 @@ values ('00000000-0000-4000-f000-000000000001', '00000000-0000-4000-c000-0000000
 select is(
   (select points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000001'),
   '{10,6,4,2}'::numeric[],
-  'snapshot punktacji pochodzi z bazy, nie od klienta (GAME-9)'
+  'snapshot punktacji pochodzi z bazy, nie od klienta'
 );
 
 -- Zmiana punktacji i notesu w trakcie partii dotyczy dopiero kolejnych partii.
@@ -152,7 +153,7 @@ update public.scorepads set current_version_id = '00000000-0000-4000-e000-000000
 select is(
   (select points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000001'),
   '{10,6,4,2}'::numeric[],
-  'zmiana punktacji gry nie zmienia rozpoczętej partii (Q1, Q23)'
+  'zmiana punktacji gry nie zmienia rozpoczętej partii'
 );
 select is(
   (select scorepad_version_id from public.plays where id = '00000000-0000-4000-f000-000000000001'),
@@ -177,7 +178,7 @@ select throws_like(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- play_results: gracze partii (PAD-3, PLAN-4)
+-- play_results: gracze partii
 -- ---------------------------------------------------------------------------------------------
 select lives_ok(
   $$ insert into public.play_results (play_id, meeting_id, profile_id, seat) values
@@ -187,7 +188,7 @@ select lives_ok(
 select throws_like(
   $$ update public.plays set status = 'saved', sheet = '{}' where id = '00000000-0000-4000-f000-000000000001' $$,
   '%at least 2 required%',
-  'zapisana partia ma co najmniej 2 graczy (Q2)'
+  'zapisana partia ma co najmniej 2 graczy'
 );
 select lives_ok(
   $$ insert into public.play_results (play_id, meeting_id, profile_id, seat) values
@@ -263,7 +264,7 @@ update public.games set min_players = 4 where id = '00000000-0000-4000-b000-0000
 select lives_ok(
   $$ update public.play_results set scores = '{"kwiaty": 3}'
       where play_id = '00000000-0000-4000-f000-000000000002' and seat = 1 $$,
-  'zmiana min. graczy gry nie blokuje rozpoczętej partii (GAME-9)'
+  'zmiana min. graczy gry nie blokuje rozpoczętej partii'
 );
 
 -- ---------------------------------------------------------------------------------------------
@@ -287,13 +288,13 @@ select lives_ok(
 select is(
   (select saved_at from public.plays where id = '00000000-0000-4000-f000-000000000001'),
   now(),
-  'czas zapisu nadaje baza, nie klient (kolejność partii, §5.6.6)'
+  'czas zapisu nadaje baza, nie klient (kolejność partii)'
 );
 select throws_like(
   $$ update public.play_results set points = 100
       where play_id = '00000000-0000-4000-f000-000000000001' and seat = 1 $$,
   '%saved play are immutable%',
-  'wyników zapisanej partii nie da się zmienić (PRD §1.2)'
+  'wyników zapisanej partii nie da się zmienić'
 );
 select throws_like(
   $$ update public.plays set sheet = '{"cells": [1]}' where id = '00000000-0000-4000-f000-000000000001' $$,
@@ -307,7 +308,7 @@ select throws_like(
 );
 select lives_ok(
   $$ update public.plays set sheet_image_path = 'sheets/test.webp' where id = '00000000-0000-4000-f000-000000000001' $$,
-  'do zapisanej partii można dopisać obraz karteczki (PAD-6)'
+  'do zapisanej partii można dopisać obraz karteczki'
 );
 
 -- ---------------------------------------------------------------------------------------------
@@ -317,19 +318,19 @@ select throws_like(
   $$ delete from public.meeting_participants
       where meeting_id = '00000000-0000-4000-c000-000000000001' and profile_id = '00000000-0000-4000-a000-000000000002' $$,
   '%play_results_meeting_id_profile_id_fkey%',
-  'uczestnika z partią nie da się usunąć ze spotkania (PLAN-4)'
+  'uczestnika z partią nie da się usunąć ze spotkania'
 );
 select throws_like(
   $$ update public.meetings set status = 'finished', finished_at = now()
       where id = '00000000-0000-4000-c000-000000000001' $$,
   '%draft plays%',
-  'spotkania z partią w toku nie da się zakończyć (RUN-4)'
+  'spotkania z partią w toku nie da się zakończyć'
 );
 delete from public.plays where id = '00000000-0000-4000-f000-000000000002';
 select is(
   (select count(*)::int from public.play_results where play_id = '00000000-0000-4000-f000-000000000002'),
   0,
-  'porzucenie szkicu usuwa jego graczy (PAD-8)'
+  'porzucenie szkicu usuwa jego graczy'
 );
 select lives_ok(
   $$ update public.meetings set status = 'finished', finished_at = now()
@@ -341,12 +342,12 @@ select throws_like(
      values ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001',
              '00000000-0000-4000-e000-000000000004', '{1}', '00000000-0000-4000-a000-000000000001') $$,
   '%in-progress meeting%',
-  'po zakończeniu spotkania nie można dodawać partii (RUN-4)'
+  'po zakończeniu spotkania nie można dodawać partii'
 );
 select throws_like(
   $$ delete from public.meetings where id = '00000000-0000-4000-c000-000000000001' $$,
   '%plays_meeting_id_fkey%',
-  'spotkania z partiami nie da się usunąć (PLAN-5, Q4)'
+  'spotkania z partiami nie da się usunąć'
 );
 
 -- ---------------------------------------------------------------------------------------------
@@ -366,7 +367,7 @@ select throws_like(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Profil przeżywa usunięcie konta Auth (MEM-4)
+-- Profil przeżywa usunięcie konta Auth
 -- ---------------------------------------------------------------------------------------------
 delete from auth.users where id = '00000000-0000-4000-a000-000000000002';
 select isnt(
@@ -390,7 +391,7 @@ select throws_like(
   'profilu z historią nie da się usunąć fizycznie'
 );
 
--- Usunięcie zapisanej partii (admin, §5.6.5) usuwa wyniki i odblokowania z tej partii.
+-- Usunięcie zapisanej partii (admin) usuwa wyniki i odblokowania z tej partii.
 delete from public.plays where id = '00000000-0000-4000-f000-000000000001';
 select is(
   (select count(*)::int from public.achievement_unlocks where play_id = '00000000-0000-4000-f000-000000000001'),

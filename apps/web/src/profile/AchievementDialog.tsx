@@ -15,7 +15,7 @@ import { fullName, useProfile } from './profiles';
 const text = t.profile.achievements;
 
 /**
- * Szczegóły odznaki z gabloty (ACH-3, DS „Profil / Osiągnięcie – szczegóły”): nazwa, warunek
+ * Szczegóły odznaki z gabloty: nazwa, warunek
  * z katalogu i stan u tego gracza: data odblokowania z linkiem do spotkania albo postęp.
  * Mały dialog nad profilem, zamykany przyciskiem, Esc albo tłem.
  */

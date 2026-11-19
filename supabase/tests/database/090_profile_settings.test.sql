@@ -1,4 +1,4 @@
--- [010] Profil i ustawienia (PRD USR-3, USR-5, USR-7, USR-8, AUTH-6): propozycja zmiany
+-- Profil i ustawienia: propozycja zmiany
 -- wygenerowanego hasła, motyw w profilu, edycja wyłącznie własnego profilu (także dla admina)
 -- i zdjęcie profilowe we własnym folderze. Dane testowe są fikcyjne.
 begin;
@@ -11,7 +11,7 @@ set local storage.allow_delete_query = 'true';
 select plan(21);
 
 -- ---------------------------------------------------------------------------------------------
--- Propozycja zmiany hasła przy tworzeniu konta (AUTH-6)
+-- Propozycja zmiany hasła przy tworzeniu konta
 -- ---------------------------------------------------------------------------------------------
 select col_not_null('public', 'profiles', 'password_change_suggested', 'flaga propozycji hasła jest wymagana');
 select col_default_is('public', 'profiles', 'password_change_suggested', 'false', 'domyślnie bez propozycji (wiersz spoza wyzwalacza)');
@@ -38,7 +38,7 @@ update public.profiles set avatar_path = '00000000-0000-4000-a000-000000000003/a
  where id = '00000000-0000-4000-a000-000000000003';
 
 -- ---------------------------------------------------------------------------------------------
--- Gracz: własny profil (USR-5, USR-8)
+-- Gracz: własny profil
 -- ---------------------------------------------------------------------------------------------
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
@@ -51,7 +51,7 @@ select results_eq(
              returning first_name, last_name, theme, password_change_suggested, hook)
      select * from u $$,
   $$ values ('Bartłomiej'::text, 'Nowy'::text, 'dark'::text, false, 'bartek-testowy-b002'::text) $$,
-  'gracz: zmienia imię, nazwisko, motyw i pomija propozycję hasła; hook bez zmian (USR-1)'
+  'gracz: zmienia imię, nazwisko, motyw i pomija propozycję hasła; hook bez zmian'
 );
 select throws_ok(
   $$ update public.profiles set theme = 'sepia' where id = '00000000-0000-4000-a000-000000000002' $$,
@@ -65,7 +65,7 @@ select throws_ok(
 select lives_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id) values
      ('avatars', '00000000-0000-4000-a000-000000000002/avatar-1.webp', '00000000-0000-4000-a000-000000000002') $$,
-  'gracz: wgrywa zdjęcie do własnego folderu (USR-3)');
+  'gracz: wgrywa zdjęcie do własnego folderu');
 select lives_ok(
   $$ update public.profiles set avatar_path = '00000000-0000-4000-a000-000000000002/avatar-1.webp'
       where id = '00000000-0000-4000-a000-000000000002' $$,
@@ -76,7 +76,7 @@ select throws_ok(
   '23514', null, 'gracz: nie wskaże zdjęcia z cudzego folderu');
 select lives_ok(
   $$ update public.profiles set avatar_path = null where id = '00000000-0000-4000-a000-000000000002' $$,
-  'gracz: wraca do monogramu (USR-3)');
+  'gracz: wraca do monogramu');
 select results_eq(
   $$ with d as (delete from storage.objects
                  where bucket_id = 'avatars' and name = '00000000-0000-4000-a000-000000000002/avatar-1.webp'
@@ -99,7 +99,7 @@ select results_eq(
 reset role;
 
 -- ---------------------------------------------------------------------------------------------
--- Administrator nie edytuje cudzych kont (USR-7)
+-- Administrator nie edytuje cudzych kont
 -- ---------------------------------------------------------------------------------------------
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';

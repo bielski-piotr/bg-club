@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FRAME_WINDOW, FrameBudget, WARMUP_MS } from './core/frameBudget';
 
-/** Ograniczenia GPU: gęstość renderu notesu spada stopniami, tekstura bez zmian (NFR-2). */
+/** Ograniczenia GPU: gęstość renderu notesu spada stopniami, tekstura bez zmian. */
 function run(budget: FrameBudget, frames: number, ms: number, from = WARMUP_MS) {
   const changes: number[] = [];
   for (let i = 0; i < frames; i += 1) {

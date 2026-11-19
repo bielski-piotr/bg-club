@@ -1,4 +1,4 @@
-/* Spotkania: formularz planowania i blok widżetu (DS §15). */
+/* Spotkania: formularz planowania i blok widżetu. */
 
 .meeting-form {
   display: flex;
@@ -44,7 +44,7 @@
   color: var(--c-ink);
 }
 
-/* „Wybrano 5 z 8” i „Zaznacz wszystkich” (DS §15 „Member selection row”). */
+/* „Wybrano 5 z 8” i „Zaznacz wszystkich”. */
 .meeting-form__label-row {
   display: flex;
   flex-wrap: wrap;
@@ -121,7 +121,7 @@
   gap: 4px;
 }
 
-/* Blok widżetu (DS §15 „Widget meeting block”). */
+/* Blok widżetu. */
 .meeting-widget {
   display: flex;
   flex-direction: column;
@@ -240,7 +240,7 @@
   }
 }
 
-/* Popup spotkania (DS §15 „Popup structure”): bloki co 20 px. */
+/* Popup spotkania: bloki co 20 px. */
 .meeting-view {
   display: flex;
   flex-direction: column;
@@ -304,7 +304,7 @@
   margin: -4px 0 0;
 }
 
-/* Pole akcji administratora (DS §15 „Admin action box”). */
+/* Pole akcji administratora. */
 .meeting-admin {
   display: flex;
   flex-direction: column;
@@ -330,7 +330,7 @@
   min-height: 48px;
 }
 
-/* Wiersz głosowania h64 (DS §15 „Vote row”): miniatura, dwie linie, przełącznik głosu. */
+/* Wiersz głosowania h64: miniatura, dwie linie, przełącznik głosu. */
 .vote-row {
   padding-block: 8px;
 }
@@ -368,7 +368,7 @@
   display: inline-flex;
 }
 
-/* Przełącznik głosu h32 (DS §15 „Vote toggle”). */
+/* Przełącznik głosu h32. */
 .vote-toggle {
   display: inline-flex;
   flex-shrink: 0;
@@ -412,7 +412,7 @@
   outline-offset: 2px;
 }
 
-/* Wiersz publikacji h64 (DS §15 „Publish-games row”). */
+/* Wiersz publikacji h64. */
 .publish-row {
   cursor: pointer;
 }
@@ -450,7 +450,7 @@
   color: var(--c-ink);
 }
 
-/* Tytuł w widżecie otwiera popup spotkania (MTG-1); cały blok jest klikalny. */
+/* Tytuł w widżecie otwiera popup spotkania; cały blok jest klikalny. */
 .meeting-widget {
   position: relative;
 }
@@ -488,7 +488,7 @@
   outline-offset: 4px;
 }
 
-/* Nagłówek widżetu: odliczanie „za 16 dni” albo chip „Trwa” obok menu (DS §15 „Widget header”). */
+/* Nagłówek widżetu: odliczanie „za 16 dni” albo chip „Trwa” obok menu. */
 .meeting-widget__countdown {
   font-size: 14px;
   line-height: 18px;
@@ -497,7 +497,7 @@
   white-space: nowrap;
 }
 
-/* Taca stanu w widżecie (DS §15 „Widget tray head”, wiersze h54). */
+/* Taca stanu w widżecie (wiersze h54). */
 .meeting-tray {
   display: flex;
   flex-direction: column;
@@ -574,7 +574,7 @@
   color: var(--c-success-text);
 }
 
-/* Stos głosujących 20/6 z liczbą (DS §15 „Voter mini-stack + count”). */
+/* Stos głosujących 20/6 z liczbą. */
 .voter-count {
   display: inline-flex;
   flex-shrink: 0;
@@ -590,7 +590,7 @@
   color: var(--c-ink);
 }
 
-/* Partie spotkania (DS §15 „Play card”, „Live play card”). */
+/* Partie spotkania. */
 .play-list {
   display: flex;
   flex-direction: column;
@@ -699,7 +699,7 @@
   color: var(--c-success-text);
 }
 
-/* Miniatura oderwanej karteczki 44×56 (DS §15 „Score-sheet thumbnail”): papier w obu motywach. */
+/* Miniatura oderwanej karteczki 44×56: papier w obu motywach. */
 .play-sheet {
   display: flex;
   flex-direction: column;
@@ -720,7 +720,7 @@
   height: 46px;
 }
 
-/* Obraz oderwanej karteczki (PAD-6) w ramce miniatury. */
+/* Obraz oderwanej karteczki w ramce miniatury. */
 .play-sheet--image {
   background: #fbf7ec;
 }
@@ -761,7 +761,7 @@
   width: 16px;
 }
 
-/* Wiersze wyników h28 (DS §15 „Play card”: miejsce, awatar, imię, wynik, punkty). */
+/* Wiersze wyników h28 (miejsce, awatar, imię, wynik, punkty). */
 .play-results {
   display: flex;
   flex-direction: column;
@@ -830,7 +830,7 @@
   color: var(--c-muted);
 }
 
-/* Partie w toku w dialogu zakończenia (DS §15 „Dialog variants”: taca r18 / padding 6, h56). */
+/* Partie w toku w dialogu zakończenia (taca r18 / padding 6, h56). */
 .drafts-tray {
   padding: 6px;
   border-radius: 18px;
@@ -870,7 +870,7 @@
   margin-bottom: 12px;
 }
 
-/* Nowa partia (RUN-2, DS §15 „Step pills”, „Game / notes pick row”, „Seat row”). */
+/* Nowa partia. */
 .new-play__group {
   display: flex;
   flex-direction: column;
@@ -1113,7 +1113,7 @@
   order: -1;
 }
 
-/* Lista uczestników pod polem miejsca: taca jak w DS §15 „Member selection row”. */
+/* Lista uczestników pod polem miejsca: taca jak w wierszu wyboru członków. */
 .seat-picker {
   display: flex;
   flex-direction: column;
@@ -1226,7 +1226,7 @@
   opacity: 0.6;
 }
 
-/* Partia w toku: przyciski admina i prowadzącego (DS §15 „Live play card”, PAD-4, PAD-8). */
+/* Partia w toku: przyciski admina i prowadzącego. */
 .play-card__actions {
   display: flex;
   gap: 8px;
@@ -1240,7 +1240,7 @@
   background: var(--c-surface);
 }
 
-/* Notes partii w toku (PAD-4, PAD-9): stan zapisu szkicu, konflikt i notes 3D. */
+/* Notes partii w toku: stan zapisu szkicu, konflikt i notes 3D. */
 .play-pad__body {
   display: flex;
   flex-direction: column;
@@ -1364,7 +1364,7 @@
   }
 }
 
-/* Pasek pod notesem: wskazówka i „Oderwij kartkę” (PAD-5). */
+/* Pasek pod notesem: wskazówka i „Oderwij kartkę”. */
 .play-pad__footer {
   display: flex;
   flex-wrap: wrap;
@@ -1383,7 +1383,7 @@
   }
 }
 
-/* Podsumowanie oderwanej karteczki (PAD-5): taca z wierszami h48 jak „Wynik testu” (DS §18). */
+/* Podsumowanie oderwanej karteczki: taca z wierszami h48 jak „Wynik testu”. */
 .play-summary__list {
   display: grid;
   gap: 4px;
@@ -1464,7 +1464,7 @@
   color: var(--c-muted);
 }
 
-/* Podsumowanie spotkania (VIEW-4, DS §15 „Meeting summary row”). */
+/* Podsumowanie spotkania. */
 .summary-row {
   display: flex;
   align-items: flex-start;
@@ -1547,7 +1547,7 @@
   color: var(--c-muted);
 }
 
-/* Osiągnięcia spotkania (VIEW-5, DS §15 „Achievement row”). */
+/* Osiągnięcia spotkania. */
 .meeting-achievements {
   display: flex;
   flex-direction: column;

@@ -16,7 +16,7 @@ const CLIENT_OPTIONS = {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 } as const;
 
-/** Klient z kluczem service role (omija RLS). Klucz nie opuszcza funkcji (PRD §6.1). */
+/** Klient z kluczem service role (omija RLS). Klucz nie opuszcza funkcji. */
 export function serviceClient(): SupabaseClient {
   return createClient(
     requiredEnv('SUPABASE_URL'),

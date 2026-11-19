@@ -11,7 +11,7 @@ import './scorepads.css';
 
 const text = t.scorepads.editor;
 
-/** „Dodaj notes” (GAME-7, EDT-1): pusty edytor; zapis tworzy notes i jego wersję 1. */
+/** „Dodaj notes”: pusty edytor; zapis tworzy notes i jego wersję 1. */
 export function AddScorepadPopup({ gameId }: { readonly gameId: string }) {
   const { client } = useAuth();
   const game = useGame(client, gameId);
@@ -29,7 +29,7 @@ export function AddScorepadPopup({ gameId }: { readonly gameId: string }) {
 }
 
 /**
- * „Edytuj notes” (GAME-7, GAME-9): edytor z aktualną wersją (ze zdjęciem kartki). Zapis
+ * „Edytuj notes”: edytor z aktualną wersją (ze zdjęciem kartki). Zapis
  * tworzy kolejną wersję; partie zachowują wersję, od której się zaczęły.
  */
 export function EditScorepadPopup({ id }: { readonly id: string }) {

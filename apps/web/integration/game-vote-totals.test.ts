@@ -23,7 +23,7 @@ function success(result: { error: { code?: string; message: string } | null }) {
   assert.equal(result.error, null);
 }
 
-test('GAME-12: agregat przez Auth i PostgREST', async (t) => {
+test('agregat przez Auth i PostgREST', async (t) => {
   const empty = await service.from('profiles').select('id', { count: 'exact', head: true });
   success(empty);
   assert.equal(empty.count, 0, 'Test wymaga pustej instalacji, nie resetuje istniejącego stosu');

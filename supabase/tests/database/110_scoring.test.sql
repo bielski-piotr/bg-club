@@ -1,4 +1,4 @@
--- [014] Punkty leaderboardu za miejsca (PRD §5.6.2, §8.3): public.play_points.
+-- Punkty leaderboardu za miejsca: public.play_points.
 -- PLIK GENEROWANY z packages/scoring/src/cases/play-cases.json — nie edytować ręcznie.
 -- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.
 -- Te same przypadki przechodzi implementacja TypeScript (packages/scoring).
@@ -17,21 +17,21 @@ select is(public.play_points('{}'::int[], array[3, 1]::numeric[]), '{}'::numeric
 
 -- Przypadki poprawne: miejsca i punkty w kolejności graczy z przypadku.
 select is(public.play_points(array[3, 1, 1, 4, 5]::int[], array[10, 6, 4, 2, 0]::numeric[]), array[4, 8, 8, 2, 0]::numeric[],
-  'PRD §5.6.2: remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format)');
+  'remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format)');
 select is(public.play_points(array[1, 2, 2, 2]::int[], array[10, 7, 4, 2]::numeric[]), array[10, 4.33, 4.33, 4.33]::numeric[],
   'floor: trzech graczy remisuje o 2. miejsce, (7+4+2)/3 → 4,33 (floor do setnych)');
 select is(public.play_points(array[4, 2, 1, 2]::int[], array[6, 3, 2, 0]::numeric[]), array[0, 2.5, 6, 2.5]::numeric[],
   'ujemne wyniki, więcej = lepiej');
 select is(public.play_points(array[1, 2, 4, 2]::int[], array[6, 3, 2, 0]::numeric[]), array[6, 2.5, 0, 2.5]::numeric[],
-  'ujemne wyniki, mniej = lepiej (EDT-3)');
+  'ujemne wyniki, mniej = lepiej');
 select is(public.play_points(array[1, 3, 2, 4]::int[], array[10, 6, 4, 2]::numeric[]), array[10, 4, 6, 2]::numeric[],
-  'remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch (EDT-4)');
+  'remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch');
 select is(public.play_points(array[1, 2, 2, 4]::int[], array[10, 6, 4, 2]::numeric[]), array[10, 5, 5, 2]::numeric[],
   'remis po wszystkich regułach zostaje: 1, 2, 2, 4 (niejawne wspólne miejsce)');
 select is(public.play_points(array[1, 1, 1, 4]::int[], array[10, 6, 4, 2]::numeric[]), array[6.66, 6.66, 6.66, 2]::numeric[],
   'wspólne miejsce trzech graczy: 1, 1, 1, 4, (10+6+4)/3 → 6,66 (floor do setnych)');
 select is(public.play_points(array[3, 2, 1]::int[], array[3, 2, 1]::numeric[]), array[1, 2, 3]::numeric[],
-  'punktacja decyduje (EDT-2), mniej = lepiej, remis rozstrzyga suma');
+  'punktacja decyduje, mniej = lepiej, remis rozstrzyga suma');
 select is(public.play_points(array[2, 1]::int[], array[5, 0]::numeric[]), array[0, 5]::numeric[],
   'starszy format: decyduje suma, której nie sumuje żadna inna (suma z sumy)');
 select is(public.play_points(array[2, 1, 2]::int[], array[4, 2, 1]::numeric[]), array[1.5, 4, 1.5]::numeric[],

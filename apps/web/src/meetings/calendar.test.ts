@@ -13,7 +13,7 @@ import {
 } from './calendar';
 import { summarizePlays, type OverviewPlay } from './overview';
 
-describe('siatka miesiąca (CAL-1)', () => {
+describe('siatka miesiąca', () => {
   it('ma pełne tygodnie od poniedziałku do niedzieli', () => {
     // Listopad 2026: 1 listopada to niedziela, 30 to poniedziałek.
     const weeks = monthGrid({ year: 2026, month: 11 });
@@ -49,7 +49,7 @@ describe('siatka miesiąca (CAL-1)', () => {
   });
 });
 
-describe('dni spotkań w strefie klubu (NFR-10)', () => {
+describe('dni spotkań w strefie klubu', () => {
   const meeting = (id: string, starts_at: string) => ({ id, starts_at });
 
   it('przypisuje spotkanie do daty w strefie klubu, a w dniu sortuje po godzinie i id', () => {
@@ -78,7 +78,7 @@ describe('dni spotkań w strefie klubu (NFR-10)', () => {
   });
 });
 
-describe('podsumowanie partii spotkania (MTG-3)', () => {
+describe('podsumowanie partii spotkania', () => {
   const play = (
     id: string,
     saved_at: string | null,

@@ -1,33 +1,33 @@
--- [035] Statystyki gry i podsumowanie spotkania (PRD GAME-10, GAME-11, VIEW-4, §5.6, Q25).
+-- Statystyki gry i podsumowanie spotkania.
 --
 -- Zasady:
--- - Jak `leaderboard` ([032]): liczą się tylko zapisane partie (`plays.status = 'saved'`,
+-- - Jak `leaderboard`: liczą się tylko zapisane partie (`plays.status = 'saved'`,
 --   szkice nie), wyniki liczone są z `play_results` przy odczycie, więc zapis i usunięcie
---   partii (`save_play`, `delete_play`) zmieniają statystyki od razu (§5.6.5). Funkcje działają
+--   partii (`save_play`, `delete_play`) zmieniają statystyki od razu. Funkcje działają
 --   z prawami wywołującego (security invoker): RLS daje wynik tylko aktywnym członkom.
--- - Kolejność zdarzeń (§5.6.6, Q24): spotkania po `starts_at`, potem `id`; partie w spotkaniu
+-- - Kolejność zdarzeń: spotkania po `starts_at`, potem `id`; partie w spotkaniu
 --   po `saved_at`, potem `id`.
 --
--- `game_stats(game_id)` (GAME-11) zwraca obiekt jsonb (NULL, gdy gry nie ma):
+-- `game_stats(game_id)` zwraca obiekt jsonb (NULL, gdy gry nie ma):
 -- - `play_count`, `last_played_at` (termin spotkania ostatniej partii; NULL bez partii);
 -- - `top_winners`: aktywni gracze z największą liczbą wygranych (> 0) w tej grze, wszyscy przy
---   remisie, alfabetycznie; usunięci członkowie nie są wyróżniani (jak podium, LB-7);
+--   remisie, alfabetycznie; usunięci członkowie nie są wyróżniani (jak podium);
 -- - `record`: najlepsza wartość kategorii decydującej (`ranking_value`) i wszyscy, którzy ją
---   osiągnęli (Q25), każdy z pierwszą partią, w której to zrobił (kto i kiedy). Kierunek
+--   osiągnęli, każdy z pierwszą partią, w której to zrobił (kto i kiedy). Kierunek
 --   „lepiej” bierzemy z reguły notesu (`private.scorepad_ranking`): wersje notesu mogą się
---   różnić (GAME-9), więc obowiązuje kierunek wersji ostatniej zapisanej partii, a partie
+--   różnić, więc obowiązuje kierunek wersji ostatniej zapisanej partii, a partie
 --   z wersji o innym kierunku nie biorą udziału w rekordzie ani średniej (ich wartości nie są
 --   porównywalne). Partia bez wartości decydującej u gracza (NULL) nie liczy się do rekordu.
 --   Bez żadnej wartości `record` jest NULL;
 -- - `winner_average`: średnia wartość decydująca zwycięzców (także remisujących o 1. miejsce)
 --   z tych samych partii co rekord; NULL bez wartości;
--- - `ranking`: gracze z ≥ 1 zapisaną partią gry: wygrane, potem punkty (§5.6.2, §5.6.3);
+-- - `ranking`: gracze z ≥ 1 zapisaną partią gry: wygrane, potem punkty;
 --   wspólne miejsce przy równych obu (1, 1, 3), alfabetycznie w remisie, usunięci na końcu
---   z miejscami liczonymi dalej (jak LB-6, LB-7).
+--   z miejscami liczonymi dalej (jak w rankingu).
 --
--- `meeting_summary(meeting_id)` (VIEW-4) zwraca graczy z ≥ 1 zapisaną partią spotkania: punkty
+-- `meeting_summary(meeting_id)` zwraca graczy z ≥ 1 zapisaną partią spotkania: punkty
 -- i wygrane z rozbiciem na gry (w kolejności pierwszej partii gry w spotkaniu) oraz serię
--- zwycięstw przed i po spotkaniu, liczoną z całej historii (§5.6.4). Seria po spotkaniu:
+-- zwycięstw przed i po spotkaniu, liczoną z całej historii. Seria po spotkaniu:
 -- wygrana → seria przed + 1, brak wygranej → 0. Spotkania późniejsze nie mają znaczenia.
 -- Kolejność: punkty malejąco (wspólne miejsce przy równych), alfabetycznie, usunięci na końcu.
 
@@ -53,7 +53,7 @@ as $$
       left join lateral private.scorepad_ranking(v.template) r on true
      where p.game_id = game_stats.game_id and p.status = 'saved'
   ),
-  -- Kierunek wersji notesu ostatniej zapisanej partii (§5.6.6).
+  -- Kierunek wersji notesu ostatniej zapisanej partii.
   current_dir as (
     select coalesce(pl.dir, 'desc') as dir
       from plays pl
@@ -75,7 +75,7 @@ as $$
       from results r
      where r.comparable and r.ranking_value is not null
   ),
-  -- Każdy rekordzista raz: z pierwszą partią, w której osiągnął rekord (§5.6.6).
+  -- Każdy rekordzista raz: z pierwszą partią, w której osiągnął rekord.
   holders as (
     select distinct on (r.profile_id)
            r.profile_id, r.play_id, r.meeting_id, r.starts_at, r.saved_at
@@ -139,7 +139,7 @@ as $$
 $$;
 
 comment on function public.game_stats(uuid) is
-  'Statystyki gry (GAME-11): partie, ostatnia data, najczęstsi zwycięzcy, rekord (wszyscy przy równej wartości, Q25), średni wynik zwycięzcy i ranking graczy (wygrane, punkty).';
+  'Statystyki gry: partie, ostatnia data, najczęstsi zwycięzcy, rekord (wszyscy przy równej wartości), średni wynik zwycięzcy i ranking graczy (wygrane, punkty).';
 
 revoke execute on function public.game_stats(uuid) from public, anon;
 grant execute on function public.game_stats(uuid) to authenticated;
@@ -189,7 +189,7 @@ as $$
       from per_game pg
      group by pg.profile_id
   ),
-  -- Spotkania graczy przed tym spotkaniem (§5.6.6): wygrana w spotkaniu albo jej brak.
+  -- Spotkania graczy przed tym spotkaniem: wygrana w spotkaniu albo jej brak.
   history as (
     select r.profile_id, m.id as meeting_id, m.starts_at, bool_or(r.is_win) as won
       from public.play_results r
@@ -231,7 +231,7 @@ as $$
 $$;
 
 comment on function public.meeting_summary(uuid) is
-  'Podsumowanie leaderboardowe spotkania (VIEW-4): punkty i wygrane graczy z rozbiciem na gry oraz seria zwycięstw przed i po spotkaniu (§5.6.4).';
+  'Podsumowanie leaderboardowe spotkania: punkty i wygrane graczy z rozbiciem na gry oraz seria zwycięstw przed i po spotkaniu.';
 
 revoke execute on function public.meeting_summary(uuid) from public, anon;
 grant execute on function public.meeting_summary(uuid) to authenticated;

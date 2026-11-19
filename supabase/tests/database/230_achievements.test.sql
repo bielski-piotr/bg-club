@@ -1,4 +1,4 @@
--- [036] Przeliczanie osiągnięć w przebiegu klubu (PRD ACH-2, §5.10, §5.6.5, Q17, Q18): zapis
+-- Przeliczanie osiągnięć w przebiegu klubu: zapis
 -- partii, ponowienie zapisu, zakończenie spotkania, usunięcie partii, zamknięcie, ponowne
 -- otwarcie i usunięcie głosowania, uprawnienia. Warunki katalogu na wspólnych przypadkach
 -- sprawdza generowany test 231_achievement_cases. Dane testowe są fikcyjne.
@@ -104,7 +104,7 @@ select ok(
   'migawka głosujących nie jest dostępna dla klienta');
 
 -- =============================================================================================
--- Głosowanie (Q18): migawka przy zamknięciu, ponowne otwarcie liczy się raz
+-- Głosowanie: migawka przy zamknięciu, ponowne otwarcie liczy się raz
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
@@ -116,7 +116,7 @@ insert into public.game_votes (meeting_id, game_id, profile_id) values
   (pg_temp.meeting(1), '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000003');
 
 reset role;
-select is((select count(*) from private.meeting_voters), 0::bigint, 'głos nie zapisuje migawki ani nie przelicza (Q18)');
+select is((select count(*) from private.meeting_voters), 0::bigint, 'głos nie zapisuje migawki ani nie przelicza');
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
@@ -142,7 +142,7 @@ select results_eq(
   $$ values ('2', 1), ('3', 1) $$,
   'ponowne otwarcie i zamknięcie: każdy gracz raz, głos z chwili pierwszego zamknięcia zostaje');
 
--- Spotkania c002…c009: publikacja; c010: rozpoczęcie zamyka głosowanie (RUN-1).
+-- Spotkania c002…c009: publikacja; c010: rozpoczęcie zamyka głosowanie.
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select public.publish_meeting_games(pg_temp.meeting(n), array['00000000-0000-4000-b000-000000000001']::uuid[])
@@ -196,7 +196,7 @@ select is(public.test_unlocks(2),
   'zakończenie spotkania: Bez skazy (3 partie, 3 wygrane)');
 
 -- =============================================================================================
--- Usunięcie partii cofa niespełnione osiągnięcia (§5.6.5, Q17)
+-- Usunięcie partii cofa niespełnione osiągnięcia
 -- =============================================================================================
 select public.delete_play(pg_temp.play(3));
 select is(public.test_unlocks(2), array['beginners-luck@10/1', 'meet-1@10/1', 'voter-10@10/-', 'win-1@10/1'],
@@ -223,7 +223,7 @@ select set_eq($$ select * from public.achievement_unlocks $$, $$ select * from b
   'ponowne przeliczenie niczego nie zmienia');
 
 -- =============================================================================================
--- Usunięcie spotkania (PLAN-3): jego głosowanie przestaje się liczyć
+-- Usunięcie spotkania: jego głosowanie przestaje się liczyć
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';

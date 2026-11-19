@@ -1,46 +1,45 @@
--- [036] Katalog i przeliczanie osiągnięć (PRD ACH-1, ACH-2, §5.10, §5.6.5, §5.6.6, Q16–Q18, Q24).
+-- Katalog i przeliczanie osiągnięć.
 --
 -- Zasady:
--- - Katalog (29 pozycji, Q16) jest w kodzie: `packages/scoring/src/achievements.ts` (ACH-1).
+-- - Katalog (29 pozycji) jest w kodzie: `packages/scoring/src/achievements.ts`.
 --   Baza liczy te same warunki w `private.computed_achievement_unlocks()`; obie implementacje
 --   przechodzą wspólne przypadki (`packages/scoring/src/cases/achievements.ts`, generowany test
 --   pgTAP `231_achievement_cases`).
--- - Przeliczenie jest pełne i deterministyczne: odtwarza całą historię w kolejności z §5.6.6
+-- - Przeliczenie jest pełne i deterministyczne: odtwarza całą historię w kolejności ustalonej
 --   (spotkania po `starts_at`, potem `id`; partie po `saved_at`, potem `id`) i porównuje wynik
 --   z `achievement_unlocks`: dopisuje nowe, usuwa niespełnione i poprawia datę spełnionych
---   później (np. po usunięciu partii, Q17). Data odblokowania to `starts_at` spotkania, na
+--   później (np. po usunięciu partii). Data odblokowania to `starts_at` spotkania, na
 --   którym warunek spełniono po raz pierwszy; `play_id` wskazuje partię, która go dopełniła.
 --   Przy skali jednego klubu pełne przeliczenie to kilka zapytań z funkcjami okienkowymi.
--- - Kiedy (ACH-2): w tej samej transakcji co zmiana danych, wyzwalaczami:
+-- - Kiedy: w tej samej transakcji co zmiana danych, wyzwalaczami:
 --   - zapis partii (`save_play`: szkic → zapisana) i usunięcie partii (`delete_play` przez
 --     `private.recalculate_after_plays_change`),
---   - zakończenie spotkania (i każda inna zmiana statusu z albo na `finished`, np. RUN-5),
---   - zamknięcie głosowania (publikacja gier albo rozpoczęcie spotkania, Q18) oraz zmiana
+--   - zakończenie spotkania (i każda inna zmiana statusu z albo na `finished`, np. ponowne otwarcie),
+--   - zamknięcie głosowania (publikacja gier albo rozpoczęcie spotkania) oraz zmiana
 --     terminu zaplanowanego spotkania z zamkniętym głosowaniem (termin to data `voter-10`),
---   - usunięcie spotkania (PLAN-3, PLAN-5; jego odblokowania znikają kaskadą, a głosy
---     przestają się liczyć do `voter-10`).
---   Pojedynczy głos niczego nie przelicza (Q18).
+--   - usunięcie spotkania (jego odblokowania znikają kaskadą, a głosy przestają się liczyć do
+--   `voter-10`). Pojedynczy głos niczego nie przelicza.
 -- - `voter-10` liczy spotkania, w których gracz miał ≥ 1 głos w chwili zamknięcia głosowania.
 --   Zamknięcie zapisuje migawkę głosujących w `private.meeting_voters`: późniejsze zniknięcie
 --   głosów (cofnięcie po ponownym otwarciu, usunięcie uczestnika, gry albo członka) nie odbiera
 --   zaliczonego głosowania, a ponowne zamknięcie tego samego spotkania liczy się raz. Migawka
 --   znika razem ze spotkaniem.
--- - `flawless` liczy tylko spotkania zakończone (sprawdzane przy zakończeniu, §5.10); pozostałe
+-- - `flawless` liczy tylko spotkania zakończone (sprawdzane przy zakończeniu); pozostałe
 --   warunki liczą każdą zapisaną partię, także w spotkaniu w trakcie (jak leaderboard).
 -- - Równoległe przeliczenia szereguje blokada doradcza transakcji: drugie czyta historię po
---   zatwierdzeniu pierwszego, więc dwie partie zapisane jednocześnie (RUN-3) nie gubią
+--   zatwierdzeniu pierwszego, więc dwie partie zapisane jednocześnie nie gubią
 --   osiągnięcia spełnionego dopiero przez obie. Usunięcie spotkania bierze tę blokadę przed
 --   blokadami wierszy (wyzwalacz BEFORE na poziomie instrukcji), żeby nie czekać na nią
 --   z zablokowanym spotkaniem, do którego przeliczenie dopisuje odblokowanie. RPC biorą ją po
 --   blokadzie swojego spotkania; ewentualne zakleszczenie Postgres wykrywa i przerywa jedną
 --   transakcję (błąd 40P01), a ponowienie RPC jest bezpieczne.
--- - Przy skali jednego klubu (PRD §6) pełne przeliczenie w transakcji zapisu jest tanie;
+-- - Przy skali jednego klubu pełne przeliczenie w transakcji zapisu jest tanie;
 --   przy dużej historii można je zawęzić do graczy i gier, których zmiana dotyczy.
 -- - Klient niczego tu nie wywołuje: odblokowania czyta z `achievement_unlocks` (RLS), a zapisuje
 --   je wyłącznie przeliczenie.
 
 -- ---------------------------------------------------------------------------------------------
--- Migawka głosujących przy zamknięciu głosowania (Q18)
+-- Migawka głosujących przy zamknięciu głosowania
 -- ---------------------------------------------------------------------------------------------
 create table private.meeting_voters (
   meeting_id uuid not null references public.meetings (id) on delete cascade,
@@ -51,7 +50,7 @@ create table private.meeting_voters (
 create index meeting_voters_profile_id_idx on private.meeting_voters (profile_id);
 
 comment on table private.meeting_voters is
-  'Gracze z ≥ 1 głosem w chwili zamknięcia głosowania spotkania (voter-10, Q18). Zapisuje wyzwalacz meetings_after_change.';
+  'Gracze z ≥ 1 głosem w chwili zamknięcia głosowania spotkania (voter-10). Zapisuje wyzwalacz meetings_after_change.';
 
 revoke all on private.meeting_voters from public, anon, authenticated;
 
@@ -64,7 +63,7 @@ select distinct v.meeting_id, v.profile_id
  where not m.voting_open;
 
 -- ---------------------------------------------------------------------------------------------
--- Warunki z katalogu (PRD §5.10)
+-- Warunki z katalogu
 -- ---------------------------------------------------------------------------------------------
 create function private.computed_achievement_unlocks()
 returns table (
@@ -81,7 +80,7 @@ as $$
   with plays as (
     select p.id as play_id, p.game_id, p.meeting_id, m.starts_at, m.status as meeting_status,
            coalesce(rk.dir, 'desc') as dir,
-           -- Jedna globalna kolejność partii (§5.6.6).
+           -- Jedna globalna kolejność partii.
            row_number() over (order by m.starts_at, m.id, p.saved_at, p.id) as seq
       from public.plays p
       join public.meetings m on m.id = p.meeting_id
@@ -143,7 +142,7 @@ as $$
     union all select e.profile_id, 'pts-100', e.seq from ev e where e.points_n >= 100
     union all select e.profile_id, 'pts-500', e.seq from ev e where e.points_n >= 500
   ),
-  -- Spotkania gracza z ≥ 1 partią: serie (§5.6.4), powrót i bez skazy.
+  -- Spotkania gracza z ≥ 1 partią: serie, powrót i bez skazy.
   player_meetings as (
     select r.profile_id, r.meeting_id, r.starts_at, r.meeting_status,
            count(*) as plays, count(*) filter (where r.is_win) as wins,
@@ -186,7 +185,7 @@ as $$
                         from breaks b) c
                where c.won and c.after_break
   ),
-  -- Rekord (GAME-11, Q17, Q25): najlepszy wynik partii lepszy od wszystkich wcześniejszych
+  -- Rekord: najlepszy wynik partii lepszy od wszystkich wcześniejszych
   -- partii gry w tym samym kierunku notesu. Pierwsza partia i wyrównanie nie dają osiągnięcia.
   play_best as (
     select r.play_id, r.game_id, r.dir, r.seq,
@@ -218,7 +217,7 @@ as $$
       join plays pl on pl.seq = u.seq
      order by u.profile_id, u.achievement_id, u.seq
   ),
-  -- Głos ludu (Q18): dziesiąte różne spotkanie z głosem, chronologicznie.
+  -- Głos ludu: dziesiąte różne spotkanie z głosem, chronologicznie.
   votes as (
     select v.profile_id, m.id as meeting_id, m.starts_at,
            row_number() over (partition by v.profile_id order by m.starts_at, m.id) as n
@@ -231,7 +230,7 @@ as $$
 $$;
 
 comment on function private.computed_achievement_unlocks() is
-  'Odblokowania osiągnięć wynikające z całej historii (§5.10), w kolejności zdarzeń z §5.6.6. Ta sama logika co computeAchievements w packages/scoring.';
+  'Odblokowania osiągnięć wynikające z całej historii, w kolejności zdarzeń ustalonej. Ta sama logika co computeAchievements w packages/scoring.';
 
 revoke execute on function private.computed_achievement_unlocks() from public, anon, authenticated;
 
@@ -270,11 +269,11 @@ end;
 $$;
 
 comment on function private.recalculate_achievements() is
-  'Przelicza achievement_unlocks z całej historii (ACH-2): dopisuje nowe, usuwa niespełnione, poprawia daty. Wywołują je wyzwalacze i RPC w transakcji zmiany danych.';
+  'Przelicza achievement_unlocks z całej historii: dopisuje nowe, usuwa niespełnione, poprawia daty. Wywołują je wyzwalacze i RPC w transakcji zmiany danych.';
 
 revoke execute on function private.recalculate_achievements() from public, anon, authenticated;
 
--- Punkt przeliczenia po zmianie zapisanych partii z [031] (`delete_play`): sygnatura bez zmian.
+-- Punkt przeliczenia po zmianie zapisanych partii (`delete_play`): sygnatura bez zmian.
 create or replace function private.recalculate_after_plays_change(meeting_id uuid)
 returns void
 language plpgsql
@@ -289,7 +288,7 @@ end;
 $$;
 
 comment on function private.recalculate_after_plays_change(uuid) is
-  'Przeliczenie po zmianie zapisanych partii spotkania (§5.6.5): rankingi, serie i rekordy liczą się przy odczycie, osiągnięcia przelicza private.recalculate_achievements.';
+  'Przeliczenie po zmianie zapisanych partii spotkania: rankingi, serie i rekordy liczą się przy odczycie, osiągnięcia przelicza private.recalculate_achievements.';
 
 -- ---------------------------------------------------------------------------------------------
 -- Wyzwalacze: zapis partii, przebieg i usunięcie spotkania

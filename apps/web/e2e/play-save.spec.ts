@@ -16,7 +16,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Zakończenie partii (PRD PAD-5, PAD-7, §5.6, zadanie [029]): oderwanie karteczki pokazuje
+ * Zakończenie partii: oderwanie karteczki pokazuje
  * podsumowanie z miejscami i punktami, „Wróć do kartki” kładzie kartkę z powrotem, a „Zapisz
  * partię” wysyła kartkę i wyniki bez punktów (liczy je baza). Przekroczony czas po zapisie
  * ponawia to samo żądanie bez duplikatu. API Supabase jest atrapą; reguły bazy (uprawnienia,
@@ -164,9 +164,7 @@ const tear = (page: Page) =>
   page.getByRole('button', { name: 'Oderwij kartkę i zakończ partię Azul' }).click();
 const summaryDialog = (page: Page) => page.getByRole('dialog', { name: 'Podsumowanie partii' });
 
-test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów (PAD-5, §5.6.2)', async ({
-  page,
-}) => {
+test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów', async ({ page }) => {
   test.slow();
   const mock = await openApp(page, { plays: [draft()] });
   const pad = page.getByRole('dialog', { name: 'Azul' });
@@ -235,7 +233,7 @@ test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów (
   await check(page);
 });
 
-test('remis: wspólne 1. miejsce, każdy wygrywa, (4+2)/2 = 3 w partii 2 graczy gry do 4 (§5.6.2, §5.6.3)', async ({
+test('remis: wspólne 1. miejsce, każdy wygrywa, (4+2)/2 = 3 w partii 2 graczy gry do 4', async ({
   page,
 }) => {
   test.slow();
@@ -443,7 +441,7 @@ test('manual: pierwsza reguła, dwie niezależne grupy i pozostawienie wspólneg
   await expect(notifications).toHaveCount(0);
 });
 
-test('ACH-4: kilka odznak tylko po zapisie, ponowienie bez duplikatów, link i odświeżenie', async ({
+test('kilka odznak tylko po zapisie, ponowienie bez duplikatów, link i odświeżenie', async ({
   page,
 }, testInfo) => {
   test.slow();
@@ -512,9 +510,7 @@ test('ACH-4: kilka odznak tylko po zapisie, ponowienie bez duplikatów, link i o
   expect(mock.playSaves).toHaveLength(2);
 });
 
-test('ACH-4: brak nowych odznak i odczyt zapisanej partii nie pokazują toastu', async ({
-  page,
-}) => {
+test('brak nowych odznak i odczyt zapisanej partii nie pokazują toastu', async ({ page }) => {
   test.slow();
   const mock = await openApp(page, { plays: [draft()] });
   await write(page, { a: [9, 4, null, null] });

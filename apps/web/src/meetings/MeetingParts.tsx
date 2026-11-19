@@ -6,7 +6,7 @@ import { dateTile } from './datetime';
 import type { Meeting } from './meetings';
 
 /**
- * Wspólne elementy timeline, kalendarza i popupu spotkania (DS §15.1): mini kafelek daty,
+ * Wspólne elementy timeline, kalendarza i popupu spotkania: mini kafelek daty,
  * chip statusu i wiersz zwycięzców.
  */
 
@@ -29,8 +29,8 @@ export function MiniDateTile({ meeting, timeZone }: { meeting: Meeting; timeZone
 }
 
 /**
- * Chip stanu spotkania (DS §11, §15.1 „Agenda row”): głosowanie otwarte, gry wybrane,
- * w trakcie albo zakończone. `short`: „Trwa” zamiast „W trakcie” (widżet Spotkanie, DS §15).
+ * Chip stanu spotkania: głosowanie otwarte, gry wybrane,
+ * w trakcie albo zakończone. `short`: „Trwa” zamiast „W trakcie” (widżet Spotkanie).
  */
 export function MeetingStatusChip({
   meeting,
@@ -55,7 +55,7 @@ export function MeetingStatusChip({
 }
 
 /**
- * Zwycięzcy (DS §15.1 „Timeline row”): puchar, stos awatarów 20/6 i imiona. Bez czasownika,
+ * Zwycięzcy: puchar, stos awatarów 20/6 i imiona. Bez czasownika,
  * więc tekst nie zależy od rodzaju gramatycznego. Nieznane profile są pomijane.
  */
 export function WinnersLine({

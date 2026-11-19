@@ -1,8 +1,8 @@
--- [003] Strażnicy spójności działają także dla klienta pod RLS.
+-- Strażnicy spójności działają także dla klienta pod RLS.
 -- Polityki mogą ukrywać wiersze (np. usunięte gry) i klient nie ma praw do funkcji
 -- pomocniczych. Test zakłada tymczasowe polityki i prawa (wycofywane razem z transakcją),
 -- przełącza się na rolę authenticated i sprawdza, że reguły nie przestają działać.
--- Prawdziwe polityki z [004] (migracja access_control) nie dają tu dostępu, bo test nie ustawia
+-- Prawdziwe polityki (migracja access_control) nie dają tu dostępu, bo test nie ustawia
 -- tokenu (auth.uid() = NULL). Klient nie pisze do plays i play_results (robi to RPC), więc
 -- prawa INSERT są tu nadane tylko na czas testu. Dane testowe są fikcyjne.
 begin;

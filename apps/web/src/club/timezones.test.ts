@@ -9,7 +9,7 @@ import {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('strefy czasowe klubu (CLUB-2, NFR-10)', () => {
+describe('strefy czasowe klubu', () => {
   it('przesunięcie zależy od daty (czas letni) i używa znaku minus', () => {
     expect(utcOffset('Europe/Warsaw', new Date('2026-01-15T12:00:00Z'))).toBe('UTC+01:00');
     expect(utcOffset('Europe/Warsaw', new Date('2026-07-15T12:00:00Z'))).toBe('UTC+02:00');

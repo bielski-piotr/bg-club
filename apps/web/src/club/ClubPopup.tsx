@@ -34,7 +34,7 @@ import './club.css';
 import { leaderboardRootKey } from '../leaderboard/leaderboard';
 
 /**
- * Popup „Dodaj klub” / „Edytuj klub” (CLUB-2, DS §17). Otwiera go administrator z pierwszego
+ * Popup „Dodaj klub” / „Edytuj klub”. Otwiera go administrator z pierwszego
  * uruchomienia albo ołówkiem w nagłówku huba; dla gracza `HubPopup` pokazuje „Nie znaleziono”.
  */
 export function ClubPopup() {
@@ -105,7 +105,8 @@ function ClubForm({ club }: { readonly club: Club | null }) {
   const savedLogo = useCoverUrl(client, logo.kind === 'keep' ? (club?.logo_path ?? null) : null);
 
   // Adres podglądu zwalniamy przy wyborze kolejnego pliku i przy zamknięciu popupu. Ref, a nie
-  // sprzątanie efektu zależnego od adresu: StrictMode od razu uruchamia sprzątanie i podgląd by znikał.
+  // sprzątanie efektu zależnego od adresu: StrictMode od razu uruchamia sprzątanie i podgląd by
+  // znikał.
   const previewUrl = useRef<string | null>(null);
   useEffect(
     () => () => {
@@ -119,7 +120,7 @@ function ClubForm({ club }: { readonly club: Club | null }) {
       saveClub(client, club, { name, timezone, logo: logoChange }),
     onSuccess: (saved) => {
       queryClient.setQueryData(clubKey, saved);
-      // Strefa klubu wyznacza granice roku w rankingu (NFR-10).
+      // Strefa klubu wyznacza granice roku w rankingu.
       void queryClient.invalidateQueries({ queryKey: leaderboardRootKey });
       toast.show(creating ? t.club.toasts.created : t.club.toasts.updated, 'success');
       back();
@@ -127,7 +128,7 @@ function ClubForm({ club }: { readonly club: Club | null }) {
     onError: (error) => {
       const reason = error instanceof ClubSaveError ? error.reason : 'save';
       if (reason === 'exists') {
-        // Klub powstał w międzyczasie (np. równoległa próba, CLUB-2): drugiego nie ma, hub
+        // Klub powstał w międzyczasie (np. równoległa próba): drugiego nie ma, hub
         // pokazuje ten istniejący.
         void queryClient.invalidateQueries({ queryKey: clubKey });
         toast.show(SAVE_ERRORS.exists, 'error');

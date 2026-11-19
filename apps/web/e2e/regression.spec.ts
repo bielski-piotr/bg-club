@@ -131,7 +131,7 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   await expect(pad.locator('score-pad .sp.ready')).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Oderwij kartkę i zakończ partię Gra regresji' }).click();
   const summary = page.getByRole('dialog', { name: 'Podsumowanie partii' });
-  // 2 graczy w grze do 4: liczą się ostatnie 2 miejsca punktacji 10/6/4/2 (§5.6.2).
+  // 2 graczy w grze do 4: liczą się ostatnie 2 miejsca punktacji 10/6/4/2.
   await expect(summary).toContainText('+4 pkt');
   await expect(summary).toContainText('+2 pkt');
   await summary.getByRole('button', { name: 'Zapisz partię' }).click();

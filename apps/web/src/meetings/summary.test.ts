@@ -10,7 +10,7 @@ const game = (title: string, points: number, wins = 0, deleted = false): Summary
   wins,
 });
 
-describe('podsumowanie spotkania (VIEW-4)', () => {
+describe('podsumowanie spotkania', () => {
   it('opisuje zmianę serii', () => {
     expect(streakChange({ streak_before: 3, streak_after: 4 })).toBe('up');
     expect(streakLabel({ streak_before: 3, streak_after: 4 })).toBe('+1 → seria 4');
@@ -37,7 +37,7 @@ describe('podsumowanie spotkania (VIEW-4)', () => {
   });
 });
 
-describe('statystyki gry (GAME-11)', () => {
+describe('statystyki gry', () => {
   it('formatuje wynik po polsku', () => {
     expect(formatScore(28.75, 1)).toBe('28,8');
     expect(formatScore(12.34)).toBe('12,34');

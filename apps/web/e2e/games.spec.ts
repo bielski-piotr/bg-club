@@ -11,7 +11,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Kolekcja gier (PRD GAME-1…GAME-6, GAME-8; DS §6, §7, §14): widżet w kolejności Q11, popup
+ * Kolekcja gier: widżet w kolejności, popup
  * z wyszukiwaniem bez polskich znaków, formularz admina z okładką i punktacją, miękkie
  * usunięcie. API Supabase i Storage są atrapą; każdy test przechodzi na 360 px i na
  * desktopie, w motywie jasnym i ciemnym.
@@ -64,7 +64,7 @@ test('widżet: ostatnio grane, potem dodane; usunięte gry nie są widoczne', as
   await expect(widget.locator('.collection-widget__title')).toHaveText('Żółwie Wyścigi');
   await expect(widget.locator('.row__title')).toHaveText(['Kolejka', 'Łąka i Pszczoły']);
   await expect(widget).not.toContainText('Archiwum');
-  // Okładka z Storage albo monogram tytułu (GAME-6).
+  // Okładka z Storage albo monogram tytułu.
   await expect(widget.locator('.game-cover--thumb img')).toHaveCount(1);
   await expect(widget.locator('.collection-widget__featured .game-cover')).toHaveText('ŻW');
   expect(await horizontalOverflow(page)).toBe(0);
@@ -75,7 +75,7 @@ test('widżet: ostatnio grane, potem dodane; usunięte gry nie są widoczne', as
   expect(await search(page)).toBe('?p=games');
 });
 
-test('widżet pokazuje 5 gier, a licznik wszystkie (GAME-1)', async ({ page }) => {
+test('widżet pokazuje 5 gier, a licznik wszystkie', async ({ page }) => {
   const many = ['Azul', 'Dixit', 'Splendor', 'Wsiąść do Pociągu', 'Carcassonne', 'Patchwork'];
   await openApp(page, { games: many.map((title, i) => mockGame(10 + i, title)) });
   const widget = page.getByRole('region', { name: 'Kolekcja', exact: true });
@@ -90,7 +90,7 @@ test('widżet pokazuje 5 gier, a licznik wszystkie (GAME-1)', async ({ page }) =
   expect(await horizontalOverflow(page)).toBe(0);
 });
 
-test('popup: wyszukiwanie na bieżąco bez polskich znaków (GAME-2)', async ({ page }) => {
+test('popup: wyszukiwanie na bieżąco bez polskich znaków', async ({ page }) => {
   const mock = await openApp(page, { games: [ZOLWIE, LAKA, KOLEJKA] }, '/?p=games');
   const dialog = page.getByRole('dialog', { name: 'Kolekcja' });
   const titles = dialog.locator('.game-tile__title');
@@ -116,7 +116,7 @@ test('gracz przegląda kolekcję bez akcji admina', async ({ page }) => {
   await expect(dialog.getByRole('button', { name: /Akcje gry/ })).toHaveCount(0);
 });
 
-test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ page }) => {
+test('admin dodaje grę z okładką i punktacją', async ({ page }) => {
   const mock = await openApp(page, { games: [] });
   const widget = page.getByRole('region', { name: 'Kolekcja', exact: true });
   await expect(widget.getByText('Kolekcja jest pusta')).toBeVisible();
@@ -134,7 +134,7 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
   await expect(form.getByText('Wpisz punkty.')).toHaveCount(4);
   expect(mock.gameWrites).toEqual([]);
 
-  // Okładka 2400×1200 zmniejszona w przeglądarce do 800×400 WebP (GAME-6).
+  // Okładka 2400×1200 zmniejszona w przeglądarce do 800×400 WebP.
   await form.locator('input[type="file"]').setInputFiles({
     name: 'okladka.png',
     mimeType: 'image/png',
@@ -143,12 +143,12 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
   await expect(form.getByRole('button', { name: 'Zmień okładkę' })).toBeVisible();
 
   await form.getByLabel('Tytuł').fill('Kolejka Górska');
-  // Max 4 → 5: dochodzi pole 5. miejsca (GAME-5); bez górnego limitu (GAME-4).
+  // Max 4 → 5: dochodzi pole 5. miejsca; bez górnego limitu.
   const max = form.getByRole('spinbutton', { name: 'Max. graczy' });
   await max.focus();
   await page.keyboard.press('ArrowUp');
   await expect(form.getByLabel(/\. miejsce$/)).toHaveCount(5);
-  // Skomplikowanie przelicza punkty ze wzoru (GAME-5): M(3) = 2, n = 5.
+  // Skomplikowanie przelicza punkty ze wzoru: M(3) = 2, n = 5.
   await form.getByLabel('Skomplikowanie').fill('3');
   await expect(form.getByLabel('1. miejsce')).toHaveValue('43,6');
   await expect(form.getByLabel('5. miejsce')).toHaveValue('4,4');
@@ -181,7 +181,7 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
   await expect(widget.getByText('1 gra')).toBeVisible();
 });
 
-test('admin edytuje i usuwa grę z popupu (GAME-3, GAME-8)', async ({ page }) => {
+test('admin edytuje i usuwa grę z popupu', async ({ page }) => {
   const mock = await openApp(page, { games: [ZOLWIE, LAKA] }, '/?p=games');
   const dialog = page.getByRole('dialog', { name: 'Kolekcja' });
 

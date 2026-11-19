@@ -1,10 +1,11 @@
--- [030] Obrazy karteczek i historia partii (PRD PAD-6, GAME-10, VIEW-3, NFR-7, §6).
+-- Obrazy karteczek i historia partii.
 --
 -- Zasady:
 -- - Przy oderwaniu notes robi obraz kartki z pismem (WebP, PNG bez kodera WebP, ok. 150 KB).
---   Aplikacja wgrywa go do bucketu `sheets` pod nową nazwą `<meeting_id>/<play_id>-<sufiks>.<webp|png>`
+--   Aplikacja wgrywa go do bucketu `sheets` pod nową nazwą
+--   `<meeting_id>/<play_id>-<sufiks>.<webp|png>`
 --   (polityka `bg_club_sheets_insert_runner`, bez nadpisywania), a po zapisie partii
---   (`save_play`, [029]) dołącza go RPC `attach_play_sheet_image(play_id, image_path)`.
+--   (`save_play`) dołącza go RPC `attach_play_sheet_image(play_id, image_path)`.
 -- - Obraz jest tylko podglądem: pełne wpisy kartki (`plays.sheet`) i niezmienna wersja szablonu
 --   (`plays.scorepad_version_id`) wystarczą do ponownego renderu, także w 3D. Partia bez obrazu
 --   (upload przerwany przed zapisem albo po nim) jest pełną historią; brak obrazu nie blokuje
@@ -15,13 +16,14 @@
 --   a aplikacja usuwa wtedy swój zbędny plik.
 -- - Sprzątanie: plik, którego nie wskazuje żadna partia, jest osierocony (anulowane
 --   podsumowanie, przerwany zapis, ponowne wgranie). Admin i prowadzący mogą usuwać takie pliki
---   swojego spotkania (polityka `bg_club_sheets_delete_unused`), a `orphan_sheet_images(meeting_id)`
+--   swojego spotkania (polityka `bg_club_sheets_delete_unused`), a
+--   `orphan_sheet_images(meeting_id)`
 --   podaje te, które na pewno nie czekają już na zapis: starsze niż 15 minut i nie należą do
 --   partii w toku. Pliku wskazanego przez partię nie usunie nikt poza adminem, więc sprzątanie
 --   nie uszkadza historii. Bezpośrednie `delete from storage.objects` blokuje Storage
 --   (`storage.protect_delete`), dlatego pliki usuwa klient przez API Storage.
 -- - Błędy reguł mają SQLSTATE 23514 (brak pliku: 23503, brak partii: P0002) i nazwę reguły
---   w HINT, jak w migracjach [027]–[029].
+--   w HINT, jak we wcześniejszych migracjach.
 
 -- Czy `path` to ścieżka obrazu karteczki partii `play_id` ze spotkania `meeting_id`.
 create function private.is_sheet_image_path(path text, meeting_id uuid, play_id uuid)
@@ -85,7 +87,7 @@ end;
 $$;
 
 comment on function public.attach_play_sheet_image(uuid, text) is
-  'Dołącza obraz oderwanej karteczki (bucket sheets) do zapisanej partii (PAD-6). Admin lub prowadzący; pierwszy obraz zostaje, ponowienie zwraca partię bez zmian.';
+  'Dołącza obraz oderwanej karteczki (bucket sheets) do zapisanej partii. Admin lub prowadzący; pierwszy obraz zostaje, ponowienie zwraca partię bez zmian.';
 
 revoke execute on function public.attach_play_sheet_image(uuid, text) from public, anon;
 grant execute on function public.attach_play_sheet_image(uuid, text) to authenticated;
@@ -119,7 +121,7 @@ end;
 $$;
 
 comment on function public.orphan_sheet_images(uuid) is
-  'Osierocone obrazy karteczek spotkania do usunięcia przez API Storage (PAD-6): bez partii, starsze niż 15 minut, nie z partii w toku. Admin lub prowadzący.';
+  'Osierocone obrazy karteczek spotkania do usunięcia przez API Storage: bez partii, starsze niż 15 minut, nie z partii w toku. Admin lub prowadzący.';
 
 revoke execute on function public.orphan_sheet_images(uuid) from public, anon;
 grant execute on function public.orphan_sheet_images(uuid) to authenticated;

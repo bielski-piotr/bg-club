@@ -1,5 +1,5 @@
 /**
- * Skrypt instalacyjny: konto pierwszego administratora ze zmiennych środowiskowych (AUTH-3).
+ * Skrypt instalacyjny: konto pierwszego administratora ze zmiennych środowiskowych.
  *
  *   pnpm bootstrap:admin          # SUPABASE_URL i SUPABASE_SERVICE_ROLE_KEY ze zmiennych
  *   pnpm bootstrap:admin:local    # adres i klucz lokalnego Supabase z `supabase status`

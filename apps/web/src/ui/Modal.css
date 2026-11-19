@@ -1,5 +1,5 @@
 /*
- * Popup (DS §7). Telefon: pełnoekranowy biały arkusz bez tła, promienia i cienia.
+ * Popup. Telefon: pełnoekranowy biały arkusz bez tła, promienia i cienia.
  * Desktop (≥ 768 px): okno 560/880 na tle #161A2B80, promień 28, cień modala.
  * Wysokość arkusza na telefonie idzie za widocznym obszarem (`--vv-height`, `--vv-top` ustawia
  * PopupHost z visualViewport), więc klawiatura ekranowa nie zasłania pól ani stopki.
@@ -102,7 +102,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Stopka formularza na telefonie: dwa przyciski po równo, padding 12/16/24 (DS §17). */
+/* Stopka formularza na telefonie: dwa przyciski po równo, padding 12/16/24. */
 .modal__footer {
   display: flex;
   gap: 8px;
@@ -150,7 +150,7 @@
     width: min(100%, 880px);
   }
 
-  /* Edytor notesu (DS §18): stała wysokość, żeby okno nie skakało między krokami kreatora. */
+  /* Edytor notesu: stała wysokość, żeby okno nie skakało między krokami kreatora. */
   .modal--1120 {
     width: min(100%, 1120px);
     height: min(852px, calc(var(--vv-height, 100dvh) - 48px));
@@ -179,7 +179,7 @@
     padding: 20px 28px 28px;
   }
 
-  /* Desktop: stopka paddingTop 28, przyciski do prawej (DS §7). */
+  /* Desktop: stopka paddingTop 28, przyciski do prawej. */
   .modal__body:has(+ .modal__footer) {
     padding-bottom: 0;
   }
@@ -195,9 +195,9 @@
 }
 
 /*
- * Mały dialog (DS §7): karta 343, padding 24, promień 24, bez obramowania, cień modala; na
+ * Mały dialog: karta 343, padding 24, promień 24, bez obramowania, cień modala; na
  * każdej szerokości wyśrodkowana na przyciemnionym tle (bez przycisku ×). Stopka: dwa przyciski
- * po równo (flex 1, h44, gap 8, paddingInline 12, DS §9).
+ * po równo (flex 1, h44, gap 8, paddingInline 12).
  */
 .popup-layer--dialog {
   display: grid;

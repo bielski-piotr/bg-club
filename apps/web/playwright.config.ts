@@ -5,7 +5,7 @@ const isCI = Boolean(process.env.CI);
 
 /**
  * E2E na zbudowanej aplikacji (`vite preview`). Każdy test przechodzi na telefonie (360 px)
- * i desktopie, w motywie jasnym i ciemnym (NFR-4, NFR-5).
+ * i desktopie, w motywie jasnym i ciemnym.
  * API jest atrapą przechwytywaną przez page.route. Reguły backendu sprawdzają osobne
  * testy SQL oraz integracja Auth/API na lokalnym Supabase.
  */
@@ -30,9 +30,9 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'pl-PL',
     trace: 'off',
-    // Service worker (NFR-3) mógłby ominąć atrapy `page.route`; włącza go tylko e2e/pwa.spec.ts.
+    // Service worker mógłby ominąć atrapy `page.route`; włącza go tylko e2e/pwa.spec.ts.
     serviceWorkers: 'block',
-    // Animacje i przejścia (DS §16) kończą się od razu (base.css, prefers-reduced-motion), więc
+    // Animacje i przejścia kończą się od razu (base.css, prefers-reduced-motion), więc
     // axe nie mierzy kontrastu w trakcie zanikania popupu ani zmiany koloru przycisku.
     reducedMotion: 'reduce',
   },

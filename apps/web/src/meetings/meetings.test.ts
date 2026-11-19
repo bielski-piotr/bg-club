@@ -12,7 +12,7 @@ import {
   type MeetingFailure,
 } from './meetings';
 
-describe('błędy spotkań (reguły bazy [023])', () => {
+describe('błędy spotkań (reguły bazy)', () => {
   it('czyta nazwę reguły z HINT', () => {
     const cases: [string, string, MeetingFailure][] = [
       ['23505', 'meetings_single_in_progress', 'otherInProgress'],
@@ -174,7 +174,7 @@ describe('RPC spotkań', () => {
     await expect(finishMeeting(fakeClient({}).client, 'm1')).resolves.toBeUndefined();
   });
 
-  it('usunięcie: brak wiersza to „gone”, partie blokują (PLAN-5)', async () => {
+  it('usunięcie: brak wiersza to „gone”, partie blokują', async () => {
     const ok = fakeClient({ data: [{ id: 'm1' }] });
     await expect(deleteMeeting(ok.client, 'm1')).resolves.toBeUndefined();
     expect(ok.eq).toHaveBeenCalledWith('id', 'm1');

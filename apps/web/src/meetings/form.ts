@@ -4,7 +4,7 @@ import type { Meeting } from './meetings';
 /** Najdłuższy tytuł spotkania (CHECK `meetings_title_length`). */
 export const MEETING_TITLE_MAX = 120;
 
-/** Wartości formularza spotkania (PLAN-1). Data i godzina są w strefie klubu (NFR-10). */
+/** Wartości formularza spotkania. Data i godzina są w strefie klubu. */
 export interface MeetingFormValues {
   readonly title: string;
   /** `RRRR-MM-DD`. */
@@ -13,7 +13,7 @@ export interface MeetingFormValues {
   readonly time: string;
   /** Identyfikatory profili uczestników (bez duplikatów). */
   readonly participants: readonly string[];
-  /** Prowadzący spośród uczestników innych niż admin; `null` = prowadzi admin (§2). */
+  /** Prowadzący spośród uczestników innych niż admin; `null` = prowadzi admin. */
   readonly hostId: string | null;
 }
 
@@ -25,7 +25,7 @@ export interface MeetingFormErrors {
 }
 
 /**
- * Nowe spotkanie: domyślnie dziś (albo podana data, np. z kalendarza, CAL-3) o 18:00 i sam
+ * Nowe spotkanie: domyślnie dziś (albo podana data, np. z kalendarza) o 18:00 i sam
  * administrator na liście uczestników.
  */
 export function emptyMeetingForm(
@@ -85,7 +85,7 @@ export function hasErrors(errors: MeetingFormErrors): boolean {
 
 /**
  * Zaznaczenie uczestnika. Odznaczony prowadzący przestaje prowadzić (wraca admin), bo
- * prowadzący musi być uczestnikiem (PLAN-1).
+ * prowadzący musi być uczestnikiem.
  */
 export function toggleParticipant(
   values: MeetingFormValues,

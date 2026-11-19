@@ -47,7 +47,7 @@ async function setup(controller: object | null) {
   return { store, reload, container, registration: container.registration };
 }
 
-describe('aktualizacje aplikacji (NFR-3)', () => {
+describe('aktualizacje aplikacji', () => {
   it('pierwsza instalacja nie jest aktualizacją: bez komunikatu i przeładowania', async () => {
     const { store, reload, container, registration } = await setup(null);
     expect(container.register).toHaveBeenCalledWith('/sw.js', { scope: '/' });
@@ -89,7 +89,7 @@ describe('aktualizacje aplikacji (NFR-3)', () => {
     expect(store.getSnapshot().update).toBe('available');
   });
 
-  it('niezapisany szkic wstrzymuje odświeżenie do zapisu w bazie (PAD-4)', async () => {
+  it('niezapisany szkic wstrzymuje odświeżenie do zapisu w bazie', async () => {
     const { store, registration } = await setup({});
     const worker = new FakeWorker();
     registration.found(worker);

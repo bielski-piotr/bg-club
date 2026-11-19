@@ -37,7 +37,7 @@ const text = t.scorepads.wizard.categories;
 
 type Action = (action: ScorePadEditorCategoriesAction) => void;
 
-/** Pływający pasek sceny w kroku 4 (DS §18): dopasowanie widoku kartki. */
+/** Pływający pasek sceny w kroku 4: dopasowanie widoku kartki. */
 export function CategoriesToolbar({
   zoomed,
   disabled,
@@ -61,7 +61,7 @@ export function CategoriesToolbar({
 }
 
 /**
- * Panel kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4, DS §18). Dwie zakładki: *Kategorie* (nazwa,
+ * Panel kroku 4 „Kategorie”. Dwie zakładki: *Kategorie* (nazwa,
  * typ, zakres, sumy i opis wybranej kategorii; kategorię wybiera się też na kartce) oraz
  * *Wygrana i remisy* (kategoria decydująca, kierunek i uporządkowane reguły remisów
  * z końcowym wspólnym miejscem). Stan trzyma edytor; zmiany od razu trafiają do szablonu
@@ -247,7 +247,7 @@ function LineForm({
   );
 }
 
-/** Punktacja: zakres dowolny, min–max–krok albo lista dozwolonych wartości (EDT-13). */
+/** Punktacja: zakres dowolny, min–max–krok albo lista dozwolonych wartości. */
 function RangeFields({
   line,
   error,
@@ -363,7 +363,7 @@ interface RuleDraft {
 }
 
 /**
- * Zakładka *Wygrana i remisy* (EDT-2…EDT-4): kategoria decydująca, kierunek i reguły remisów.
+ * Zakładka *Wygrana i remisy*: kategoria decydująca, kierunek i reguły remisów.
  * Reguły działają hierarchicznie, a za ostatnią jest stałe „Wspólne miejsce”.
  */
 function RankingDetails({

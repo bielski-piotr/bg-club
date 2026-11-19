@@ -10,10 +10,10 @@ import { isUuid } from '../popups/routes';
 import { SHEETS_BUCKET } from './sheetImages';
 
 /*
- * Historia karteczek (PRD PAD-6, GAME-10, VIEW-3): zapisane partie z obrazem oderwanej
+ * Historia karteczek: zapisane partie z obrazem oderwanej
  * karteczki, wpisami kartki i wersją szablonu z chwili rozpoczęcia. Gra, notes i ich zmiany po
- * partii nie zmieniają karteczki: wpisy i szablon są niezmiennym snapshotem partii (GAME-9),
- * a usunięta gra i notes zostają w historii (miękkie usunięcie, GAME-8).
+ * partii nie zmieniają karteczki: wpisy i szablon są niezmiennym snapshotem partii,
+ * a usunięta gra i notes zostają w historii (miękkie usunięcie).
  */
 
 /** Podpisany adres obrazu karteczki; bez ścieżki zapytanie jest wyłączone. */
@@ -29,7 +29,7 @@ export interface SavedSheet {
   /** Wpisy kartki (format `sheet` pliku notesu). */
   readonly sheet: ScorePadSheet | null;
   readonly sheet_image_path: string | null;
-  /** Niezmienna wersja szablonu z chwili rozpoczęcia partii (GAME-9). */
+  /** Niezmienna wersja szablonu z chwili rozpoczęcia partii. */
   readonly scorepad_version_id: string;
   /** Nazwa notesu (także usuniętego). */
   readonly scorepad_name: string;
@@ -100,7 +100,7 @@ export function useSavedSheet(client: SupabaseClient, id: string) {
   });
 }
 
-/** Karteczka w galerii gry (GAME-10). */
+/** Karteczka w galerii gry. */
 export interface GallerySheet {
   readonly id: string;
   readonly saved_at: string;
@@ -125,7 +125,7 @@ interface GalleryRow {
 export const gameSheetsKey = (gameId: string) => [...meetingsKey, 'game-sheets', gameId] as const;
 
 /**
- * Wszystkie oderwane karteczki gry od najnowszej (GAME-10, §5.6.6: `saved_at`, potem `id`).
+ * Wszystkie oderwane karteczki gry od najnowszej (`saved_at`, potem `id`).
  * Także po edycji i usunięciu notesu: partie wskazują niezmienne wersje szablonu.
  */
 export function useGameSheets(client: SupabaseClient, gameId: string) {

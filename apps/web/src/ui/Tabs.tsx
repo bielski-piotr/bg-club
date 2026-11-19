@@ -20,7 +20,7 @@ export interface TabsProps<T extends string> {
 }
 
 /**
- * Zakładki-pigułki (DS §10): aktywna ciemna, nieaktywne z ramką.
+ * Zakładki-pigułki: aktywna ciemna, nieaktywne z ramką.
  * Wzorzec WAI-ARIA Tabs z automatyczną aktywacją: strzałki, Home i End zmieniają zakładkę,
  * fokus jest tylko na aktywnej (roving tabindex).
  */

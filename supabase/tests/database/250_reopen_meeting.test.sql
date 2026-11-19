@@ -1,4 +1,4 @@
--- RUN-5/Q10: rzeczywiste RPC, historia, serie i odblokowania po dograniu starszego spotkania.
+-- Ponowne otwarcie spotkania: rzeczywiste RPC, historia, serie i odblokowania po dograniu starszego spotkania.
 begin;
 create extension if not exists pgtap with schema extensions;
 select no_plan();

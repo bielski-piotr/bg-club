@@ -15,7 +15,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * PWA i bezpieczne aktualizacje (PRD NFR-3, PAD-4, zadanie [038]): manifest i ikony do
+ * PWA i bezpieczne aktualizacje: manifest i ikony do
  * instalacji, service worker z cache samej powłoki (bez danych Supabase, także po wylogowaniu),
  * start bez sieci z jasnym komunikatem zamiast udawanej pracy offline oraz nowa wersja, która
  * czeka z odświeżeniem, aż szkic partii zapisze się w bazie, a po odświeżeniu notes wraca
@@ -143,7 +143,7 @@ async function axe(page: Page) {
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' | ')}`);
 }
 
-test('manifest i ikony pozwalają zainstalować aplikację (NFR-3)', async ({ page }) => {
+test('manifest i ikony pozwalają zainstalować aplikację', async ({ page }) => {
   await openApp(page);
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
     'href',
@@ -243,7 +243,7 @@ test('bez sieci startuje powłoka z jasnym komunikatem; cache nie ma danych kont
   expect(shell).not.toContain('Planszówki');
 });
 
-test('nowa wersja czeka, aż szkic zapisze się w bazie; po odświeżeniu notes wraca z wpisami (PAD-4)', async ({
+test('nowa wersja czeka, aż szkic zapisze się w bazie; po odświeżeniu notes wraca z wpisami', async ({
   page,
 }) => {
   test.slow();

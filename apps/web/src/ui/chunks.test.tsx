@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ShowMore } from './ShowMore';
 import { useChunks } from './chunks';
 
-/** Lista rysowana porcjami (NFR-2, zadanie [040]). */
+/** Lista rysowana porcjami. */
 function List({ items, query }: { readonly items: readonly string[]; readonly query: string }) {
   const chunks = useChunks(items, query, 2);
   return (

@@ -11,8 +11,8 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Usuwanie członka przez administratora i własnego konta przez gracza (PRD MEM-4, MEM-5,
- * USR-6, AUTH-7): potwierdzenia, stan tylko do odczytu po usunięciu, zniknięcie z listy,
+ * Usuwanie członka przez administratora i własnego konta przez gracza: potwierdzenia, stan tylko do
+ * odczytu po usunięciu, zniknięcie z listy,
  * hasło przy własnym koncie i brak tych opcji tam, gdzie nie wolno. API Supabase jest atrapą
  * (skutki w bazie sprawdza `pnpm test:auth`); każdy test przechodzi na 360 px i na desktopie,
  * w motywie jasnym i ciemnym.
@@ -53,9 +53,7 @@ async function openSettings(page: Page, name: string) {
   return dialog;
 }
 
-test('admin usuwa członka z potwierdzeniem; profil zostaje tylko do odczytu (MEM-4, MEM-5)', async ({
-  page,
-}) => {
+test('admin usuwa członka z potwierdzeniem; profil zostaje tylko do odczytu', async ({ page }) => {
   const mock = await openApp(page, {}, '/?p=members');
   const members = page.getByRole('dialog', { name: 'Członkowie' });
   await members.getByRole('link', { name: /Bea Bobrowska/ }).click();
@@ -82,7 +80,7 @@ test('admin usuwa członka z potwierdzeniem; profil zostaje tylko do odczytu (ME
   await expect(page.getByText('Usunięto członka Bea Bobrowska')).toBeVisible();
   expect(mock.deleteMemberBodies).toEqual([{ memberId: BEA.id }]);
 
-  // MEM-5: profil po usunięciu jest tylko do odczytu, bez akcji administratora.
+  // Profil po usunięciu jest tylko do odczytu, bez akcji administratora.
   await expect(profile.getByText('(usunięty)')).toBeVisible();
   await expect(profile.getByText('Profil jest tylko do odczytu.', { exact: false })).toBeVisible();
   await expect(profile.getByRole('button', { name: 'Usuń członka' })).toHaveCount(0);
@@ -98,7 +96,7 @@ test('admin usuwa członka z potwierdzeniem; profil zostaje tylko do odczytu (ME
   await expect(page.getByRole('dialog', { name: 'Nie znaleziono' })).toBeVisible();
 });
 
-test('błąd funkcji pokazuje komunikat, a ponowienie usuwa członka (MEM-4)', async ({ page }) => {
+test('błąd funkcji pokazuje komunikat, a ponowienie usuwa członka', async ({ page }) => {
   const mock = await openApp(
     page,
     { deleteMember: { status: 500, body: { error: 'failed' } } },
@@ -114,7 +112,7 @@ test('błąd funkcji pokazuje komunikat, a ponowienie usuwa członka (MEM-4)', a
   expect(mock.deleteMemberBodies).toHaveLength(2);
 });
 
-test('administratora nie da się usunąć: brak opcji w profilu i w ustawieniach (MEM-4, USR-6)', async ({
+test('administratora nie da się usunąć: brak opcji w profilu i w ustawieniach', async ({
   page,
 }) => {
   await openApp(page, {}, `/?p=profile/${ADA.id}`);
@@ -133,7 +131,7 @@ test('administratora nie da się usunąć: brak opcji w profilu i w ustawieniach
   await expect(page.getByRole('dialog', { name: 'Nie znaleziono' })).toBeVisible();
 });
 
-test('gracz nie usuwa innych członków (MEM-4)', async ({ page }) => {
+test('gracz nie usuwa innych członków', async ({ page }) => {
   const mock = await openApp(page, { profile: PLAYER_ADA }, `/?p=profile/${BEA.id}`);
   const profile = page.getByRole('dialog', { name: 'Profil' });
   await expect(profile.getByText('Bea Bobrowska')).toBeVisible();
@@ -143,9 +141,7 @@ test('gracz nie usuwa innych członków (MEM-4)', async ({ page }) => {
   expect(mock.deleteMemberBodies).toEqual([]);
 });
 
-test('gracz usuwa własne konto po podaniu hasła i wraca do logowania (USR-6, AUTH-7)', async ({
-  page,
-}) => {
+test('gracz usuwa własne konto po podaniu hasła i wraca do logowania', async ({ page }) => {
   const mock = await openApp(page, { profile: PLAYER_ADA });
   const settings = await openSettings(page, 'Ada Adminowska');
   await expect(settings.getByText('Twoje partie i wyniki zostaną w historii klubu')).toBeVisible();
@@ -178,7 +174,7 @@ test('gracz usuwa własne konto po podaniu hasła i wraca do logowania (USR-6, A
   expect(await axe(page)).toEqual([]);
 });
 
-test('limit prób przy usuwaniu konta daje polski komunikat (USR-6)', async ({ page }) => {
+test('limit prób przy usuwaniu konta daje polski komunikat', async ({ page }) => {
   await openApp(
     page,
     { profile: PLAYER_ADA, deleteOwnAccount: { status: 429, body: { error: 'rate_limited' } } },

@@ -6,7 +6,7 @@ import { removeSheetImages } from '../sheets/sheetImages';
 import { meetingsKey } from './meetings';
 
 /*
- * Usunięcie zapisanej partii przez admina (PRD VIEW-6, §5.6.5, migracja [031]): RPC
+ * Usunięcie zapisanej partii przez admina: RPC
  * `delete_play` w jednej transakcji usuwa partię, wyniki i kartkę oraz przelicza zależne dane,
  * a potem aplikacja usuwa obraz karteczki z bucketu `sheets`. Błąd Storage nie przywraca
  * partii: obraz można usunąć ponownie, a plik bez partii posprząta też `orphan_sheet_images`.
@@ -15,7 +15,7 @@ import { meetingsKey } from './meetings';
 export type PlayDeleteFailure =
   /** Tylko admin usuwa partie. */
   | 'forbidden'
-  /** Partia jest w toku: porzuca się ją (PAD-8), nie usuwa. */
+  /** Partia jest w toku: porzuca się ją, nie usuwa. */
   | 'draft'
   /** Brak połączenia albo inny błąd serwera: ponowienie może pomóc. */
   | 'server';
@@ -71,13 +71,13 @@ export const PLAY_DEPENDENT_KEYS: readonly (readonly string[])[] = [
   meetingsKey,
   // Kolekcja: „ostatnio grane”.
   gamesKey,
-  // Profile: statystyki, rankingi, serie i osiągnięcia (E5/E6); bez własnego profilu
+  // Profile: statystyki, rankingi, serie i osiągnięcia; bez własnego profilu
   // zalogowanego (rola, motyw), którego partie nie zmieniają.
   profilesKey,
 ];
 
 /**
- * Odświeża widoki zależne od zapisanych partii po ich zmianie (§5.6.5): przeliczenie w bazie
+ * Odświeża widoki zależne od zapisanych partii po ich zmianie: przeliczenie w bazie
  * zmienia rankingi, serie i osiągnięcia, więc nieaktualne są wszystkie widoki z
  * `PLAY_DEPENDENT_KEYS`. Aktywne pobierają się od razu, pozostałe przy następnym otwarciu.
  */

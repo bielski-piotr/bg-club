@@ -1,7 +1,7 @@
--- [029] Zapis wyników partii (`save_play`): uprawnienia admina i prowadzącego, kompletność
+-- Zapis wyników partii (`save_play`): uprawnienia admina i prowadzącego, kompletność
 -- i poprawność wyników, punkty i wygrane liczone w bazie, snapshoty punktacji i wersji notesu
--- (GAME-9), ponowienie po przekroczeniu czasu bez duplikatów i niezmienność zakończonej partii
--- (PRD PAD-5, PAD-7, §5.6, §6). Pełne przypadki miejsc i punktów: 171 (generowany).
+--, ponowienie po przekroczeniu czasu bez duplikatów i niezmienność zakończonej partii
+--. Pełne przypadki miejsc i punktów: 171 (generowany).
 -- Dane testowe są fikcyjne.
 begin;
 
@@ -118,7 +118,7 @@ select lives_ok(
   'prowadzący zaczyna trzy partie'
 );
 
--- Po rozpoczęciu admin zmienia punktację gry i wydaje nową wersję notesu d001 (GAME-9).
+-- Po rozpoczęciu admin zmienia punktację gry i wydaje nową wersję notesu d001.
 reset role;
 update public.games set placement_points = '{20,1,0,0}' where id = '00000000-0000-4000-b000-000000000001';
 insert into public.scorepad_versions (id, scorepad_id, template, player_slots) values
@@ -236,7 +236,7 @@ select results_eq(
   $$ values (1, 1, false, 6::numeric, true, 12::numeric, '{"a": 12}'::jsonb),
             (2, 2, true, 3::numeric, false, 7::numeric, '{"a": 7}'::jsonb),
             (3, 2, true, 3::numeric, false, 7::numeric, '{"a": 7, "b": null}'::jsonb) $$,
-  'baza liczy punkty (4+2)/2 = 3, remis i wygraną ze snapshotu punktacji przesuniętego o pominięte miejsce (GAME-9, §5.6)'
+  'baza liczy punkty (4+2)/2 = 3, remis i wygraną ze snapshotu punktacji przesuniętego o pominięte miejsce'
 );
 select results_eq(
   $$ select status, sheet, saved_at is not null, scorepad_version_id::text from public.plays
@@ -256,7 +256,7 @@ select is(
 );
 select is(
   (select saved_at from public.plays where id = '00000000-0000-4000-f000-000000000001'),
-  (select saved_at from first_save), 'ponowienie nie zmienia czasu zapisu (kolejność partii, §5.6.6)'
+  (select saved_at from first_save), 'ponowienie nie zmienia czasu zapisu (kolejność partii)'
 );
 select is(
   (select public.save_play('00000000-0000-4000-f000-000000000001', '00000000-0000-4000-e000-000000000001',
@@ -280,7 +280,7 @@ select is(public.test_failure($$ select public.save_play_draft('00000000-0000-40
 select is(public.test_failure($$ select public.discard_play('00000000-0000-4000-f000-000000000001') $$),
   '23514/plays_not_draft', 'zapisanej partii nie da się porzucić');
 
--- „Mniej = lepiej” (EDT-3): kierunek z reguły notesu tej wersji.
+-- „Mniej = lepiej”: kierunek z reguły notesu tej wersji.
 select is(public.test_save(3, 2, '{"game": 1, "names": [], "cells": {}}',
     '[{"profile_id": "00000000-0000-4000-a000-000000000002", "seat": 1, "place": 2, "scores": {"a": 9}, "ranking_value": 9},
       {"profile_id": "00000000-0000-4000-a000-000000000003", "seat": 2, "place": 1, "scores": {"a": 3}, "ranking_value": 3}]'),
@@ -292,7 +292,7 @@ select results_eq(
   'punkty (ostatnie 2 miejsca punktacji) i wygrana przy „mniej = lepiej”'
 );
 
--- Admin dokończy partię prowadzącego (PAD-4); partia z wolnym miejscem 1 w notesie.
+-- Admin dokończy partię prowadzącego; partia z wolnym miejscem 1 w notesie.
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select is(public.test_save(2, 1, '{"game": 1, "names": [], "cells": {}}',
     '[{"profile_id": "00000000-0000-4000-a000-000000000003", "seat": 2, "place": 1, "scores": {"a": 5}, "ranking_value": 5},

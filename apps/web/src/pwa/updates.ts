@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 /*
- * Aktualizacje aplikacji (PRD NFR-3, PAD-4). Nowy service worker instaluje się w tle i czeka;
+ * Aktualizacje aplikacji. Nowy service worker instaluje się w tle i czeka;
  * aplikacja pokazuje „Dostępna nowa wersja” i przełącza się dopiero po kliknięciu „Odśwież”.
  * Póki otwarty notes ma wpisy, których nie ma jeszcze w bazie (zapis czeka, trwa, brak sieci,
  * konflikt), odświeżenie jest wstrzymane: aktualizacja nie przerywa szkicu partii.

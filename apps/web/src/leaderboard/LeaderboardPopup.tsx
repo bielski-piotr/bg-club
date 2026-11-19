@@ -16,8 +16,8 @@ import { kindTabs, useBoardData } from './board';
 import { BoardError, BoardLoading } from './BoardStatus';
 
 /**
- * Pełny ranking (LB-3, LB-4, DS §7): te same zakładki i podium co widżet, pełna lista oraz filtr
- * roku („Cała historia” domyślnie albo rok w strefie klubu, NFR-10). Lata pochodzą z
+ * Pełny ranking: te same zakładki i podium co widżet, pełna lista oraz filtr
+ * roku („Cała historia” domyślnie albo rok w strefie klubu). Lata pochodzą z
  * `leaderboard_years()`, więc lista zawiera tylko lata z zapisanymi partiami.
  */
 export function LeaderboardPopup({

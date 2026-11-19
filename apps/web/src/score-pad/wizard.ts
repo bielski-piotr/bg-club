@@ -1,7 +1,7 @@
 import type { ScorePadEditorStatus } from '@bg-club/score-pad';
 
 /**
- * Kroki kreatora edytora notesu (PRD §5.5.2, DS §18): 1 Zdjęcie, 2 Obszar kartki,
+ * Kroki kreatora edytora notesu: 1 Zdjęcie, 2 Obszar kartki,
  * 3 Mapowanie pól, 4 Kategorie, 5 Test i zapis.
  *
  * Kreator przechodzi do przodu tylko przez poprawne kroki, a do odwiedzonych kroków można
@@ -14,7 +14,7 @@ export const WIZARD_STEPS: readonly WizardStep[] = [1, 2, 3, 4, 5];
 export const LAST_STEP: WizardStep = 5;
 
 /**
- * Krok `<score-pad-editor>` pokazywany w kroku kreatora: krok 4 to kartka z kategoriami (EDT-13),
+ * Krok `<score-pad-editor>` pokazywany w kroku kreatora: krok 4 to kartka z kategoriami,
  * a krok 5 jej nie zmienia (podgląd kartki).
  */
 export function editorStepFor(step: WizardStep): 1 | 2 | 3 | 4 {
@@ -28,10 +28,10 @@ export function isStepValid(step: WizardStep, status: ScorePadEditorStatus | nul
     case 1:
       return status.photo;
     case 2:
-      // EDT-10: obszar kartki i nazwa notesu (ustawiana w tym kroku).
+      // Obszar kartki i nazwa notesu (ustawiana w tym kroku).
       return status.photo && status.area && status.settings.name.trim() !== '';
     case 3:
-      // EDT-11: pola zmapowane (każde miejsce i każda kategoria ma pola).
+      // Pola zmapowane (każde miejsce i każda kategoria ma pola).
       return (
         status.photo &&
         status.area &&
@@ -41,7 +41,7 @@ export function isStepValid(step: WizardStep, status: ScorePadEditorStatus | nul
       );
     case 4:
     case 5:
-      // EDT-13: kategorie i reguła miejsc przechodzą walidator zapisu (`validateScoring`).
+      // Kategorie i reguła miejsc przechodzą walidator zapisu (`validateScoring`).
       return (
         isStepValid(3, status) && status.fields === null && status.categories.issues.length === 0
       );
@@ -68,7 +68,7 @@ export function canOpenStep(
 
 export type StepState = 'current' | 'done' | 'upcoming';
 
-/** Wygląd pigułki kroku (DS §15): bieżący, wykonany (odwiedzony i poprawny) albo kolejny. */
+/** Wygląd pigułki kroku: bieżący, wykonany (odwiedzony i poprawny) albo kolejny. */
 export function stepState(
   step: WizardStep,
   current: WizardStep,
@@ -100,7 +100,7 @@ export function isNotImage(file: File | Blob): boolean {
   return file.type !== '' && !file.type.startsWith('image/');
 }
 
-/** Pierwszy obraz ze schowka (wklejenie Ctrl+V, EDT-9). */
+/** Pierwszy obraz ze schowka (wklejenie Ctrl+V). */
 export function imageFromClipboard(data: DataTransfer | null): File | null {
   for (const item of Array.from(data?.items ?? [])) {
     if (item.kind === 'file' && item.type.startsWith('image/')) return item.getAsFile();

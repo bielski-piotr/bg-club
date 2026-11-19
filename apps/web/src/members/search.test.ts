@@ -16,7 +16,7 @@ const LUKASZ = member('Łukasz', 'Żółw', 'lukasz-zolw-7c1e');
 const ANNA = member('Anna', 'Kowalska-Ćwik', 'anna-kowalska-cwik-0a1b');
 const ALL = [LUKASZ, ANNA];
 
-describe('wyszukiwanie członków (MEM-2)', () => {
+describe('wyszukiwanie członków', () => {
   it('puste zapytanie zwraca wszystkich', () => {
     expect(filterMembers(ALL, '   ')).toBe(ALL);
   });

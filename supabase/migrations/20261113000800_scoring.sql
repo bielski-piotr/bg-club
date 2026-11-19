@@ -1,7 +1,7 @@
--- [014] Punkty leaderboardu za miejsca (PRD §5.6.2, §5.6.3, §8.3).
+-- Punkty leaderboardu za miejsca.
 --
 -- Miejsca wyznacza notes (pakiet `@bg-club/scoring`), a punkty liczy baza: klient ich nie
--- przysyła. `play_points` jest czystą funkcją dla RPC zapisu partii (zadanie [029]) i liczy
+-- przysyła. `play_points` jest czystą funkcją dla RPC zapisu partii i liczy
 -- tak samo jak `placementPoints` w TypeScripcie. Obie wersje przechodzą wspólne przypadki
 -- `packages/scoring/src/cases/play-cases.json` (test pgTAP 110 jest z nich generowany).
 
@@ -59,7 +59,7 @@ end;
 $$;
 
 comment on function public.play_points(int[], int[]) is
-  'Punkty za miejsca z remisami (floor ze średniej punktów zajętych miejsc, PRD §5.6.2). Dla RPC zapisu partii.';
+  'Punkty za miejsca z remisami (floor ze średniej punktów zajętych miejsc). Dla RPC zapisu partii.';
 
--- Nie jest API klienta: wywoła ją RPC `save_play` (SECURITY DEFINER) w zadaniu [029].
+-- Nie jest API klienta: wywoła ją RPC `save_play` (SECURITY DEFINER).
 revoke execute on function public.play_points(int[], int[]) from public, anon, authenticated;

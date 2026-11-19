@@ -7,11 +7,11 @@ export type Pt = { x: number; y: number };
 export type Quad = [Pt, Pt, Pt, Pt]; // lewy górny, prawy górny, prawy dolny, lewy dolny
 
 /**
- * Dłuższy bok zdjęcia źródłowego i wyprostowanej kartki (EDT-12). Mniejsze zdjęcie nie jest
- * powiększane; to też granica tekstury notesu (PAD-16).
+ * Dłuższy bok zdjęcia źródłowego i wyprostowanej kartki. Mniejsze zdjęcie nie jest
+ * powiększane; to też granica tekstury notesu.
  */
 export const MAX_SHEET_SIDE = 4096;
-/** Jakość zapisu kartki (EDT-12: co najmniej 0,92). */
+/** Jakość zapisu kartki (co najmniej 0,92). */
 export const SHEET_QUALITY = 0.92;
 /** Największy plik kartki: limit bucketu `scorepads` to 5 MiB, zostawiamy zapas. */
 export const MAX_SHEET_BYTES = 4.5 * 1024 * 1024;
@@ -449,7 +449,8 @@ export function detectLines(
       const sum =
         I[yb * (w + 1) + xb] - I[ya * (w + 1) + xb] - I[yb * (w + 1) + xa] + I[ya * (w + 1) + xa];
       const mean = sum / ((xb - xa) * (yb - ya));
-      // ciemniejsze od otoczenia o wyraźną różnicę — działa też dla jasnych, cienkich linii na akwareli
+      // ciemniejsze od otoczenia o wyraźną różnicę — działa też dla jasnych, cienkich linii na
+      // akwareli
       dark[y * w + x] = mean - lum[y * w + x] > Math.max(10, mean * 0.065) ? 1 : 0;
     }
   }
@@ -635,7 +636,7 @@ export function toJpeg(c: HTMLCanvasElement, q = 0.86): string {
 }
 
 /**
- * Wymiary wyprostowanej kartki (EDT-12): dłuższy bok jak najdłuższy bok obszaru na zdjęciu
+ * Wymiary wyprostowanej kartki: dłuższy bok jak najdłuższy bok obszaru na zdjęciu
  * źródłowym (bez powiększania), najwyżej `MAX_SHEET_SIDE`; proporcje z rozmiaru w centymetrach.
  */
 export function sheetSize(q: Quad, aspect: number): { w: number; h: number } {
@@ -680,7 +681,7 @@ export function dataUrlBytes(url: string): number {
 }
 
 /**
- * Zapis kartki do notesu (EDT-12): WebP (gdy przeglądarka go koduje) albo JPEG o jakości 0,92.
+ * Zapis kartki do notesu: WebP (gdy przeglądarka go koduje) albo JPEG o jakości 0,92.
  * Plik większy niż limit Storage zmniejszamy (o 15% na krok), a nie obniżamy jakości.
  */
 export function encodeSheet(c: HTMLCanvasElement, maxBytes = MAX_SHEET_BYTES): string {

@@ -1,12 +1,12 @@
 /*
- * Tokeny design systemu (DESIGN-SYSTEM.md §3–§5, §8–§12, §18).
+ * Tokeny design systemu.
  *
- * Motyw jasny odwzorowuje wartości hex z DS. Trzy wartości są przyciemnione minimalnie,
- * żeby tekst spełniał WCAG AA (NFR-6); opis w DS §3.1:
+ * Motyw jasny odwzorowuje wartości hex design systemu. Trzy wartości są przyciemnione minimalnie,
+ * żeby tekst spełniał WCAG AA:
  *   - tekst pomocniczy #6B7188 → #686D84 (na #F1F3F9 miał 4,36:1),
  *   - tekst „danger” na tle #FDECEC → #CC2A2A (4,06:1),
  *   - wypełnienia awatarów (białe monogramy) → paleta --c-avatar-* poniżej.
- * Motyw ciemny nie ma artboardów w DS (§0); jest wyprowadzony z tych samych ról. Akcent jest
+ * Motyw ciemny nie ma osobnych projektów; jest wyprowadzony z tych samych ról. Akcent jest
  * w nim jaśniejszy (#4064F0), żeby wypełnienia (checkbox, switch) miały 3:1 na tle karty.
  *
  * Motyw wybiera atrybut `data-theme` na <html>: `light`, `dark` albo brak (systemowy).
@@ -67,7 +67,7 @@
   --shadow-menu: 0 16px 40px -12px #1e285a40;
   --shadow-toast: 0 16px 40px -16px #1e285a59;
 
-  /* Paleta awatarów i okładek (DS §3), przyciemniona do 4,5:1 z białym monogramem */
+  /* Paleta awatarów i okładek, przyciemniona do 4,5:1 z białym monogramem */
   --c-avatar-0: #986c15; /* amber #E09F1F */
   --c-avatar-1: #d1441b; /* vermilion #E4572E */
   --c-avatar-2: #c35037; /* brick #C8553D */
@@ -81,17 +81,17 @@
   --c-avatar-removed: #c9cdda;
   --c-on-avatar-removed: #4a5068;
   --c-on-avatar: #ffffff;
-  /* Odblokowana odznaka (DS §15 „Achievement row”: #E09F1F z białym pucharem), przyciemniona
+  /* Odblokowana odznaka (#E09F1F z białym pucharem), przyciemniona
      do 4,5:1 z białą ikoną jak bursztyn awatarów; ta sama w obu motywach. */
   --c-achievement: #986c15;
   --c-on-achievement: #ffffff;
 
-  /* Typografia (DS §4) */
+  /* Typografia */
   --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;
   --font-ui: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
   --font-mono: 'DM Mono', ui-monospace, monospace;
 
-  /* Promienie (DS §5) */
+  /* Promienie */
   --r-pill: 999px;
   --r-row: 14px;
   --r-tray: 22px;

@@ -13,7 +13,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Widżet i przebieg spotkania (PRD MTG-1, VIEW-1…VIEW-3, RUN-1, RUN-4, DS §15): taca stanu
+ * Widżet i przebieg spotkania: taca stanu
  * w widżecie, rozpoczęcie i zakończenie z potwierdzeniem, komunikaty błędów, lista partii
  * w toku blokujących koniec i akcje zależne od roli (prowadzący bez edycji uczestników).
  * API Supabase jest atrapą z regułami jak w bazie; same reguły sprawdzają testy SQL
@@ -106,7 +106,7 @@ const search = (page: Page) => page.evaluate(() => decodeURIComponent(window.loc
 
 const FINISHED = { ...RUNNING, status: 'finished' as const, finished_at: '2026-11-12T20:00:00Z' };
 
-test('RUN-5: admin potwierdza otwarcie, anulowanie zachowuje historię, kolejne cykle działają', async ({
+test('admin potwierdza otwarcie, anulowanie zachowuje historię, kolejne cykle działają', async ({
   page,
 }) => {
   const mock = await openApp(
@@ -151,7 +151,7 @@ test('RUN-5: admin potwierdza otwarcie, anulowanie zachowuje historię, kolejne 
 });
 
 for (const host of [false, true]) {
-  test(`RUN-5: ${host ? 'prowadzący' : 'gracz'} nie ma akcji ani dostępu z deep linku`, async ({
+  test(`${host ? 'prowadzący' : 'gracz'} nie ma akcji ani dostępu z deep linku`, async ({
     page,
   }) => {
     const mock = await openApp(
@@ -172,7 +172,7 @@ for (const host of [false, true]) {
   });
 }
 
-test('RUN-5: deep link, konflikt z innym spotkaniem i zmieniony status', async ({ page }) => {
+test('deep link, konflikt z innym spotkaniem i zmieniony status', async ({ page }) => {
   const other = { ...RUNNING, id: PLANNED.id };
   const mock = await openApp(
     page,
@@ -196,9 +196,7 @@ test('RUN-5: deep link, konflikt z innym spotkaniem i zmieniony status', async (
   expect(mock.runs).toHaveLength(1);
 });
 
-test('widżet: odliczanie i najwięcej głosów; admin rozpoczyna spotkanie (MTG-1, RUN-1)', async ({
-  page,
-}) => {
+test('widżet: odliczanie i najwięcej głosów; admin rozpoczyna spotkanie', async ({ page }) => {
   const mock = await openApp(page, {
     votes: [
       { meeting_id: PLANNED.id, game_id: ZOLWIE.id, profile_id: BEA.id },
@@ -241,7 +239,7 @@ test('widżet: odliczanie i najwięcej głosów; admin rozpoczyna spotkanie (MTG
   await expect(widget.getByText('0 rozegranych')).toBeVisible();
 });
 
-test('drugie trwające spotkanie: start kończy się komunikatem (MTG-2)', async ({ page }) => {
+test('drugie trwające spotkanie: start kończy się komunikatem', async ({ page }) => {
   const other = { ...RUNNING };
   const mock = await openApp(
     page,
@@ -254,9 +252,7 @@ test('drugie trwające spotkanie: start kończy się komunikatem (MTG-2)', async
   expect(mock.options.meetings?.find((m) => m.id === PLANNED.id)?.status).toBe('planned');
 });
 
-test('prowadzący: partie w toku blokują koniec, potem kończy spotkanie (VIEW-3, RUN-4)', async ({
-  page,
-}) => {
+test('prowadzący: partie w toku blokują koniec, potem kończy spotkanie', async ({ page }) => {
   const mock = await openApp(
     page,
     {
@@ -283,7 +279,7 @@ test('prowadzący: partie w toku blokują koniec, potem kończy spotkanie (VIEW-
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);
 
-  // Prowadzący nie ma akcji administracyjnych (PLAN-4, Q14): w menu tylko „Zakończ spotkanie”.
+  // Prowadzący nie ma akcji administracyjnych: w menu tylko „Zakończ spotkanie”.
   await dialog.getByRole('button', { name: 'Akcje spotkania' }).click();
   await expect(page.getByRole('menuitem')).toHaveText(['Zakończ spotkanie']);
   await page.getByRole('menuitem', { name: 'Zakończ spotkanie' }).click();
@@ -327,7 +323,7 @@ test('szkic dodany w międzyczasie: baza odrzuca koniec, dialog pokazuje partię
   expect(mock.options.meetings?.[0]?.status).toBe('in_progress');
 });
 
-test('admin w trakcie: widżet z partiami, menu z uczestnikiem i prowadzącym', async ({ page }) => {
+test('Admin w trakcie: widżet z partiami, menu z uczestnikiem i prowadzącym', async ({ page }) => {
   await openApp(page, { meetings: [{ ...RUNNING }], plays: [SAVED, DRAFT] });
   const widget = page.getByRole('region', { name: 'Spotkanie', exact: true });
   await expect(widget.getByText('Trwa', { exact: true })).toBeVisible();

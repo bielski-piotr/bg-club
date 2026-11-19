@@ -14,7 +14,7 @@ export default tseslint.config(
       '**/playwright-report/**',
       '**/test-results/**',
       'supabase/.temp/**',
-      // Edge Functions działają w Deno: lint, typy i testy przez `deno` (CI, README „Edge Functions”).
+      // Edge Functions działają w Deno: lint, typy i testy przez `deno` (CI).
       'supabase/functions/**',
     ],
   },
@@ -39,12 +39,12 @@ export default tseslint.config(
     },
   },
   {
-    // Szablon service workera (NFR-3): kontekst workera, nie okna.
+    // Szablon service workera: kontekst workera, nie okna.
     files: ['apps/web/src/pwa/sw.js'],
     languageOptions: { globals: { ...globals.serviceworker } },
   },
   {
-    // Źródła notesu i edytora przeniesione z POC (PRD §8.5): bez przepisywania stylu kodu.
+    // Źródła notesu i edytora przeniesione z POC: bez przepisywania stylu kodu.
     files: ['packages/score-pad/src/core/**/*.ts', 'packages/score-pad/src/editor/**/*.ts'],
     rules: {
       '@typescript-eslint/no-dynamic-delete': 'off',

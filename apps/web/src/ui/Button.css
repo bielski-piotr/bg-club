@@ -1,4 +1,4 @@
-/* Przyciski (DS §9, §18). Stany hover/disabled/loading nie mają artboardów; wyprowadzone z ról. */
+/* Przyciski. Stany hover/disabled/loading nie mają artboardów; wyprowadzone z ról. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -65,7 +65,7 @@
   background: var(--c-tint);
 }
 
-/* DS §18: wyłączony przycisk główny = tło #F1F3F9, tekst #C9CDDA. */
+/* Wyłączony przycisk główny = tło #F1F3F9, tekst #C9CDDA. */
 .btn:disabled {
   background: var(--c-disabled-bg);
   border-color: transparent;
@@ -134,7 +134,7 @@
   text-underline-offset: 3px;
 }
 
-/* „Pokaż więcej” pod listą rysowaną porcjami (NFR-2, chunks.tsx). */
+/* „Pokaż więcej” pod listą rysowaną porcjami (chunks.tsx). */
 .show-more {
   display: flex;
   justify-content: center;

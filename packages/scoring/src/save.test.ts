@@ -8,7 +8,7 @@ const players = new Map([
   [3, 'p-celina'],
 ]);
 
-describe('wyniki dla save_play (PAD-7, §5.6.2)', () => {
+describe('wyniki dla save_play', () => {
   it('mapuje miejsca kartki (od 0) na graczy notesu (od 1), bez punktów i wygranych', () => {
     const results = savePlayResults(
       [

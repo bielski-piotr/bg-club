@@ -1,6 +1,6 @@
-// Edytor notesu w trzech krokach: zdjęcie → obszar kartki → mapowanie pól (EDT-11).
+// Edytor notesu w trzech krokach: zdjęcie → obszar kartki → mapowanie pól.
 // Działa samodzielnie (<score-pad-editor>) albo — na życzenie — jako nakładka w notesie.
-// W trybie kreatora (`wizard`, EDT-9) kroki, nawigację i wczytywanie zdjęcia prowadzi aplikacja:
+// W trybie kreatora (`wizard`) kroki, nawigację i wczytywanie zdjęcia prowadzi aplikacja:
 // edytor pokazuje tylko scenę z narzędziami bieżącego kroku i zgłasza zmiany stanu (`onChange`).
 
 import type { Pt, Quad } from './photo';
@@ -48,7 +48,7 @@ import {
 import { icon } from './icons';
 import { scorePadFileName } from '../file-name';
 
-/** Kroki edytora; krok 4 (kategorie na kartce, EDT-13) jest tylko w trybie kreatora. */
+/** Kroki edytora; krok 4 (kategorie na kartce) jest tylko w trybie kreatora. */
 export type Step = 1 | 2 | 3 | 4;
 export type { AreaMode } from './area';
 export type {
@@ -63,7 +63,7 @@ export type {
   RangeMode,
 } from './fields';
 
-/** Stan kroku 3 „Mapowanie pól” (EDT-11) dla panelu kreatora. */
+/** Stan kroku 3 „Mapowanie pól” dla panelu kreatora. */
 export interface EditorMapping extends MappingState {
   /** Widok kartki jest powiększony (przycisk „Dopasuj widok”). */
   readonly zoomed: boolean;
@@ -72,7 +72,7 @@ export interface EditorMapping extends MappingState {
 /** Zmiana mapowania z panelu kreatora; `fit` dopasowuje widok do całej kartki. */
 export type EditorMappingAction = MappingAction | { readonly type: 'fit' };
 
-/** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4) dla panelu kreatora. */
+/** Stan kroku 4 „Kategorie” dla panelu kreatora. */
 export interface EditorCategories extends CategoriesState {
   /** Widok kartki jest powiększony (przycisk „Dopasuj widok”). */
   readonly zoomed: boolean;
@@ -105,7 +105,7 @@ export interface EditorLine {
   readonly kind: LineKind;
 }
 
-/** Ustawienia kroku 2 „Obszar kartki” (EDT-10) dla panelu kreatora. */
+/** Ustawienia kroku 2 „Obszar kartki” dla panelu kreatora. */
 export interface EditorArea {
   /** Nazwa notesu. */
   readonly name: string;
@@ -173,11 +173,11 @@ export interface EditorStatus {
   readonly seats: number;
   /** Kategorie notesu w kolejności. */
   readonly lines: readonly EditorLine[];
-  /** Ustawienia kroku 2: obszar, rozmiar, grzbiet, nazwa i kolor (EDT-10). */
+  /** Ustawienia kroku 2: obszar, rozmiar, grzbiet, nazwa i kolor. */
   readonly settings: EditorArea;
-  /** Krok 3: sposób mapowania, miejsca, kategorie i problem do poprawy (EDT-11, EDT-6). */
+  /** Krok 3: sposób mapowania, miejsca, kategorie i problem do poprawy. */
   readonly mapping: EditorMapping;
-  /** Krok 4: kategorie, reguła miejsc i problemy walidatora (EDT-13). */
+  /** Krok 4: kategorie, reguła miejsc i problemy walidatora. */
   readonly categories: EditorCategories;
   /** Notes został zmieniony od otwarcia edytora (zdjęcie, kształt, pola, kategorie). */
   readonly dirty: boolean;
@@ -210,7 +210,7 @@ export class Editor {
   private step: Step = 1;
   private reached: Step = 1;
   private busy = '';
-  /** Zmiany od otwarcia edytora (EDT-1: ochrona przed utratą zmian). */
+  /** Zmiany od otwarcia edytora (ochrona przed utratą zmian). */
   private dirty = false;
   private notifyRaf = 0;
   /** Ostatnio zgłoszony stan: bez zmiany (np. przeciąganie w kroku 2) aplikacja nie dostaje nic. */
@@ -228,7 +228,7 @@ export class Editor {
   private binding: 'top' | 'left' = 'top';
   private flatten = true;
 
-  // obszar kartki (EDT-10): wielokąt na zdjęciu; z niego narożniki (`quad`) i kształt
+  // obszar kartki: wielokąt na zdjęciu; z niego narożniki (`quad`) i kształt
   private area: Pt[] = fullArea(1, 1);
   /** Otwory w kartce (np. dziurki) z wykrycia albo z wczytanego notesu, w pikselach zdjęcia. */
   private holes: Pt[][] = [];
@@ -318,8 +318,8 @@ export class Editor {
       </div>
       <div class="spe-toast" role="status" aria-live="polite"></div>`;
     this.svg = this.root.querySelector('.spe-svg') as SVGSVGElement;
-    // zdjęcie i lupa są trwałe (zmieniają się tylko ich atrybuty), przebudowuje się wyłącznie nakładka —
-    // dzięki temu obraz nie ładuje się od nowa przy każdym ruchu, a lupa nie miga
+    // zdjęcie i lupa są trwałe (zmieniają się tylko ich atrybuty), przebudowuje się wyłącznie
+    // nakładka — dzięki temu obraz nie ładuje się od nowa przy każdym ruchu, a lupa nie miga
     this.svg.innerHTML = `<image class="spe-base" x="0" y="0" preserveAspectRatio="none"/><g class="spe-ov"></g>
       <g class="spe-loupe" style="display:none"><defs><clipPath id="spe-loupe-clip"><circle class="lc"/></clipPath></defs>
         <circle class="ring"/>
@@ -352,7 +352,7 @@ export class Editor {
       render: () => this.render(),
       changed: () => this.renderChrome(),
       toast: (m, k) => this.toast(m, k),
-      // W kreatorze zmianę trybu potwierdza popup aplikacji (DS §18), tu systemowe pytanie.
+      // W kreatorze zmianę trybu potwierdza popup aplikacji, tu systemowe pytanie.
       confirm: (m) => typeof window.confirm !== 'function' || window.confirm(m),
       wizard: !!opts.wizard,
     });
@@ -426,7 +426,7 @@ export class Editor {
       document.addEventListener('paste', this.onDocPaste);
     }
     r.addEventListener('keydown', (e) => this.onKey(e));
-    // Zmiany użytkownika: pola i przyciski narzędzi oraz przeciąganie na scenie (EDT-1). Klik
+    // Zmiany użytkownika: pola i przyciski narzędzi oraz przeciąganie na scenie. Klik
     // bez skutku też liczy się jako zmiana; zbędne pytanie o odrzucenie zmian jest mniejszym złem
     // niż utracona praca.
     const touched = (): void => this.touch();
@@ -551,7 +551,7 @@ export class Editor {
     });
   }
 
-  /** Stan edytora dla kreatora w aplikacji (EDT-9). */
+  /** Stan edytora dla kreatora w aplikacji. */
   status(): EditorStatus {
     return {
       step: this.step,
@@ -780,7 +780,7 @@ export class Editor {
       this.sundo = [];
       this.fields.load(t);
       this.editId = t.id;
-      // Zdjęcie bez zmian zapisujemy tym samym plikiem (bez ponownej kompresji JPEG, [015]).
+      // Zdjęcie bez zmian zapisujemy tym samym plikiem (bez ponownej kompresji JPEG).
       this.loadedImage = { url: t.image, key: this.sheetWant() };
       this.refreshSrcUrl();
       this.reached = 3;
@@ -802,7 +802,7 @@ export class Editor {
   /** Zdjęcie wczytanego notesu i stan kadru, przy którym jest aktualne. */
   private loadedImage: { url: string; key: string } | null = null;
 
-  /** Nowe zdjęcie: obszar wykryty automatycznie (EDT-10), do poprawy punktami. */
+  /** Nowe zdjęcie: obszar wykryty automatycznie, do poprawy punktami. */
   private setSource(c: HTMLCanvasElement): void {
     this.src = c;
     this.srcId++;
@@ -850,7 +850,7 @@ export class Editor {
     this.size = a <= 1 ? { w: round1(long * a), h: long } : { w: long, h: round1(long / a) };
   }
 
-  // ─────────────────────────────────────────────── krok 2: obszar kartki (EDT-10)
+  // ─────────────────────────────────────────────── krok 2: obszar kartki
 
   private geomKey(): string {
     return `${this.srcId}|${this.quad.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(';')}|${this.size.w}x${this.size.h}`;
@@ -858,7 +858,8 @@ export class Editor {
 
   /** Kształt kartki z obszaru (po wygładzeniu); undefined = prostokąt. */
   shape(): SheetShape | undefined {
-    // Wczytany notes bez zmian obszaru: dokładnie zapisany kształt (punkty do edycji są uproszczone).
+    // Wczytany notes bez zmian obszaru: dokładnie zapisany kształt (punkty do edycji są
+    // uproszczone).
     if (this.pristine) return this.loadedShape;
     const key = `${this.srcId}|${JSON.stringify(this.area)}|${JSON.stringify(this.holes)}|${this.geomKey()}|${this.smoothing ? this.strength : 0}`;
     if (this.smoothed.key !== key)
@@ -1050,7 +1051,7 @@ export class Editor {
 
   private renderToolbar(): void {
     const tb = this.toolbar;
-    // W kreatorze panel i pasek kroku 2 są w aplikacji (DS §18).
+    // W kreatorze panel i pasek kroku 2 są w aplikacji.
     // Kroki pól (3 i 4) mają własny pasek (`FieldsStep`, w kreatorze w aplikacji).
     if (this.step >= 3) return;
     if (this.step === 1 || !this.src || (this.opts.wizard && this.step === 2)) {
@@ -1151,7 +1152,7 @@ export class Editor {
     if (!this.src) return;
     const key = this.sheetWant();
     if (this.sheet && this.sheetKey === key) return;
-    // EDT-12: rozdzielczość zdjęcia źródłowego (bez powiększania), dłuższy bok do 4096 px
+    // Rozdzielczość zdjęcia źródłowego (bez powiększania), dłuższy bok do 4096 px
     const { w: ow, h: oh } = sheetSize(this.quad, this.size.w / this.size.h);
     const out = warp(this.src, this.quad, ow, oh);
     releasePixels();
@@ -1287,7 +1288,7 @@ export class Editor {
     this.drawLoupe(k);
   }
 
-  /** Lupa przy przeciąganiu punktu (DS §18): koło 88 (telefon 72) z celownikiem. */
+  /** Lupa przy przeciąganiu punktu: koło 88 (telefon 72) z celownikiem. */
   private drawLoupe(k: number): void {
     const L = this.loupe;
     const src = this.src;
@@ -1345,7 +1346,8 @@ export class Editor {
     const p = this.toSvg(e);
     this.pdrag = { i, moved, x: p.x, y: p.y, snap, pointer: e.pointerId };
     clearTimeout(this.press);
-    // przytrzymanie punktu bez ruchu usuwa go na ekranie dotykowym (mysz: dwuklik, klawiatura: Delete)
+    // przytrzymanie punktu bez ruchu usuwa go na ekranie dotykowym (mysz: dwuklik, klawiatura:
+    // Delete)
     if (!moved && e.pointerType === 'touch')
       this.press = window.setTimeout(() => {
         const d = this.pdrag;
@@ -1491,7 +1493,7 @@ export class Editor {
     return true;
   }
 
-  // ─────────────────────────────────────────────── krok 3: mapowanie pól (EDT-11)
+  // ─────────────────────────────────────────────── krok 3: mapowanie pól
 
   /** Zmiana mapowania z panelu kreatora (sposób, miejsca, kategorie, cofanie, widok). */
   editMapping(action: EditorMappingAction): void {
@@ -1506,7 +1508,7 @@ export class Editor {
     this.notify();
   }
 
-  // ─────────────────────────────────────────────── krok 4: kategorie (EDT-13, kreator)
+  // ─────────────────────────────────────────────── krok 4: kategorie (kreator)
 
   /** Zmiana kategorii i reguły miejsc z panelu kreatora (nazwa, typ, zakres, sumy, wygrana). */
   editCategories(action: EditorCategoriesAction): void {
@@ -1680,7 +1682,7 @@ export class Editor {
   }
 
   /**
-   * Obraz kartki do zapisu (EDT-12): zdjęcie wczytanego notesu bez zmian kadru zostaje tym samym
+   * Obraz kartki do zapisu: zdjęcie wczytanego notesu bez zmian kadru zostaje tym samym
    * plikiem, a nowa kartka jest kodowana w pełnej rozdzielczości (WebP albo JPEG, jakość 0,92).
    */
   sheetImage(): string | null {

@@ -1,6 +1,5 @@
 /*
- * Karteczka partii i galeria karteczek gry (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”,
- * „Kolekcja / Szczegóły gry”, §14: karteczka jako kartka papieru na scenie).
+ * Karteczka partii i galeria karteczek gry (karteczka jako kartka papieru na scenie).
  */
 .sheet-view {
   display: grid;
@@ -79,12 +78,12 @@
   color: var(--c-muted);
 }
 
-/* „Usuń partię” pod linkiem do spotkania (admin, VIEW-6). */
+/* „Usuń partię” pod linkiem do spotkania (admin). */
 .sheet-view__delete {
   align-self: flex-start;
 }
 
-/* Wiersz „Meeting link” (DS „Kolekcja / Karteczka”): kalendarz w kółku, tytuł i termin. */
+/* Wiersz „Meeting link”: kalendarz w kółku, tytuł i termin. */
 .sheet-view__meeting {
   display: flex;
   align-items: center;
@@ -236,7 +235,7 @@
   height: 92px;
 }
 
-/* Obraz karteczki w galerii: cała kartka, lekko obrócona (DS §14). */
+/* Obraz karteczki w galerii: cała kartka, lekko obrócona. */
 .sheet-gallery__sheet.play-sheet--image {
   width: 80%;
   height: 86%;

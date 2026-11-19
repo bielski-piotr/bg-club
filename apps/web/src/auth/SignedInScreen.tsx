@@ -15,14 +15,14 @@ import { useOwnProfile } from './useOwnProfile';
 import './LoginScreen.css';
 
 /**
- * Widok po zalogowaniu: hub ze stosem popupów (PRD §4). Brak własnego profilu (konto usunięte,
- * a token jest jeszcze ważny, AUTH-7) kończy sesję z komunikatem na ekranie logowania.
+ * Widok po zalogowaniu: hub ze stosem popupów. Brak własnego profilu (konto usunięte, a token jest
+ * jeszcze ważny) kończy sesję z komunikatem na ekranie logowania.
  */
 export function SignedInScreen({ userId }: { readonly userId: string }) {
   const { client, signOut } = useAuth();
   const profile = useOwnProfile(client, userId);
-  // Klub pobieramy równolegle z profilem, nie dopiero po wyświetleniu huba (o jeden RTT
-  // szybszy widok Klubu, NFR-2).
+  // Klub pobieramy równolegle z profilem, nie dopiero po wyświetleniu huba (o jeden RTT szybszy
+  // widok Klubu).
   usePrefetchQuery(clubQuery(client));
   // All reads still use the authenticated client and server RLS. Start independent
   // widget requests alongside the own-profile lookup to avoid another network round trip.

@@ -20,7 +20,7 @@ function isFocusable(el: Element | null | undefined): el is HTMLElement {
 }
 
 /**
- * Wyświetla stos popupów z adresu nad hubem (PRD §4, NFR-4, NFR-6).
+ * Wyświetla stos popupów z adresu nad hubem.
  *
  * - Widoczny jest tylko górny popup; niższe zostają zamontowane (zachowują stan i przewinięcie),
  *   ale są ukryte i `inert`, tak jak hub pod spodem.
@@ -59,7 +59,7 @@ export function PopupHost({ children, renderPopup, fallbackFocusId }: PopupHostP
     if (restore()) return;
     // Odsłonięty popup może jeszcze przez klatkę być `inert`/ukryty (np. gdy jego treść
     // przerenderowuje się osobno); wtedy `focus()` nic nie robi i fokus zostaje na body.
-    // Ponawiamy w kolejnych klatkach, aż element przyjmie fokus (NFR-6).
+    // Ponawiamy w kolejnych klatkach, aż element przyjmie fokus.
     let frames = 0;
     let frame = requestAnimationFrame(function retry() {
       frames += 1;

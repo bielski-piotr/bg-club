@@ -11,8 +11,8 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Członkowie: dodawanie członka z jednorazowym hasłem, lista z wyszukiwaniem (PRD MEM-1…MEM-3,
- * AUTH-4, USR-1; DS §6–8). API Supabase i Edge Function są atrapą; każdy test przechodzi na
+ * Członkowie: dodawanie członka z jednorazowym hasłem, lista z wyszukiwaniem. API Supabase i Edge
+ * Function są atrapą; każdy test przechodzi na
  * 360 px i na desktopie, w motywie jasnym i ciemnym.
  */
 

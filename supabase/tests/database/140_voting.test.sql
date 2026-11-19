@@ -1,4 +1,4 @@
--- [024] Głosowanie, publikacja gier i ponowne otwarcie (PRD VOTE-1…VOTE-6, PLAN-2, PLAN-3)
+-- Głosowanie, publikacja gier i ponowne otwarcie
 -- z perspektywy klienta: głosy przez RLS, `publish_meeting_games`, `reopen_voting`.
 -- Dane testowe są fikcyjne.
 begin;
@@ -16,7 +16,7 @@ insert into public.profiles (id, hook, first_name, last_name, role) values
   ('00000000-0000-4000-a000-000000000004', 'dawid-fikcyjny-d004', 'Dawid', 'Fikcyjny', 'player'),
   ('00000000-0000-4000-a000-000000000005', 'filip-obok-f005', 'Filip', 'Obok', 'player');
 
--- b001 Żółwie (2–4), b002 Łąka (2–4), b003 Pasjans (1–1, nie pasuje, VOTE-4), b004 usunięta
+-- b001 Żółwie (2–4), b002 Łąka (2–4), b003 Pasjans (1–1, nie pasuje), b004 usunięta
 -- przed głosowaniem.
 insert into public.games (id, title, min_players, max_players, placement_points) values
   ('00000000-0000-4000-b000-000000000001', 'Żółwie Wyścigi', 2, 4, '{10,6,4,2}'),
@@ -27,7 +27,7 @@ update public.games set deleted_at = now() where id = '00000000-0000-4000-b000-0
 
 insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw');
 
--- c001 i c002: zaplanowane z otwartym głosowaniem (PLAN-2, domyślna wartość kolumny).
+-- c001 i c002: zaplanowane z otwartym głosowaniem (domyślna wartość kolumny).
 insert into public.meetings (id, title, starts_at, created_by) values
   ('00000000-0000-4000-c000-000000000001', 'Sobotnie granie', now() + interval '7 days', '00000000-0000-4000-a000-000000000001'),
   ('00000000-0000-4000-c000-000000000002', 'Drugie granie', now() + interval '14 days', '00000000-0000-4000-a000-000000000001');
@@ -43,7 +43,7 @@ update public.meetings set host_id = '00000000-0000-4000-a000-000000000004'
 set local role authenticated;
 
 -- =============================================================================================
--- Głosy uczestnika (VOTE-1, VOTE-2)
+-- Głosy uczestnika
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 
@@ -51,15 +51,15 @@ select lives_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000002'),
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000002', '00000000-0000-4000-a000-000000000002') $$,
-  'uczestnik głosuje na kilka gier naraz (bez limitu, VOTE-2)');
+  'uczestnik głosuje na kilka gier naraz (bez limitu)');
 select lives_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000003', '00000000-0000-4000-a000-000000000002') $$,
-  'gra niepasująca do liczby uczestników też przyjmuje głos (VOTE-4)');
+  'gra niepasująca do liczby uczestników też przyjmuje głos');
 select throws_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000002') $$,
-  '23505', null, 'drugi głos na tę samą grę: odrzucony (jeden głos na grę, VOTE-2)');
+  '23505', null, 'drugi głos na tę samą grę: odrzucony (jeden głos na grę)');
 select lives_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000002')
@@ -82,14 +82,14 @@ select results_eq(
                  where meeting_id = '00000000-0000-4000-c000-000000000001'
                    and game_id = '00000000-0000-4000-b000-000000000003' returning 1)
      select count(*)::int from d $$,
-  $$ values (1) $$, 'uczestnik cofa własny głos przy otwartym głosowaniu (VOTE-2)');
+  $$ values (1) $$, 'uczestnik cofa własny głos przy otwartym głosowaniu');
 select throws_ok(
   $$ select public.publish_meeting_games('00000000-0000-4000-c000-000000000001',
        array['00000000-0000-4000-b000-000000000001']::uuid[]) $$,
-  '42501', 'administrator required', 'gracz nie publikuje gier (VOTE-5)');
+  '42501', 'administrator required', 'gracz nie publikuje gier');
 select throws_ok(
   $$ select public.reopen_voting('00000000-0000-4000-c000-000000000001') $$,
-  '42501', 'administrator required', 'gracz nie otwiera głosowania ponownie (VOTE-6)');
+  '42501', 'administrator required', 'gracz nie otwiera głosowania ponownie');
 
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000003", "role": "authenticated"}';
 select lives_ok(
@@ -104,25 +104,25 @@ select is(
   (select array_agg(profile_id order by profile_id) from public.game_votes
     where meeting_id = '00000000-0000-4000-c000-000000000001' and game_id = '00000000-0000-4000-b000-000000000001'),
   array['00000000-0000-4000-a000-000000000002', '00000000-0000-4000-a000-000000000003']::uuid[],
-  'głosowanie jawne: każdy widzi, kto głosował (VOTE-3)');
+  'głosowanie jawne: każdy widzi, kto głosował');
 
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000005", "role": "authenticated"}';
 select throws_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000005') $$,
-  '23503', null, 'głosuje tylko uczestnik (VOTE-1)');
+  '23503', null, 'głosuje tylko uczestnik');
 
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000004", "role": "authenticated"}';
 select throws_ok(
   $$ select public.publish_meeting_games('00000000-0000-4000-c000-000000000001',
        array['00000000-0000-4000-b000-000000000001']::uuid[]) $$,
-  '42501', 'administrator required', 'prowadzący nie publikuje gier (tylko admin, §2.1)');
+  '42501', 'administrator required', 'prowadzący nie publikuje gier (tylko admin)');
 select throws_ok(
   $$ select public.reopen_voting('00000000-0000-4000-c000-000000000001') $$,
   '42501', 'administrator required', 'prowadzący nie otwiera głosowania ponownie');
 
 -- =============================================================================================
--- Publikacja gier (VOTE-5)
+-- Publikacja gier
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 
@@ -153,7 +153,7 @@ select is(
   (select voting_open from public.publish_meeting_games('00000000-0000-4000-c000-000000000001',
      array['00000000-0000-4000-b000-000000000003', '00000000-0000-4000-b000-000000000001',
            '00000000-0000-4000-b000-000000000003']::uuid[])),
-  false, 'publikacja zamyka głosowanie (VOTE-5)');
+  false, 'publikacja zamyka głosowanie');
 select results_eq(
   $$ select game_id, position from public.meeting_games
       where meeting_id = '00000000-0000-4000-c000-000000000001' order by position $$,
@@ -161,7 +161,7 @@ select results_eq(
   'lista „Gramy w:” w kolejności wyboru, bez duplikatów, także gra bez głosów');
 select is(
   (select count(*)::int from public.game_votes where meeting_id = '00000000-0000-4000-c000-000000000001'),
-  3, 'publikacja zachowuje głosy (jawna historia, Q18)');
+  3, 'publikacja zachowuje głosy (jawna historia)');
 
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 select throws_ok(
@@ -188,7 +188,7 @@ select results_eq(
   'ponowna publikacja zastępuje listę');
 
 -- =============================================================================================
--- Ponowne otwarcie (VOTE-6)
+-- Ponowne otwarcie
 -- =============================================================================================
 select is(
   (select voting_open from public.reopen_voting('00000000-0000-4000-c000-000000000001')),
@@ -210,7 +210,7 @@ select lives_ok(
   'po ponownym otwarciu uczestnik znów głosuje');
 
 -- =============================================================================================
--- Uczestnik usunięty z planu i usunięta gra (PLAN-3, MEM-6, GAME-8)
+-- Uczestnik usunięty z planu i usunięta gra
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select lives_ok(
@@ -243,7 +243,7 @@ select results_eq(
   'głosy na pozostałe gry zostają');
 
 -- =============================================================================================
--- Po rozpoczęciu (RUN-1): bez ponownego otwarcia i publikacji
+-- Po rozpoczęciu: bez ponownego otwarcia i publikacji
 -- =============================================================================================
 select lives_ok(
   $$ select public.start_meeting('00000000-0000-4000-c000-000000000001') $$,
@@ -251,7 +251,7 @@ select lives_ok(
 select throws_ok(
   $$ select public.reopen_voting('00000000-0000-4000-c000-000000000001') $$,
   '23514', 'meeting 00000000-0000-4000-c000-000000000001 has started; voting cannot be reopened',
-  'po rozpoczęciu głosowania nie da się otworzyć ponownie (VOTE-6)');
+  'po rozpoczęciu głosowania nie da się otworzyć ponownie');
 select throws_ok(
   $$ select public.publish_meeting_games('00000000-0000-4000-c000-000000000001',
        array['00000000-0000-4000-b000-000000000001']::uuid[]) $$,

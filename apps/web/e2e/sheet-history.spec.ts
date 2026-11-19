@@ -15,7 +15,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Obrazy karteczek i historia (PRD PAD-6, GAME-10, VIEW-3, zadanie [030]): oderwanie robi obraz
+ * Obrazy karteczek i historia: oderwanie robi obraz
  * kartki z pismem (WebP do ok. 150 KB), który trafia do bucketu `sheets` i do partii po zapisie;
  * anulowane podsumowanie usuwa plik, a przerwany upload nie blokuje zapisu wyników. Karta partii
  * w spotkaniu i galeria gry pokazują obraz, karteczka otwiera powiększenie z wynikami, linkiem do
@@ -190,7 +190,7 @@ const tear = (page: Page) =>
   page.getByRole('button', { name: 'Oderwij kartkę i zakończ partię Azul' }).click();
 const summaryDialog = (page: Page) => page.getByRole('dialog', { name: 'Podsumowanie partii' });
 
-test('oderwanie: obraz karteczki WebP ≤ 150 KB do Storage i do partii po zapisie (PAD-6)', async ({
+test('oderwanie: obraz karteczki WebP ≤ 150 KB do Storage i do partii po zapisie', async ({
   page,
 }) => {
   test.slow();
@@ -317,7 +317,7 @@ test('karteczka z historii: powiększenie, wyniki, link do spotkania i 3D tylko 
   await check(page);
 });
 
-test('galeria gry od najnowszej karteczki; historia zostaje po usunięciu gry i notesu (GAME-10)', async ({
+test('galeria gry od najnowszej karteczki; historia zostaje po usunięciu gry i notesu', async ({
   page,
 }) => {
   test.slow();
@@ -339,9 +339,7 @@ test('galeria gry od najnowszej karteczki; historia zostaje po usunięciu gry i 
   ).toBeVisible();
 });
 
-test('po usunięciu gry i notesu karteczka zostaje w historii (GAME-8, GAME-10)', async ({
-  page,
-}) => {
+test('po usunięciu gry i notesu karteczka zostaje w historii', async ({ page }) => {
   test.slow();
   await openHistory(page, `/?p=sheet/${savedPlay(1).id}`, {
     games: [{ ...AZUL, deleted_at: '2026-11-10T10:00:00Z' }],

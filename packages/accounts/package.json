@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Konta graczy: hook, techniczny e-mail, hasła i bootstrap administratora (PRD AUTH-1…AUTH-4, USR-1).",
+  "description": "Konta graczy: hook, techniczny e-mail, hasła i bootstrap administratora.",
   "exports": {
     ".": "./src/index.ts"
   },

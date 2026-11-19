@@ -3,19 +3,19 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 import { isUuid } from '../popups/routes';
 import type { MeetingFormValues } from './form';
 
-/** Status spotkania (§5.8): zaplanowane → w trakcie → zakończone. */
+/** Status spotkania: zaplanowane → w trakcie → zakończone. */
 export type MeetingStatus = 'planned' | 'in_progress' | 'finished';
 
-/** Spotkanie klubu z identyfikatorami uczestników (PRD §5.8, §6). */
+/** Spotkanie klubu z identyfikatorami uczestników. */
 export interface Meeting {
   readonly id: string;
   readonly title: string;
-  /** Chwila rozpoczęcia (`timestamptz`); wyświetlana w strefie klubu (NFR-10). */
+  /** Chwila rozpoczęcia (`timestamptz`); wyświetlana w strefie klubu. */
   readonly starts_at: string;
   readonly status: MeetingStatus;
-  /** Głosowanie otwarte; możliwe tylko w zaplanowanym (PLAN-2, RUN-1). */
+  /** Głosowanie otwarte; możliwe tylko w zaplanowanym. */
   readonly voting_open: boolean;
-  /** Prowadzący spośród uczestników; `null` = prowadzi admin (§2). */
+  /** Prowadzący spośród uczestników; `null` = prowadzi admin. */
   readonly host_id: string | null;
   readonly started_at: string | null;
   readonly finished_at: string | null;
@@ -60,8 +60,8 @@ export function useMeeting(client: SupabaseClient, id: string) {
 }
 
 /**
- * Spotkanie widżetu (MTG-1): trwające, a gdy go nie ma, najwcześniejsze zaplanowane
- * (kolejność `starts_at`, potem `id`, Q24). `null` = brak spotkań do pokazania.
+ * Spotkanie widżetu: trwające, a gdy go nie ma, najwcześniejsze zaplanowane
+ * (kolejność `starts_at`, potem `id`). `null` = brak spotkań do pokazania.
  */
 export function hubMeetingQuery(client: SupabaseClient) {
   return queryOptions({
@@ -90,7 +90,7 @@ export function useHubMeeting(client: SupabaseClient) {
 
 /**
  * Uczestnicy, którzy mają już partię w spotkaniu (zapisaną albo szkic). W spotkaniu w trakcie
- * nie da się ich usunąć (PLAN-4).
+ * nie da się ich usunąć.
  */
 export function useMeetingPlayers(client: SupabaseClient, id: string, enabled: boolean) {
   return useQuery({
@@ -110,7 +110,7 @@ export function useMeetingPlayers(client: SupabaseClient, id: string, enabled: b
 
 /**
  * Powód nieudanej operacji na spotkaniu (komunikaty w `t.meetings.errors`). Baza podaje
- * nazwę reguły w polu HINT (migracja [023]).
+ * nazwę reguły w polu HINT.
  */
 export type MeetingFailure =
   | 'forbidden'
@@ -173,18 +173,18 @@ export function meetingFailure(error: PostgrestLikeError): MeetingFailure {
   const byHint = error.hint ? HINTS[error.hint] : undefined;
   if (byHint) return byHint;
   if (error.code === '42501') return 'forbidden';
-  // Drugie spotkanie w trakcie także bez HINT (np. bezpośredni zapis, MTG-2).
+  // Drugie spotkanie w trakcie także bez HINT (np. bezpośredni zapis).
   if (error.code === '23505' && error.message?.includes('meetings_single_in_progress')) {
     return 'otherInProgress';
   }
-  // Wyzwalacz uczestników (MEM-6): usuniętego członka nie da się dodać.
+  // Wyzwalacz uczestników: usuniętego członka nie da się dodać.
   if (error.code === '23514' && error.message?.includes('deleted profile')) {
     return 'participantDeleted';
   }
-  // Klucz obcy play_results → uczestnicy: gracz dostał partię w międzyczasie (PLAN-4).
+  // Klucz obcy play_results → uczestnicy: gracz dostał partię w międzyczasie.
   if (error.code === '23503' && error.message?.includes('play_results'))
     return 'participantHasPlay';
-  // Klucz obcy plays → meetings: spotkanie ma partie (PLAN-5, Q4).
+  // Klucz obcy plays → meetings: spotkanie ma partie.
   if (error.code === '23503' && error.message?.includes('plays')) return 'hasPlays';
   if (error.code === 'PGRST116') return 'gone';
   return 'save';
@@ -196,16 +196,16 @@ export interface MeetingDraft {
   readonly values: MeetingFormValues;
   /**
    * Wartości z chwili otwarcia edycji; `null` = nowe spotkanie. Niezmieniony termin nie jest
-   * wysyłany, więc baza go nie przelicza (strefa klubu mogła się zmienić, NFR-10), a edycja
+   * wysyłany, więc baza go nie przelicza (strefa klubu mogła się zmienić), a edycja
    * usuniętego w międzyczasie spotkania kończy się błędem zamiast jego ponownym utworzeniem.
    */
   readonly original: MeetingFormValues | null;
 }
 
 /**
- * Planuje spotkanie albo zapisuje zmiany (PLAN-1…PLAN-4) w jednej transakcji: tytuł, termin
+ * Planuje spotkanie albo zapisuje zmiany w jednej transakcji: tytuł, termin
  * (data i godzina w strefie klubu, zamienia je baza), uczestnicy i prowadzący. Nowe spotkanie
- * ma otwarte głosowanie (PLAN-2).
+ * ma otwarte głosowanie.
  */
 export async function saveMeeting(client: SupabaseClient, draft: MeetingDraft): Promise<void> {
   const { values, original } = draft;
@@ -223,27 +223,27 @@ export async function saveMeeting(client: SupabaseClient, draft: MeetingDraft): 
   if (error) throw new MeetingError(meetingFailure(error));
 }
 
-/** Rozpoczyna spotkanie i zamyka głosowanie (RUN-1). Admin lub prowadzący. */
+/** Rozpoczyna spotkanie i zamyka głosowanie. Admin lub prowadzący. */
 export async function startMeeting(client: SupabaseClient, id: string): Promise<void> {
   const { error } = await client.rpc('start_meeting', { meeting_id: id });
   if (error) throw new MeetingError(meetingFailure(error));
 }
 
-/** Kończy spotkanie; szkice partii blokują zakończenie (RUN-4). Admin lub prowadzący. */
+/** Kończy spotkanie; szkice partii blokują zakończenie. Admin lub prowadzący. */
 export async function finishMeeting(client: SupabaseClient, id: string): Promise<void> {
   const { error } = await client.rpc('finish_meeting', { meeting_id: id });
   if (error) throw new MeetingError(meetingFailure(error));
 }
 
-/** Cofa zakończenie bez zmiany historii i snapshotów (RUN-5, Q10). Tylko admin. */
+/** Cofa zakończenie bez zmiany historii i snapshotów. Tylko admin. */
 export async function reopenMeeting(client: SupabaseClient, id: string): Promise<void> {
   const { error } = await client.rpc('reopen_meeting', { meeting_id: id });
   if (error) throw new MeetingError(meetingFailure(error));
 }
 
 /**
- * Usuwa spotkanie (PLAN-3) razem z głosami i uczestnikami. Spotkania w trakcie i zakończonego
- * z partiami baza nie usunie (PLAN-5).
+ * Usuwa spotkanie razem z głosami i uczestnikami. Spotkania w trakcie i zakończonego
+ * z partiami baza nie usunie.
  */
 export async function deleteMeeting(client: SupabaseClient, id: string): Promise<void> {
   const { data, error } = await client.from('meetings').delete().eq('id', id).select('id');

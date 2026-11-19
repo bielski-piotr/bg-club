@@ -1,4 +1,4 @@
-// Wykrywanie kształtu kartki ze zdjęcia (EDT-10): maska rastrowa papieru obrysowana wielokątem.
+// Wykrywanie kształtu kartki ze zdjęcia: maska rastrowa papieru obrysowana wielokątem.
 // Różdżkę i lasso z POC usunięto; wynik wykrycia poprawia się punktami obszaru (`area.ts`).
 
 import type { ShapePt, SheetShape } from '../core/shape';
@@ -363,7 +363,8 @@ export interface ShapeScan {
 
 /**
  * Wykrywa kształt kartki: kolor tła bierze ze zdjęcia wokół zaznaczonych narożników, a potem
- * wycina z wyprostowanej kartki obszary w kolorze tła połączone z jej brzegiem (wycięcia, zaokrąglenia).
+ * wycina z wyprostowanej kartki obszary w kolorze tła połączone z jej brzegiem (wycięcia,
+ * zaokrąglenia).
  */
 export function detectShape(src: HTMLCanvasElement, quad: Quad, aspect: number): ShapeScan {
   const sw = src.width;
@@ -663,7 +664,7 @@ export function findOnPlainBackground(src: HTMLCanvasElement): Quad | null {
   })) as Quad;
 }
 
-// ─────────────────────────────────────────────── obszar kartki (EDT-10)
+// ─────────────────────────────────────────────── obszar kartki
 
 export interface AreaScan {
   /** Obszar kartki w pikselach zdjęcia (wielokąt). */
@@ -677,7 +678,7 @@ export interface AreaScan {
 }
 
 /**
- * Wykrywa obszar kartki (EDT-10): najpierw narożniki (kartka na jednolitym albo ciemniejszym
+ * Wykrywa obszar kartki: najpierw narożniki (kartka na jednolitym albo ciemniejszym
  * tle), potem kształt w ich obrębie: zaokrąglone rogi, wycięcia i kartki nieprostokątne.
  * Wynik to wielokąt na zdjęciu, który można dalej poprawiać punktami.
  */

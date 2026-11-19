@@ -1,4 +1,4 @@
--- [015] Notesy gry i ich wersje (PRD GAME-7, GAME-9, EDT-1, NFR-7) z perspektywy klienta:
+-- Notesy gry i ich wersje z perspektywy klienta:
 -- zapis wersji w jednej transakcji (`save_scorepad`), obraz tylko ze Storage, trwałe pliki
 -- wersji, zmiana nazwy i miękkie usunięcie notesu. Dane testowe są fikcyjne.
 begin;
@@ -41,7 +41,7 @@ select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
        '00000000-0000-4000-d000-000000000001', 'Notes Bartka', (select body from tpl),
        'b0000001/d0000001-v1.jpg', 4) $$,
-  '42501', null, 'gracz: nie zapisuje notesu (GAME-7)');
+  '42501', null, 'gracz: nie zapisuje notesu');
 
 reset role;
 set local role authenticated;
@@ -68,7 +68,7 @@ select is(
   'b0000001/d0000001-v1.jpg 4', 'wersja ma ścieżkę obrazu i liczbę miejsc');
 
 -- =============================================================================================
--- Kolejny zapis: nowa wersja, stara bez zmian (GAME-9)
+-- Kolejny zapis: nowa wersja, stara bez zmian
 -- =============================================================================================
 select is(
   (select version from public.save_scorepad('00000000-0000-4000-b000-000000000001',
@@ -89,7 +89,7 @@ select is(
   (select count(*)::int from public.scorepads where game_id = '00000000-0000-4000-b000-000000000001'),
   1, 'edycja nie dodaje drugiego notesu');
 
--- Drugi notes tej samej gry (dowolna liczba notesów, GAME-7). Ten sam plik może wskazywać
+-- Drugi notes tej samej gry (dowolna liczba notesów). Ten sam plik może wskazywać
 -- kilka wersji (edycja bez zmiany zdjęcia nie wysyła go ponownie).
 select lives_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
@@ -103,7 +103,7 @@ select lives_ok(
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
        '00000000-0000-4000-d000-000000000003', 'Stary', '{"v": 1, "lines": []}', null, 2) $$,
-  '22023', null, 'szablon spoza formatu v2 jest odrzucany (EDT-7)');
+  '22023', null, 'szablon spoza formatu v2 jest odrzucany');
 select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000001',
        '00000000-0000-4000-d000-000000000003', 'Bez kategorii', '{"v": 2}', null, 2) $$,
@@ -113,7 +113,7 @@ select throws_ok(
        '00000000-0000-4000-d000-000000000003', 'Z data URL',
        '{"v": 2, "lines": [], "image": "data:image/jpeg;base64,AAAA"}',
        'b0000001/d0000001-v1.jpg', 2) $$,
-  '23514', null, 'zdjęcie w JSON-ie (data URL) jest odrzucane (EDT-1, NFR-7)');
+  '23514', null, 'zdjęcie w JSON-ie (data URL) jest odrzucane');
 select throws_ok(
   $$ insert into public.scorepad_versions (scorepad_id, template, image_path, player_slots) values
      ('00000000-0000-4000-d000-000000000001', '{"v": 1}', 'brak.jpg', 2) $$,
@@ -167,7 +167,7 @@ select results_eq(
   'admin: okładki usuwa jak dotąd');
 
 -- =============================================================================================
--- Zmiana nazwy i miękkie usunięcie (GAME-7)
+-- Zmiana nazwy i miękkie usunięcie
 -- =============================================================================================
 select lives_ok(
   $$ update public.scorepads set name = 'Finałowy' where id = '00000000-0000-4000-d000-000000000001' $$,
@@ -204,7 +204,7 @@ select throws_ok(
   '23514', null, 'do usuniętego notesu nie dochodzą nowe wersje');
 select is(
   (select count(*)::int from public.scorepad_versions where scorepad_id = '00000000-0000-4000-d000-000000000001'),
-  2, 'wersje usuniętego notesu zostają czytelne dla historii (GAME-9)');
+  2, 'wersje usuniętego notesu zostają czytelne dla historii');
 
 -- Nowy notes usuniętej gry jest odrzucany.
 update public.games set deleted_at = now() where id = '00000000-0000-4000-b000-000000000002';
@@ -212,7 +212,7 @@ select throws_ok(
   $$ select public.save_scorepad('00000000-0000-4000-b000-000000000002',
        '00000000-0000-4000-d000-000000000005', 'Spóźniony', (select body from tpl),
        'b0000001/d0000001-v1.jpg', 2) $$,
-  '23514', null, 'gra usunięta z kolekcji nie dostaje nowych notesów (GAME-8)');
+  '23514', null, 'gra usunięta z kolekcji nie dostaje nowych notesów');
 
 -- Ograniczenie tabeli działa też poza API (np. skrypty z kluczem serwisowym).
 reset role;

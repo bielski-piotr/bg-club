@@ -27,7 +27,7 @@ const ME: OwnProfile = {
   password_change_suggested: true,
 };
 
-describe('walidacja zmiany hasła (USR-5)', () => {
+describe('walidacja zmiany hasła', () => {
   it('wymaga obecnego hasła i dwóch takich samych nowych, co najmniej 12 znaków', () => {
     expect(passwordProblems({ current: '', next: '', repeat: '' })).toEqual({
       current: 'currentRequired',
@@ -93,7 +93,7 @@ function fakeClient(options: { updateError?: unknown; uploadError?: unknown } = 
 
 const IMAGE = { blob: new Blob(['x'], { type: 'image/webp' }), extension: 'webp' as const };
 
-describe('zapis profilu (USR-3, USR-5)', () => {
+describe('zapis profilu', () => {
   it('nowe zdjęcie trafia do własnego folderu pod nową nazwą, a stare jest usuwane', async () => {
     const fake = fakeClient();
     const saved = await saveProfile(fake.client, ME, {
@@ -108,7 +108,7 @@ describe('zapis profilu (USR-3, USR-5)', () => {
     expect(fake.remove).toHaveBeenCalledWith([ME.avatar_path]);
   });
 
-  it('powrót do monogramu czyści ścieżkę i usuwa plik (USR-3)', async () => {
+  it('powrót do monogramu czyści ścieżkę i usuwa plik', async () => {
     const fake = fakeClient();
     await saveProfile(fake.client, ME, {
       firstName: 'Bea',
@@ -164,7 +164,7 @@ describe('zapis profilu (USR-3, USR-5)', () => {
   });
 });
 
-describe('zmiana hasła (USR-5, AUTH-6)', () => {
+describe('zmiana hasła', () => {
   it('wysyła obecne hasło do Auth i wyłącza propozycję zmiany', async () => {
     const fake = fakeClient();
     await changePassword(fake.client, ME.id, { current: 'stare-haslo-12', next: 'nowe-haslo-123' });

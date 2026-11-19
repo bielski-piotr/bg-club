@@ -19,7 +19,7 @@ async function failure(result: { data: unknown; error: unknown }) {
   )) as CreateMemberError;
 }
 
-describe('createMember: wywołanie Edge Function (MEM-3)', () => {
+describe('createMember: wywołanie Edge Function', () => {
   it('wysyła imię i nazwisko bez spacji na brzegach i zwraca profil z hasłem', async () => {
     const created = {
       member: { id: 'x', hook: 'ola-nowak-0001', first_name: 'Ola', last_name: 'Nowak' },

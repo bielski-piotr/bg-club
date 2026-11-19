@@ -36,16 +36,16 @@ const CHANGE_ERRORS: Readonly<Record<Exclude<PasswordChangeFailure, 'currentInva
 interface PasswordPopupProps {
   readonly me: OwnProfile;
   /**
-   * `change`: zmiana hasła z ustawień (USR-5). `first`: propozycja po pierwszym logowaniu
-   * (AUTH-6) z przyciskiem „Pomiń”, który zapisuje, że gracz z niej zrezygnował.
+   * `change`: zmiana hasła z ustawień. `first`: propozycja po pierwszym logowaniu
+   * z przyciskiem „Pomiń”, który zapisuje, że gracz z niej zrezygnował.
    */
   readonly variant: 'change' | 'first';
 }
 
 /**
- * Zmiana hasła (USR-5, DS „Profil / Zmiana hasła”, „Pierwsze logowanie – własne hasło”):
- * obecne hasło i dwa razy nowe. Obecne hasło sprawdza Auth (`current_password`); nowe musi
- * mieć co najmniej 12 znaków (jak hasła generowane, AUTH-4) i różnić się od obecnego.
+ * Zmiana hasła: obecne hasło i dwa razy nowe. Obecne hasło sprawdza Auth (`current_password`); nowe
+ * musi
+ * mieć co najmniej 12 znaków (jak hasła generowane) i różnić się od obecnego.
  * Hasło jest tylko w stanie formularza: nie trafia do adresu, cache'u ani `localStorage`.
  */
 export function PasswordPopup({ me, variant }: PasswordPopupProps) {

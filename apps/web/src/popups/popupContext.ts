@@ -79,7 +79,7 @@ export function usePopupLevel(): PopupLevel {
 }
 
 /**
- * Ochrona popupu przed zamknięciem, np. przy niezapisanych zmianach (EDT-1). Dostaje `leave`,
+ * Ochrona popupu przed zamknięciem, np. przy niezapisanych zmianach. Dostaje `leave`,
  * które zamyka popup mimo ochrony; popup może je wywołać od razu albo po potwierdzeniu.
  */
 export type LeaveGuard = (leave: () => void) => void;

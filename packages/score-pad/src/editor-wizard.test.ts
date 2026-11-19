@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor, EditorLoadError, type EditorStatus } from './editor/editor';
 
 /*
- * Tryb kreatora `<score-pad-editor>` (EDT-9, zadanie [016]): kroki, nawigację i zdjęcie
+ * Tryb kreatora `<score-pad-editor>`: kroki, nawigację i zdjęcie
  * prowadzi aplikacja, a edytor zgłasza stan i zmiany. jsdom nie dekoduje obrazów, więc
  * wczytanie zdjęcia sprawdzają testy aplikacji i E2E.
  */
@@ -95,7 +95,7 @@ describe('edytor w trybie kreatora', () => {
     expect(event.defaultPrevented).toBe(false);
   });
 
-  it('ustawienia kroku 2 w stanie i ich zmiana z panelu aplikacji (EDT-10)', async () => {
+  it('ustawienia kroku 2 w stanie i ich zmiana z panelu aplikacji', async () => {
     const onChange = vi.fn();
     const { editor } = mount(onChange);
     expect(editor.status().settings).toEqual({

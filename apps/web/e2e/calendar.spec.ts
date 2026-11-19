@@ -13,7 +13,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Timeline i kalendarz (PRD MTG-3, CAL-1…CAL-3, NFR-10; DS §15.1). „Dziś” to czwartek
+ * Timeline i kalendarz. „Dziś” to czwartek
  * 12 listopada 2026 w strefie klubu (zegar przeglądarki jest ustawiony). Każdy test przechodzi
  * na 360 px (kompaktowa siatka i agenda) i na desktopie (siatka z chipami), w obu motywach.
  */
@@ -175,14 +175,14 @@ test('timeline: 2 nadchodzące od dalszego, divider „Dziś” i 4 ostatnie zak
   await expect(dialog.getByText('Zakończone', { exact: true })).toBeVisible();
   await expect(dialog.getByText('3 rozegrane')).toBeVisible();
   await expect(dialog.getByText('Zoja, Ada, Bea')).toBeVisible();
-  // Partie w kolejności rozegrania (VIEW-3), a usunięty członek zostaje w historii (MEM-5).
+  // Partie w kolejności rozegrania, a usunięty członek zostaje w historii.
   await expect(
     dialog.getByRole('list', { name: 'Zapisane partie' }).getByRole('article'),
   ).toHaveCount(3);
   await expect(
     dialog.getByRole('list', { name: 'Uczestnicy spotkania' }).getByText('Zoja Zawada'),
   ).toBeVisible();
-  // Zakończonego z partiami nie edytujemy ani nie usuwamy (PLAN-5): brak menu.
+  // Zakończonego z partiami nie edytujemy ani nie usuwamy: brak menu.
   await expect(dialog.getByRole('button', { name: 'Akcje spotkania' })).toHaveCount(0);
   expect(await axe(page)).toEqual([]);
 });
@@ -210,7 +210,7 @@ test('kalendarz: miesiące, Dziś, kilka spotkań jednego dnia i kolory statusó
   await expect(dialog.getByRole('heading', { name: 'Listopad 2026' })).toBeVisible();
 
   if (isMobile()) {
-    // Agenda miesiąca (CAL-2) w kolejności dat, ze statusami.
+    // Agenda miesiąca w kolejności dat, ze statusami.
     const agenda = dialog.getByRole('list', { name: 'Spotkania w tym miesiącu' });
     await expect(dialog.locator('.calendar__count:visible')).toHaveText('6 spotkań');
     await expect(agenda.getByRole('link')).toHaveText([
