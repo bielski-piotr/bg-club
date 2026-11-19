@@ -9,13 +9,13 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Logowanie hookiem, sesja i wylogowanie w przeglądarce (PRD AUTH-1, AUTH-5, AUTH-7).
+ * Logowanie hookiem, sesja i wylogowanie w przeglądarce.
  * API Supabase jest atrapą (support/supabaseMock.ts); każdy test przechodzi na 360 px i na
  * desktopie, w motywie jasnym i ciemnym.
  */
 
 const loginHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'Zaloguj się' });
-// Atrapa domyślnie jest pustą instalacją: admin po zalogowaniu widzi pierwsze uruchomienie (CLUB-1).
+// Atrapa domyślnie jest pustą instalacją: admin po zalogowaniu widzi pierwsze uruchomienie.
 const homeHeading = (page: Page) =>
   page.getByRole('heading', { level: 1, name: 'Załóż swój klub' });
 
@@ -51,7 +51,7 @@ test('logowanie hookiem, widok po zalogowaniu i wylogowanie', async ({ page }) =
   await page.getByRole('menuitem', { name: 'Mój profil' }).click();
   const profile = page.getByRole('dialog', { name: 'Profil' });
   await expect(profile.getByText('ada-adminowska-a001', { exact: true })).toBeVisible();
-  // Techniczny e-mail nigdy nie jest widoczny (AUTH-1).
+  // Techniczny e-mail nigdy nie jest widoczny.
   await expect(page.locator('body')).not.toContainText('bgclub.invalid');
 
   await profile.getByRole('button', { name: 'Ustawienia' }).click();
@@ -65,7 +65,7 @@ test('logowanie hookiem, widok po zalogowaniu i wylogowanie', async ({ page }) =
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('sesja trwa po przeładowaniu strony (AUTH-5)', async ({ page }) => {
+test('sesja trwa po przeładowaniu strony', async ({ page }) => {
   const mock = await mockSupabase(page);
   await page.goto('/');
   await logIn(page, 'ada-adminowska-a001', 'tajne-haslo-123');
@@ -86,7 +86,7 @@ test('wygasły token dostępu odświeża się bez ponownego logowania', async ({
   expect(mock.calls.filter((call) => call.includes('grant_type=password'))).toHaveLength(0);
 });
 
-test('odrzucone odświeżenie usuniętego konta wraca do logowania (AUTH-7)', async ({ page }) => {
+test('odrzucone odświeżenie usuniętego konta wraca do logowania', async ({ page }) => {
   const mock = await mockSupabase(page, { refresh: { kind: 'accountInactive' } });
   await storeSession(page, session(-60));
   await page.goto('/');

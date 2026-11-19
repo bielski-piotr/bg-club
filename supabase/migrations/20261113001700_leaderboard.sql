@@ -1,26 +1,26 @@
--- [032] Rankingi, serie i filtr roku (PRD LB-1, LB-4–LB-7, §5.6.3, §5.6.4, §5.6.6, NFR-10).
+-- Rankingi, serie i filtr roku.
 --
 -- Zasady:
--- - `leaderboard(kind, year)` zwraca klasyfikację: `points` (suma punktów, §5.6.2), `wins`
---   (liczba wygranych partii, także wspólne 1. miejsce, §5.6.3) albo `streak` (rekord serii
---   zwycięstw, §5.6.4). `year` NULL = cała historia (LB-4), inaczej rok kalendarzowy w strefie
---   klubu (`club.timezone`, NFR-10): liczą się partie spotkań, których `starts_at` wypada w tym
+-- - `leaderboard(kind, year)` zwraca klasyfikację: `points` (suma punktów), `wins`
+--   (liczba wygranych partii, także wspólne 1. miejsce) albo `streak` (rekord serii
+--   zwycięstw). `year` NULL = cała historia, inaczej rok kalendarzowy w strefie
+--   klubu (`club.timezone`): liczą się partie spotkań, których `starts_at` wypada w tym
 --   roku lokalnie, a seria jest liczona tylko w obrębie tego roku.
 -- - Liczą się tylko zapisane partie (`plays.status = 'saved'`), także w spotkaniu w trakcie.
 --   Wyniki są liczone z `play_results` przy odczycie, więc zapis i usunięcie partii (`save_play`,
 --   `delete_play`) zmieniają ranking od razu, bez zapisanych agregatów; dlatego ciało
---   `private.recalculate_after_plays_change` zostaje bez zmian (§5.6.5).
--- - Seria: spotkania gracza chronologicznie (`starts_at`, potem `id`, §5.6.6). Spotkanie z ≥ 1
+--   `private.recalculate_after_plays_change` zostaje bez zmian.
+-- - Seria: spotkania gracza chronologicznie (`starts_at`, potem `id`). Spotkanie z ≥ 1
 --   wygraną daje +1 (najwyżej raz), spotkanie z partiami bez wygranej zeruje serię, spotkanie
 --   bez partii gracza nic nie zmienia. Rekord to najdłuższa seria; 0, gdy gracz nie wygrał.
--- - Klasyfikowani są gracze z ≥ 1 zapisaną partią w zakresie (LB-5). Równe wyniki mają wspólne
+-- - Klasyfikowani są gracze z ≥ 1 zapisaną partią w zakresie. Równe wyniki mają wspólne
 --   miejsce (`rank()`, numeracja 1, 1, 3), a w obrębie remisu kolejność jest alfabetyczna
---   (imię, nazwisko, polskie sortowanie; LB-6). Usunięci członkowie są zawsze za aktywnymi
---   (między sobą według wyniku), z miejscami liczonymi dalej, i nigdy nie stają na podium (LB-7).
+--   (imię, nazwisko, polskie sortowanie). Usunięci członkowie są zawsze za aktywnymi
+--   (między sobą według wyniku), z miejscami liczonymi dalej, i nigdy nie stają na podium.
 -- - Funkcje działają z prawami wywołującego (security invoker), więc RLS daje wynik tylko
 --   aktywnym członkom. Zły rodzaj albo rok to błąd 22023 z nazwą reguły w HINT.
 
--- Strefa klubu do granic roku (NFR-10). Przed założeniem klubu obowiązuje domyślna strefa
+-- Strefa klubu do granic roku. Przed założeniem klubu obowiązuje domyślna strefa
 -- kolumny `club.timezone`. Działa z prawami wywołującego (RLS), jak funkcje rankingów.
 create function private.club_timezone()
 returns text
@@ -33,7 +33,7 @@ as $$
 $$;
 
 comment on function private.club_timezone() is
-  'Strefa IANA klubu do granic roku leaderboardu (NFR-10); przed założeniem klubu Europe/Warsaw.';
+  'Strefa IANA klubu do granic roku leaderboardu; przed założeniem klubu Europe/Warsaw.';
 
 revoke all on function private.club_timezone() from public, anon;
 grant execute on function private.club_timezone() to authenticated;
@@ -137,12 +137,12 @@ end;
 $$;
 
 comment on function public.leaderboard(text, int) is
-  'Klasyfikacja punktów, wygranych albo rekordu serii (LB-1) dla całej historii albo roku w strefie klubu (LB-4, NFR-10). Remisy 1, 1, 3 alfabetycznie (LB-6); usunięci na końcu, bez podium (LB-7).';
+  'Klasyfikacja punktów, wygranych albo rekordu serii dla całej historii albo roku w strefie klubu. Remisy 1, 1, 3 alfabetycznie; usunięci na końcu, bez podium.';
 
 revoke execute on function public.leaderboard(text, int) from public, anon;
 grant execute on function public.leaderboard(text, int) to authenticated;
 
--- Lata do filtru roku (LB-4): lata w strefie klubu ze spotkaniami z ≥ 1 zapisaną partią,
+-- Lata do filtru roku: lata w strefie klubu ze spotkaniami z ≥ 1 zapisaną partią,
 -- od najnowszego.
 create function public.leaderboard_years()
 returns setof int
@@ -160,7 +160,7 @@ as $$
 $$;
 
 comment on function public.leaderboard_years() is
-  'Lata (w strefie klubu) z zapisanymi partiami, od najnowszego: opcje filtru roku leaderboardu (LB-4).';
+  'Lata (w strefie klubu) z zapisanymi partiami, od najnowszego: opcje filtru roku leaderboardu.';
 
 revoke execute on function public.leaderboard_years() from public, anon;
 grant execute on function public.leaderboard_years() to authenticated;

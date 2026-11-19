@@ -1,5 +1,5 @@
 /*
- * Widok Klubu (DS §17). Telefon: padding 16/16/32, odstęp 16, karty na całą szerokość.
+ * Widok Klubu. Telefon: padding 16/16/32, odstęp 16, karty na całą szerokość.
  * Od 768 px: odstęp 24 i karty do 520 px. Od 1112 px: treść 1064 px, dwie kolumny po 520 px
  * z odstępem 24 i niezależnymi wysokościami (useMasonry.ts).
  */
@@ -24,7 +24,7 @@
   gap: 16px;
 }
 
-/* Nagłówek (DS §17): pasek h64, promień 20, ramka, bez cienia. */
+/* Nagłówek: pasek h64, promień 20, ramka, bez cienia. */
 .app-header {
   display: flex;
   align-items: center;
@@ -48,7 +48,7 @@
   flex-shrink: 0;
 }
 
-/* Przed założeniem klubu: przezroczysty wiersz z samym chipem po prawej (DS §17). */
+/* Przed założeniem klubu: przezroczysty wiersz z samym chipem po prawej. */
 .app-header--bare {
   justify-content: flex-end;
   padding-inline: 0;
@@ -56,7 +56,7 @@
   border-color: transparent;
 }
 
-/* Pierwsze uruchomienie: blok wyśrodkowany w wysokości okna (min. 812 / 900, DS §17). */
+/* Pierwsze uruchomienie: blok wyśrodkowany w wysokości okna (min. 812 / 900). */
 .hub--first-run {
   min-height: 100dvh;
 }
@@ -109,7 +109,7 @@
   box-shadow: var(--focus-ring);
 }
 
-/* Widżet członków (DS §6, §8): awatary 64 co 52 px (telefon 56 co 46), obwódka 3 px. */
+/* Widżet członków: awatary 64 co 52 px (telefon 56 co 46), obwódka 3 px. */
 .members-widget {
   display: flex;
   flex-direction: column;
@@ -140,7 +140,7 @@
   box-shadow: var(--focus-ring);
 }
 
-/* DS §8: litery odsunięte w lewo od zakładki następnego awatara. */
+/* Litery odsunięte w lewo od zakładki następnego awatara. */
 .members-widget__item:not(:last-child) .avatar__monogram {
   padding-right: 10px;
 }
@@ -259,7 +259,7 @@
   }
 }
 
-/* Zastępnik popupu, zanim dotrze jego fragment pakietu (NFR-2): środek ekranu nad hubem. */
+/* Zastępnik popupu, zanim dotrze jego fragment pakietu: środek ekranu nad hubem. */
 .hub__popup-loading {
   position: fixed;
   inset: 0;

@@ -1,5 +1,5 @@
 /**
- * Jedyna ilustracja aplikacji (DS §14, §17): stół z planszówkami widziany z góry. Płaskie
+ * Jedyna ilustracja aplikacji: stół z planszówkami widziany z góry. Płaskie
  * kształty, linie włosowe tylko w kolorze ramki. Stół, cień i ciemna kostka biorą kolory
  * z motywu, więc ilustracja działa w motywie jasnym i ciemnym. Dekoracyjna (obok jest tytuł).
  */
@@ -50,7 +50,7 @@ export function FirstRunIllustration({ className }: { readonly className?: strin
         stroke="var(--illu-hairline)"
       />
 
-      {/* Plansza gry (motyw okładki z DS §14) */}
+      {/* Plansza gry (motyw okładki) */}
       <rect x="40" y="40" width="124" height="124" rx="18" fill="#2E86AB" />
       <circle cx="128" cy="76" r="30" fill="#FFFFFF29" />
       <circle cx="70" cy="62" r="6" fill="#FFFFFF99" />
@@ -68,7 +68,7 @@ export function FirstRunIllustration({ className }: { readonly className?: strin
         <Pawn key={`${pawn.x}-${pawn.y}`} {...pawn} />
       ))}
 
-      {/* Karteczka z wynikami (kolory z DS §15) */}
+      {/* Karteczka z wynikami (kolory notesu) */}
       <g transform="rotate(7 222 82)">
         <rect x="186.5" y="36.5" width="72" height="92" rx="8" fill="#FFFFFF" stroke="#E4E7F0" />
         <path d="M187 44.5a8 8 0 0 1 8-8h55a8 8 0 0 1 8 8V54H187Z" fill="#E4572E" />

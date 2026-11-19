@@ -8,7 +8,7 @@ import {
   scaleImage,
 } from './image';
 
-describe('skalowanie logo (CLUB-2, GAME-6)', () => {
+describe('skalowanie logo', () => {
   it('zmniejsza dłuższy bok do limitu i zachowuje proporcje', () => {
     expect(fitWithin(1600, 1200, 800)).toEqual({ width: 800, height: 600 });
     expect(fitWithin(900, 3000, 800)).toEqual({ width: 240, height: 800 });
@@ -25,7 +25,7 @@ describe('skalowanie logo (CLUB-2, GAME-6)', () => {
   });
 });
 
-describe('kompresja do ok. 100 KB (GAME-6, NFR-7)', () => {
+describe('kompresja do ok. 100 KB', () => {
   const blob = (type: string, size: number) => new Blob([new Uint8Array(size)], { type });
 
   it('wybiera najwyższą jakość WebP mieszczącą się w celu', async () => {

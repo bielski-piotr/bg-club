@@ -1,11 +1,11 @@
 /**
- * Testy integracyjne kont i logowania na lokalnym Supabase (PRD AUTH-1…AUTH-5, AUTH-7),
- * zakładania klubu przez API (CLUB-2: równoległe próby, NFR-10), dodawania członków przez
- * Edge Function `create-member` (MEM-3, AUTH-2, AUTH-4, USR-1) oraz ustawień profilu: zmiany
- * hasła z obecnym hasłem, zdjęcia i motywu (USR-3, USR-5, USR-7, USR-8, AUTH-6) oraz usuwania
- * członka i własnego konta przez `delete-member` i `delete-own-account` (MEM-4…MEM-6, USR-6),
- * planowanie i równoczesne rozpoczęcia spotkań przez RPC (PLAN-1, MTG-2, RUN-1, RUN-4), a na końcu
- * równoległe zapisy i ponowienia zapisu wyników partii (`save_play`, PAD-5, §5.6).
+ * Testy integracyjne kont i logowania na lokalnym Supabase,
+ * zakładania klubu przez API (równoległe próby), dodawania członków przez
+ * Edge Function `create-member` oraz ustawień profilu: zmiany
+ * hasła z obecnym hasłem, zdjęcia i motywu oraz usuwania
+ * członka i własnego konta przez `delete-member` i `delete-own-account`,
+ * planowanie i równoczesne rozpoczęcia spotkań przez RPC, a na końcu
+ * równoległe zapisy i ponowienia zapisu wyników partii (`save_play`).
  *
  * Idą przez prawdziwe API (Auth, PostgREST) z tymi samymi kluczami co aplikacja i skrypt
  * bootstrapu. Startują od pustej instalacji i nie sprzątają po sobie (konta administratora nie
@@ -101,7 +101,7 @@ async function signIn(hook: string, password: string) {
   return { client, ...result };
 }
 
-/** Konto gracza tak, jak utworzy je Edge Function `create-member` ([009]). */
+/** Konto gracza tak, jak utworzy je Edge Function `create-member`. */
 async function createPlayer(firstName: string, lastName: string) {
   const hook = createHook(firstName, lastName, randomHookSuffix());
   const password = generatePassword();
@@ -126,7 +126,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     }
   });
 
-  describe('konta tworzy tylko serwer (AUTH-2)', () => {
+  describe('konta tworzy tylko serwer', () => {
     it('rejestracja samodzielna i logowanie anonimowe są wyłączone', async () => {
       const client = anonClient();
       const signUp = await client.auth.signUp({
@@ -166,7 +166,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('bootstrap administratora (AUTH-3)', () => {
+  describe('bootstrap administratora', () => {
     it('równoległe uruchomienia tworzą dokładnie jednego administratora', async () => {
       const results = await Promise.all([
         bootstrapAdmin(service, { firstName: 'Łucja', lastName: 'Żak-Główna' }),
@@ -248,7 +248,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('logowanie hookiem i sesja (AUTH-1, AUTH-5)', () => {
+  describe('logowanie hookiem i sesja', () => {
     it('loguje hookiem przez techniczny e-mail i daje dostęp do danych', async () => {
       const { client, data, error } = await signIn(admin.hook, admin.password);
       expect(error).toBeNull();
@@ -286,7 +286,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('konto usunięte (AUTH-7, MEM-4)', () => {
+  describe('konto usunięte', () => {
     it('istniejąca sesja nie dostaje danych, nie odświeży się i nie zaloguje ponownie', async () => {
       const player = await createPlayer('Bartek', 'Testowy');
       const session = await signIn(player.hook, player.password);
@@ -382,7 +382,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('dodawanie członków przez Edge Function (MEM-3, [009])', () => {
+  describe('dodawanie członków przez Edge Function', () => {
     const session = { admin: '' };
 
     beforeAll(async () => {
@@ -468,7 +468,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('zakładanie klubu (CLUB-2, [008])', () => {
+  describe('zakładanie klubu', () => {
     const clubAdmin: { client?: SupabaseClient } = {};
 
     it('gracz nie założy klubu na pustej instalacji', async () => {
@@ -501,7 +501,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       expect(data).toEqual([{ name: created[0]?.data?.name }]);
     });
 
-    it('zmiana strefy nie przesuwa zapisanych terminów (NFR-10)', async () => {
+    it('zmiana strefy nie przesuwa zapisanych terminów', async () => {
       const { client } = clubAdmin;
       if (!client) throw new Error('brak sesji administratora z poprzedniego testu');
       const { data: session } = await client.auth.getUser();
@@ -538,7 +538,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('profil i ustawienia (USR-3, USR-5, USR-7, AUTH-6, [010])', () => {
+  describe('profil i ustawienia', () => {
     const player = { id: '', hook: '', password: '' };
     const session: { client?: SupabaseClient } = {};
 
@@ -560,7 +560,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       session.client = login.client;
     });
 
-    it('konto z wygenerowanym hasłem ma propozycję zmiany hasła (AUTH-6)', async () => {
+    it('konto z wygenerowanym hasłem ma propozycję zmiany hasła', async () => {
       const { data } = await service
         .from('profiles')
         .select('hook, password_change_suggested')
@@ -570,7 +570,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       expect(data?.map((row) => row.password_change_suggested)).toEqual([true, true]);
     });
 
-    it('zmiana hasła wymaga poprawnego obecnego hasła i co najmniej 12 znaków (USR-5)', async () => {
+    it('zmiana hasła wymaga poprawnego obecnego hasła i co najmniej 12 znaków', async () => {
       const client = session.client;
       if (!client) throw new Error('brak sesji gracza');
       const next = generatePassword();
@@ -608,7 +608,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       expect(skip.data).toEqual({ password_change_suggested: false });
     });
 
-    it('gracz zmienia imię, motyw i zdjęcie we własnym folderze (USR-3, USR-8)', async () => {
+    it('gracz zmienia imię, motyw i zdjęcie we własnym folderze', async () => {
       const client = session.client;
       if (!client) throw new Error('brak sesji gracza');
       const path = `${player.id}/avatar-${crypto.randomUUID()}.webp`;
@@ -639,7 +639,7 @@ describe('konta i logowanie na pustej instalacji', () => {
         .upload(`${player.id}/avatar-admina.webp`, new Blob(['x'], { type: 'image/webp' }));
       expect(foreign.error).not.toBeNull();
 
-      // Administrator nie edytuje cudzego profilu (USR-7): RLS nie obejmuje wiersza.
+      // Administrator nie edytuje cudzego profilu: RLS nie obejmuje wiersza.
       const edit = await adminClient
         .from('profiles')
         .update({ first_name: 'Zmieniona', avatar_path: null })
@@ -661,7 +661,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('usuwanie członka i własnego konta (MEM-4…MEM-6, USR-6, AUTH-7, [011])', () => {
+  describe('usuwanie członka i własnego konta', () => {
     type DeleteReply = { memberId?: string; deleted?: boolean; error?: string };
     const callDeleteMember = (token: string | null, body: unknown) =>
       callFunction<DeleteReply>('delete-member', token, body);
@@ -740,7 +740,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       if (gameError) throw new Error(`games: ${gameError.message}`);
       ids.game = game.id as string;
 
-      // Zakończone spotkanie prowadzone przez Igora (MEM-6: zachowuje prowadzącego).
+      // Zakończone spotkanie prowadzone przez Igora (zachowuje prowadzącego).
       ids.finished = await meeting('Spotkanie zakończone');
       await insert('meeting_participants', { meeting_id: ids.finished, profile_id: host.id });
       await setMeeting(ids.finished, { host_id: host.id });
@@ -829,7 +829,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       const { data: members } = await client.from('profiles').select('id').is('deleted_at', null);
       expect(members?.map((row) => row.id)).not.toContain(host.id);
 
-      // MEM-6: zaplanowane bez niego i jego głosów, prowadzenie wraca do admina w niezakończonych.
+      // Zaplanowane bez niego i jego głosów, prowadzenie wraca do admina w niezakończonych.
       expect(await isParticipant(ids.planned, host.id)).toBe(false);
       const { data: votes } = await service
         .from('game_votes')
@@ -845,7 +845,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     it('usuniętego nie da się dodać do spotkania; ponowienie usunięcia nic nie psuje', async () => {
       const client = session.admin;
       if (!client) throw new Error('brak sesji administratora');
-      // Uczestników zapisuje tylko save_meeting ([023]); wyzwalacz odrzuca usuniętego.
+      // Uczestników zapisuje tylko save_meeting; wyzwalacz odrzuca usuniętego.
       const join = (meetingId: string) =>
         client.rpc('save_meeting', {
           meeting_id: meetingId,
@@ -879,7 +879,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       expect(unknown).toEqual({ status: 404, body: { error: 'not_found' } });
     });
 
-    it('gracz usuwa własne konto tylko z poprawnym hasłem (USR-6)', async () => {
+    it('gracz usuwa własne konto tylko z poprawnym hasłem', async () => {
       const own = await signIn(leaver.hook, leaver.password);
       const token = own.data.session?.access_token ?? '';
 
@@ -901,7 +901,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       const twice = await callDeleteOwnAccount(token, { password: leaver.password });
       expect(twice).toEqual({ status: 401, body: { error: 'unauthorized' } });
 
-      // Te same skutki MEM-6 co przy usunięciu przez administratora.
+      // Te same skutki co przy usunięciu przez administratora.
       expect(await isParticipant(ids.planned, leaver.id)).toBe(false);
       expect(await isParticipant(ids.running, leaver.id)).toBe(true);
       const { count } = await service
@@ -922,7 +922,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('planowanie i status spotkań przez RPC (PLAN-1, MTG-2, RUN-1, RUN-4, [023])', () => {
+  describe('planowanie i status spotkań przez RPC', () => {
     const ids = { admin: '', first: '', second: '' };
     const sessions: SupabaseClient[] = [];
 
@@ -960,7 +960,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       return id;
     }
 
-    it('admin planuje spotkanie; termin liczy baza w strefie klubu (NFR-10)', async () => {
+    it('admin planuje spotkanie; termin liczy baza w strefie klubu', async () => {
       const [client] = sessions;
       if (!client) throw new Error('brak sesji');
       ids.first = await plan(client, 'Luty pierwszy');
@@ -979,7 +979,7 @@ describe('konta i logowanie na pustej instalacji', () => {
       expect(local).toBe('2027-02-06 18:00');
     });
 
-    it('równoczesne starty dwóch spotkań: trwa dokładnie jedno (MTG-2)', async () => {
+    it('równoczesne starty dwóch spotkań: trwa dokładnie jedno', async () => {
       const [a, b] = sessions;
       if (!a || !b) throw new Error('brak sesji');
       const results = await Promise.all([
@@ -1022,7 +1022,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('ponowne otwarcie przez równoległe sesje (RUN-5, Q10)', () => {
+  describe('ponowne otwarcie przez równoległe sesje', () => {
     const sessions: SupabaseClient[] = [];
     let first = '';
     let second = '';
@@ -1132,7 +1132,7 @@ describe('konta i logowanie na pustej instalacji', () => {
     });
   });
 
-  describe('zapis wyników partii przez RPC (PAD-5, §5.6, [029])', () => {
+  describe('zapis wyników partii przez RPC', () => {
     const ids = { admin: '', player: '', meeting: '', version: '', play: '' };
     const sessions: SupabaseClient[] = [];
     const sheet = { game: 1, names: ['Ada', 'Gracz'], cells: { a: [9, 3] } };

@@ -15,8 +15,8 @@ import {
   expectedUnlocks,
 } from './cases/achievements';
 
-describe('katalog osiągnięć (ACH-1, Q16)', () => {
-  it('ma 29 pozycji z PRD §5.10 z unikalnymi identyfikatorami w formacie bazy', () => {
+describe('katalog osiągnięć', () => {
+  it('ma 29 pozycji z unikalnymi identyfikatorami w formacie bazy', () => {
     expect(ACHIEVEMENTS).toHaveLength(29);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -113,7 +113,7 @@ describe('computeAchievements: przeliczanie', () => {
     expect(ids(h(plays.slice(2)), p1).some((id) => id.startsWith('streak-3'))).toBe(false);
   });
 
-  it('rekord: usunięcie partii, w której padł, przelicza rekordy od nowa (Q17)', () => {
+  it('rekord: usunięcie partii, w której padł, przelicza rekordy od nowa', () => {
     const h = (ps: ReturnType<typeof play>[]): AchievementHistory => ({
       meetings: [meeting(1), meeting(2), meeting(3)],
       plays: ps,

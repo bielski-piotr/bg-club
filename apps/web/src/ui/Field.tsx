@@ -19,7 +19,7 @@ export interface FieldFrameProps {
   /** Dopisuje „(opcjonalnie)” do etykiety. */
   readonly optional?: boolean | undefined;
   readonly hint?: string | undefined;
-  /** Komunikat błędu (zdanie, DS §10). Zastępuje podpowiedź. */
+  /** Komunikat błędu (zdanie). Zastępuje podpowiedź. */
   readonly error?: string | undefined;
   /** Etykieta jest dla czytników ekranu, ale niewidoczna (np. wyszukiwarka). */
   readonly hideLabel?: boolean | undefined;
@@ -27,7 +27,7 @@ export interface FieldFrameProps {
   readonly className?: string | undefined;
 }
 
-/** Etykieta nad polem, podpowiedź lub błąd pod polem (DS §10). */
+/** Etykieta nad polem, podpowiedź lub błąd pod polem. */
 export function FieldFrame({
   id,
   label,
@@ -65,15 +65,15 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   readonly leadingIcon?: IconName | undefined;
   /** Element po wartości: jednostka („cm”) albo ikona. */
   readonly trailing?: ReactNode | undefined;
-  /** Wartość liczbowa Bricolage 16/20/700 (pole z jednostką, DS §18). */
+  /** Wartość liczbowa Bricolage 16/20/700 (pole z jednostką). */
   readonly numeric?: boolean | undefined;
-  /** DM Mono (wygenerowany hook, DS §10). */
+  /** DM Mono (wygenerowany hook). */
   readonly mono?: boolean | undefined;
   readonly ref?: Ref<HTMLInputElement> | undefined;
 }
 
 /**
- * Pole tekstowe h48 z etykietą (DS §10). `readOnly` daje wariant tylko do odczytu
+ * Pole tekstowe h48 z etykietą. `readOnly` daje wariant tylko do odczytu
  * (tło #F1F3F9 bez ramki), `error` ramkę 1,5 px #D63A3A i komunikat pod polem.
  */
 export function TextField({
@@ -171,7 +171,7 @@ export interface SearchFieldProps extends Omit<
   readonly onValueChange: (value: string) => void;
 }
 
-/** Wyszukiwarka: pigułka h44 na tle #F1F3F9 z lupą (DS §10). Esc czyści wartość. */
+/** Wyszukiwarka: pigułka h44 na tle #F1F3F9 z lupą. Esc czyści wartość. */
 export function SearchField({
   label,
   value,
@@ -228,7 +228,7 @@ export interface StepperProps {
   readonly max?: number | undefined;
   readonly step?: number | undefined;
   readonly hint?: string | undefined;
-  /** Komunikat błędu (zdanie, DS §10): ramka 1,5 px #D63A3A, zastępuje podpowiedź. */
+  /** Komunikat błędu (zdanie): ramka 1,5 px #D63A3A, zastępuje podpowiedź. */
   readonly error?: string | undefined;
   readonly disabled?: boolean | undefined;
 }
@@ -238,7 +238,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Stepper liczbowy h48 z przyciskami − / + (DS §10). Wartość jest `role="spinbutton"`:
+ * Stepper liczbowy h48 z przyciskami − / +. Wartość jest `role="spinbutton"`:
  * strzałki góra/dół, Home i End zmieniają ją z klawiatury.
  */
 export function Stepper({

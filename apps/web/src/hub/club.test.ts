@@ -47,7 +47,7 @@ function fakeClient(result: { data: unknown; error: { code: string } | null }) {
   return { client, log };
 }
 
-describe('zapis klubu (CLUB-2)', () => {
+describe('zapis klubu', () => {
   it('zakłada klub bez logo jednym INSERT z przyciętą nazwą', async () => {
     const saved = { name: 'Nowy', logo_path: null, timezone: 'Asia/Tokyo' };
     const { client, log } = fakeClient({ data: saved, error: null });

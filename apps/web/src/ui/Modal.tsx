@@ -8,7 +8,7 @@ import './Modal.css';
 
 export interface ModalProps {
   readonly title: string;
-  /** Licznik obok tytułu na desktopie, np. „12 osób” (DS §7). */
+  /** Licznik obok tytułu na desktopie, np. „12 osób”. */
   readonly count?: string | undefined;
   /** Akcje w nagłówku przed ×, np. przycisk „Dodaj” h36. */
   readonly actions?: ReactNode | undefined;
@@ -18,7 +18,7 @@ export interface ModalProps {
   readonly onBack?: (() => void) | undefined;
   /** Kliknięcie tła poza oknem (desktop). */
   readonly onScrimClick?: (() => void) | undefined;
-  /** 560 (lista, formularz), 880 (dwie kolumny), DS §7, albo 1120 (edytor notesu, DS §18). */
+  /** 560 (lista, formularz), 880 (dwie kolumny) albo 1120 (edytor notesu). */
   readonly width?: 560 | 880 | 1120 | undefined;
   /** Okno przykryte przez popup wyżej na stosie: niewidoczne i poza kolejnością fokusu. */
   readonly covered?: boolean | undefined;
@@ -31,14 +31,14 @@ export interface ModalProps {
   readonly level?: number | undefined;
   readonly children: ReactNode;
   /**
-   * Stopka formularza (DS §7, §17): na desktopie przyciski do prawej, na telefonie dwa
+   * Stopka formularza: na desktopie przyciski do prawej, na telefonie dwa
    * przyciski po równo na dole arkusza. Zostaje widoczna, gdy treść się przewija.
    */
   readonly footer?: ReactNode | undefined;
   readonly className?: string | undefined;
 }
 
-/** Tab i Shift+Tab krążą w oknie dialogu (NFR-6). */
+/** Tab i Shift+Tab krążą w oknie dialogu. */
 function trapFocus(event: KeyboardEvent, dialog: HTMLDivElement) {
   if (event.key !== 'Tab') return;
   const notifications = document.querySelector<HTMLElement>('.toast-region__toasts');
@@ -81,8 +81,8 @@ function useDialogFocus(inactive: boolean) {
 }
 
 /**
- * Popup (DS §7): na desktopie okno 560/880 na przyciemnionym tle, na telefonie pełnoekranowy
- * arkusz. Fokus nie wychodzi poza okno (Tab i Shift+Tab krążą w nim, NFR-6); resztę strony
+ * Popup: na desktopie okno 560/880 na przyciemnionym tle, na telefonie pełnoekranowy
+ * arkusz. Fokus nie wychodzi poza okno (Tab i Shift+Tab krążą w nim); resztę strony
  * wyłącza `inert` u rodzica. Esc, przewijanie tła i przywracanie fokusu obsługuje `PopupHost`.
  */
 export function Modal({
@@ -149,7 +149,7 @@ export interface DialogProps {
   readonly description?: ReactNode | undefined;
   /**
    * Ikona w kółku 44 nad tytułem; `danger` dla działań nieodwracalnych, `warning` dla
-   * przeszkody do usunięcia (np. partie w toku, DS §15 „Dialog variants”).
+   * przeszkody do usunięcia (np. partie w toku).
    */
   readonly icon?: IconName | undefined;
   readonly tone?: 'accent' | 'danger' | 'warning' | undefined;
@@ -161,12 +161,12 @@ export interface DialogProps {
   readonly level?: number | undefined;
   /** Treść między opisem a przyciskami, np. pole hasła. */
   readonly children?: ReactNode | undefined;
-  /** Dwa przyciski równej szerokości: Anuluj i działanie (DS §7). */
+  /** Dwa przyciski równej szerokości: Anuluj i działanie. */
   readonly footer: ReactNode;
 }
 
 /**
- * Mały dialog (DS §7 „Small dialog”): potwierdzenia i krótkie formularze haseł. Karta 343 na
+ * Mały dialog: potwierdzenia i krótkie formularze haseł. Karta 343 na
  * przyciemnionym tle na każdej szerokości ekranu, bez przycisku ×; zamyka go Anuluj, Esc albo
  * kliknięcie tła. Fokus zostaje w oknie jak w `Modal`.
  */

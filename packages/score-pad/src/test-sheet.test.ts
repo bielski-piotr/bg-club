@@ -69,7 +69,7 @@ function rects(): PadTemplate {
   };
 }
 
-describe('randomValue (EDT-14)', () => {
+describe('randomValue', () => {
   it('losuje tylko wartości dozwolone w kategorii', () => {
     const random = seeded(1);
     const lines: LineDef[] = [
@@ -93,7 +93,7 @@ describe('randomValue (EDT-14)', () => {
   });
 });
 
-describe('testSheet (EDT-14)', () => {
+describe('testSheet', () => {
   it('bez losowania wpisuje tylko imiona „Gracz 1…n”', () => {
     const sheet = testSheet(table());
     expect(sheet.names).toEqual(['Gracz 1', 'Gracz 2', 'Gracz 3', 'Gracz 4']);
@@ -148,7 +148,7 @@ describe('testSheet (EDT-14)', () => {
   });
 });
 
-describe('sheetResults (EDT-14, PRD §5.6.1)', () => {
+describe('sheetResults', () => {
   const sheet = (cells: Record<string, (number | null)[]>, names = ['A', 'B', 'C', 'D']) => ({
     game: 1,
     names,

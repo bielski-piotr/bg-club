@@ -6,18 +6,18 @@ import { normalizeSearch, useToast } from '../ui';
 import { meetingsKey } from './meetings';
 
 /*
- * Głosowanie na gry i publikacja (PRD VOTE-1…VOTE-6, migracja [024]). Głos to wiersz
+ * Głosowanie na gry i publikacja. Głos to wiersz
  * `game_votes`, który uczestnik dodaje i usuwa sam (RLS), a publikację i ponowne otwarcie
  * robią RPC administratora `publish_meeting_games` i `reopen_voting`.
  */
 
-/** Jeden głos: kto (`profile_id`) na jaką grę. Głosowanie jest jawne (VOTE-3). */
+/** Jeden głos: kto (`profile_id`) na jaką grę. Głosowanie jest jawne. */
 export interface Vote {
   readonly game_id: string;
   readonly profile_id: string;
 }
 
-/** Gra z listy „Gramy w:” (VOTE-5) w kolejności publikacji. */
+/** Gra z listy „Gramy w:” w kolejności publikacji. */
 export interface PublishedGame {
   readonly id: string;
   readonly title: string;
@@ -68,7 +68,7 @@ export function usePublishedGames(client: SupabaseClient, meetingId: string) {
   });
 }
 
-/** Gra na liście głosowania z głosami i oznaczeniem dopasowania (VOTE-3, VOTE-4). */
+/** Gra na liście głosowania z głosami i oznaczeniem dopasowania. */
 export interface VoteRow {
   readonly game: Game;
   /** Głosujący w kolejności oddania głosu. */
@@ -79,7 +79,7 @@ export interface VoteRow {
   readonly fits: boolean;
 }
 
-/** Czy gra pasuje do liczby uczestników spotkania (VOTE-4). */
+/** Czy gra pasuje do liczby uczestników spotkania. */
 export function fitsPlayers(
   game: Pick<Game, 'min_players' | 'max_players'>,
   participants: number,
@@ -88,7 +88,7 @@ export function fitsPlayers(
 }
 
 /**
- * Lista głosowania (VOTE-3): wszystkie gry kolekcji z głosami, malejąco po liczbie głosów,
+ * Lista głosowania: wszystkie gry kolekcji z głosami, malejąco po liczbie głosów,
  * potem alfabetycznie po tytule. Głosy na gry spoza listy (np. właśnie usunięte) pomijamy.
  * Wyszukiwanie bez wielkości liter i polskich znaków.
  */
@@ -128,12 +128,12 @@ export function myVoteCount(votes: readonly Vote[], profileId: string): number {
   return new Set(votes.filter((vote) => vote.profile_id === profileId).map((v) => v.game_id)).size;
 }
 
-/** „Brak głosów”, „1 głos”, „3 głosy”, „5 głosów” (DS §15 „Vote row”). */
+/** „Brak głosów”, „1 głos”, „3 głosy”, „5 głosów”. */
 export function votesLabel(n: number): string {
   return countLabel(n, t.meetings.voting.votes);
 }
 
-/** Oznaczenie gry niepasującej do liczby uczestników (VOTE-4): „Dla 1 gracza”, „Dla 2–4 graczy”. */
+/** Oznaczenie gry niepasującej do liczby uczestników: „Dla 1 gracza”, „Dla 2–4 graczy”. */
 export function mismatchLabel(game: Pick<Game, 'min_players' | 'max_players'>): string {
   const text = t.meetings.voting;
   return game.min_players === game.max_players
@@ -183,7 +183,7 @@ export function votingFailure(error: PostgrestLikeError): VotingFailure {
   const byHint = error.hint ? HINTS[error.hint] : undefined;
   if (byHint) return byHint;
   if (error.code === '42501') return 'forbidden';
-  // Wyzwalacze głosu (migracje [003], [007]): głosowanie zamknięte albo gra usunięta.
+  // Wyzwalacze głosu: głosowanie zamknięte albo gra usunięta.
   if (error.code === '23514' && error.message?.includes('voting is closed')) return 'closed';
   if (error.code === '23514' && error.message?.includes('is deleted')) return 'gameDeleted';
   // Klucz obcy głosu do uczestników: gracz wypadł z planu albo spotkanie usunięto.
@@ -198,7 +198,7 @@ export interface VoteTarget {
 }
 
 /**
- * Oddaje głos (VOTE-2). Głos, który już jest (ponowienie, druga karta), to sukces: klucz
+ * Oddaje głos. Głos, który już jest (ponowienie, druga karta), to sukces: klucz
  * główny pilnuje jednego głosu na grę.
  */
 export async function castVote(client: SupabaseClient, target: VoteTarget): Promise<void> {
@@ -211,7 +211,7 @@ export async function castVote(client: SupabaseClient, target: VoteTarget): Prom
 }
 
 /**
- * Cofa głos (VOTE-2). RLS usuwa tylko własny głos przy otwartym głosowaniu; gdy nic nie
+ * Cofa głos. RLS usuwa tylko własny głos przy otwartym głosowaniu; gdy nic nie
  * usunięto, sprawdzamy, czy głosowanie jest jeszcze otwarte (wtedy głosu już nie było).
  */
 export async function withdrawVote(client: SupabaseClient, target: VoteTarget): Promise<void> {
@@ -235,7 +235,7 @@ export async function withdrawVote(client: SupabaseClient, target: VoteTarget): 
 }
 
 /**
- * Zamyka głosowanie i publikuje gry (VOTE-5) w jednej transakcji. Kolejność `gameIds` to
+ * Zamyka głosowanie i publikuje gry w jednej transakcji. Kolejność `gameIds` to
  * kolejność listy „Gramy w:”. Tylko administrator.
  */
 export async function publishGames(
@@ -250,14 +250,14 @@ export async function publishGames(
   if (error) throw new VotingError(votingFailure(error));
 }
 
-/** Otwiera głosowanie ponownie przed rozpoczęciem (VOTE-6); lista „Gramy w:” znika. */
+/** Otwiera głosowanie ponownie przed rozpoczęciem; lista „Gramy w:” znika. */
 export async function reopenVoting(client: SupabaseClient, meetingId: string): Promise<void> {
   const { error } = await client.rpc('reopen_voting', { meeting_id: meetingId });
   if (error) throw new VotingError(votingFailure(error));
 }
 
 /**
- * „Otwórz głosowanie ponownie” (VOTE-6) z popupu i z menu widżetu: toast sukcesu albo błędu
+ * „Otwórz głosowanie ponownie” z popupu i z menu widżetu: toast sukcesu albo błędu
  * i odświeżenie spotkań (także po błędzie, bo stan mógł się zmienić gdzie indziej).
  */
 export function useReopenVoting(client: SupabaseClient) {

@@ -1,5 +1,5 @@
--- [035] Statystyki gry i podsumowanie spotkania: public.game_stats(game_id),
--- public.meeting_summary(meeting_id) (PRD GAME-11, VIEW-4, §5.6, Q25, NFR-11). Dane fikcyjne.
+-- Statystyki gry i podsumowanie spotkania: public.game_stats(game_id),
+-- public.meeting_summary(meeting_id). Dane fikcyjne.
 --
 -- Gra Ż „Żółwie” (punktacja 10/6/4/2), wersje notesu: e1 „więcej = lepiej”, e2 „mniej = lepiej”.
 -- Gra G „Golf” (punktacja 10/6/4), wersja e3 „mniej = lepiej” (asc).
@@ -9,7 +9,7 @@
 --                  p4 G/e3: Mateusz 1 (38, 10), Celina 2 (41, 6)
 --   m3 2026-03-10: p5 Ż/e1: Mateusz 1 (25, 10), Łukasz 2 (24, 6); p6 szkic Ż (Bartek)
 --   m4 2026-04-10: p7 Ż/e2 (asc!): Celina 1 (5, 10), Lucyna 2 (9, 6)
--- Celina jest usunięta (MEM-4). Bartek ma tylko szkic.
+-- Celina jest usunięta. Bartek ma tylko szkic.
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -171,7 +171,7 @@ select is((select count(*) from public.meeting_summary('00000000-0000-4000-c000-
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000013", "role": "authenticated"}';
 
 -- =============================================================================================
--- game_stats (GAME-11)
+-- game_stats
 -- =============================================================================================
 select is(public.game_stats('00000000-0000-4000-b000-0000000000ff'), null, 'nieistniejąca gra: NULL');
 select is(public.game_stats('00000000-0000-4000-b000-000000000003'),
@@ -205,7 +205,7 @@ select is((public.game_stats('00000000-0000-4000-b000-000000000002') ->> 'winner
   'gra asc: średnia zwycięzców (40 + 38) / 2');
 select is(public.test_names(public.game_stats('00000000-0000-4000-b000-000000000002') -> 'top_winners'),
   array['Lucyna', 'Mateusz'], 'remis najczęstszych zwycięzców: wszyscy, alfabetycznie');
--- Usunięty członek z największą liczbą wygranych nie jest wyróżniany (jak podium, LB-7):
+-- Usunięty członek z największą liczbą wygranych nie jest wyróżniany (jak podium):
 -- po usunięciu Łukasza (2 wygrane) najczęściej wygrywają aktywni Lucyna i Mateusz (po 1),
 -- bez usuniętej Celiny (też 1).
 reset role;
@@ -217,7 +217,7 @@ reset role;
 update public.profiles set deleted_at = null where id = '00000000-0000-4000-a000-000000000011';
 set local role authenticated;
 
--- Usunięcie partii wersji e2 przywraca kierunek „więcej = lepiej” i wspólny rekord (Q25).
+-- Usunięcie partii wersji e2 przywraca kierunek „więcej = lepiej” i wspólny rekord.
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select lives_ok($$ select public.delete_play('00000000-0000-4000-f000-000000000007') $$,
   'admin usuwa p7 (jedyną partię wersji e2)');
@@ -228,14 +228,14 @@ select is(public.game_stats('00000000-0000-4000-b000-000000000001') -> 'record' 
 select is((public.game_stats('00000000-0000-4000-b000-000000000001') -> 'record' ->> 'value')::numeric, 30::numeric,
   'rekord 30 (wartość NULL Mateusza pominięta)');
 select is(public.test_names(public.game_stats('00000000-0000-4000-b000-000000000001') -> 'record' -> 'holders'),
-  array['Łukasz', 'Lucyna'], 'równy rekord: wszyscy rekordziści, od najwcześniejszego (Q25)');
+  array['Łukasz', 'Lucyna'], 'równy rekord: wszyscy rekordziści, od najwcześniejszego');
 select is((public.game_stats('00000000-0000-4000-b000-000000000001') -> 'record' -> 'holders' -> 0 ->> 'meeting_id')::uuid,
   '00000000-0000-4000-c000-000000000001'::uuid, 'rekordzista z pierwszą partią, w której osiągnął rekord');
 select is(round((public.game_stats('00000000-0000-4000-b000-000000000001') ->> 'winner_average')::numeric, 2),
   28.75::numeric, 'średnia zwycięzców (30 + 30 + 30 + 25) / 4 z remisem o 1. miejsce');
 
 -- =============================================================================================
--- meeting_summary (VIEW-4)
+-- meeting_summary
 -- =============================================================================================
 select is(public.test_summary(1),
   array['1 Lucyna 16 1 0→1 Żółwie +6/0, Golf +10/1',
@@ -253,7 +253,7 @@ select is(public.test_summary(3),
   'm3: seria przerwana; szkic Bartka się nie liczy');
 select is(public.test_summary(5), '{}'::text[], 'spotkanie bez partii: puste podsumowanie');
 
--- Usunięcie partii przelicza serie kolejnych spotkań (§5.6.5).
+-- Usunięcie partii przelicza serie kolejnych spotkań.
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select lives_ok($$ select public.delete_play('00000000-0000-4000-f000-000000000003') $$,
   'admin usuwa p3 (remis Lucyny i Łukasza w m2)');

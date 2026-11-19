@@ -3,7 +3,7 @@ import { png } from './support/png';
 import { mockGame, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
- * Krok „Zdjęcie” kreatora notesu (EDT-9): na komputerze kamera internetowa z podglądem, na
+ * Krok „Zdjęcie” kreatora notesu: na komputerze kamera internetowa z podglądem, na
  * telefonie aparat systemowy (tylny). Chromium dostaje sztuczną kamerę i zgodę na jej użycie;
  * odmowę dostępu sprawdza `scorepad-wizard.spec.ts`.
  */

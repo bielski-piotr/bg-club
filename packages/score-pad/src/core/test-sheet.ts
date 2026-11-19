@@ -1,4 +1,4 @@
-// Kartka testowa kreatora (EDT-14): fikcyjni gracze, losowe wpisy zgodne z zakresami kategorii
+// Kartka testowa kreatora: fikcyjni gracze, losowe wpisy zgodne z zakresami kategorii
 // i wynik liczony tymi samymi regułami co oderwanie karteczki w partii. Logika bez DOM i sceny.
 
 import type { ScorePadSheet } from '../index';
@@ -116,7 +116,7 @@ export interface TestSheetOptions {
 
 /**
  * Kartka testowa w formacie pliku notesu (`sheet`): imiona „Gracz 1…n” i opcjonalnie losowe wpisy
- * w każdej kategorii punktowej każdego miejsca (EDT-14).
+ * w każdej kategorii punktowej każdego miejsca.
  */
 export function testSheet(t: PadTemplate, opt: TestSheetOptions = {}): PackedSheet {
   const n = playerCount(t);

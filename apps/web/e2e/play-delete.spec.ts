@@ -13,7 +13,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Usunięcie partii (PRD VIEW-6, PLAN-5, §5.6.5, zadanie [031]): tylko admin, po potwierdzeniu,
+ * Usunięcie partii: tylko admin, po potwierdzeniu,
  * z menu karty partii w spotkaniu albo z karteczki. Partia znika z listy, podsumowania
  * i timeline (odświeżenie zależnych widoków), obraz karteczki jest usuwany ze Storage, a błąd
  * Storage nie przywraca partii (ponowienie w dialogu). Zakończone spotkanie po ostatniej
@@ -112,7 +112,7 @@ test('admin usuwa partię z menu karty: potwierdzenie, obraz ze Storage, odświe
   const mock = await openApp(page, `/?p=meeting/${FINISHED.id}`);
   await expect(savedCards(page)).toHaveCount(2);
   await expect(meetingDialog(page).getByText('2 rozegrane')).toBeVisible();
-  // Zakończonego spotkania z partiami nie usuwa się (PLAN-5): admin nie ma akcji spotkania.
+  // Zakończonego spotkania z partiami nie usuwa się: admin nie ma akcji spotkania.
   await expect(meetingDialog(page).getByRole('button', { name: 'Akcje spotkania' })).toHaveCount(0);
 
   await openDeleteFromCard(page, 'Azul');
@@ -138,9 +138,7 @@ test('admin usuwa partię z menu karty: potwierdzenie, obraz ze Storage, odświe
   await check(page);
 });
 
-test('ostatnia usunięta partia: zakończone spotkanie można usunąć (PLAN-5, Q4)', async ({
-  page,
-}) => {
+test('ostatnia usunięta partia: zakończone spotkanie można usunąć', async ({ page }) => {
   const mock = await openApp(page, `/?p=meeting/${FINISHED.id}`, { plays: [savedPlay(2)] });
   await openDeleteFromCard(page, 'Wingspan');
   await deleteDialog(page).getByRole('button', { name: 'Usuń partię' }).click();

@@ -10,7 +10,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Krok 5 kreatora „Test i zapis” (zadanie [022], EDT-14, EDT-1, DS §18): notes 3D z fikcyjnymi
+ * Krok 5 kreatora „Test i zapis”: notes 3D z fikcyjnymi
  * graczami, losowe wypełnienie z remisem, wpisywanie i oderwanie z wynikiem tych samych reguł co
  * partia, bez zapisu testu, a potem zapis notesu w bazie i Storage. Pełna ścieżka nowego notesu
  * (zdjęcie → obszar → pola → kategorie → test → zapis) i edycja istniejącej wersji.
@@ -210,11 +210,11 @@ test('pełna ścieżka nowego notesu: zdjęcie → obszar → pola → kategorie
   await noHorizontalOverflow(page);
   expect(await axe(page)).toEqual([]);
 
-  // Zapis notesu: zdjęcie do Storage, szablon bez zdjęcia do bazy (EDT-1).
+  // Zapis notesu: zdjęcie do Storage, szablon bez zdjęcia do bazy.
   await dialog.getByRole('button', { name: 'Zapisz notes' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText(/Dodano notes/)).toBeVisible();
-  // Zdjęcie kartki i jego miniatura do galerii notesów (`<zdjęcie bez rozszerzenia>-thumb`, [040]).
+  // Zdjęcie kartki i jego miniatura do galerii notesów (`<zdjęcie bez rozszerzenia>-thumb`).
   expect(mock.scorepadUploads).toHaveLength(2);
   expect(mock.scorepadUploads[0]).toMatch(new RegExp(`^${GAME.id}/.+\\.(webp|jpg)$`));
   expect(mock.scorepadUploads[1]).toBe(

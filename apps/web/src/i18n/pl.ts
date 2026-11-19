@@ -1,5 +1,5 @@
 /**
- * Wszystkie teksty interfejsu w jednym miejscu (PRD §1.1).
+ * Wszystkie teksty interfejsu w jednym miejscu.
  * Komponenty nie zawierają literałów tekstowych; korzystają z `t` z `src/i18n`.
  * Parametry w nawiasach klamrowych (np. `{names}`) podstawia funkcja `format`.
  * Formy liczby mnogiej (`one` / `few` / `many`) wybiera funkcja `plural`.
@@ -9,7 +9,7 @@ export const pl = {
     name: 'BG Club',
     tagline: 'Aplikacja klubu planszówkowego',
   },
-  /** Logowanie hookiem i sesja (PRD §5.1, zadanie [005]). */
+  /** Logowanie hookiem i sesja. */
   auth: {
     title: 'Zaloguj się',
     intro: 'Hook i hasło dostajesz od administratora klubu.',
@@ -35,13 +35,13 @@ export const pl = {
       accountDeleted: 'Twoje konto zostało usunięte. Dziękujemy za wspólne granie!',
     },
   },
-  /** Widok po zalogowaniu: błąd wczytania własnego profilu (PRD §5.1). */
+  /** Widok po zalogowaniu: błąd wczytania własnego profilu. */
   home: {
     errorTitle: 'Nie udało się wczytać profilu',
     profileError: 'Sprawdź połączenie z internetem i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
   },
-  /** Widok Klubu: nagłówek i widżety (PRD §4, DS §6, §17, zadanie [007]). */
+  /** Widok Klubu: nagłówek i widżety. */
   hub: {
     widgetsLabel: 'Widżety klubu',
     popupLoading: 'Wczytywanie…',
@@ -57,7 +57,7 @@ export const pl = {
       actions: 'Akcje spotkania {title}',
       participants: { one: '{n} uczestnik', few: '{n} uczestników', many: '{n} uczestników' },
       host: 'prowadzi {name}',
-      /** Odliczanie w nagłówku widżetu (DS §15 „Widget header”). */
+      /** Odliczanie w nagłówku widżetu. */
       countdown: {
         today: 'dziś',
         tomorrow: 'jutro',
@@ -100,13 +100,13 @@ export const pl = {
       emptyHelperAdmin: 'Dodaj członków klubu. Każdy dostanie własny hook i hasło.',
       add: 'Dodaj członka',
       and: 'i',
-      /** Dopisek po imionach w widżecie: „Bartek, Ania, Ewa, Julia i 8 innych osób” (DS §6). */
+      /** Dopisek po imionach w widżecie: „Bartek, Ania, Ewa, Julia i 8 innych osób”. */
       others: { one: 'i {n} inna osoba', few: 'i {n} inne osoby', many: 'i {n} innych osób' },
       moreLink: 'Wszyscy członkowie: {count}',
       loading: 'Wczytywanie członków',
     },
   },
-  /** Pierwsze uruchomienie i formularz klubu (PRD CLUB-1…CLUB-4, DS §17, zadanie [008]). */
+  /** Pierwsze uruchomienie i formularz klubu. */
   club: {
     firstRun: {
       adminTitle: 'Załóż swój klub',
@@ -154,7 +154,7 @@ export const pl = {
       updated: 'Zapisano zmiany w klubie',
     },
   },
-  /** Popupy i ich adresy (PRD §4, zadanie [007]). */
+  /** Popupy i ich adresy. */
   popups: {
     invalidTitle: 'Nie znaleziono',
     invalidBody: 'Ten adres jest nieprawidłowy albo prowadzi do widoku, którego nie ma.',
@@ -163,7 +163,7 @@ export const pl = {
     loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
   },
-  /** Ranking: widżet i popup (PRD LB-1…LB-7, DS §6, §8, zadanie [033]). */
+  /** Ranking: widżet i popup. */
   leaderboard: {
     title: 'Ranking',
     tabsLabel: 'Klasyfikacja',
@@ -196,7 +196,7 @@ export const pl = {
     body: 'Adres jest nieprawidłowy albo strona została przeniesiona.',
     home: 'Przejdź do klubu',
   },
-  /** Popup profilu (PRD USR-4). Statystyki, osiągnięcia i ustawienia dochodzą w zadaniu [010]. */
+  /** Popup profilu. Statystyki, osiągnięcia i ustawienia dochodzą. */
   profile: {
     title: 'Profil',
     hookLabel: 'Hook',
@@ -204,10 +204,10 @@ export const pl = {
     notFoundTitle: 'Nie znaleziono gracza',
     notFoundBody: 'Profilu z tego linku nie ma w klubie. Link może być nieaktualny.',
     settings: 'Ustawienia',
-    /** Akcja administratora w cudzym profilu (MEM-4). */
+    /** Akcja administratora w cudzym profilu. */
     deleteMember: 'Usuń członka',
     deleteMemberShort: 'Usuń',
-    /** Statystyki gracza (PRD §5.9, STAT-1–STAT-3). */
+    /** Statystyki gracza. */
     stats: {
       title: 'Statystyki',
       pendingTitle: 'Statystyki pojawią się po pierwszej partii',
@@ -247,7 +247,7 @@ export const pl = {
       unknownPlayer: 'Gracz',
       details: '{name}: {achievement}. Pokaż szczegóły osiągnięcia',
     },
-    /** Gablota osiągnięć (PRD ACH-3, §5.10) i szczegóły odznaki. */
+    /** Gablota osiągnięć i szczegóły odznaki. */
     achievements: {
       title: 'Gablota osiągnięć',
       count: '{n} z {total}',
@@ -270,7 +270,7 @@ export const pl = {
       close: 'Zamknij',
     },
   },
-  /** Menu awatara w nagłówku (PRD CLUB-1, DS §7, §17). */
+  /** Menu awatara w nagłówku. */
   avatarMenu: {
     label: 'Menu konta',
     trigger: 'Twoje konto: {name}',
@@ -278,7 +278,7 @@ export const pl = {
     settings: 'Ustawienia',
     signOut: 'Wyloguj się',
   },
-  /** Ustawienia własnego profilu (PRD USR-3, USR-5, USR-8). */
+  /** Ustawienia własnego profilu. */
   settings: {
     title: 'Ustawienia',
     profileSection: 'Profil',
@@ -319,7 +319,7 @@ export const pl = {
       saved: 'Zapisano zmiany',
     },
   },
-  /** Usunięcie własnego konta z potwierdzeniem hasłem (PRD USR-6, DS „Profil / Usuń konto”). */
+  /** Usunięcie własnego konta z potwierdzeniem hasłem. */
   deleteAccount: {
     title: 'Usunąć konto?',
     description:
@@ -337,7 +337,7 @@ export const pl = {
       unknown: 'Nie udało się usunąć konta. Spróbuj ponownie.',
     },
   },
-  /** Kadrowanie awatara (PRD USR-3, DS „Profil / Kadrowanie awatara”). */
+  /** Kadrowanie awatara. */
   crop: {
     title: 'Kadrowanie zdjęcia',
     intro: 'Przeciągnij zdjęcie, żeby ustawić kadr. Zapiszemy kwadrat 256×256.',
@@ -348,7 +348,7 @@ export const pl = {
     apply: 'Gotowe',
     loading: 'Wczytywanie zdjęcia…',
   },
-  /** Zmiana hasła i propozycja przy pierwszym logowaniu (PRD USR-5, AUTH-6). */
+  /** Zmiana hasła i propozycja przy pierwszym logowaniu. */
   password: {
     title: 'Zmiana hasła',
     intro: 'Podaj obecne hasło i dwa razy nowe.',
@@ -382,7 +382,7 @@ export const pl = {
       changed: 'Hasło zostało zmienione',
     },
   },
-  /** Popup członków (PRD MEM-2): lista aktywnych członków z wyszukiwaniem. */
+  /** Popup członków: lista aktywnych członków z wyszukiwaniem. */
   membersPopup: {
     title: 'Członkowie',
     listLabel: 'Lista członków',
@@ -397,7 +397,7 @@ export const pl = {
     add: 'Dodaj członka',
     addShort: 'Dodaj',
   },
-  /** Potwierdzenie „Usuń członka” (PRD MEM-4, MEM-6, DS „Członkowie / Usuń członka”). */
+  /** Potwierdzenie „Usuń członka”. */
   deleteMember: {
     title: 'Usunąć członka?',
     description:
@@ -413,7 +413,7 @@ export const pl = {
       unknown: 'Nie udało się usunąć członka. Spróbuj ponownie.',
     },
   },
-  /** Formularz „Dodaj członka” i jednorazowe dane logowania (PRD MEM-3, AUTH-4, USR-1). */
+  /** Formularz „Dodaj członka” i jednorazowe dane logowania. */
   addMember: {
     title: 'Dodaj członka',
     doneTitle: 'Członek dodany',
@@ -452,7 +452,7 @@ export const pl = {
         'Nie wiemy, czy członek został dodany. Sprawdź listę członków, zanim spróbujesz ponownie.',
     },
   },
-  /** Kolekcja gier: popup, formularz i usuwanie (PRD GAME-1…GAME-6, GAME-8; zadanie [012]). */
+  /** Kolekcja gier: popup, formularz i usuwanie. */
   games: {
     count: { one: '{n} gra', few: '{n} gry', many: '{n} gier' },
     /** Liczba graczy gry: zakres („2–4 graczy”) albo jedna liczba. */
@@ -546,7 +546,7 @@ export const pl = {
         save: 'Nie udało się usunąć gry. Sprawdź połączenie i spróbuj ponownie.',
       },
     },
-    /** Szczegóły gry z galerią karteczek (GAME-10, zadanie [030]). */
+    /** Szczegóły gry z galerią karteczek. */
     details: {
       lastPlayed: 'Ostatnia partia: {date}',
       neverPlayed: 'Jeszcze nie grana',
@@ -560,7 +560,7 @@ export const pl = {
         'Nie ma jeszcze zapisanych partii tej gry. Oderwane karteczki pojawią się tutaj.',
       sheet: 'Karteczka z {date}',
       sheetMeeting: '{date} · {meeting}',
-      /** Statystyki gry (GAME-11, zadanie [035]). */
+      /** Statystyki gry. */
       stats: {
         title: 'Statystyki',
         plays: 'Partie',
@@ -593,7 +593,7 @@ export const pl = {
       deleted: 'Usunięto grę {title}',
     },
   },
-  /** Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”, zadanie [030]). */
+  /** Zapisana karteczka partii. */
   sheets: {
     loading: 'Karteczka',
     image: 'Karteczka partii {title} z {date}',
@@ -615,23 +615,23 @@ export const pl = {
     goneTitle: 'Nie znaleziono karteczki',
     gone: 'Nie ma takiej karteczki. Partia mogła zostać usunięta albo jeszcze trwa.',
   },
-  /** Planowanie i edycja spotkań (PRD PLAN-1…PLAN-5, RUN-1, RUN-4, DS §15, zadanie [023]). */
+  /** Planowanie i edycja spotkań. */
   meetings: {
     status: {
       votingOpen: 'Głosowanie otwarte',
       gamesChosen: 'Gry wybrane',
       inProgress: 'Trwa',
-      /** Chip w agendzie i popupie spotkania (DS §15.1 „Agenda row”). */
+      /** Chip w agendzie i popupie spotkania. */
       inProgressLong: 'W trakcie',
       finished: 'Zakończone',
     },
-    /** Popup spotkania: termin, uczestnicy i podsumowanie partii (MTG-3, CAL-1, zadanie [025]). */
+    /** Popup spotkania: termin, uczestnicy i podsumowanie partii. */
     view: {
       actions: 'Akcje spotkania',
       plays: 'Partie',
       noPlays: 'Brak zapisanych partii.',
     },
-    /** Podsumowanie leaderboardowe spotkania (VIEW-4, DS §15 „Meeting summary row”, zadanie [035]). */
+    /** Podsumowanie leaderboardowe spotkania. */
     summary: {
       title: 'Podsumowanie',
       note: 'punkty do rankingu',
@@ -648,14 +648,14 @@ export const pl = {
       streakBroken: 'seria przerwana',
       streakSame: 'seria bez zmian',
     },
-    /** Osiągnięcia odblokowane na spotkaniu (VIEW-5, DS §15 „Achievement row”). */
+    /** Osiągnięcia odblokowane na spotkaniu. */
     achievements: {
       title: 'Osiągnięcia',
       label: 'Osiągnięcia odblokowane na tym spotkaniu',
       eyebrow: 'Nowe osiągnięcie',
       row: '{name} odblokowuje: {achievement}. Pokaż szczegóły',
     },
-    /** Partie spotkania (VIEW-3, DS §15 „Play card”, „Live play card”, zadanie [026]). */
+    /** Partie spotkania. */
     plays: {
       saved: { one: '{n} rozegrana', few: '{n} rozegrane', many: '{n} rozegranych' },
       drafts: { one: '{n} w toku', few: '{n} w toku', many: '{n} w toku' },
@@ -674,7 +674,7 @@ export const pl = {
       unknownGame: 'Usunięta gra',
       unknownPlayer: 'Usunięty gracz',
       emptyInProgress: 'Jeszcze nie zapisano partii. Rozpoczęte partie pojawią się tutaj.',
-      /** Menu zapisanej partii (admin, DS §15 „Play card”) i jej usunięcie (VIEW-6, §5.6.5). */
+      /** Menu zapisanej partii (admin) i jej usunięcie. */
       menu: 'Akcje partii {title}',
       showSheet: 'Pokaż karteczkę',
       delete: 'Usuń partię',
@@ -695,7 +695,7 @@ export const pl = {
         },
       },
     },
-    /** Rozpoczęcie i zakończenie spotkania (RUN-1, RUN-4, DS §15 „Dialog variants”). */
+    /** Rozpoczęcie i zakończenie spotkania. */
     run: {
       start: 'Rozpocznij spotkanie',
       finish: 'Zakończ spotkanie',
@@ -727,8 +727,7 @@ export const pl = {
       notInProgress: 'To spotkanie nie trwa, więc nie można go zakończyć.',
     },
     /**
-     * Nowa partia: gra, notes, gracze i miejsca (RUN-2, RUN-3, PAD-2, PAD-3, PAD-9, DS §15
-     * „Game / notes pick row”, „Step pills”, „Seat row”, zadanie [027]).
+     * Nowa partia: gra, notes, gracze i miejsca.
      */
     newPlay: {
       title: 'Nowa partia',
@@ -811,7 +810,7 @@ export const pl = {
         save: 'Nie udało się rozpocząć partii. Sprawdź połączenie i spróbuj ponownie.',
       },
     },
-    /** Partia w toku: notes, szkic, konflikt i porzucenie (PAD-4, PAD-8, PAD-9, zadanie [028]). */
+    /** Partia w toku: notes, szkic, konflikt i porzucenie. */
     play: {
       backToPad: 'Wróć do notesu',
       backToPadLabel: 'Wróć do notesu partii {title}',
@@ -906,7 +905,7 @@ export const pl = {
         },
       },
     },
-    /** Kalendarz spotkań (CAL-1…CAL-3, DS §15.1, zadanie [025]). */
+    /** Kalendarz spotkań. */
     calendar: {
       title: 'Kalendarz',
       plan: 'Zaplanuj spotkanie',
@@ -944,7 +943,7 @@ export const pl = {
       addParticipant: 'Dodaj uczestnika',
       changeHost: 'Zmień prowadzącego',
     },
-    /** Popup spotkania z głosowaniem i opublikowanymi grami (VIEW-1, VIEW-2, VOTE-1…VOTE-6). */
+    /** Popup spotkania z głosowaniem i opublikowanymi grami. */
     popup: {
       notFoundTitle: 'Nie znaleziono spotkania',
       notFoundBody: 'Tego spotkania nie ma. Mogło zostać usunięte.',
@@ -969,7 +968,7 @@ export const pl = {
         few: '{n} głosy',
         many: '{n} głosów',
       },
-      /** VOTE-4: liczba uczestników poza zakresem gry. */
+      /** Liczba uczestników poza zakresem gry. */
       mismatch: 'Dla {min}–{max} graczy',
       mismatchExact: { one: 'Dla {n} gracza', few: 'Dla {n} graczy', many: 'Dla {n} graczy' },
       mismatchHint: 'Nie pasuje do liczby uczestników ({n}), ale można na nią głosować.',
@@ -1004,7 +1003,7 @@ export const pl = {
         save: 'Nie udało się zapisać. Sprawdź połączenie i spróbuj ponownie.',
       },
     },
-    /** „Opublikuj gry” (VOTE-5, DS §15 „Publish-games row”). */
+    /** „Opublikuj gry”. */
     publish: {
       title: 'Opublikuj gry',
       intro:
@@ -1066,7 +1065,7 @@ export const pl = {
       cancel: 'Anuluj',
       submit: 'Usuń',
     },
-    /** Komunikaty błędów zapisu i zmian statusu (reguły bazy z migracji [023]). */
+    /** Komunikaty błędów zapisu i zmian statusu (reguły bazy). */
     errors: {
       forbidden: 'Tę operację może wykonać tylko administrator albo prowadzący spotkania.',
       gone: 'Tego spotkania już nie ma. Mogło zostać usunięte.',
@@ -1108,7 +1107,7 @@ export const pl = {
       meetingReopened: 'Spotkanie otwarte ponownie',
     },
   },
-  /** Notesy gry: lista, edytor, import i eksport pliku `.json` (PRD GAME-7, EDT-1, zadanie [015]). */
+  /** Notesy gry: lista, edytor, import i eksport pliku `.json`. */
   scorepads: {
     manual: {
       title: 'Rozstrzyga prowadzący',
@@ -1138,7 +1137,7 @@ export const pl = {
         many: '{n} miejsc dla graczy',
       },
       version: 'wersja {n}',
-      /** EDT-6: notes ma mniej miejsc niż max. liczba graczy gry. */
+      /** Notes ma mniej miejsc niż max. liczba graczy gry. */
       fewerSeats: 'Tylko partie do {n} graczy',
       thumbnail: 'Kartka notesu {name}',
       actions: 'Akcje notesu {name}',
@@ -1159,7 +1158,7 @@ export const pl = {
       notFoundTitle: 'Nie znaleziono notesu',
       notFoundBody: 'Tego notesu nie ma. Mógł zostać usunięty.',
     },
-    /** Kreator edytora notesu (PRD §5.5.2, EDT-9, DS §18, zadanie [016]). */
+    /** Kreator edytora notesu. */
     wizard: {
       steps: ['Zdjęcie', 'Obszar kartki', 'Mapowanie pól', 'Kategorie', 'Test i zapis'],
       stepsLabel: 'Kroki edytora notesu',
@@ -1208,7 +1207,7 @@ export const pl = {
         noImage: 'Plik notesu nie zawiera zdjęcia kartki, więc nie da się go edytować.',
         open: 'Nie udało się wczytać zdjęcia tego notesu. Wczytaj zdjęcie kartki od nowa.',
       },
-      /** Krok 2: Obszar kartki (EDT-10, zadanie [017]). */
+      /** Krok 2: Obszar kartki. */
       area: {
         stage: 'Zdjęcie z obszarem kartki',
         toolbar: 'Narzędzia obszaru',
@@ -1253,7 +1252,7 @@ export const pl = {
         spineSide: 'Grzbiet notesu',
         spineSides: { top: 'U góry', left: 'Z lewej' },
       },
-      /** Krok 3: Mapowanie pól (EDT-11, EDT-6, zadanie [018]). */
+      /** Krok 3: Mapowanie pól. */
       mapping: {
         stage: 'Kartka z polami do wpisywania',
         toolbar: 'Narzędzia mapowania',
@@ -1299,7 +1298,7 @@ export const pl = {
         removeSeat: 'Usuń miejsce {n}',
         removeCategory: 'Usuń kategorię {n}',
       },
-      /** Krok 4: Kategorie (EDT-13, EDT-2…EDT-4, zadanie [019]). */
+      /** Krok 4: Kategorie. */
       categories: {
         stage: 'Kartka z kategoriami',
         toolbar: 'Widok kartki',
@@ -1462,7 +1461,7 @@ export const pl = {
       cancel: 'Anuluj',
       submit: 'Usuń',
     },
-    /** EDT-6: ostrzeżenie po zapisie notesu z mniejszą liczbą miejsc niż max. graczy gry. */
+    /** Ostrzeżenie po zapisie notesu z mniejszą liczbą miejsc niż max. graczy gry. */
     fewerSeatsWarning:
       'Notes ma {seats}, a gra pozwala na {max} graczy. Tego notesu można używać tylko w partiach do {n} graczy.',
     toasts: {
@@ -1507,7 +1506,7 @@ export const pl = {
     dark: 'Ciemny',
     system: 'Systemowy',
   },
-  /** Aplikacja instalowana, brak sieci i aktualizacje (PRD NFR-3, zadanie [038]). */
+  /** Aplikacja instalowana, brak sieci i aktualizacje. */
   pwa: {
     offline:
       'Brak połączenia z internetem. BG Club potrzebuje sieci; wpisy w notesie czekają na tym urządzeniu.',
@@ -1519,7 +1518,7 @@ export const pl = {
   /** Teksty wbudowane w komponenty design systemu (`src/ui`). */
   ui: {
     close: 'Zamknij',
-    /** Długie listy rysowane porcjami (NFR-2, `useChunks`). */
+    /** Długie listy rysowane porcjami (`useChunks`). */
     showMore: 'Pokaż więcej ({count})',
     back: 'Wróć',
     more: 'Więcej opcji',
@@ -1545,7 +1544,7 @@ export const pl = {
       many: '{names} i {n} innych osób',
     },
   },
-  /** Notes 3D i edytor notesu osadzane z pakietu `@bg-club/score-pad` (PRD §8.5, zadanie [013]). */
+  /** Notes 3D i edytor notesu osadzane z pakietu `@bg-club/score-pad`. */
   scorePad: {
     padLabel: 'Notes punktacji',
     editorLabel: 'Edytor notesu',
@@ -1553,148 +1552,6 @@ export const pl = {
     loadingEditor: 'Wczytywanie edytora notesu',
     loadError: 'Nie udało się wczytać notesu. Sprawdź połączenie i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
-  },
-  /** Galeria komponentów pod adresem /design-system (zadanie [006]). */
-  designSystem: {
-    title: 'Design system',
-    intro:
-      'Komponenty BG Club w obu motywach. Strona służy do weryfikacji wyglądu, klawiatury i szerokości od 360 px.',
-    backToApp: 'Wróć do aplikacji',
-    sections: {
-      colors: 'Kolory',
-      typography: 'Typografia',
-      buttons: 'Przyciski',
-      fields: 'Pola',
-      selectors: 'Selektory',
-      avatars: 'Awatary i stosy',
-      cards: 'Karty i listy',
-      tabs: 'Zakładki',
-      badges: 'Badge i chipy',
-      feedback: 'Komunikaty i stany',
-      controls: 'Switch i slider',
-      icons: 'Ikony',
-      scorePad: 'Notes i edytor',
-    },
-    samples: {
-      primary: 'Zapisz',
-      secondary: 'Anuluj',
-      destructive: 'Usuń',
-      addMember: 'Dodaj członka',
-      add: 'Dodaj',
-      saving: 'Zapisywanie…',
-      disabled: 'Dalej',
-      startMeeting: 'Rozpocznij spotkanie',
-      nameLabel: 'Imię',
-      namePlaceholder: 'np. Ania',
-      nameHint: 'Imię widzą wszyscy członkowie klubu.',
-      passwordLabel: 'Nowe hasło',
-      repeatLabel: 'Powtórz hasło',
-      passwordMismatch: 'Hasła nie są takie same.',
-      hookLabel: 'Hook do logowania',
-      hookValue: 'czerwony-pionek-42',
-      noteLabel: 'Opis',
-      widthLabel: 'Szerokość kartki',
-      unitCm: 'cm',
-      searchLabel: 'Szukaj gry',
-      searchPlaceholder: 'Szukaj gry…',
-      stepperLabel: 'Maksymalna liczba graczy',
-      yearLabel: 'Rok',
-      allYears: 'Wszystkie lata',
-      timezoneLabel: 'Strefa czasowa',
-      checkboxLabel: 'Wymuś remis przy losowaniu',
-      checkboxDisabled: 'Niedostępne dla tej gry',
-      directionLegend: 'Kierunek',
-      directionMore: 'Więcej = lepiej',
-      directionLess: 'Mniej = lepiej',
-      rangeLegend: 'Zakres wartości',
-      rangeAny: 'Dowolny',
-      rangeMinMax: 'Min–max',
-      rangeList: 'Lista wartości',
-      sumLegend: 'Sumuje kategorie',
-      categories: ['Ptaki', 'Bonusy', 'Cele rundy', 'Jajka', 'Żywność'],
-      colorLegend: 'Kolor grzbietu',
-      menuLabel: 'Menu spotkania',
-      menuTrigger: 'Więcej opcji spotkania',
-      menuEdit: 'Edytuj',
-      menuDelete: 'Usuń spotkanie',
-      colorNames: [
-        'Bursztynowy',
-        'Cynobrowy',
-        'Ceglasty',
-        'Oliwkowy',
-        'Morski',
-        'Fioletowy',
-        'Zielony',
-        'Różowy',
-        'Niebieski',
-        'Turkusowy',
-        'Granatowy',
-      ],
-      members: [
-        'Bartek Wójcik',
-        'Ania Wiśniewska',
-        'Ewa Nowak',
-        'Julia Kamińska',
-        'Łukasz Żak',
-        'Marek Lewandowski',
-        'Ola Zielińska',
-        'Piotr Wąs',
-        'Kasia Dąbrowska',
-        'Tomek Kowalczyk',
-        'Zosia Mazur',
-        'Igor Szymański',
-      ],
-      removedMember: 'Jan Kowalski',
-      membersTitle: 'Członkowie',
-      membersCount: '12 osób',
-      oneMember: '1 osoba',
-      collectionTitle: 'Kolekcja',
-      zeroGames: '0 gier',
-      edit: 'Edytuj',
-      rankingTitle: 'Ranking',
-      points: 'pkt',
-      emptyTitle: 'Na razie jesteś tu tylko Ty',
-      emptyHelper: 'Dodaj członków klubu, żeby planować spotkania i liczyć wyniki.',
-      collectionEmpty: 'Kolekcja jest pusta',
-      collectionEmptyHelper: 'Dodaj pierwszą grę, żeby głosować na nią przed spotkaniem.',
-      addGame: 'Dodaj grę',
-      tabsLabel: 'Zakres rankingu',
-      tabPoints: 'Punkty',
-      tabWins: 'Wygrane',
-      tabStreak: 'Seria',
-      tabPanelPoints: 'Ranking według punktów z partii.',
-      tabPanelWins: 'Ranking według liczby wygranych.',
-      tabPanelStreak: 'Najdłuższa seria zwycięstw z rzędu.',
-      statusVoting: 'Głosowanie otwarte',
-      statusChosen: 'Gry wybrane',
-      statusLive: 'W trakcie',
-      statusFinished: 'Zakończone',
-      leads: 'Prowadzi',
-      twoPlayers: 'Dla 2 graczy',
-      streakBroken: 'seria przerwana',
-      metaPlayers: '1–5 graczy',
-      metaPlays: '14 partii',
-      metaDate: 'sob., 28 lis 2026',
-      toastSuccess: 'Głos zapisany',
-      toastNeutral: 'Skopiowano hook',
-      toastError: 'Trwa już inne spotkanie. Najpierw je zakończ.',
-      showToast: 'Pokaż toast',
-      showSuccess: 'Sukces',
-      showNeutral: 'Neutralny',
-      showError: 'Błąd',
-      warning: 'Notes ma mniej miejsc niż maksymalna liczba graczy tej gry.',
-      info: 'Test notesu jest opcjonalny. Wyniki testu nie trafiają do rankingu.',
-      error: 'Nie udało się wczytać listy gier. Sprawdź połączenie i spróbuj ponownie.',
-      retry: 'Spróbuj ponownie',
-      loadingList: 'Wczytywanie listy',
-      switchLabel: 'Wygładź krawędzie',
-      switchDisabled: 'Pokazuj podpowiedzi',
-      sliderLabel: 'Siła',
-      scorePadIntro:
-        'Web componenty z pakietu @bg-club/score-pad w trybie klubowym, ładowane dopiero po kliknięciu. Przykładowy notes ma 10 miejsc dla graczy.',
-      showScorePad: 'Pokaż notes',
-      showScorePadEditor: 'Pokaż edytor',
-    },
   },
 } as const;
 

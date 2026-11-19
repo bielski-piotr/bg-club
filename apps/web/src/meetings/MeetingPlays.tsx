@@ -25,15 +25,14 @@ import {
 const text = t.meetings.plays;
 
 /**
- * Partie trwającego i zakończonego spotkania (VIEW-3, DS §15 „Play card”, „Live play card”):
+ * Partie trwającego i zakończonego spotkania:
  * najpierw partie w toku, potem zapisane w kolejności rozegrania, z graczami, miejscami,
  * wynikami i punktami do rankingu.
  *
- * Miniatura zapisanej partii to obraz oderwanej karteczki (PAD-6); kliknięcie otwiera
+ * Miniatura zapisanej partii to obraz oderwanej karteczki; kliknięcie otwiera
  * karteczkę w powiększeniu z wynikami (`sheet/<uuid>`). `runner` (admin albo prowadzący)
- * dostaje przy partiach w toku „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą
- * tylko, że partia trwa (PAD-9). `admin` dostaje przy zapisanych partiach menu z „Usuń partię”
- * (VIEW-6, §5.6.5).
+ * dostaje przy partiach w toku „Wróć do notesu” i „Porzuć”; pozostali widzą
+ * tylko, że partia trwa. `admin` dostaje przy zapisanych partiach menu z „Usuń partię”.
  */
 export function MeetingPlaysSection({
   meeting,
@@ -44,7 +43,7 @@ export function MeetingPlaysSection({
 }: {
   readonly meeting: Meeting;
   readonly timeZone: string;
-  /** Zwycięzcy spotkania (MTG-3) nad listą partii; puste = bez wiersza. */
+  /** Zwycięzcy spotkania nad listą partii; puste = bez wiersza. */
   readonly winners?: readonly string[] | undefined;
   readonly runner?: boolean | undefined;
   readonly admin?: boolean | undefined;
@@ -121,8 +120,8 @@ export function MeetingPlaysSection({
 }
 
 /**
- * Miniatura oderwanej karteczki (DS §15 „Score-sheet thumbnail”): obraz karteczki z pismem
- * (PAD-6), a bez obrazu (np. przerwany upload) albo przed jego wczytaniem kartka w kolorze gry.
+ * Miniatura oderwanej karteczki: obraz karteczki z pismem,
+ * a bez obrazu (np. przerwany upload) albo przed jego wczytaniem kartka w kolorze gry.
  */
 export function SheetThumbnail({
   gameId,
@@ -176,7 +175,7 @@ export function SheetThumbnail({
   );
 }
 
-/** Wiersze wyników partii (DS §15 „Play card”): miejsce, awatar, imię, wynik i punkty. */
+/** Wiersze wyników partii: miejsce, awatar, imię, wynik i punkty. */
 export function PlayResultRows({
   play,
   profiles,
@@ -248,7 +247,7 @@ function PlayCard({
   readonly timeZone: string;
   readonly profiles: ReadonlyMap<string, Profile>;
   readonly onOpen: () => void;
-  /** Admin: menu partii z „Usuń partię” zamiast strzałki (DS §15 „Play card”, VIEW-6). */
+  /** Admin: menu partii z „Usuń partię” zamiast strzałki. */
   readonly onDelete?: (() => void) | undefined;
 }) {
   const title = play.game.title;
@@ -321,8 +320,8 @@ function PlayCard({
 }
 
 /**
- * Partia w toku (DS §15 „Live play card”): gra, od kiedy trwa i gracze. Admin i prowadzący
- * wracają do notesu (także na innym urządzeniu, PAD-4) albo porzucają partię (PAD-8).
+ * Partia w toku: gra, od kiedy trwa i gracze. Admin i prowadzący
+ * wracają do notesu (także na innym urządzeniu) albo porzucają partię.
  */
 function LivePlayCard({
   play,

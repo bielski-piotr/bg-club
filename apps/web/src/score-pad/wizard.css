@@ -1,10 +1,10 @@
 /*
- * Kreator edytora notesu (DS §18). Telefon: arkusz z paskiem postępu „Krok 2 z 5”, scena nad
+ * Kreator edytora notesu. Telefon: arkusz z paskiem postępu „Krok 2 z 5”, scena nad
  * panelem, stopka z dwoma przyciskami po równo. Desktop (≥ 768 px): modal 1120 z pigułkami
  * kroków, scena 620×560 obok panelu, stopka „Wstecz” po lewej i „Dalej” po prawej.
  */
 
-/* Pigułki kroków (DS §15): tylko desktop. */
+/* Pigułki kroków: tylko desktop. */
 .wizard-steps {
   display: none;
 }
@@ -220,7 +220,7 @@
   align-self: stretch;
 }
 
-/* Pływający pasek narzędzi sceny (DS §18). */
+/* Pływający pasek narzędzi sceny. */
 .wizard-toolbar {
   position: absolute;
   left: 50%;
@@ -241,7 +241,7 @@
   min-width: 0;
 }
 
-/* Przyciski ikon w pasku: białe tło (DS §18), tło #F1F3F9 dopiero po najechaniu. */
+/* Przyciski ikon w pasku: białe tło, tło #F1F3F9 dopiero po najechaniu. */
 .wizard-toolbar .wizard-toolbar__btn {
   background: var(--c-surface);
 }
@@ -367,7 +367,7 @@
   border-radius: 22px;
 }
 
-/* Krok 3: mapowanie pól (DS §18). */
+/* Krok 3: mapowanie pól. */
 .wizard-hint--problem {
   color: var(--c-warning-text);
   font-weight: 600;
@@ -377,7 +377,7 @@
   align-self: flex-start;
 }
 
-/* Miejsca graczy zawijają się w wiersze (EDT-8: dowolna liczba miejsc). */
+/* Miejsca graczy zawijają się w wiersze (dowolna liczba miejsc). */
 .wizard-seats {
   align-items: center;
 }
@@ -415,7 +415,7 @@
   gap: 8px;
 }
 
-/* Krok 4: kategorie i reguła miejsc (DS §18). */
+/* Krok 4: kategorie i reguła miejsc. */
 .wizard-tab-body {
   display: flex;
   flex-direction: column;
@@ -540,7 +540,7 @@ button.wizard-rule__body:focus-visible {
   gap: 12px;
 }
 
-/* Krok 5: kafelki liczb (DS §18 „Stat tile”). */
+/* Krok 5: kafelki liczb. */
 .wizard-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -570,7 +570,7 @@ button.wizard-rule__body:focus-visible {
   color: var(--c-muted);
 }
 
-/* Krok 5: notes testowy na scenie i wynik testu (DS §18 „Test notepad”, EDT-14). */
+/* Krok 5: notes testowy na scenie i wynik testu. */
 .wizard-test {
   height: 380px;
   place-items: stretch;
@@ -696,7 +696,7 @@ button.wizard-rule__body:focus-visible {
     align-items: start;
   }
 
-  /* Scena 620×560 (DS §18); w niższym oknie przeglądarki mniejsza, żeby stopka była widoczna. */
+  /* Scena 620×560; w niższym oknie przeglądarki mniejsza, żeby stopka była widoczna. */
   .wizard-stage {
     height: clamp(360px, calc(var(--vv-height, 100dvh) - 340px), 560px);
   }

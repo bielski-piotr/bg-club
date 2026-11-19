@@ -1,4 +1,4 @@
--- [029] Zapis partii (PRD PAD-5, §5.6, §8.3): public.save_play na wspólnych przypadkach.
+-- Zapis partii: public.save_play na wspólnych przypadkach.
 -- PLIK GENEROWANY z packages/scoring/src/cases/play-cases.json — nie edytować ręcznie.
 -- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.
 -- Miejsca liczy TypeScript (rankPlayers, savePlayResults), punkty i wygrane baza.
@@ -25,7 +25,7 @@ insert into public.meeting_participants (meeting_id, profile_id)
 select '00000000-0000-4000-c000-000000000001', p.id from public.profiles p;
 update public.meetings set status = 'in_progress', voting_open = false, started_at = now();
 
--- PRD §5.6.2: remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format)
+-- remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format)
 insert into public.games (id, title, min_players, max_players, placement_points) values
   ('00000000-0000-4000-b000-000000000001', 'Gra 1', 2, 5, array[10, 6, 4, 2, 0]::numeric[]);
 insert into public.scorepads (id, game_id, name) values
@@ -49,7 +49,7 @@ insert into public.scorepads (id, game_id, name) values
 insert into public.scorepad_versions (id, scorepad_id, template, player_slots) values
   ('00000000-0000-4000-e000-000000000003', '00000000-0000-4000-d000-000000000003', '{"v":2,"lines":[{"id":"names","kind":"names"},{"id":"a","kind":"input","free":true},{"id":"total","kind":"total"}],"ranking":{"line":"total","dir":"desc","tiebreak":[]}}', 4);
 update public.scorepads set current_version_id = '00000000-0000-4000-e000-000000000003' where id = '00000000-0000-4000-d000-000000000003';
--- ujemne wyniki, mniej = lepiej (EDT-3)
+-- ujemne wyniki, mniej = lepiej
 insert into public.games (id, title, min_players, max_players, placement_points) values
   ('00000000-0000-4000-b000-000000000004', 'Gra 4', 2, 4, array[6, 3, 2, 0]::numeric[]);
 insert into public.scorepads (id, game_id, name) values
@@ -57,7 +57,7 @@ insert into public.scorepads (id, game_id, name) values
 insert into public.scorepad_versions (id, scorepad_id, template, player_slots) values
   ('00000000-0000-4000-e000-000000000004', '00000000-0000-4000-d000-000000000004', '{"v":2,"lines":[{"id":"names","kind":"names"},{"id":"a","kind":"input","free":true},{"id":"total","kind":"total"}],"ranking":{"line":"total","dir":"asc","tiebreak":[]}}', 4);
 update public.scorepads set current_version_id = '00000000-0000-4000-e000-000000000004' where id = '00000000-0000-4000-d000-000000000004';
--- remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch (EDT-4)
+-- remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch
 insert into public.games (id, title, min_players, max_players, placement_points) values
   ('00000000-0000-4000-b000-000000000005', 'Gra 5', 2, 4, array[10, 6, 4, 2]::numeric[]);
 insert into public.scorepads (id, game_id, name) values
@@ -81,7 +81,7 @@ insert into public.scorepads (id, game_id, name) values
 insert into public.scorepad_versions (id, scorepad_id, template, player_slots) values
   ('00000000-0000-4000-e000-000000000007', '00000000-0000-4000-d000-000000000007', '{"v":2,"lines":[{"id":"names","kind":"names"},{"id":"a","kind":"input"},{"id":"b","kind":"input"},{"id":"c","kind":"input"},{"id":"total","kind":"total"}],"ranking":{"line":"total","dir":"desc","tiebreak":[{"type":"shared"}]}}', 4);
 update public.scorepads set current_version_id = '00000000-0000-4000-e000-000000000007' where id = '00000000-0000-4000-d000-000000000007';
--- punktacja decyduje (EDT-2), mniej = lepiej, remis rozstrzyga suma
+-- punktacja decyduje, mniej = lepiej, remis rozstrzyga suma
 insert into public.games (id, title, min_players, max_players, placement_points) values
   ('00000000-0000-4000-b000-000000000008', 'Gra 8', 2, 3, array[3, 2, 1]::numeric[]);
 insert into public.scorepads (id, game_id, name) values
@@ -154,12 +154,12 @@ select lives_ok($$ select public.start_play('00000000-0000-4000-f000-00000000000
      select public.save_play('00000000-0000-4000-f000-000000000001', '00000000-0000-4000-e000-000000000001',
        '{"game":1,"names":[],"cells":{}}'::jsonb,
        '[{"profile_id":"00000000-0000-4000-a000-000000000100","seat":1,"place":3,"scores":{"a":10,"b":10},"ranking_value":20},{"profile_id":"00000000-0000-4000-a000-000000000101","seat":2,"place":1,"scores":{"a":20,"b":5},"ranking_value":25},{"profile_id":"00000000-0000-4000-a000-000000000102","seat":3,"place":1,"scores":{"a":5,"b":20},"ranking_value":25},{"profile_id":"00000000-0000-4000-a000-000000000103","seat":4,"place":4,"scores":{"a":10,"b":0},"ranking_value":10},{"profile_id":"00000000-0000-4000-a000-000000000104","seat":5,"place":5,"scores":{"a":0,"b":5},"ranking_value":5}]'::jsonb); $$,
-  'PRD §5.6.2: remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format): baza przyjmuje miejsca z TypeScriptu');
+  'remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format): baza przyjmuje miejsca z TypeScriptu');
 select results_eq(
   $$ select seat, profile_id, place, tied, points, is_win from public.play_results
       where play_id = '00000000-0000-4000-f000-000000000001' order by seat, profile_id $$,
   $$ values (1, '00000000-0000-4000-a000-000000000100'::uuid, 3, false, 4::numeric, false), (2, '00000000-0000-4000-a000-000000000101'::uuid, 1, true, 8::numeric, true), (3, '00000000-0000-4000-a000-000000000102'::uuid, 1, true, 8::numeric, true), (4, '00000000-0000-4000-a000-000000000103'::uuid, 4, false, 2::numeric, false), (5, '00000000-0000-4000-a000-000000000104'::uuid, 5, false, 0::numeric, false) $$,
-  'PRD §5.6.2: remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format): punkty, remisy i wygrane z bazy');
+  'remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format): punkty, remisy i wygrane z bazy');
 
 select lives_ok($$ select public.start_play('00000000-0000-4000-f000-000000000002', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000002',
        array['00000000-0000-4000-a000-000000000100', '00000000-0000-4000-a000-000000000101', '00000000-0000-4000-a000-000000000102', '00000000-0000-4000-a000-000000000103']::uuid[]);
@@ -190,24 +190,24 @@ select lives_ok($$ select public.start_play('00000000-0000-4000-f000-00000000000
      select public.save_play('00000000-0000-4000-f000-000000000004', '00000000-0000-4000-e000-000000000004',
        '{"game":4,"names":[],"cells":{}}'::jsonb,
        '[{"profile_id":"00000000-0000-4000-a000-000000000100","seat":1,"place":1,"scores":{"a":-5},"ranking_value":-5},{"profile_id":"00000000-0000-4000-a000-000000000101","seat":2,"place":2,"scores":{"a":-2},"ranking_value":-2},{"profile_id":"00000000-0000-4000-a000-000000000102","seat":3,"place":4,"scores":{"a":3},"ranking_value":3},{"profile_id":"00000000-0000-4000-a000-000000000103","seat":4,"place":2,"scores":{"a":-2},"ranking_value":-2}]'::jsonb); $$,
-  'ujemne wyniki, mniej = lepiej (EDT-3): baza przyjmuje miejsca z TypeScriptu');
+  'ujemne wyniki, mniej = lepiej: baza przyjmuje miejsca z TypeScriptu');
 select results_eq(
   $$ select seat, profile_id, place, tied, points, is_win from public.play_results
       where play_id = '00000000-0000-4000-f000-000000000004' order by seat, profile_id $$,
   $$ values (1, '00000000-0000-4000-a000-000000000100'::uuid, 1, false, 6::numeric, true), (2, '00000000-0000-4000-a000-000000000101'::uuid, 2, true, 2.5::numeric, false), (3, '00000000-0000-4000-a000-000000000102'::uuid, 4, false, 0::numeric, false), (4, '00000000-0000-4000-a000-000000000103'::uuid, 2, true, 2.5::numeric, false) $$,
-  'ujemne wyniki, mniej = lepiej (EDT-3): punkty, remisy i wygrane z bazy');
+  'ujemne wyniki, mniej = lepiej: punkty, remisy i wygrane z bazy');
 
 select lives_ok($$ select public.start_play('00000000-0000-4000-f000-000000000005', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000005',
        array['00000000-0000-4000-a000-000000000100', '00000000-0000-4000-a000-000000000101', '00000000-0000-4000-a000-000000000102', '00000000-0000-4000-a000-000000000103']::uuid[]);
      select public.save_play('00000000-0000-4000-f000-000000000005', '00000000-0000-4000-e000-000000000005',
        '{"game":5,"names":[],"cells":{}}'::jsonb,
        '[{"profile_id":"00000000-0000-4000-a000-000000000100","seat":1,"place":1,"scores":{"a":15,"b":0,"c":15},"ranking_value":30},{"profile_id":"00000000-0000-4000-a000-000000000101","seat":2,"place":3,"scores":{"a":10,"b":5,"c":15},"ranking_value":30},{"profile_id":"00000000-0000-4000-a000-000000000102","seat":3,"place":2,"scores":{"a":10,"b":12,"c":8},"ranking_value":30},{"profile_id":"00000000-0000-4000-a000-000000000103","seat":4,"place":4,"scores":{"a":5,"b":5,"c":0},"ranking_value":10}]'::jsonb); $$,
-  'remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch (EDT-4): baza przyjmuje miejsca z TypeScriptu');
+  'remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch: baza przyjmuje miejsca z TypeScriptu');
 select results_eq(
   $$ select seat, profile_id, place, tied, points, is_win from public.play_results
       where play_id = '00000000-0000-4000-f000-000000000005' order by seat, profile_id $$,
   $$ values (1, '00000000-0000-4000-a000-000000000100'::uuid, 1, false, 10::numeric, true), (2, '00000000-0000-4000-a000-000000000101'::uuid, 3, false, 4::numeric, false), (3, '00000000-0000-4000-a000-000000000102'::uuid, 2, false, 6::numeric, false), (4, '00000000-0000-4000-a000-000000000103'::uuid, 4, false, 2::numeric, false) $$,
-  'remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch (EDT-4): punkty, remisy i wygrane z bazy');
+  'remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch: punkty, remisy i wygrane z bazy');
 
 select lives_ok($$ select public.start_play('00000000-0000-4000-f000-000000000006', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000006',
        array['00000000-0000-4000-a000-000000000100', '00000000-0000-4000-a000-000000000101', '00000000-0000-4000-a000-000000000102', '00000000-0000-4000-a000-000000000103']::uuid[]);
@@ -238,12 +238,12 @@ select lives_ok($$ select public.start_play('00000000-0000-4000-f000-00000000000
      select public.save_play('00000000-0000-4000-f000-000000000008', '00000000-0000-4000-e000-000000000008',
        '{"game":8,"names":[],"cells":{}}'::jsonb,
        '[{"profile_id":"00000000-0000-4000-a000-000000000100","seat":1,"place":3,"scores":{"a":3,"b":10},"ranking_value":3},{"profile_id":"00000000-0000-4000-a000-000000000101","seat":2,"place":2,"scores":{"a":1,"b":2},"ranking_value":1},{"profile_id":"00000000-0000-4000-a000-000000000102","seat":3,"place":1,"scores":{"a":1,"b":9},"ranking_value":1}]'::jsonb); $$,
-  'punktacja decyduje (EDT-2), mniej = lepiej, remis rozstrzyga suma: baza przyjmuje miejsca z TypeScriptu');
+  'punktacja decyduje, mniej = lepiej, remis rozstrzyga suma: baza przyjmuje miejsca z TypeScriptu');
 select results_eq(
   $$ select seat, profile_id, place, tied, points, is_win from public.play_results
       where play_id = '00000000-0000-4000-f000-000000000008' order by seat, profile_id $$,
   $$ values (1, '00000000-0000-4000-a000-000000000100'::uuid, 3, false, 1::numeric, false), (2, '00000000-0000-4000-a000-000000000101'::uuid, 2, false, 2::numeric, false), (3, '00000000-0000-4000-a000-000000000102'::uuid, 1, false, 3::numeric, true) $$,
-  'punktacja decyduje (EDT-2), mniej = lepiej, remis rozstrzyga suma: punkty, remisy i wygrane z bazy');
+  'punktacja decyduje, mniej = lepiej, remis rozstrzyga suma: punkty, remisy i wygrane z bazy');
 
 select lives_ok($$ select public.start_play('00000000-0000-4000-f000-000000000009', '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-d000-000000000009',
        array['00000000-0000-4000-a000-000000000100', '00000000-0000-4000-a000-000000000101']::uuid[]);

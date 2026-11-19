@@ -1,4 +1,4 @@
--- GAME-12. Fikcyjne dane, prawdziwe RLS, publikacja i kaskady. Bez prywatnych danych w RPC.
+-- Sumy głosów na gry. Fikcyjne dane, prawdziwe RLS, publikacja i kaskady. Bez prywatnych danych w RPC.
 begin;
 create extension if not exists pgtap with schema extensions;
 select no_plan();

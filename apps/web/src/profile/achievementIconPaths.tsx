@@ -2,10 +2,10 @@ import type { ReactNode } from 'react';
 import { pictograms } from '../ui/iconPaths';
 
 /**
- * Piktogramy odznak z katalogu osiągnięć (`ACHIEVEMENTS[].icon`, PRD ACH-1, ACH-3): liniowe,
- * rysowane ręcznie na siatce 16×16 jak pozostałe piktogramy (DS §13, grubość 1,75). Część
+ * Piktogramy odznak z katalogu osiągnięć (`ACHIEVEMENTS[].icon`): liniowe,
+ * rysowane ręcznie na siatce 16×16 jak pozostałe piktogramy (grubość 1, 75). Część
  * pochodzi ze wspólnego zestawu (`iconPaths.tsx`). Ikona jest dekoracyjna: nazwę i stan
- * odznaki podaje tekst obok (dostępność, NFR-6).
+ * odznaki podaje tekst obok (dostępność).
  */
 export const achievementIcons: Readonly<Record<string, ReactNode>> = {
   footsteps: (

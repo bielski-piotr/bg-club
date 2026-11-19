@@ -9,10 +9,10 @@ import { kindTabs, useBoardData } from './board';
 import type { LeaderboardKind } from './leaderboard';
 
 /**
- * Widżet rankingu (LB-1…LB-3, DS §6): zakładki Punkty / Wygrane / Seria, podium i miejsca 4–7,
- * zawsze z całej historii (LB-4). „Zobacz więcej” otwiera popup na tej samej zakładce. Bez
- * zapisanych partii pusty stan bez CTA (CLUB-4); klasyfikowani są wszyscy z ≥ 1 partią, więc
- * pusty ranking jest pusty we wszystkich zakładkach naraz (LB-5).
+ * Widżet rankingu: zakładki Punkty / Wygrane / Seria, podium i miejsca 4–7,
+ * zawsze z całej historii. „Zobacz więcej” otwiera popup na tej samej zakładce. Bez
+ * zapisanych partii pusty stan bez CTA; klasyfikowani są wszyscy z ≥ 1 partią, więc
+ * pusty ranking jest pusty we wszystkich zakładkach naraz.
  */
 export function RankingWidget({ me }: { readonly me: Profile }) {
   const [kind, setKind] = useState<LeaderboardKind>('points');

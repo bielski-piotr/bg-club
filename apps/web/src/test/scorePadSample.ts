@@ -1,6 +1,6 @@
 import type { ScorePadFile, ScorePadTemplate } from '@bg-club/score-pad';
 
-/** Liczba miejsc w przykładowym notesie: ponad dawny limit POC (`MAX_PLAYERS = 8`, EDT-8). */
+/** Liczba miejsc w przykładowym notesie: ponad dawny limit POC (`MAX_PLAYERS = 8`). */
 export const SAMPLE_SEATS = 10;
 
 const round = (v: number) => Math.round(v * 10000) / 10000;
@@ -10,7 +10,7 @@ const labelWidth = 0.17;
 const seatWidth = (right - left - labelWidth) / SAMPLE_SEATS;
 
 /**
- * Przykładowy plik notesu v2 dla galerii: tabela z kolumną opisu i dziesięcioma kolumnami
+ * Przykładowy plik notesu v2 dla testów: tabela z kolumną opisu i dziesięcioma kolumnami
  * graczy. Bez zdjęcia kartkę rysuje nadruk notesu (`print`, jak w notesach wbudowanych POC).
  * Nie trafia do bazy.
  */
@@ -23,7 +23,7 @@ const template = {
   accent: '#2a4bdb',
   print: {
     title: 'Notes testowy',
-    subtitle: 'galeria komponentów',
+    subtitle: 'notes przykładowy',
     footer: 'Dziesięć miejsc dla graczy: ponad dawny limit ośmiu.',
     color: '#2a4bdb',
     tint: 'rgba(42, 75, 219, 0.08)',

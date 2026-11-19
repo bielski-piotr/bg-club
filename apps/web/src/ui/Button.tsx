@@ -6,7 +6,7 @@ import { Spinner } from './Spinner';
 import './Button.css';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
-/** `md` = h44 (stopka, CTA), `sm` = h36 (nagłówek), DS §9. */
+/** `md` = h44 (stopka, CTA), `sm` = h36 (nagłówek). */
 export type ButtonSize = 'md' | 'sm';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -70,7 +70,7 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   readonly icon: IconName;
   /** Etykieta dla czytnika ekranu i podpowiedź (`aria-label`). */
   readonly label: string;
-  /** 36 (nagłówek, stepper) albo 32 (⋯ w wierszu), DS §9. */
+  /** 36 (nagłówek, stepper) albo 32 (⋯ w wierszu). */
   readonly size?: 36 | 32 | undefined;
 }
 
@@ -109,7 +109,7 @@ export type TextLinkProps = TextLinkBase &
     | ({ readonly href?: undefined } & ButtonHTMLAttributes<HTMLButtonElement>)
   );
 
-/** Link tekstowy 14/18/600 w kolorze akcentu z opcjonalną strzałką (DS §6, §9). */
+/** Link tekstowy 14/18/600 w kolorze akcentu z opcjonalną strzałką. */
 export function TextLink({ children, chevron = true, className, ...rest }: TextLinkProps) {
   const content = (
     <>

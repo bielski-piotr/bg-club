@@ -7,7 +7,7 @@ import type * as Photo from './editor/photo';
 import type { LineScan } from './editor/photo';
 
 /*
- * Krok 3 edytora „Mapowanie pól” (EDT-11, EDT-6, EDT-8), zadanie [018]: prostokąty ręczne
+ * Krok 3 edytora „Mapowanie pól”: prostokąty ręczne
  * z przechodzeniem po kategoriach i powielaniem dla kolejnych miejsc, wykryta tabela z poprawą
  * linii i osią graczy, wykluczające się tryby i cofanie. jsdom nie ma płótna, więc wykrywanie
  * linii tabeli zwraca przygotowany wynik.
@@ -166,7 +166,7 @@ describe('prostokąty ręczne', () => {
     const seat3 = t.step.draft.fields.filter((f) => f.p === 2);
     expect(seat3[0]?.x).toBeCloseTo((seat2[0]?.x ?? 0) + (seat2[0]?.x ?? 0) - 0.02, 3);
 
-    // EDT-8: bez limitu miejsc (kartka kończy się, kopie zostają na kartce)
+    // Bez limitu miejsc (kartka kończy się, kopie zostają na kartce)
     for (let i = 0; i < 8; i++) t.step.apply({ type: 'duplicate' });
     s = t.step.state();
     expect(s.seats).toBe(11);

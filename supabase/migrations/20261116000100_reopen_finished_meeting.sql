@@ -1,4 +1,4 @@
--- RUN-5, Q10: tylko admin cofa zakończenie, bez zmiany historii spotkania i partii.
+-- Ponowne otwarcie zakończonego spotkania: tylko admin cofa zakończenie, bez zmiany historii spotkania i partii.
 -- Indeks meetings_single_in_progress szereguje także równoległe starty i otwarcia.
 -- meetings_after_change przelicza osiągnięcia przy wyjściu z / powrocie do finished.
 -- Podsumowania i serie są liczone z zapisanych partii przy odczycie.
@@ -40,7 +40,7 @@ end;
 $$;
 
 comment on function public.reopen_meeting(uuid) is
-  'Cofa zakończenie spotkania (RUN-5, Q10). Tylko admin; bez usuwania partii, wyników i snapshotów. Jedno spotkanie w trakcie (MTG-2).';
+  'Cofa zakończenie spotkania. Tylko admin; bez usuwania partii, wyników i snapshotów. Jedno spotkanie w trakcie.';
 
 revoke execute on function public.reopen_meeting(uuid) from public, anon;
 grant execute on function public.reopen_meeting(uuid) to authenticated;

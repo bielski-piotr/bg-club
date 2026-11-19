@@ -1,5 +1,4 @@
--- [045] Skomplikowanie gry, punkty ułamkowe, przesunięcie miejsc i zespoły (PRD GAME-5, §5.6.2,
--- EDT-13, PAD-2, PAD-3). Dane testowe są fikcyjne.
+-- Skomplikowanie gry, punkty ułamkowe, przesunięcie miejsc i zespoły. Dane testowe są fikcyjne.
 begin;
 
 create extension if not exists pgtap with schema extensions;

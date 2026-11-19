@@ -11,7 +11,7 @@ import { normalizeSearch, ToastProvider } from '../ui';
 import type { Game } from './games';
 
 /*
- * Kolekcja gier w hubie (PRD GAME-1…GAME-6, GAME-8): widżet, popup z wyszukiwaniem,
+ * Kolekcja gier w hubie: widżet, popup z wyszukiwaniem,
  * formularze admina i usuwanie. PostgREST jest atrapą; wyszukiwanie w atrapie naśladuje
  * `search_games` (bez wielkości liter i polskich znaków). Dane są fikcyjne.
  */
@@ -41,7 +41,7 @@ function game(n: number, title: string, extra: Partial<Game> = {}): Game {
     min_players: 2,
     max_players: 4,
     placement_points: [10, 6, 4, 2],
-    // Gra sprzed wprowadzenia skomplikowania (GAME-5).
+    // Gra sprzed wprowadzenia skomplikowania.
     complexity: null,
     created_at: `2026-10-${String(n).padStart(2, '0')}T12:00:00Z`,
     last_played_at: null,
@@ -189,7 +189,7 @@ function renderHub(games: Game[], me: Profile = ADA, search = '') {
   return fake;
 }
 
-describe('widżet kolekcji (GAME-1, CLUB-4)', () => {
+describe('widżet kolekcji', () => {
   it('pusta kolekcja: admin ma „Dodaj grę”, gracz sam pusty stan', async () => {
     renderHub([]);
     const widget = await screen.findByRole('region', { name: 'Kolekcja' });
@@ -224,7 +224,7 @@ describe('widżet kolekcji (GAME-1, CLUB-4)', () => {
   });
 });
 
-describe('popup kolekcji (GAME-2, GAME-3)', () => {
+describe('popup kolekcji', () => {
   it('wyszukuje na bieżąco w bazie bez polskich znaków', async () => {
     const { searches } = renderHub([ZOLWIE, LAKA, GRA], ADA, '?p=games');
     const dialog = await screen.findByRole('dialog', { name: 'Kolekcja' });
@@ -234,7 +234,7 @@ describe('popup kolekcji (GAME-2, GAME-3)', () => {
         .getAllByRole('listitem')
         .map((item) => item.querySelector('.game-tile__title')?.textContent),
     ).toEqual(['Gra Planszowa', 'Łąka i Pszczoły', 'Żółwie Wyścigi']);
-    // Licznik jest w nagłówku (desktop) i pod wyszukiwarką (telefon), DS §7.
+    // Licznik jest w nagłówku (desktop) i pod wyszukiwarką (telefon).
     expect(within(dialog).getAllByText('3 gry').length).toBeGreaterThan(0);
 
     // Szybkie pisanie: zapytanie idzie dopiero po przerwie, więc bez „Z” i „ZO”.
@@ -264,7 +264,7 @@ describe('popup kolekcji (GAME-2, GAME-3)', () => {
   });
 });
 
-describe('formularz gry (GAME-3…GAME-5)', () => {
+describe('formularz gry', () => {
   it('admin dodaje grę: walidacja, pola punktów zależne od max, ostrzeżenie', async () => {
     const { writes } = renderHub([], ADA, '?p=games&p=games/new');
     const dialog = await screen.findByRole('dialog', { name: 'Dodaj grę' });
@@ -295,7 +295,7 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     fireEvent.change(within(dialog).getByLabelText('Tytuł'), {
       target: { value: '  Kolejka Górska ' },
     });
-    // Skomplikowanie przelicza punkty ze wzoru (GAME-5); można je potem poprawić.
+    // Skomplikowanie przelicza punkty ze wzoru; można je potem poprawić.
     fireEvent.change(within(dialog).getByLabelText('Skomplikowanie'), { target: { value: '1' } });
     expect(within(dialog).getByLabelText('1. miejsce')).toHaveValue('20,6');
     expect(within(dialog).getByLabelText('3. miejsce')).toHaveValue('2,1');
@@ -308,7 +308,7 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
       ),
     ).toBeInTheDocument();
     expect(within(dialog).getByText(/różnią się od wyliczonych ze wzoru/)).toBeInTheDocument();
-    // Rosnąca punktacja: ostrzeżenie bez blokady (GAME-5).
+    // Rosnąca punktacja: ostrzeżenie bez blokady.
     expect(within(dialog).getByText(/Niższe miejsce ma więcej punktów/)).toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText('2. miejsce'), { target: { value: '3' } });
 
@@ -391,7 +391,7 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
   });
 });
 
-describe('usuwanie gry (GAME-8)', () => {
+describe('usuwanie gry', () => {
   it('admin usuwa grę po potwierdzeniu; gra znika z kolekcji', async () => {
     const { writes } = renderHub([ZOLWIE, LAKA], ADA, '?p=games');
     const dialog = await screen.findByRole('dialog', { name: 'Kolekcja' });

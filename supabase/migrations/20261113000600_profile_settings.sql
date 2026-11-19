@@ -1,8 +1,8 @@
--- [010] Profil i ustawienia: propozycja zmiany wygenerowanego hasła (PRD AUTH-6, USR-5).
+-- Profil i ustawienia: propozycja zmiany wygenerowanego hasła.
 --
 -- Zasady:
 -- - `profiles.password_change_suggested` mówi, że konto ma jeszcze hasło wygenerowane przez
---   aplikację (AUTH-4: `create-member`, bootstrap bez własnego hasła). Przy pierwszym logowaniu
+--   aplikację (`create-member`, bootstrap bez własnego hasła). Przy pierwszym logowaniu
 --   aplikacja proponuje wtedy zmianę hasła. Gracz może propozycję pominąć: SPA ustawia flagę na
 --   `false` po pominięciu i po udanej zmianie hasła.
 -- - Flagę przy tworzeniu konta ustawia wyzwalacz z `app_metadata.bg_club.password_generated`
@@ -17,11 +17,11 @@ alter table public.profiles
   add column password_change_suggested boolean not null default false;
 
 comment on column public.profiles.password_change_suggested is
-  'Konto ma hasło wygenerowane przez aplikację; po zalogowaniu proponujemy jego zmianę (AUTH-6).';
+  'Konto ma hasło wygenerowane przez aplikację; po zalogowaniu proponujemy jego zmianę.';
 
 grant update (password_change_suggested) on public.profiles to authenticated;
 
--- Wyzwalacz konta z [005] z dodaną flagą. Reszta bez zmian (komentarze w migracji [005]).
+-- Wyzwalacz konta z dodaną flagą. Reszta bez zmian (komentarze w migracji kont).
 create or replace function public.handle_auth_user_created()
 returns trigger
 language plpgsql

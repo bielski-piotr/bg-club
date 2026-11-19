@@ -12,7 +12,7 @@ export interface CheckboxProps extends Omit<
   readonly onCheckedChange: (checked: boolean) => void;
 }
 
-/** Pole wyboru 22×22, promień 7 (DS §15). Natywny `<input>` zachowuje obsługę klawiatury. */
+/** Pole wyboru 22×22, promień 7. Natywny `<input>` zachowuje obsługę klawiatury. */
 export function Checkbox({
   label,
   checked,
@@ -57,7 +57,7 @@ interface GroupProps<T extends string> {
   readonly className?: string | undefined;
 }
 
-/** Grupa przycisków radio 22×22 (DS §15) w pionie. */
+/** Grupa przycisków radio 22×22 w pionie. */
 export function RadioGroup<T extends string>({
   legend,
   hideLegend = false,
@@ -95,7 +95,7 @@ export function RadioGroup<T extends string>({
 }
 
 /**
- * Wybór jednej z kilku opcji jako pigułki (DS §10 „segmented filter”, §18). Semantycznie to
+ * Wybór jednej z kilku opcji jako pigułki. Semantycznie to
  * grupa radio: strzałki przenoszą wybór, Tab przechodzi do następnej kontrolki.
  * Do przełączania widoków służy `Tabs`.
  */
@@ -143,7 +143,7 @@ export interface ChipGroupProps<T extends string> {
   readonly className?: string | undefined;
 }
 
-/** Wielokrotny wybór jako chipy h32 z ptaszkiem (DS §18, np. „Sumuje kategorie”). */
+/** Wielokrotny wybór jako chipy h32 z ptaszkiem (np. „Sumuje kategorie”). */
 export function ChipGroup<T extends string>({
   legend,
   hideLegend = false,
@@ -202,7 +202,7 @@ export interface ColorSwatchesProps<T extends string> {
   readonly className?: string | undefined;
 }
 
-/** Wybór koloru (DS §18 „Color swatches”): kółka 28, wybrane 22 w pierścieniu 2 px. */
+/** Wybór koloru: kółka 28, wybrane 22 w pierścieniu 2 px. */
 export function ColorSwatches<T extends string>({
   legend,
   hideLegend = false,

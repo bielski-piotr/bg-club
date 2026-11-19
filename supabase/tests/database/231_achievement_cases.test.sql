@@ -1,4 +1,4 @@
--- [036] Przeliczanie osiągnięć (PRD §5.10, ACH-2, §5.6.6, NFR-11) na wspólnych przypadkach.
+-- Przeliczanie osiągnięć na wspólnych przypadkach.
 -- PLIK GENEROWANY z packages/scoring/src/cases/achievements.ts — nie edytować ręcznie.
 -- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.
 -- Te same przypadki przechodzi implementacja TypeScript (computeAchievements).

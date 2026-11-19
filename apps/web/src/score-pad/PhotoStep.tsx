@@ -33,7 +33,7 @@ interface PhotoStepProps {
 }
 
 /**
- * Krok 1 kreatora: Zdjęcie (EDT-9, DS §18). Zdjęcie z pliku, przeciągnięte, wklejone ze
+ * Krok 1 kreatora: Zdjęcie. Zdjęcie z pliku, przeciągnięte, wklejone ze
  * schowka albo zrobione: na telefonie aparatem systemowym (tylny aparat), na komputerze kamerą
  * z podglądem. Brak kamery albo odmowa dostępu zostawia ścieżkę z plikiem i komunikat. Tu jest
  * też import pliku notesu `.json`.

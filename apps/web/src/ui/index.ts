@@ -1,5 +1,5 @@
 /**
- * Komponenty design systemu BG Club (DESIGN-SYSTEM.md). Galeria: /design-system.
+ * Komponenty design systemu BG Club.
  * Teksty wbudowane w komponenty są w `t.ui` (src/i18n/pl.ts).
  */
 export {

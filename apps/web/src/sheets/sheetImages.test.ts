@@ -59,7 +59,7 @@ function fakeClient(script: {
 
 const webp = new Blob(['x'], { type: 'image/webp' });
 
-describe('obraz karteczki (PAD-6)', () => {
+describe('obraz karteczki', () => {
   it('nazwa: folder spotkania, partia, losowy sufiks i rozszerzenie typu', () => {
     expect(newSheetImagePath(MEETING, PLAY, 'image/webp', () => 'abcdefgh12')).toBe(
       `${MEETING.toLowerCase()}/${PLAY}-abcdefgh12.webp`,

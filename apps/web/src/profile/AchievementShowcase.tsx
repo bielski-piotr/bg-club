@@ -22,8 +22,8 @@ import {
 const text = t.profile.achievements;
 
 /**
- * Odznaka osiągnięcia: kółko 44 (DS §15 „Achievement row”). Odblokowana jest kolorowa
- * (bursztyn z białą ikoną), nieodblokowana wyszarzona (ACH-3). Dekoracyjna: stan podaje tekst.
+ * Odznaka osiągnięcia: kółko 44. Odblokowana jest kolorowa
+ * (bursztyn z białą ikoną), nieodblokowana wyszarzona. Dekoracyjna: stan podaje tekst.
  */
 export function AchievementBadge({
   icon,
@@ -61,11 +61,11 @@ export function ProgressBar({ value, goal }: { readonly value: number; readonly 
 }
 
 /**
- * Gablota osiągnięć w profilu (PRD ACH-3, USR-4): cały katalog w grupach. Odblokowane odznaki
+ * Gablota osiągnięć w profilu: cały katalog w grupach. Odblokowane odznaki
  * są kolorowe z datą spotkania, nieodblokowane wyszarzone z postępem tam, gdzie warunek ma
  * licznik. Każda odznaka otwiera szczegóły z warunkiem (`profile/<id>/achievement/<id>`).
  * Gracz bez odblokowań widzi pusty stan nad wyszarzonym katalogiem, a usunięty członek swoją
- * gablotę z historii (MEM-5). Zapis i usunięcie partii odświeżają gablotę (§5.6.5).
+ * gablotę z historii. Zapis i usunięcie partii odświeżają gablotę.
  */
 export function AchievementShowcase({ profileId }: { readonly profileId: string }) {
   const { client } = useAuth();

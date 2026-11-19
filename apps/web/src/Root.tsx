@@ -1,11 +1,7 @@
-import { lazy, Suspense } from 'react';
 import { App } from './App';
 import type { ConfigResult } from './config/env';
-import type { AppView } from './design-system/path';
+import type { AppView } from './lib/path';
 import { t } from './i18n';
-
-// Galeria komponentów jest ładowana leniwie, więc nie powiększa głównego pakietu.
-const DesignSystemPage = lazy(() => import('./design-system/DesignSystemPage'));
 
 interface RootProps {
   readonly config: ConfigResult;
@@ -16,12 +12,6 @@ interface RootProps {
 /** Wybór widoku według ścieżki. Popupy huba są w parametrze `?p=…` (src/popups). */
 export function Root({ config, view }: RootProps) {
   switch (view) {
-    case 'designSystem':
-      return (
-        <Suspense fallback={null}>
-          <DesignSystemPage />
-        </Suspense>
-      );
     case 'notFound':
       return <NotFound />;
     case 'app':

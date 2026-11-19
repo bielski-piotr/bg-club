@@ -65,12 +65,12 @@ const text = t.meetings.voting;
 const popup = t.meetings.popup;
 
 /**
- * Popup spotkania (VIEW-1, VIEW-2, DS §15 „Popup structure”): nagłówek ze statusem, terminem
- * i uczestnikami, a w zaplanowanym głosowanie (VOTE-1…VOTE-4) albo lista „Gramy w:” (VOTE-5).
- * Administrator ma pole akcji z publikacją i ponownym otwarciem (VOTE-6) oraz menu „Edytuj /
- * Usuń spotkanie”. Przebieg (RUN-1, RUN-4, VIEW-3): administrator i prowadzący rozpoczynają
+ * Popup spotkania: nagłówek ze statusem, terminem
+ * i uczestnikami, a w zaplanowanym głosowanie albo lista „Gramy w:”.
+ * Administrator ma pole akcji z publikacją i ponownym otwarciem oraz menu „Edytuj /
+ * Usuń spotkanie”. Przebieg: administrator i prowadzący rozpoczynają
  * i kończą spotkanie z pola akcji; trwające i zakończone pokazują partie w toku i zapisane.
- * Prowadzący nie ma akcji administracyjnych (uczestnicy, prowadzący, PLAN-4, Q14).
+ * Prowadzący nie ma akcji administracyjnych (uczestnicy, prowadzący).
  */
 export function MeetingPopup({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
   const { client } = useAuth();
@@ -123,7 +123,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
   const isAdmin = me.role === 'admin';
   const runner = isMeetingRunner(meeting, me);
   const profiles = useAllProfiles(client);
-  // Sprzątanie osieroconych obrazów karteczek (PAD-6): po przerwanym zapisie ostatniej partii
+  // Sprzątanie osieroconych obrazów karteczek: po przerwanym zapisie ostatniej partii
   // nie ma kolejnego zapisu, który by je usunął, więc robi to też otwarcie spotkania przez
   // admina albo prowadzącego (raz na spotkanie w tej karcie; po zakończeniu tylko admin).
   const status = meeting.status;
@@ -131,7 +131,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
     if (!runner || status === 'planned' || !claimOrphanSweep(meeting.id)) return;
     void sweepOrphanSheetImages(client, meeting.id);
   }, [client, meeting.id, runner, status]);
-  // Uczestnicy także usunięci w międzyczasie (MEM-5: zostają w historii spotkania).
+  // Uczestnicy także usunięci w międzyczasie (zostają w historii spotkania).
   const people = meeting.participants
     .map((id) => profiles.data?.get(id) ?? members.find((member) => member.id === id))
     .filter((person): person is Profile => person !== undefined)
@@ -203,7 +203,7 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
           />
         ) : null}
         {!planned ? <MeetingSummarySection meetingId={meeting.id} /> : null}
-        {/* Także zaplanowane: zamknięcie głosowania może odblokować Głos ludu (Q18). */}
+        {/* Także zaplanowane: zamknięcie głosowania może odblokować Głos ludu. */}
         <MeetingAchievementsSection meetingId={meeting.id} />
 
         <section className="meeting-view__section" aria-labelledby={`${meeting.id}-people`}>
@@ -236,10 +236,10 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
 }
 
 /**
- * Pole akcji (DS §15 „Admin action box”). Zaplanowane: administrator publikuje gry (VOTE-5)
- * albo zmienia listę i otwiera głosowanie ponownie (VOTE-6); administrator i prowadzący
- * rozpoczynają spotkanie (RUN-1). W trakcie: „Zakończ spotkanie” (RUN-4). Obie zmiany statusu
- * mają potwierdzenie w osobnym dialogu. W trakcie także „Nowa partia” (RUN-2, RUN-3): kreator
+ * Pole akcji. Zaplanowane: administrator publikuje gry
+ * albo zmienia listę i otwiera głosowanie ponownie; administrator i prowadzący
+ * rozpoczynają spotkanie. W trakcie: „Zakończ spotkanie”. Obie zmiany statusu
+ * mają potwierdzenie w osobnym dialogu. W trakcie także „Nowa partia”: kreator
  * gry, notesu i graczy; kilka partii może trwać naraz.
  */
 function RunnerBox({ meeting, isAdmin }: { readonly meeting: Meeting; readonly isAdmin: boolean }) {
@@ -326,7 +326,7 @@ function RunnerBox({ meeting, isAdmin }: { readonly meeting: Meeting; readonly i
 }
 
 /**
- * Głosowanie (VOTE-1…VOTE-4, DS §15 „Vote row”, „Vote toggle”): wszystkie gry kolekcji
+ * Głosowanie: wszystkie gry kolekcji
  * malejąco po głosach, z awatarami głosujących i wyszukiwarką. Przełącznik głosu mają tylko
  * uczestnicy; gry niepasujące do liczby uczestników mają oznaczenie, ale przyjmują głosy.
  */
@@ -506,7 +506,7 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
   );
 }
 
-/** Lista „Gramy w:” (VOTE-5) z liczbą głosów, które gra dostała. */
+/** Lista „Gramy w:” z liczbą głosów, które gra dostała. */
 function PlayingSection({
   meeting,
   members,

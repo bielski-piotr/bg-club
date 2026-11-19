@@ -58,7 +58,7 @@ function play(id: string, extra: Partial<MeetingPlay> = {}): MeetingPlay {
   };
 }
 
-describe('partie spotkania (VIEW-3)', () => {
+describe('partie spotkania', () => {
   it('zapisane w kolejności rozegrania (saved_at, potem id), szkice od najstarszego', () => {
     const plays = [
       play('c', { saved_at: '2026-11-28T19:00:00Z' }),
@@ -103,7 +103,7 @@ describe('partie spotkania (VIEW-3)', () => {
   });
 });
 
-describe('prowadzenie spotkania (RUN-1, RUN-4, §2.1)', () => {
+describe('prowadzenie spotkania', () => {
   it('admin zawsze, prowadzący tylko w niezakończonym, gracz nigdy', () => {
     for (const status of ['planned', 'in_progress', 'finished'] as const) {
       expect(isMeetingRunner(meeting({ status }), ADMIN)).toBe(true);
@@ -115,7 +115,7 @@ describe('prowadzenie spotkania (RUN-1, RUN-4, §2.1)', () => {
   });
 });
 
-describe('odliczanie w widżecie (DS §15)', () => {
+describe('odliczanie w widżecie', () => {
   const zone = 'Europe/Warsaw';
   const now = new Date('2026-11-12T22:30:00Z'); // 23:30 w Warszawie, czwartek 12 lis
   it('liczy dni kalendarzowe w strefie klubu', () => {
@@ -128,7 +128,7 @@ describe('odliczanie w widżecie (DS §15)', () => {
   });
 });
 
-describe('menu spotkania zależne od roli (DS §15 „Meeting menus”, PLAN-4, Q14)', () => {
+describe('menu spotkania zależne od roli', () => {
   const ids = (m: Meeting, who: typeof ADMIN | typeof HOST, overview?: MeetingOverview) =>
     menuItems(m, overview, who.role === 'admin', isMeetingRunner(m, who)).map((i) => i.id);
 

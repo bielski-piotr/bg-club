@@ -10,7 +10,7 @@ import { fewerSeatsMessage } from './messages';
 
 const text = t.scorepads.wizard.mapping;
 
-/** Pływający pasek sceny w kroku 3 (DS §18): cofnij i dopasuj widok. */
+/** Pływający pasek sceny w kroku 3: cofnij i dopasuj widok. */
 export function MappingToolbar({
   mapping,
   disabled,
@@ -40,7 +40,7 @@ export function MappingToolbar({
   );
 }
 
-/** Kafelki liczby miejsc i kategorii (DS §18 „Stat tile”). */
+/** Kafelki liczby miejsc i kategorii. */
 function MappingStats({ mapping }: { readonly mapping: ScorePadEditorMapping }) {
   return (
     <div className="wizard-stats" aria-live="polite">
@@ -57,7 +57,7 @@ function MappingStats({ mapping }: { readonly mapping: ScorePadEditorMapping }) 
 }
 
 /**
- * Panel kroku 3 „Mapowanie pól” (EDT-11, EDT-6, DS §18): sposób mapowania, liczba miejsc
+ * Panel kroku 3 „Mapowanie pól”: sposób mapowania, liczba miejsc
  * i kategorii, ostrzeżenie o mniejszej liczbie miejsc niż max. graczy gry i narzędzia trybu.
  * Zmianę sposobu przy istniejących polach potwierdza popup (`onModeChange`).
  */
@@ -177,7 +177,7 @@ function RectTools({
     <>
       <fieldset className="group">
         <legend className="group__legend">{text.seat}</legend>
-        {/* Miejsca zawijają się w wiersze: działa przy dowolnej liczbie graczy (EDT-8). */}
+        {/* Miejsca zawijają się w wiersze: działa przy dowolnej liczbie graczy. */}
         <div className="pills wizard-seats">
           {Array.from({ length: mapping.seats }, (_, index) => (
             <label key={index} className="pill-choice">

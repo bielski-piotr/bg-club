@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockGame, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
- * Krok 4 kreatora „Kategorie” (EDT-13, EDT-2…EDT-4, EDT-7), zadanie [019]. Próbka to skan
+ * Krok 4 kreatora „Kategorie”. Próbka to skan
  * kartki z tabelą 1 + 4 kolumny × 6 wierszy: krok 3 wykrywa tabelę (pierwszy wiersz to imiona,
  * pozostałe to punktacje). Każdy test przechodzi na 360 px i na desktopie, w obu motywach.
  */
@@ -172,7 +172,7 @@ async function axe(page: Page) {
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' | ')}`);
 }
 
-/** Wybiera opcję listy rozwijanej (DS §10). */
+/** Wybiera opcję listy rozwijanej. */
 async function choose(page: Page, scope: Locator, label: RegExp, option: string) {
   await scope.getByRole('button', { name: label }).click();
   await page.getByRole('option', { name: new RegExp(`^${option}`) }).click();
@@ -181,7 +181,7 @@ async function choose(page: Page, scope: Locator, label: RegExp, option: string)
 /** Panel kroku (bez kartki edytora, której opisy pól też zawierają nazwy kategorii). */
 const panelOf = (dialog: Locator) => dialog.locator('.wizard-panel');
 
-test('kategorie: nazwa, typ, zakres, sumy i walidacja (EDT-13)', async ({ page }) => {
+test('kategorie: nazwa, typ, zakres, sumy i walidacja', async ({ page }) => {
   test.setTimeout(60_000);
   const dialog = await openCategories(page);
   const panel = panelOf(dialog);
@@ -257,9 +257,7 @@ test('kategorie: nazwa, typ, zakres, sumy i walidacja (EDT-13)', async ({ page }
   await expect(dialog.getByRole('group', { name: 'Test notesu' })).toBeVisible();
 });
 
-test('wygrana i remisy: kategoria decydująca, kierunek i reguły (EDT-2…EDT-4, EDT-7)', async ({
-  page,
-}) => {
+test('wygrana i remisy: kategoria decydująca, kierunek i reguły', async ({ page }) => {
   test.setTimeout(60_000);
   const dialog = await openCategories(page);
   const panel = panelOf(dialog);
@@ -279,7 +277,7 @@ test('wygrana i remisy: kategoria decydująca, kierunek i reguły (EDT-2…EDT-4
   await rename(2, 'Jajka');
 
   await dialog.getByRole('tab', { name: 'Wygrana i remisy' }).click();
-  // Domyślnie decyduje suma (EDT-2) i więcej = lepiej (EDT-3).
+  // Domyślnie decyduje suma i więcej = lepiej.
   await expect(
     dialog.getByRole('button', { name: /^Kategoria decydująca o miejscu/ }),
   ).toContainText('Suma');
@@ -342,7 +340,7 @@ test('wygrana i remisy: kategoria decydująca, kierunek i reguły (EDT-2…EDT-4
   await noHorizontalOverflow(page);
   expect(await axe(page)).toEqual([]);
 
-  // Kategoria reguły zmieniona na puste pole: reguła znika (EDT-7: szablon zostaje poprawny).
+  // Kategoria reguły zmieniona na puste pole: reguła znika (szablon zostaje poprawny).
   await dialog.getByRole('tab', { name: 'Kategorie' }).click();
   await editorEl(page).locator('[data-cat="2"]').click();
   await expect(dialog.getByText('Kategoria 3 z 6')).toBeVisible();

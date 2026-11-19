@@ -25,7 +25,7 @@ const valid: GameFormValues = {
   points: ['10', '6', '4', '2'],
 };
 
-describe('formularz gry: liczba graczy (GAME-4)', () => {
+describe('formularz gry: liczba graczy', () => {
   it('przyjmuje 1 ≤ min ≤ max bez górnego limitu', () => {
     expect(hasErrors(validateGameForm(valid))).toBe(false);
     const solo = { ...valid, minPlayers: 1, maxPlayers: 1, points: ['5'] };
@@ -51,7 +51,7 @@ describe('formularz gry: liczba graczy (GAME-4)', () => {
   });
 });
 
-describe('formularz gry: punkty za miejsca (GAME-5)', () => {
+describe('formularz gry: punkty za miejsca', () => {
   it('zmiana max dodaje puste pola na końcu albo usuwa ostatnie', () => {
     expect(resizePoints(['10', '6', '4'], 5)).toEqual(['10', '6', '4', '', '']);
     expect(resizePoints(['10', '6', '4'], 2)).toEqual(['10', '6']);

@@ -23,7 +23,7 @@ const ERRORS: Readonly<Record<Exclude<DeletionFailure, 'wrongPassword'>, string>
 };
 
 /**
- * Usunięcie własnego konta (PRD USR-6, DS „Profil / Usuń konto – potwierdzenie hasłem”): mały
+ * Usunięcie własnego konta: mały
  * dialog z ikoną kosza, opisem skutków i polem obecnego hasła. Hasło sprawdza Edge Function
  * (`delete-own-account`); jest tylko w stanie formularza. Po usunięciu sesja na tym urządzeniu
  * się kończy i aplikacja wraca do logowania z komunikatem. Administrator nie ma tej opcji.

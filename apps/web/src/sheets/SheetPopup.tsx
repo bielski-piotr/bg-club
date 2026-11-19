@@ -20,17 +20,17 @@ import './sheets.css';
 const text = t.sheets;
 
 /**
- * Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”): obraz
+ * Zapisana karteczka partii: obraz
  * oderwanej karteczki w powiększeniu, wyniki graczy i link do spotkania. „Pokaż w 3D” rysuje
  * karteczkę od nowa z zapisanych wpisów i wersji szablonu z chwili rozpoczęcia partii, w notesie
- * tylko do odczytu. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
+ * tylko do odczytu. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają.
  */
 export function SheetPopup({
   id,
   isAdmin = false,
 }: {
   readonly id: string;
-  /** Admin może stąd usunąć partię (VIEW-6, potwierdzenie `play/<uuid>/delete`). */
+  /** Admin może stąd usunąć partię (potwierdzenie `play/<uuid>/delete`). */
   readonly isAdmin?: boolean | undefined;
 }) {
   const { client } = useAuth();
@@ -181,7 +181,7 @@ function SheetImage({ sheet, label }: { readonly sheet: SavedSheet; readonly lab
   );
 }
 
-/** Karteczka narysowana od nowa w notesie 3D tylko do odczytu (PAD-6). */
+/** Karteczka narysowana od nowa w notesie 3D tylko do odczytu. */
 function SheetPad({ sheet }: { readonly sheet: SavedSheet }) {
   const { client } = useAuth();
   const template = useQuery({

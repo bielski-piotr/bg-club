@@ -19,9 +19,9 @@ import '../sheets/sheets.css';
 const text = t.games.details;
 
 /**
- * Szczegóły gry (GAME-10, DS „Kolekcja / Szczegóły gry”): okładka, dane gry i galeria
+ * Szczegóły gry: okładka, dane gry i galeria
  * wszystkich oderwanych karteczek tej gry od najnowszej. Kliknięcie karteczki otwiera ją
- * w powiększeniu z wynikami i linkiem do spotkania (`sheet/<uuid>`). Statystyki gry (GAME-11)
+ * w powiększeniu z wynikami i linkiem do spotkania (`sheet/<uuid>`). Statystyki gry
  * są między danymi gry a galerią.
  */
 export function GameDetailsPopup({ id }: { readonly id: string }) {

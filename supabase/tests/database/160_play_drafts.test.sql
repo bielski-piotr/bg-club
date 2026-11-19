@@ -1,7 +1,6 @@
--- [028] Szkice partii (`save_play_draft`) i porzucenie (`discard_play`): uprawnienia admina
+-- Szkice partii (`save_play_draft`) i porzucenie (`discard_play`): uprawnienia admina
 -- i prowadzącego, numer wersji i konflikt zapisów z dwóch urządzeń, poprawność szkicu,
--- porzucenie bez śladu w statystykach i niezmienność zapisanej partii (PRD PAD-4, PAD-8,
--- PAD-9, RUN-3). Dane testowe są fikcyjne.
+-- porzucenie bez śladu w statystykach i niezmienność zapisanej partii. Dane testowe są fikcyjne.
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -50,7 +49,7 @@ grant execute on function public.test_failure(text) to authenticated;
 
 set local role authenticated;
 
--- Dwie partie w toku naraz (RUN-3): f001 i f002, obie prowadzi Bartek.
+-- Dwie partie w toku naraz: f001 i f002, obie prowadzi Bartek.
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 select lives_ok(
   $$ select public.start_play('00000000-0000-4000-f000-000000000001',
@@ -67,7 +66,7 @@ select is(
   'nowy szkic ma wersję 0 i pustą kartkę');
 
 -- =============================================================================================
--- Uprawnienia (PAD-9): gracz widzi partię, ale nie zapisze ani nie porzuci szkicu
+-- Uprawnienia: gracz widzi partię, ale nie zapisze ani nie porzuci szkicu
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000003", "role": "authenticated"}';
 select is(
@@ -89,7 +88,7 @@ select throws_ok(
   '42501', null, 'bezpośrednie usunięcie szkicu jest zablokowane (tylko RPC)');
 
 -- =============================================================================================
--- Zapis szkicu z wersją (PAD-4)
+-- Zapis szkicu z wersją
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 select is(
@@ -143,7 +142,7 @@ select is(
   3, 'po rozstrzygnięciu konfliktu świadomy zapis od bieżącej wersji przechodzi');
 select is(
   (select draft_version from public.plays where id = '00000000-0000-4000-f000-000000000002'),
-  0, 'zapis szkicu jednej partii nie zmienia drugiej partii w toku (RUN-3)');
+  0, 'zapis szkicu jednej partii nie zmienia drugiej partii w toku');
 
 -- Poprawność szkicu.
 select is(
@@ -160,7 +159,7 @@ select is(
   '23514/plays_draft_too_large', 'zbyt duży szkic jest odrzucany');
 
 -- =============================================================================================
--- Porzucenie (PAD-8)
+-- Porzucenie
 -- =============================================================================================
 select is(
   public.test_failure($$ select public.discard_play('00000000-0000-4000-f000-000000000002') $$),

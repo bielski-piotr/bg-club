@@ -35,7 +35,7 @@ interface FakeClub {
 
 interface FakeOptions {
   extra?: Profile[];
-  /** Klub w bazie; `null` = pierwsze uruchomienie (CLUB-1). */
+  /** Klub w bazie; `null` = pierwsze uruchomienie. */
   club?: FakeClub | null;
   /** Błąd PostgREST przy zapisie klubu (np. `23505` przy równoległej próbie). */
   saveError?: { code: string; message: string };
@@ -63,7 +63,7 @@ const EMPTY_PLAYER_STATS = {
   recent_plays: [],
 };
 
-/** `player_achievements` gracza bez odblokowań (pusta gablota, ACH-3). */
+/** `player_achievements` gracza bez odblokowań (pusta gablota). */
 const EMPTY_PLAYER_ACHIEVEMENTS = {
   unlocks: [],
   progress: {
@@ -163,8 +163,8 @@ function fakeClient(members: Profile[], options: FakeOptions = {}) {
     },
   );
   return {
-    // Ranking (LB-1): bez zapisanych partii funkcje SQL zwracają pustą listę, a statystyki
-    // gracza (STAT-1) same zera.
+    // Ranking: bez zapisanych partii funkcje SQL zwracają pustą listę, a statystyki
+    // gracza same zera.
     client: {
       from,
       storage,
@@ -208,7 +208,7 @@ function renderHub(members: Profile[], options: FakeOptions = {}, me: Profile = 
   return { auth, queryClient, ...fake };
 }
 
-describe('widżet członków (MEM-1)', () => {
+describe('widżet członków', () => {
   it('przy ≤ 5 członkach pokazuje wszystkich, przy więcej 4 i licznik', () => {
     expect(visibleMembers([ADA, ...OTHERS.slice(0, 4)])).toMatchObject({ rest: 0 });
     const many = visibleMembers([ADA, ...OTHERS]);
@@ -216,7 +216,7 @@ describe('widżet członków (MEM-1)', () => {
     expect(many.rest).toBe(3);
   });
 
-  it('pokazuje widżety w kolejności PRD i awatary prowadzące do profili', async () => {
+  it('pokazuje widżety w stałej kolejności i awatary prowadzące do profili', async () => {
     renderHub([ADA, ...OTHERS]);
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Planszówki' }),
@@ -286,7 +286,7 @@ describe('popupy huba', () => {
     expect(window.location.search).toBe('');
   });
 
-  it('menu awatara otwiera własny profil, ustawienia i wylogowuje (CLUB-1, USR-5)', async () => {
+  it('menu awatara otwiera własny profil, ustawienia i wylogowuje', async () => {
     const { auth } = renderHub([ADA]);
     const chip = await screen.findByRole('button', { name: 'Twoje konto: Ada Testowa' });
     fireEvent.click(chip);
@@ -321,7 +321,7 @@ describe('popupy huba', () => {
     expect(auth.signOut).toHaveBeenCalled();
   });
 
-  it('cudzy profil nie ma ustawień ani akcji edycji, także dla admina (USR-7)', async () => {
+  it('cudzy profil nie ma ustawień ani akcji edycji, także dla admina', async () => {
     window.history.replaceState(null, '', `/?p=profile/${OTHERS[0]?.id}`);
     renderHub([ADA, ...OTHERS]);
     const profile = await screen.findByRole('dialog', { name: 'Profil' });
@@ -333,7 +333,7 @@ describe('popupy huba', () => {
 
 const BEA = OTHERS[0] as Profile;
 
-describe('pierwsze uruchomienie (CLUB-1, CLUB-3)', () => {
+describe('pierwsze uruchomienie', () => {
   it('admin widzi ilustrację i „Dodaj klub” zamiast widżetów, a nagłówek tylko swój chip', async () => {
     renderHub([ADA], { club: null });
     expect(await screen.findByRole('heading', { level: 1, name: 'Załóż swój klub' })).toBeVisible();
@@ -355,7 +355,7 @@ describe('pierwsze uruchomienie (CLUB-1, CLUB-3)', () => {
   });
 });
 
-describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
+describe('zakładanie i edycja klubu', () => {
   it('zapis tworzy klub i odsłania pięć pustych widżetów', async () => {
     const { writes } = renderHub([ADA], { club: null });
     fireEvent.click(await screen.findByRole('button', { name: 'Dodaj klub' }));
@@ -449,7 +449,7 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
   });
 });
 
-describe('dodawanie członka (MEM-3, AUTH-4)', () => {
+describe('dodawanie członka', () => {
   it('admin dodaje członka z pustego widżetu i raz widzi hook oraz hasło', async () => {
     const writeText = vi.fn(async () => undefined);
     const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
@@ -547,7 +547,7 @@ describe('dodawanie członka (MEM-3, AUTH-4)', () => {
   });
 });
 
-describe('wyszukiwanie członków (MEM-2)', () => {
+describe('wyszukiwanie członków', () => {
   it('filtruje po imieniu i hooku bez polskich znaków; brak wyników ma pusty stan', async () => {
     window.history.replaceState(null, '', '/?p=members');
     const lukasz = person(30, 'Łukasz', { last_name: 'Żółw', hook: 'lukasz-zolw-7c1e' });

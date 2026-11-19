@@ -8,7 +8,7 @@ import {
   parseIntegers,
 } from './categories';
 
-/** Pomocniki kroku 4 „Kategorie” (EDT-13): liczby z pól i komunikaty walidatora. */
+/** Pomocniki kroku 4 „Kategorie”: liczby z pól i komunikaty walidatora. */
 
 const LINES = [{ label: 'Gracze' }, { label: 'Ptaki' }, { label: ' ' }];
 

@@ -1,5 +1,4 @@
--- [034] Statystyki gracza: public.player_stats(profile_id, year) (PRD STAT-1–STAT-3, MEM-5,
--- §5.6, Q21, NFR-11). Dane fikcyjne.
+-- Statystyki gracza: public.player_stats(profile_id, year). Dane fikcyjne.
 --
 -- Gry: A „Azul”, B „Brzdęk”, C „Carcassonne” (punktacja 10/6/4/2). Strefa klubu Europe/Warsaw.
 --   m1 2025-12-31 23:30 (rok 2025 lokalnie, 2025-12-31 22:30 UTC)
@@ -10,7 +9,7 @@
 --                  p5 B: Celina 1 (10), Łukasz 2 (6)
 --   m4 2026-03-10: p6 B: Łukasz 1 (10), Mateusz 2 (6)
 --                  p7 C: Łukasz 1 (10), Lucyna 2 (6); p8 szkic B (Bartek)
--- Celina jest usunięta (MEM-4). Bartek ma tylko szkic (zero partii).
+-- Celina jest usunięta. Bartek ma tylko szkic (zero partii).
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -151,7 +150,7 @@ set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000013", "role": "authenticated"}';
 
 -- =============================================================================================
--- Liczniki, serie i remisy (STAT-1, §5.6.3, §5.6.4)
+-- Liczniki, serie i remisy
 -- =============================================================================================
 select is(public.test_totals(11), '4/7/4/56 seria 2/1',
   'Łukasz: 4 spotkania, 7 partii, 4 wygrane (z remisem o 1. miejsce), 56 pkt; rekord 2, bieżąca 1');
@@ -172,14 +171,14 @@ select is(public.test_stats(15) -> 'recent_plays', '[]'::jsonb, 'zero partii: pu
 select is(public.test_stats(15) -> 'years', '[]'::jsonb, 'zero partii: brak lat w filtrze');
 
 -- =============================================================================================
--- Miejsca w trzech rankingach (STAT-1, LB-6, LB-7)
+-- Miejsca w trzech rankingach
 -- =============================================================================================
 select is(public.test_places(11), '1/1/1', 'Łukasz: 1. w punktach i wygranych, wspólne 1. w serii');
 select is(public.test_places(13), '2/2/1', 'Mateusz: wspólne 1. miejsce w serii (rekord 2 jak Łukasz)');
 select is(public.test_places(12), '3/3/3', 'Lucyna: 3. miejsca (usunięta Celina nie wyprzedza)');
 
 -- =============================================================================================
--- Ulubiona i najlepsza gra (STAT-2, Q21) — próg trzech partii
+-- Ulubiona i najlepsza gra — próg trzech partii
 -- =============================================================================================
 select is(public.test_stats(11) -> 'favorite_game' ->> 'title', 'Azul',
   'ulubiona: Azul i Brzdęk po 3 partie, remis rozstrzyga więcej wygranych (2 > 1)');
@@ -193,7 +192,7 @@ select ok(public.test_stats(12) -> 'best_game' = 'null'::jsonb,
 select is(public.test_stats(13) -> 'favorite_game' ->> 'title', 'Brzdęk', 'Mateusz: ulubiona Brzdęk (2 partie)');
 
 -- =============================================================================================
--- Ostatnie partie (STAT-2, §5.6.6 od najnowszej)
+-- Ostatnie partie (od najnowszej)
 -- =============================================================================================
 select is(public.test_recent(11), array[7, 6, 5, 4, 3, 2, 1],
   'ostatnie partie od najnowszej: spotkania malejąco, w spotkaniu po saved_at malejąco');
@@ -204,7 +203,7 @@ select is((public.test_stats(11) -> 'recent_plays' -> 0) - 'starts_at', jsonb_bu
   'wpis partii: spotkanie do linku, gra, miejsce, punkty, wygrana');
 
 -- =============================================================================================
--- Filtr roku (STAT-3, LB-4, NFR-10)
+-- Filtr roku
 -- =============================================================================================
 select is(public.test_totals(11, 2025), '1/1/1/10 seria 1/1', 'rok 2025: tylko sylwestrowe spotkanie');
 select is(public.test_totals(11, 2026), '3/6/3/46 seria 1/1', 'rok 2026: seria liczona tylko w obrębie roku');
@@ -215,10 +214,10 @@ select is(public.test_totals(11, 2024), '0/0/0/0 seria 0/0', 'rok bez partii: sa
 select throws_ok($$ select public.test_stats(11, 0) $$, '22023', null, 'rok spoza zakresu to błąd 22023');
 
 -- =============================================================================================
--- Usunięty członek (MEM-5) i brak profilu
+-- Usunięty członek i brak profilu
 -- =============================================================================================
 select is(public.test_totals(14), '1/1/1/10 seria 1/1', 'usunięta Celina zachowuje historyczne statystyki');
-select is(public.test_places(14), '-/-/-', 'usunięty członek nie ma miejsc w rankingach (LB-7)');
+select is(public.test_places(14), '-/-/-', 'usunięty członek nie ma miejsc w rankingach');
 select ok(public.player_stats('00000000-0000-4000-a000-000000000099') is null, 'brak profilu: NULL');
 
 -- =============================================================================================
@@ -232,7 +231,7 @@ select ok(not has_function_privilege('anon', 'public.player_stats(uuid, int)', '
 set local role authenticated;
 
 -- =============================================================================================
--- Usunięcie partii przelicza statystyki (§5.6.5)
+-- Usunięcie partii przelicza statystyki
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select lives_ok($$ select public.delete_play('00000000-0000-4000-f000-000000000004') $$,

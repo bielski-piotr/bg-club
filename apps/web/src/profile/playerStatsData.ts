@@ -4,12 +4,12 @@ import { isUuid } from '../popups/routes';
 import { profilesKey } from './profiles';
 
 /**
- * Statystyki gracza w profilu (PRD STAT-1–STAT-3) z funkcji SQL `player_stats(profile_id, year)`
+ * Statystyki gracza w profilu z funkcji SQL `player_stats(profile_id, year)`
  * (migracja `20261115223700_player_stats.sql`). Baza liczy wszystko z zapisanych partii (szkice
- * się nie liczą), więc zapis i usunięcie partii zmieniają je od razu (§5.6.5).
+ * się nie liczą), więc zapis i usunięcie partii zmieniają je od razu.
  */
 
-/** Gra w statystykach gracza: ulubiona albo najlepsza (STAT-2, Q21). */
+/** Gra w statystykach gracza: ulubiona albo najlepsza. */
 export interface PlayerGame {
   readonly game_id: string;
   readonly title: string;
@@ -17,7 +17,7 @@ export interface PlayerGame {
   readonly wins: number;
 }
 
-/** Partia gracza na liście ostatnich (od najnowszej, §5.6.6). */
+/** Partia gracza na liście ostatnich (od najnowszej). */
 export interface RecentPlay {
   readonly play_id: string;
   readonly meeting_id: string;
@@ -31,7 +31,7 @@ export interface RecentPlay {
   readonly is_win: boolean;
 }
 
-/** Miejsca w trzech rankingach (LB-1); `null` = gracz nie jest klasyfikowany (albo usunięty). */
+/** Miejsca w trzech rankingach; `null` = gracz nie jest klasyfikowany (albo usunięty). */
 export interface PlayerPlaces {
   readonly points: number | null;
   readonly wins: number | null;
@@ -50,17 +50,17 @@ export interface PlayerStats {
   readonly streak_current: number;
   readonly places: PlayerPlaces;
   readonly favorite_game: PlayerGame | null;
-  /** `null` = brak gry z ≥ 3 partiami gracza (pusty stan, Q21). */
+  /** `null` = brak gry z ≥ 3 partiami gracza (pusty stan). */
   readonly best_game: PlayerGame | null;
   readonly recent_plays: readonly RecentPlay[];
 }
 
-/** Próg partii gry do „najlepszej gry” (Q21). Baza stosuje ten sam próg. */
+/** Próg partii gry do „najlepszej gry”. Baza stosuje ten sam próg. */
 export const BEST_GAME_MIN_PLAYS = 3;
 
 /**
  * Klucz w `profilesKey`: zapis i usunięcie partii odświeżają statystyki razem z profilami
- * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
+ * (`PLAY_DEPENDENT_KEYS`).
  */
 export const playerStatsKey = (id: string, year: number | null) =>
   [...profilesKey, 'stats', id, year ?? 'all'] as const;

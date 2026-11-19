@@ -31,7 +31,7 @@ function project(pose: ReturnType<typeof topView>, point: THREE.Vector3) {
   return point.clone().project(cam);
 }
 
-describe('kamera notesu (PAD-10…PAD-12)', () => {
+describe('kamera notesu', () => {
   it('widok z góry patrzy prostopadle w dół z zadanej odległości', () => {
     const p = topView(10);
     const eye = eyeOf(p);
@@ -64,7 +64,8 @@ describe('kamera notesu (PAD-10…PAD-12)', () => {
     rotatePose(p, 0.3, 0, 0);
     // ruch w prawo obraca notes w prawo: bliższa widzowi część (punkt nad środkiem) idzie w prawo
     expect(project(p, raised).x).toBeGreaterThan(0.05);
-    // ruch w dół nachyla notes jak chwycony: bliższa część idzie w dół, grzbiet przechyla się do widza
+    // ruch w dół nachyla notes jak chwycony: bliższa część idzie w dół, grzbiet przechyla się do
+    // widza
     const t = topView(10);
     rotatePose(t, 0, 0.3, 0);
     expect(project(t, raised).y).toBeLessThan(-0.05);
@@ -128,7 +129,7 @@ describe('kamera notesu (PAD-10…PAD-12)', () => {
   });
 });
 
-describe('tekstura kartki (PAD-16)', () => {
+describe('tekstura kartki', () => {
   const photo = { size: { w: 10, h: 14 }, image: 'data:' } as PadTemplate;
 
   it('ma rozdzielczość zdjęcia z edytora, bez zmniejszania do 1600 px', () => {

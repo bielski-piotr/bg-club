@@ -15,7 +15,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Szkice i wznawianie partii (PRD PAD-4, PAD-8, PAD-9, RUN-3, zadanie [028]): notes partii
+ * Szkice i wznawianie partii: notes partii
  * w toku zapisuje wpisy w bazie z opóźnieniem i lokalnie, odświeżenie i utrata sieci ich nie
  * gubią, nowszy szkic z innego urządzenia daje konflikt zamiast cichego nadpisania, porzucenie
  * usuwa szkic i kopię lokalną, a gracz widzi tylko „Trwa partia”. API Supabase jest atrapą;
@@ -90,7 +90,7 @@ function draft(extra: Partial<MockPlay> = {}): MockPlay {
   };
 }
 
-/** Druga partia w toku przy drugim stole (RUN-3). */
+/** Druga partia w toku przy drugim stole. */
 const OTHER: MockPlay = {
   id: OTHER_ID,
   meeting_id: RUNNING.id,
@@ -190,7 +190,7 @@ async function check(page: Page) {
 
 const search = (page: Page) => page.evaluate(() => decodeURIComponent(window.location.search));
 
-test('admin wraca do notesu, wpisy zapisują się z opóźnieniem i przetrwają odświeżenie (PAD-4)', async ({
+test('admin wraca do notesu, wpisy zapisują się z opóźnieniem i przetrwają odświeżenie', async ({
   page,
 }) => {
   test.slow();
@@ -207,7 +207,7 @@ test('admin wraca do notesu, wpisy zapisują się z opóźnieniem i przetrwają 
   expect(await search(page)).toBe(`?p=meeting/${RUNNING.id}&p=play/${PLAY_ID}`);
   await padReady(page);
 
-  // Notes ma graczy z miejsc partii (PAD-2); samo otwarcie niczego nie zapisuje.
+  // Notes ma graczy z miejsc partii; samo otwarcie niczego nie zapisuje.
   expect((await padCells(page)).names).toEqual(NAMES);
   await expect(popup.getByRole('status')).toHaveText('Szkic zapisany');
   await check(page);
@@ -236,7 +236,7 @@ test('admin wraca do notesu, wpisy zapisują się z opóźnieniem i przetrwają 
   expect(mock.draftSaves).toHaveLength(1);
 });
 
-test('inne urządzenie bez kopii lokalnej wczytuje szkic z bazy (PAD-4, bez synchronizacji na żywo)', async ({
+test('inne urządzenie bez kopii lokalnej wczytuje szkic z bazy (bez synchronizacji na żywo)', async ({
   page,
 }) => {
   const mock = await openApp(
@@ -261,7 +261,7 @@ test('inne urządzenie bez kopii lokalnej wczytuje szkic z bazy (PAD-4, bez sync
   await check(page);
 });
 
-test('utrata sieci: wpisy zostają na urządzeniu i wracają po odświeżeniu i połączeniu (PAD-4)', async ({
+test('utrata sieci: wpisy zostają na urządzeniu i wracają po odświeżeniu i połączeniu', async ({
   page,
 }) => {
   test.slow();
@@ -294,7 +294,7 @@ test('utrata sieci: wpisy zostają na urządzeniu i wracają po odświeżeniu i 
   expect(await localCopy(page)).toMatchObject({ dirty: false, baseVersion: 2 });
 });
 
-test('nowszy szkic z innego urządzenia: konflikt zamiast nadpisania, wybór wersji (PAD-4)', async ({
+test('nowszy szkic z innego urządzenia: konflikt zamiast nadpisania, wybór wersji', async ({
   page,
 }) => {
   test.slow();
@@ -389,9 +389,7 @@ test('kopia z tego urządzenia i nowszy szkic w bazie: wybór przed otwarciem no
   });
 });
 
-test('porzucenie usuwa szkic i kopię lokalną; druga partia zostaje (PAD-8, RUN-3)', async ({
-  page,
-}) => {
+test('porzucenie usuwa szkic i kopię lokalną; druga partia zostaje', async ({ page }) => {
   const mock = await openApp(
     page,
     { plays: [draft({ draft_version: 1, sheet: sheet(2) }), OTHER] },
@@ -438,7 +436,7 @@ test('porzucenie usuwa szkic i kopię lokalną; druga partia zostaje (PAD-8, RUN
   ).toHaveCount(0);
 });
 
-test('gracz widzi tylko „Trwa partia”, bez notesu i akcji; link do notesu wyjaśnia (PAD-9)', async ({
+test('gracz widzi tylko „Trwa partia”, bez notesu i akcji; link do notesu wyjaśnia', async ({
   page,
 }) => {
   const mock = await openApp(

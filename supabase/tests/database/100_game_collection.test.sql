@@ -1,6 +1,6 @@
--- [012] Kolekcja gier (PRD GAME-1…GAME-6, GAME-8, GAME-9) z perspektywy klienta: zapis tylko
+-- Kolekcja gier z perspektywy klienta: zapis tylko
 -- admin, wyszukiwanie bez wielkości liter i polskich znaków, kolejność widżetu, miękkie
--- usunięcie. Snapshot punktacji partii przy rozpoczęciu (GAME-9) sprawdza 030_plays.
+-- usunięcie. Snapshot punktacji partii przy rozpoczęciu sprawdza 030_plays.
 -- Dane testowe są fikcyjne.
 begin;
 
@@ -16,7 +16,7 @@ insert into public.profiles (id, hook, first_name, last_name, role) values
   ('00000000-0000-4000-a000-000000000002', 'bartek-testowy-b002', 'Bartek', 'Testowy', 'player');
 
 -- =============================================================================================
--- Zapis: tylko admin (GAME-3), walidacja w bazie (GAME-4, GAME-5)
+-- Zapis: tylko admin, walidacja w bazie
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
@@ -36,23 +36,23 @@ select lives_ok(
      ('00000000-0000-4000-b000-000000000002', 'Łąka i Pszczoły', 1, 1, '{5}', null, 2),
      ('00000000-0000-4000-b000-000000000003', 'Gra 100% losowa', 2, 3, '{3,2,1}', null, 1),
      ('00000000-0000-4000-b000-000000000004', 'Gra_testowa', 2, 2, '{1,0}', null, 3.25) $$,
-  'admin: dodaje gry z okładką i bez (GAME-3, GAME-6)');
+  'admin: dodaje gry z okładką i bez');
 select lives_ok(
   $$ insert into public.games (id, title, min_players, max_players, placement_points, complexity) values
      ('00000000-0000-4000-b000-000000000005', 'Wielka Gra', 2, 30,
       array_fill(0, array[30]), 4) $$,
-  'admin: bez górnego limitu graczy (GAME-4)');
+  'admin: bez górnego limitu graczy');
 select throws_ok(
   $$ insert into public.games (title, min_players, max_players, placement_points, complexity)
      values ('Zły zakres', 3, 2, '{1,0}', 2) $$,
-  '23514', null, 'min > max jest odrzucane (GAME-4)');
+  '23514', null, 'min > max jest odrzucane');
 select throws_ok(
   $$ update public.games set max_players = 5 where id = '00000000-0000-4000-b000-000000000001' $$,
-  '23514', null, 'zmiana max bez punktów dla każdego miejsca jest odrzucana (GAME-5)');
+  '23514', null, 'zmiana max bez punktów dla każdego miejsca jest odrzucana');
 select lives_ok(
   $$ update public.games set max_players = 5, placement_points = '{0,2,4,6,8}', title = 'Żółwie Wyścigi 2'
       where id = '00000000-0000-4000-b000-000000000001' $$,
-  'admin: rosnąca punktacja jest dozwolona (tylko ostrzeżenie w formularzu, GAME-5)');
+  'admin: rosnąca punktacja jest dozwolona (tylko ostrzeżenie w formularzu)');
 
 reset role;
 set local role authenticated;
@@ -66,7 +66,7 @@ select results_eq(
   'gracz: nie edytuje ani nie usuwa gry (RLS nie obejmuje wiersza)');
 
 -- =============================================================================================
--- Wyszukiwanie (GAME-2)
+-- Wyszukiwanie
 -- =============================================================================================
 select results_eq(
   $$ select title from public.search_games('ZOLW') $$,
@@ -104,7 +104,7 @@ select is(
 reset role;
 
 -- =============================================================================================
--- Kolejność widżetu: ostatnio grane, potem ostatnio dodane (GAME-1, Q11)
+-- Kolejność widżetu: ostatnio grane, potem ostatnio dodane
 -- =============================================================================================
 -- Daty dodania: b001 najstarsza … b005 najnowsza.
 update public.games g set created_at = timestamptz '2026-10-01 12:00+00' + (n || ' days')::interval
@@ -181,7 +181,7 @@ select results_eq(
 reset role;
 
 -- =============================================================================================
--- Miękkie usunięcie (GAME-8) i niezmienność historii (GAME-9)
+-- Miękkie usunięcie i niezmienność historii
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
@@ -244,16 +244,16 @@ select is(
 select results_eq(
   $$ select status, points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000001' $$,
   $$ values ('saved', '{10,6,4,2}'::numeric[]) $$,
-  'partia usuniętej gry zostaje z punktacją z chwili rozpoczęcia (GAME-8, GAME-9)');
+  'partia usuniętej gry zostaje z punktacją z chwili rozpoczęcia');
 
--- Edycja punktacji grającej gry nie zmienia jej partii (GAME-9).
+-- Edycja punktacji grającej gry nie zmienia jej partii.
 select lives_ok(
   $$ update public.games set placement_points = '{9}' where id = '00000000-0000-4000-b000-000000000002' $$,
   'admin: zmienia punktację gry z partiami');
 select results_eq(
   $$ select points_snapshot from public.plays where id = '00000000-0000-4000-f000-000000000002' $$,
   $$ values ('{5}'::numeric[]) $$,
-  'zapisana partia zachowuje dawną punktację (GAME-9)');
+  'zapisana partia zachowuje dawną punktację');
 
 reset role;
 

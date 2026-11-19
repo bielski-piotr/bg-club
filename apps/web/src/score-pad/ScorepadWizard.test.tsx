@@ -24,7 +24,7 @@ import type * as Scorepads from './scorepads';
 import type { Scorepad } from './scorepads';
 
 /*
- * Kreator edytora notesu (PRD §5.5.2, EDT-1, EDT-9, DS §18, zadanie [016]): pięć kroków,
+ * Kreator edytora notesu: pięć kroków,
  * walidacja przejścia, powrót bez utraty danych, krok zdjęcia (plik, przeciągnięcie, schowek,
  * kamera, import `.json`) i ochrona przed utratą zmian. `<score-pad-editor>` jest atrapą
  * (jego tryb kreatora testuje pakiet), zapis w bazie też. Dane są fikcyjne.
@@ -106,7 +106,7 @@ const EMPTY: ScorePadEditorStatus = {
   openFailed: false,
 };
 
-/** Kategoria kroku 4 (EDT-13) w stanie edytora. */
+/** Kategoria kroku 4 w stanie edytora. */
 function category(
   id: string,
   label: string,
@@ -613,7 +613,7 @@ describe('kreator edytora notesu', () => {
     expect(screen.queryByRole('dialog', { name: 'Odrzucić zmiany?' })).not.toBeInTheDocument();
   });
 
-  it('krok 5: test notesu z fikcyjnymi graczami, losowy remis i wynik bez zapisu (EDT-14)', async () => {
+  it('krok 5: test notesu z fikcyjnymi graczami, losowy remis i wynik bez zapisu', async () => {
     // Notes z tabelą dla 3 graczy: punkty 0–3, remis rozstrzygają „Jaja” (więcej = lepiej).
     fake.exported = {
       v: 2,
@@ -691,7 +691,7 @@ describe('kreator edytora notesu', () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
   });
 
-  it('krok 5: notes można zapisać od razu, bez testu (EDT-14)', async () => {
+  it('krok 5: notes można zapisać od razu, bez testu', async () => {
     const dialog = renderWizard(null, TEMPLATE);
     await waitFor(() => expect(pill('Obszar kartki (ukończony)')).toBeEnabled());
     fireEvent.click(pill('5. Test i zapis'));
@@ -702,7 +702,7 @@ describe('kreator edytora notesu', () => {
     expect(padFake.tear).not.toHaveBeenCalled();
   });
 
-  it('krok 2: panel obszaru kartki zmienia ustawienia edytora (EDT-10)', async () => {
+  it('krok 2: panel obszaru kartki zmienia ustawienia edytora', async () => {
     const dialog = renderWizard();
     await choosePhoto(dialog);
     fireEvent.click(next());
@@ -779,7 +779,7 @@ describe('kreator edytora notesu', () => {
     ).toBe(custom);
   });
 
-  it('krok 3: mapowanie pól, liczby, ostrzeżenie EDT-6 i walidacja (EDT-11)', async () => {
+  it('krok 3: mapowanie pól, liczby, ostrzeżenie o liczbie miejsc i walidacja', async () => {
     const dialog = renderWizard();
     await choosePhoto(dialog);
     fireEvent.click(next());
@@ -795,7 +795,7 @@ describe('kreator edytora notesu', () => {
     const toolbar = within(dialog).getByRole('toolbar', { name: 'Narzędzia mapowania' });
     expect(within(toolbar).getByRole('button', { name: 'Cofnij (Ctrl+Z)' })).toBeDisabled();
     expect(within(toolbar).getByRole('button', { name: 'Dopasuj widok' })).toBeDisabled();
-    // EDT-6: mniej miejsc niż max. graczy gry (5).
+    // Mniej miejsc niż max. graczy gry (5).
     expect(
       within(dialog).getByText(
         'Notes ma 1 miejsce dla gracza, a gra pozwala na 5 graczy. Tego notesu można używać tylko w partiach do 1 graczy.',
@@ -910,7 +910,7 @@ describe('kreator edytora notesu', () => {
       },
     });
     expect(within(dialog).getByText(/Nie znaleziono tabeli na kartce/)).toBeVisible();
-    // 6 miejsc ≥ 5 graczy gry: bez ostrzeżenia EDT-6.
+    // 6 miejsc ≥ 5 graczy gry: bez ostrzeżenia o liczbie miejsc.
     expect(within(dialog).queryByText(/można używać tylko w partiach/)).toBeNull();
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Wierszach' }));
     expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'players', players: 'rows' });
@@ -945,7 +945,7 @@ describe('kreator edytora notesu', () => {
     return dialog;
   }
 
-  it('krok 4: nazwa, typ, zakres, sumy i opis kategorii (EDT-13)', async () => {
+  it('krok 4: nazwa, typ, zakres, sumy i opis kategorii', async () => {
     const dialog = await openCategories();
     expect(within(dialog).getByRole('tab', { name: 'Kategorie' })).toHaveAttribute(
       'aria-selected',
@@ -1052,7 +1052,7 @@ describe('kreator edytora notesu', () => {
     expect(next()).toBeEnabled();
   });
 
-  it('krok 4: kategoria decydująca, kierunek i uporządkowane reguły remisów (EDT-2…EDT-4)', async () => {
+  it('krok 4: kategoria decydująca, kierunek i uporządkowane reguły remisów', async () => {
     const dialog = await openCategories();
     update({
       categories: {

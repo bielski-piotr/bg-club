@@ -28,10 +28,10 @@ import './scorepads.css';
 const text = t.scorepads.list;
 
 /**
- * Notesy gry (PRD GAME-7, DS „Game / notes pick row”): nazwa, miniatura kartki, liczba miejsc
+ * Notesy gry: nazwa, miniatura kartki, liczba miejsc
  * dla graczy i numer aktualnej wersji. Administrator dodaje notes w edytorze albo importuje plik
  * `.json`, a przy każdym notesie ma „Edytuj”, „Zmień nazwę”, „Eksportuj do pliku” i „Usuń”.
- * Notes z mniejszą liczbą miejsc niż max. graczy gry ma ostrzeżenie (EDT-6).
+ * Notes z mniejszą liczbą miejsc niż max. graczy gry ma ostrzeżenie.
  */
 export function ScorepadsPopup({
   gameId,
@@ -275,7 +275,7 @@ function ScorepadRow({
 }
 
 /**
- * Miniatura kartki 36×46 (DS „Score-sheet thumbnail”): miniatura zdjęcia aktualnej wersji
+ * Miniatura kartki 36×46: miniatura zdjęcia aktualnej wersji
  * z prywatnego bucketu (kilka KB, `thumbPath`), a gdy jej nie ma (starsze wersje) pełne zdjęcie.
  * Rysunek kartki, gdy notes nie ma zdjęcia lub obraz jeszcze się wczytuje.
  */

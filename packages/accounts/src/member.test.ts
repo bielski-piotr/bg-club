@@ -65,7 +65,7 @@ function fakeAccounts(options: FakeOptions = {}) {
   return { accounts, created, checked };
 }
 
-describe('tworzenie członka (MEM-3, USR-1, AUTH-4)', () => {
+describe('tworzenie członka', () => {
   it('tworzy hook z polskimi znakami i hasło z generatora kryptograficznego', async () => {
     const { accounts, created } = fakeAccounts();
     const member = await createMember(

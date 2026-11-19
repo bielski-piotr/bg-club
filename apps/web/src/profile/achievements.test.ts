@@ -41,8 +41,8 @@ const data = (over: Partial<PlayerAchievements> = {}): PlayerAchievements => ({
   ...over,
 });
 
-describe('gablota osiągnięć (ACH-3)', () => {
-  it('pokazuje cały katalog w grupach, w kolejności z PRD', () => {
+describe('gablota osiągnięć', () => {
+  it('pokazuje cały katalog w grupach, w kolejności katalogu', () => {
     const groups = showcaseGroups(data());
     expect(groups.flatMap((g) => g.items.map((i) => i.achievement.id))).toEqual(
       ACHIEVEMENTS.map((a) => a.id),
@@ -97,7 +97,7 @@ describe('gablota osiągnięć (ACH-3)', () => {
     expect(showcaseItem(d, 'legend-x')).toBeNull();
   });
 
-  it('zdarzenia partii i spotkań odświeżają gablotę i listę spotkania (§5.6.5, [036])', () => {
+  it('zdarzenia partii i spotkań odświeżają gablotę i listę spotkania', () => {
     // Przeliczenie biegnie też przy rozpoczęciu, zakończeniu, publikacji, zmianie terminu
     // i usunięciu spotkania; te mutacje unieważniają `meetingsKey`.
     expect(playerAchievementsKey('x')[0]).toBe('meetings');

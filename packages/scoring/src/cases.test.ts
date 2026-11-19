@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { invalidPlacings, placesInSeatOrder, playCases } from './cases';
 import { isWin, placementPoints, rankPlayers, validateScoring } from './index';
 
-describe('wspólne przypadki TS/SQL (PRD §8.3)', () => {
+describe('wspólne przypadki TS/SQL', () => {
   it('obejmują wymagane sytuacje', () => {
     const names = playCases.map((c) => c.name).join('\n');
     expect(names).toMatch(/10\/6\/4\/2\/0 → 8\/8\/4\/2\/0/);

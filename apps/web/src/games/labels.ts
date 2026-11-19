@@ -1,6 +1,6 @@
 import { format, plural, t } from '../i18n';
 
-/** Liczba graczy gry (GAME-4): „2–4 graczy” albo „2 graczy” przy min = max. */
+/** Liczba graczy gry: „2–4 graczy” albo „2 graczy” przy min = max. */
 export function playersLabel(game: {
   readonly min_players: number;
   readonly max_players: number;

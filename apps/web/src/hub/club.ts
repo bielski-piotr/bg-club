@@ -3,12 +3,12 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 import type { ScaledImage } from '../club/image';
 import { signedUrlQuery } from '../lib/storage';
 
-/** Jedyny klub instancji (PRD §1.1, CLUB-2). */
+/** Jedyny klub instancji. */
 export interface Club {
   readonly name: string;
   /** Ścieżka w buckecie `covers`; `null` = monogram nazwy. */
   readonly logo_path: string | null;
-  /** Strefa IANA do wyświetlania dat i granic roku (NFR-10). */
+  /** Strefa IANA do wyświetlania dat i granic roku. */
   readonly timezone: string;
 }
 
@@ -21,7 +21,7 @@ export const CLUB_NAME_MAX = 80;
 
 const CLUB_COLUMNS = 'name, logo_path, timezone';
 
-/** Zapytanie o klub: wspólne dla huba i prefetchu w `SignedInScreen` (NFR-2). */
+/** Zapytanie o klub: wspólne dla huba i prefetchu w `SignedInScreen`. */
 export function clubQuery(client: SupabaseClient) {
   return queryOptions({
     queryKey: clubKey,
@@ -33,7 +33,7 @@ export function clubQuery(client: SupabaseClient) {
   });
 }
 
-/** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1). */
+/** Klub albo `null`, gdy nie został jeszcze założony. */
 export function useClub(client: SupabaseClient) {
   return useQuery(clubQuery(client));
 }
@@ -75,7 +75,7 @@ interface PostgrestLikeError {
 }
 
 function failureFor(error: PostgrestLikeError): ClubSaveFailure {
-  // 23505: klucz główny `club_pkey` (klub już jest, np. równoległa próba, CLUB-2).
+  // 23505: klucz główny `club_pkey` (klub już jest, np. równoległa próba).
   if (error.code === '23505') return 'exists';
   // 42501: RLS lub brak uprawnień; PGRST116: UPDATE nie objął wiersza (RLS ukrył klub).
   if (error.code === '42501' || error.code === 'PGRST116') return 'forbidden';
@@ -83,10 +83,10 @@ function failureFor(error: PostgrestLikeError): ClubSaveFailure {
 }
 
 /**
- * Zakłada klub (gdy `existing` = `null`) albo zapisuje zmiany (CLUB-2). Nowe logo trafia do
+ * Zakłada klub (gdy `existing` = `null`) albo zapisuje zmiany. Nowe logo trafia do
  * Storage przed zapisem wiersza; gdy zapis wiersza się nie uda, wysłany plik jest usuwany,
  * a po udanym zapisie usuwany jest poprzedni plik logo. Drugi klub odrzuca baza (`23505`).
- * Zmiana strefy zmienia tylko wartość `club.timezone`, nie terminy spotkań (NFR-10).
+ * Zmiana strefy zmienia tylko wartość `club.timezone`, nie terminy spotkań.
  */
 export async function saveClub(
   client: SupabaseClient,

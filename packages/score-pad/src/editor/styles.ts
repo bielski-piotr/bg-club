@@ -239,7 +239,7 @@ export const EDITOR_CSS = String.raw`
 .spe-svg .spe-loupe .ring { fill: #fff; filter: drop-shadow(0 12px 32px rgba(22, 26, 43, .22)); }
 .spe-svg .spe-loupe .lp, .spe-svg .spe-loupe .cross { fill: none; stroke: var(--accent-vivid); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 
-/* krok 4 kreatora: kategorie na kartce (DS §18 „Category badges”, „Ranking marks”); kolory
+/* krok 4 kreatora: kategorie na kartce; kolory
    kartki są stałe w obu motywach, bo kartka to zdjęcie */
 .spe-svg .spe-cat-box { fill: transparent; cursor: pointer; stroke: rgba(47, 84, 235, .32); stroke-width: 1; vector-effect: non-scaling-stroke; transition: fill .15s; }
 .spe-svg .spe-cat-box:hover { fill: rgba(47, 84, 235, .06); }
@@ -411,11 +411,11 @@ export const EDITOR_CSS = String.raw`
   .spe[data-step="3"] .spe-stage { height: min(64vh, 560px); }
   .spe[data-step="3"] .spe-panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
 }
-/* kreator w aplikacji (EDT-9): kroki, nawigację i zdjęcie prowadzi aplikacja */
+/* kreator w aplikacji: kroki, nawigację i zdjęcie prowadzi aplikacja */
 .spe.wizard .spe-rail, .spe.wizard .spe-drop { display: none; }
 .spe.wizard .spe-in { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .spe.wizard .spe-main { grid-row: auto; }
-/* krok 2 w kreatorze (DS §18): scena bez paska i panelu edytora (są w aplikacji) */
+/* krok 2 w kreatorze: scena bez paska i panelu edytora (są w aplikacji) */
 .spe.wizard { --accent-vivid: #2f54eb; background: transparent; }
 .spe.wizard.dark { --accent-vivid: #4064f0; }
 @media (prefers-color-scheme: dark) { .spe.wizard:not(.light) { --accent-vivid: #4064f0; } }
@@ -424,7 +424,7 @@ export const EDITOR_CSS = String.raw`
 .spe.wizard[data-step="2"] .spe-stage { padding: 16px 16px 76px; background: var(--wizard-stage, #f1f3f9); }
 .spe.wizard.dark[data-step="2"] .spe-stage { --wizard-stage: #22273b; }
 @media (prefers-color-scheme: dark) { .spe.wizard:not(.light)[data-step="2"] .spe-stage { --wizard-stage: #22273b; } }
-/* kroki 3 i 4 w kreatorze (EDT-11, EDT-13, DS §18): kartka z siatką pól albo z kategoriami;
+/* kroki 3 i 4 w kreatorze: kartka z siatką pól albo z kategoriami;
    pasek i panel są w aplikacji */
 .spe.wizard:is([data-step="3"], [data-step="4"]) .spe-toolbar, .spe.wizard:is([data-step="3"], [data-step="4"]) .spe-panel { display: none; }
 .spe.wizard:is([data-step="3"], [data-step="4"]) .spe-main { grid-template-rows: minmax(0, 1fr); }

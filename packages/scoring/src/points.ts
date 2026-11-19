@@ -1,5 +1,5 @@
 /**
- * Punkty leaderboardu za miejsca (PRD §5.6.2, §5.6.3). Te same reguły liczy w bazie
+ * Punkty leaderboardu za miejsca. Te same reguły liczy w bazie
  * `public.play_points` (migracja `…_complexity_teams.sql`); obie wersje przechodzą
  * `cases/play-cases.json`.
  *
@@ -37,7 +37,7 @@ export function isValidPlacing(places: readonly number[]): boolean {
 
 /**
  * Czy punktacja miejsc jest poprawna: liczby ≥ 0 z najwyżej dwoma miejscami po przecinku
- * (GAME-5, `is_valid_points`).
+ * (`is_valid_points`).
  */
 export function isValidPointsTable(points: readonly number[]): boolean {
   return points.every((p) => p >= 0 && hundredths(p) !== null);
@@ -64,10 +64,10 @@ export function placementPoints(places: readonly number[], points: readonly numb
   });
 }
 
-/** Wygrana: każdy gracz na miejscu 1, także przy wspólnym 1. miejscu (D8). */
+/** Wygrana: każdy gracz na miejscu 1, także przy wspólnym 1. miejscu. */
 export const isWin = (place: number): boolean => place === 1;
 
-/** Stałe wzoru punktacji ze skomplikowania gry (GAME-5). */
+/** Stałe wzoru punktacji ze skomplikowania gry. */
 export const COMPLEXITY_FORMULA = {
   /** Punkty zwycięzcy w grze o skomplikowaniu 1 przed premią za liczbę graczy. */
   base: 20,

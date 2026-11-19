@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SAMPLE_SCORE_PAD } from '../design-system/scorePadSample';
+import { SAMPLE_SCORE_PAD } from '../test/scorePadSample';
 import { t } from '../i18n';
 import { setThemePreference } from '../theme/useTheme';
 import type * as LoadModule from './load';
@@ -66,7 +66,7 @@ describe('ScorePadView', () => {
     expect(element?.pad).toBeNull();
   });
 
-  it('tryb testowy kreatora i uchwyt: wpisy kartki, oderwanie, widok z góry (EDT-14)', async () => {
+  it('tryb testowy kreatora i uchwyt: wpisy kartki, oderwanie, widok z góry', async () => {
     const ref = createRef<ScorePadHandle>();
     const onLoadState = vi.fn();
     render(

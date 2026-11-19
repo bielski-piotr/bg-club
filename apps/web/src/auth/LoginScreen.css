@@ -1,6 +1,6 @@
 /*
- * Ekran logowania i widok po zalogowaniu (PRD §4, AUTH-1). Karta jak ekran startowy
- * (`.start-card` w styles.css), pola i przyciski z design systemu (DS §9, §10).
+ * Ekran logowania i widok po zalogowaniu. Karta jak ekran startowy
+ * (`.start-card` w styles.css), pola i przyciski z design systemu.
  */
 .login {
   max-width: 420px;
@@ -10,7 +10,7 @@
   margin-top: 20px;
 }
 
-/* Odstęp między polami 16–20 (DS §5). */
+/* Odstęp między polami 16–20. */
 .login__form {
   display: flex;
   flex-direction: column;

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 /**
- * Ikony liniowe rysowane ręcznie na siatce 16×16 (DS §13, §15, §17, §18).
+ * Ikony liniowe rysowane ręcznie na siatce 16×16.
  * Glify interfejsu mają grubość 2, piktogramy 1,75. Bez biblioteki ikon.
  */
 export const glyphs = {
@@ -116,7 +116,7 @@ export const pictograms = {
   undo: (
     <path d="M5.5 9.5L2.75 6.75L5.5 4M3 6.75H9.5C11.43 6.75 13 8.32 13 10.25C13 12.18 11.43 13.75 9.5 13.75H7" />
   ),
-  /** Dopasuj widok / widok z góry (DS §18). */
+  /** Dopasuj widok / widok z góry. */
   target: (
     <>
       <circle cx="8" cy="8" r="4.5" />
@@ -124,7 +124,7 @@ export const pictograms = {
       <path d="M8 1.5V3.5M8 12.5V14.5M1.5 8H3.5M12.5 8H14.5" />
     </>
   ),
-  /** Oderwij kartkę (DS §18): kartka z perforacją u góry i strzałką w dół. */
+  /** Oderwij kartkę: kartka z perforacją u góry i strzałką w dół. */
   'tear-off': (
     <>
       <path d="M3 5.5H4.5M6.25 5.5H7.75M9.5 5.5H11M12.5 5.5H13" />
@@ -151,9 +151,9 @@ export const pictograms = {
   logout: (
     <path d="M6.5 13.5H4C3.2 13.5 2.5 12.8 2.5 12V4C2.5 3.2 3.2 2.5 4 2.5H6.5M10 11L13 8L10 5M13 8H6" />
   ),
-  /** Ustawienia profilu (USR-5): suwaki. */
+  /** Ustawienia profilu: suwaki. */
   settings: <path d="M2.5 4.5H9M12 4.5H13.5M2.5 11.5H4M7 11.5H13.5M10.5 3V6M5.5 10V13" />,
-  /** Hasło (USR-5, AUTH-6). */
+  /** Hasło. */
   lock: (
     <>
       <rect x="3" y="7" width="10" height="6.5" rx="1.75" />

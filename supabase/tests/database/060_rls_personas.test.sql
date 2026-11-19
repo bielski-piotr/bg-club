@@ -1,4 +1,4 @@
--- [004] RLS i Storage z perspektywy klienta (PRD §2.1, §6.1).
+-- RLS i Storage z perspektywy klienta.
 -- Każda sekcja przełącza się na rolę, z którą PostgREST i Storage API wykonują żądanie
 -- (`anon` albo `authenticated` z tokenem w `request.jwt.claims`), i sprawdza odmowę dla
 -- anonima, usuniętego konta, cudzych zasobów i braku roli oraz dozwolone działania.
@@ -110,7 +110,7 @@ select throws_ok(
 reset role;
 
 -- =============================================================================================
--- Usunięte konto z wciąż ważnym tokenem (AUTH-7, MEM-4)
+-- Usunięte konto z wciąż ważnym tokenem
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000005", "role": "authenticated"}';
@@ -146,7 +146,7 @@ reset role;
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
 
-select is((select count(*)::int from public.profiles), 6, 'gracz: widzi wszystkie profile, także usunięte (MEM-5)');
+select is((select count(*)::int from public.profiles), 6, 'gracz: widzi wszystkie profile, także usunięte');
 select is((select count(*)::int from public.meetings), 5, 'gracz: widzi wszystkie spotkania');
 select is((select count(*)::int from public.plays), 2, 'gracz: widzi partie');
 select is((select count(*)::int from storage.objects), 3, 'gracz: widzi pliki w prywatnych bucketach');
@@ -154,7 +154,7 @@ select is(private.is_admin(), false, 'gracz: is_admin() = false');
 select is(private.is_meeting_runner('00000000-0000-4000-c000-000000000001'), false,
   'gracz: nie prowadzi cudzego spotkania');
 
--- Profil (USR-5, §6.1)
+-- Profil
 select lives_ok(
   $$ update public.profiles
         set first_name = 'Bartosz', last_name = 'Nowy', theme = 'dark',
@@ -190,7 +190,7 @@ select throws_ok(
   $$ delete from public.profiles where id = '00000000-0000-4000-a000-000000000003' $$,
   '42501', 'permission denied for table profiles', 'gracz: nie usuwa profili');
 
--- Zasoby admina (GAME-3, PLAN-1, CLUB-2)
+-- Zasoby admina
 select throws_ok(
   $$ insert into public.club (name) values ('Klub Bartka') $$,
   '42501', null, 'gracz: nie zakłada klubu');
@@ -217,7 +217,7 @@ select throws_ok(
   '42501', 'administrator required', 'gracz: nie planuje ani nie edytuje spotkań przez RPC');
 select throws_ok(
   $$ select public.start_meeting('00000000-0000-4000-c000-000000000002') $$,
-  '42501', null, 'gracz: nie rozpoczyna spotkania (§2.1)');
+  '42501', null, 'gracz: nie rozpoczyna spotkania');
 select results_eq(
   $$ with d as (delete from public.meetings where id = '00000000-0000-4000-c000-000000000005' returning 1)
      select count(*)::int from d $$,
@@ -236,7 +236,7 @@ select throws_ok(
   $$ truncate public.games cascade $$,
   '42501', null, 'gracz: nie wykona TRUNCATE');
 
--- Głosowanie (VOTE-1, VOTE-2)
+-- Głosowanie
 select lives_ok(
   $$ insert into public.game_votes (meeting_id, game_id, profile_id) values
      ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-b000-000000000002', '00000000-0000-4000-a000-000000000002') $$,
@@ -272,7 +272,7 @@ select results_eq(
   'gracz: cofa własny głos przy otwartym głosowaniu'
 );
 
--- Partie, wyniki, osiągnięcia: tylko RPC, usuwanie admin (§6.1)
+-- Partie, wyniki, osiągnięcia: tylko RPC, usuwanie admin
 select throws_ok(
   $$ insert into public.plays (meeting_id, game_id, scorepad_version_id, points_snapshot, started_by) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000001',
@@ -370,22 +370,22 @@ select results_eq(
 select throws_ok(
   $$ update public.meetings set title = 'Zmienione przez prowadzącego'
       where id = '00000000-0000-4000-c000-000000000001' $$,
-  '42501', 'permission denied for table meetings', 'prowadzący: nie edytuje spotkania (Q14)');
+  '42501', 'permission denied for table meetings', 'prowadzący: nie edytuje spotkania');
 select throws_ok(
   $$ select public.save_meeting('00000000-0000-4000-c000-000000000001', 'W trakcie', current_date, '18:00',
        array['00000000-0000-4000-a000-000000000004', '00000000-0000-4000-a000-000000000006']::uuid[],
        '00000000-0000-4000-a000-000000000004') $$,
-  '42501', 'administrator required', 'prowadzący: nie dodaje uczestników ani nie zmienia prowadzącego (PLAN-4, Q14)');
+  '42501', 'administrator required', 'prowadzący: nie dodaje uczestników ani nie zmienia prowadzącego');
 select throws_ok(
   $$ insert into public.meeting_participants (meeting_id, profile_id) values
      ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-a000-000000000006') $$,
-  '42501', null, 'prowadzący: nie dodaje uczestników (PLAN-4)');
+  '42501', null, 'prowadzący: nie dodaje uczestników');
 select throws_ok(
   $$ delete from public.plays where id = '00000000-0000-4000-f000-000000000002' $$,
   '42501', 'permission denied for table plays', 'prowadzący: nie usuwa zapisanej partii');
 select throws_ok(
   $$ delete from public.plays where id = '00000000-0000-4000-f000-000000000001' $$,
-  '42501', 'permission denied for table plays', 'prowadzący: szkic porzuca tylko przez RPC (RUN-4)');
+  '42501', 'permission denied for table plays', 'prowadzący: szkic porzuca tylko przez RPC');
 select throws_ok(
   $$ select private.require_meeting_runner('00000000-0000-4000-c000-000000000001') $$,
   '42501', 'permission denied for function require_meeting_runner',
@@ -422,14 +422,14 @@ select throws_ok($$ select private.require_active_member() $$, '42501', 'active 
   'require_active_member: odmowa bez sesji');
 
 -- =============================================================================================
--- Admin (Ada): CRUD gier, notesów, spotkań; nie edytuje cudzych kont (USR-7)
+-- Admin (Ada): CRUD gier, notesów, spotkań; nie edytuje cudzych kont
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 
 select is(private.is_admin(), true, 'admin: is_admin() = true');
 select is(private.is_meeting_runner('00000000-0000-4000-c000-000000000003'), true,
-  'admin: prowadzi każde spotkanie, także zakończone (RUN-5)');
+  'admin: prowadzi każde spotkanie, także zakończone');
 select lives_ok(
   $$ insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw') $$,
   'admin: zakłada klub'
@@ -472,7 +472,7 @@ select results_eq(
                  where id = '00000000-0000-4000-a000-000000000003' returning 1)
      select count(*)::int from u $$,
   $$ values (0) $$,
-  'admin: nie edytuje cudzego profilu (USR-7)'
+  'admin: nie edytuje cudzego profilu'
 );
 select throws_ok(
   $$ update public.profiles set role = 'player' where id = '00000000-0000-4000-a000-000000000001' $$,
@@ -480,7 +480,7 @@ select throws_ok(
 select throws_ok(
   $$ delete from public.plays where id = '00000000-0000-4000-f000-000000000002' $$,
   '42501', 'permission denied for table plays',
-  'admin: usuwa partię tylko przez RPC, które przelicza statystyki (§5.6.5)');
+  'admin: usuwa partię tylko przez RPC, które przelicza statystyki');
 select lives_ok(
   $$ select public.save_meeting(m.id, m.title, (m.starts_at at time zone 'Europe/Warsaw')::date,
        (m.starts_at at time zone 'Europe/Warsaw')::time,
@@ -488,7 +488,7 @@ select lives_ok(
              '00000000-0000-4000-a000-000000000003', '00000000-0000-4000-a000-000000000004',
              '00000000-0000-4000-a000-000000000006']::uuid[], m.host_id)
        from public.meetings m where m.id = '00000000-0000-4000-c000-000000000001' $$,
-  'admin: dodaje uczestnika do spotkania w trakcie (PLAN-4)'
+  'admin: dodaje uczestnika do spotkania w trakcie'
 );
 select throws_ok(
   $$ insert into public.meeting_participants (meeting_id, profile_id) values
@@ -513,7 +513,7 @@ select lives_ok(
 );
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('avatars', '00000000-0000-4000-a000-000000000003/admin.webp') $$,
-  '42501', null, 'admin: nie podmienia cudzego awatara (USR-7)');
+  '42501', null, 'admin: nie podmienia cudzego awatara');
 
 reset role;
 

@@ -12,7 +12,7 @@ import { deleteGame, GameSaveError, gamesKey, useGame } from './games';
 const text = t.games.remove;
 
 /**
- * Potwierdzenie „Usuń grę” (PRD GAME-8, DS „Kolekcja / Usuń grę – potwierdzenie”). Usunięcie
+ * Potwierdzenie „Usuń grę”. Usunięcie
  * jest miękkie: gra znika z kolekcji, wyszukiwania i głosowań zaplanowanych spotkań, a jej
  * partie, karteczki i punkty zostają w historii. Jest idempotentne, więc po błędzie można je
  * bezpiecznie ponowić.

@@ -12,7 +12,7 @@ import { cx } from '../ui/cx';
 const text = t.meetings.achievements;
 
 /**
- * Osiągnięcia odblokowane na spotkaniu (VIEW-5, DS §15 „Achievement row”): odznaka, „Nowe
+ * Osiągnięcia odblokowane na spotkaniu: odznaka, „Nowe
  * osiągnięcie”, nazwa i awatar gracza, w kolejności partii. Wiersz otwiera szczegóły odznaki
  * w gablocie gracza. Bez odblokowań sekcji nie ma. Lista pochodzi z przeliczenia w bazie, więc
  * po usunięciu partii (odświeżenie `meetingsKey`) nie zostają na niej nieaktualne odznaki.

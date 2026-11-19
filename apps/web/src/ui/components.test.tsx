@@ -330,7 +330,7 @@ describe('poprawki po code review', () => {
     expect(input).not.toHaveAttribute('aria-invalid');
   });
 
-  it('z wyszukiwarką filtruje bez polskich znaków i wybiera Enterem (DS §17)', () => {
+  it('z wyszukiwarką filtruje bez polskich znaków i wybiera Enterem', () => {
     const onChange = vi.fn();
     render(
       <Select

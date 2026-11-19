@@ -41,7 +41,7 @@ interface TestStepProps {
 }
 
 /**
- * Krok 5 kreatora „Test i zapis” (EDT-14, EDT-1, DS §18): notes 3D jak w partii (PAD-10…PAD-16)
+ * Krok 5 kreatora „Test i zapis”: notes 3D jak w partii
  * z fikcyjnymi graczami. „Wypełnij losowo” wpisuje wartości zgodne z zakresami kategorii,
  * opcjonalnie z remisem na kategorii decydującej. Oderwanie karteczki (gestem albo przyciskiem)
  * pokazuje miejsca policzone tymi samymi regułami co partia; nic nie trafia do bazy ani historii.

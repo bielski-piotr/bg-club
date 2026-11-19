@@ -1,5 +1,5 @@
 /**
- * Wspólne przypadki osiągnięć (PRD §5.10, NFR-11): TypeScript (`computeAchievements`) i baza
+ * Wspólne przypadki osiągnięć: TypeScript (`computeAchievements`) i baza
  * (`private.computed_achievement_unlocks`, test pgTAP generowany przez `../sql.ts`) muszą dać
  * dokładnie te same odblokowania.
  *
@@ -43,7 +43,7 @@ export interface CaseMeeting {
   /** Domyślnie zakończone; `false` = spotkanie w trakcie. */
   readonly finished?: boolean;
   readonly plays?: readonly CasePlay[];
-  /** Gracze z głosem w chwili zamknięcia głosowania (Q18). */
+  /** Gracze z głosem w chwili zamknięcia głosowania. */
   readonly voters?: readonly number[];
 }
 

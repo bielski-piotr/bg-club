@@ -36,7 +36,7 @@ function template(): PadTemplate {
 
 const roundTrip = (t: unknown) => validateTemplate(JSON.parse(JSON.stringify(t)));
 
-describe('reguła miejsc w pliku notesu (EDT-7)', () => {
+describe('reguła miejsc w pliku notesu', () => {
   it('wczytanie zachowuje poprawną regułę bez nadmiarowych pól', () => {
     const t = template();
     const raw = { ...t, ranking: { ...t.ranking, note: 'x' } };

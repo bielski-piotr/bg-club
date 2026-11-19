@@ -68,14 +68,14 @@ function nameError(problem: NameProblem | undefined, required: string): string |
 }
 
 /**
- * Ustawienia własnego profilu (USR-3, USR-5, USR-8; DS „Profil / Ustawienia”). Adres `settings`
- * dotyczy zawsze zalogowanego użytkownika, więc nie ma jak otworzyć cudzych ustawień (USR-7).
+ * Ustawienia własnego profilu. Adres `settings`
+ * dotyczy zawsze zalogowanego użytkownika, więc nie ma jak otworzyć cudzych ustawień.
  *
  * - **Profil**: zdjęcie (wybór pliku → kadrowanie 256×256 → podgląd; „Usuń zdjęcie” wraca do
  *   monogramu), imię i nazwisko. Zapisuje je przycisk „Zapisz”.
- * - **Wygląd**: motyw działa od razu i trafia do profilu oraz `localStorage` (USR-8).
+ * - **Wygląd**: motyw działa od razu i trafia do profilu oraz `localStorage`.
  * - **Konto**: hook tylko do odczytu, zmiana hasła (osobny popup), wylogowanie i usunięcie
- *   własnego konta z potwierdzeniem hasłem (USR-6). Administrator nie widzi usuwania konta.
+ *   własnego konta z potwierdzeniem hasłem. Administrator nie widzi usuwania konta.
  */
 export function SettingsPopup({ me }: { readonly me: OwnProfile }) {
   const { client, signOut } = useAuth();

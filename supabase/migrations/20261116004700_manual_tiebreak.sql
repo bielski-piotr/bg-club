@@ -1,4 +1,4 @@
--- [044] Manual resolves only ties left by earlier category rules (EDT-5, EDT-7).
+-- Manual resolves only ties left by earlier category rules.
 -- Keep save_play and its ACL/idempotency contract intact.
 create or replace function private.scorepad_ranking(template jsonb, out dir text, out tiebreak boolean)
 language plpgsql

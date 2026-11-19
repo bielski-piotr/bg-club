@@ -12,15 +12,15 @@ interface AppHeaderProps {
   /**
    * Klub do pokazania. `null` = błąd wczytania (nazwa aplikacji zamiast nazwy klubu),
    * `undefined` = wczytywanie (szkielet, żeby nie mignęła nazwa aplikacji),
-   * `'none'` = klub jeszcze nie założony: sam chip użytkownika, bez paska (CLUB-1, DS §17).
+   * `'none'` = klub jeszcze nie założony: sam chip użytkownika, bez paska.
    */
   readonly club: Club | null | undefined | 'none';
   readonly me: Profile;
 }
 
 /**
- * Nagłówek huba (DS §17): logo i nazwa klubu po lewej, dla admina ołówek otwierający
- * formularz klubu (CLUB-2), chip użytkownika po prawej. Chip otwiera menu awatara (CLUB-1):
+ * Nagłówek huba: logo i nazwa klubu po lewej, dla admina ołówek otwierający
+ * formularz klubu, chip użytkownika po prawej. Chip otwiera menu awatara:
  * własny profil, ustawienia i wylogowanie.
  */
 export function AppHeader({ club, me }: AppHeaderProps) {

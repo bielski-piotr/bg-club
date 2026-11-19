@@ -26,7 +26,7 @@ import {
 } from './editor/photo';
 
 /*
- * Obszar kartki (EDT-10, zadanie [017]): wielokąt na zdjęciu → narożniki do prostowania
+ * Obszar kartki: wielokąt na zdjęciu → narożniki do prostowania
  * perspektywy i kształt kartki. Próbki: zaokrąglone rogi, wycięcia i zdjęcie perspektywiczne.
  */
 
@@ -343,7 +343,7 @@ describe('edycja punktów', () => {
   });
 });
 
-describe('rozdzielczość i zapis kartki (EDT-12)', () => {
+describe('rozdzielczość i zapis kartki', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     resetWebpProbe();

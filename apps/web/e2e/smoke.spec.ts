@@ -21,6 +21,6 @@ test('tło strony odpowiada motywowi systemu', async ({ page }) => {
   await page.goto('/');
   const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const dark = test.info().project.use.colorScheme === 'dark';
-  // #F3F4F8 (DS §3) w jasnym, #0F1220 w ciemnym.
+  // #F3F4F8 w jasnym, #0F1220 w ciemnym.
   expect(background).toBe(dark ? 'rgb(15, 18, 32)' : 'rgb(243, 244, 248)');
 });

@@ -11,7 +11,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Planowanie spotkań (PRD PLAN-1…PLAN-5, MTG-1, NFR-10; DS §15): widżet, formularz admina
+ * Planowanie spotkań: widżet, formularz admina
  * z uczestnikami i prowadzącym, edycja zaplanowanego i trwającego, usuwanie. API Supabase jest
  * atrapą; reguły statusów sprawdzają testy SQL (130_meetings). Każdy test przechodzi na
  * 360 px i na desktopie, w motywie jasnym i ciemnym.
@@ -70,7 +70,7 @@ test('admin planuje spotkanie z pustego widżetu; widżet pokazuje je w strefie 
   const dialog = page.getByRole('dialog', { name: 'Zaplanuj spotkanie' });
   await expect(dialog).toBeVisible();
   expect(await search(page)).toBe('?p=meetings/new');
-  // Admin jest domyślnie uczestnikiem; usunięta Zoja nie jest na liście (MEM-6).
+  // Admin jest domyślnie uczestnikiem; usunięta Zoja nie jest na liście.
   await expect(dialog.getByText('Wybrano 1 z 3')).toBeVisible();
   await expect(dialog.getByRole('checkbox', { name: /Ada/ })).toBeChecked();
   await expect(dialog.getByText('Zoja Zawada')).toHaveCount(0);
@@ -89,7 +89,7 @@ test('admin planuje spotkanie z pustego widżetu; widżet pokazuje je w strefie 
   await pickTime(page, '19:30');
   await dialog.getByRole('button', { name: 'Zaznacz wszystkich' }).click();
   await expect(dialog.getByText('Wybrano 3 z 3')).toBeVisible();
-  // Prowadzący spośród uczestników innych niż admin (PLAN-1).
+  // Prowadzący spośród uczestników innych niż admin.
   await dialog.getByRole('button', { name: /^Prowadzący/ }).click();
   await expect(page.getByRole('option')).toHaveText([
     'Ada Adminowska (administrator)',
@@ -116,7 +116,7 @@ test('admin planuje spotkanie z pustego widżetu; widżet pokazuje je w strefie 
     [ADA.id, BEA.id, CEZARY.id].sort(),
   );
 
-  // MTG-1: tytuł, data w strefie klubu, uczestnicy, prowadzący i stan głosowania.
+  // Tytuł, data w strefie klubu, uczestnicy, prowadzący i stan głosowania.
   await expect(widget.getByRole('heading', { name: 'Sobotnie granie' })).toBeVisible();
   await expect(widget.getByText('sobota, 30 lis 2030 · 19:30')).toBeVisible();
   await expect(widget.getByText('3 uczestników · prowadzi Bea')).toBeVisible();
@@ -141,7 +141,7 @@ test('edycja zaplanowanego: wszystkie pola; odznaczony prowadzący oddaje prowad
 
   const dialog = page.getByRole('dialog', { name: 'Edytuj spotkanie' });
   expect(await search(page)).toBe(`?p=meeting/${planned.id}/edit`);
-  // 17:00 UTC w listopadzie = 18:00 w Warszawie (NFR-10).
+  // 17:00 UTC w listopadzie = 18:00 w Warszawie.
   await expect(dialog.getByLabel('Tytuł')).toHaveValue('Listopadowe granie');
   await expect(dialog.getByLabel('Data')).toHaveValue('2026-11-28');
   await expect(dialog.getByRole('button', { name: /^Godzina/ })).toContainText('18:00');
@@ -170,9 +170,7 @@ test('edycja zaplanowanego: wszystkie pola; odznaczony prowadzący oddaje prowad
   await expect(widget.getByText('2 uczestników', { exact: true })).toBeVisible();
 });
 
-test('w trakcie: tytuł i termin zablokowane, uczestnik z partią zostaje (PLAN-4)', async ({
-  page,
-}) => {
+test('w trakcie: tytuł i termin zablokowane, uczestnik z partią zostaje', async ({ page }) => {
   const running = mockMeeting(2, 'Trwające granie', {
     status: 'in_progress',
     voting_open: false,
@@ -209,7 +207,7 @@ test('w trakcie: tytuł i termin zablokowane, uczestnik z partią zostaje (PLAN-
 
   await dialog.getByRole('button', { name: 'Zapisz' }).click();
   await expect(page.getByText('Zapisano zmiany w spotkaniu Trwające granie')).toBeVisible();
-  // Termin bez zmian nie jest wysyłany (baza go nie przelicza, NFR-10).
+  // Termin bez zmian nie jest wysyłany (baza go nie przelicza).
   expect(mock.meetingSaves.at(-1)).toMatchObject({
     title: 'Trwające granie',
     local_date: null,
@@ -219,8 +217,8 @@ test('w trakcie: tytuł i termin zablokowane, uczestnik z partią zostaje (PLAN-
     is_new: false,
   });
 
-  // Menu trwającego spotkania nie ma usuwania (PLAN-3), a kolejne spotkanie da się zaplanować.
-  // Edycja w trakcie to dopisanie uczestnika i zmiana prowadzącego (PLAN-4, DS §15).
+  // Menu trwającego spotkania nie ma usuwania, a kolejne spotkanie da się zaplanować.
+  // Edycja w trakcie to dopisanie uczestnika i zmiana prowadzącego.
   await widget.getByRole('button', { name: 'Akcje spotkania Trwające granie' }).click();
   await expect(page.getByRole('menuitem')).toHaveText([
     'Zaplanuj kolejne spotkanie',
@@ -258,7 +256,7 @@ test('błąd reguły z bazy pokazuje polski komunikat i zostawia formularz', asy
   await expect(dialog).toBeVisible();
 });
 
-test('admin usuwa zaplanowane spotkanie z potwierdzeniem (PLAN-3)', async ({ page }) => {
+test('admin usuwa zaplanowane spotkanie z potwierdzeniem', async ({ page }) => {
   const planned = mockMeeting(5, 'Do odwołania');
   const mock = await openApp(page, { meetings: [planned] });
   const widget = page.getByRole('region', { name: 'Spotkanie', exact: true });
@@ -293,7 +291,7 @@ test('gracz widzi spotkanie bez akcji i nie otworzy formularzy z linku', async (
   }
 });
 
-test('gracz widzi najbliższe spotkanie bez menu admina (MTG-1)', async ({ page }) => {
+test('gracz widzi najbliższe spotkanie bez menu admina', async ({ page }) => {
   await openApp(page, {
     meetings: [
       mockMeeting(8, 'Późniejsze', { starts_at: '2026-12-12T17:00:00Z' }),

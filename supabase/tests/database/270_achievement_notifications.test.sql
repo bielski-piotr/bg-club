@@ -1,4 +1,4 @@
--- ACH-4: nowe INSERT-y, odzyskanie odpowiedzi, osobne urządzenia i uprawnienia.
+-- Powiadomienia o osiągnięciach: nowe INSERT-y, odzyskanie odpowiedzi, osobne urządzenia i uprawnienia.
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(20);

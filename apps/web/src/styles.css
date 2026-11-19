@@ -1,5 +1,5 @@
 /*
- * Style aplikacji. Tokeny motywów: styles/tokens.css (DS §3–§5), style globalne: styles/base.css.
+ * Style aplikacji. Tokeny motywów: styles/tokens.css, style globalne: styles/base.css.
  * Komponenty design systemu mają własne pliki CSS w src/ui.
  */
 @import './styles/tokens.css';

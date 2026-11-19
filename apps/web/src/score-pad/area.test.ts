@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { SPINE_COLORS, areaHint, clampCm, formatCm, parseCm } from './area';
 
-/** Pomocnicze kroku 2 „Obszar kartki” (EDT-10, DS §18). */
+/** Pomocnicze kroku 2 „Obszar kartki”. */
 describe('obszar kartki w kreatorze', () => {
-  it('kolory grzbietu: paleta awatarów DS §3 i granat, dosłowne wartości #rrggbb', () => {
+  it('kolory grzbietu: paleta awatarów i granat, dosłowne wartości #rrggbb', () => {
     expect(SPINE_COLORS).toHaveLength(11);
     expect(SPINE_COLORS.at(-1)).toBe('#161a2b');
     for (const color of SPINE_COLORS) expect(color).toMatch(/^#[0-9a-f]{6}$/);

@@ -58,7 +58,7 @@ function freeTemplate(players: number): PadTemplate {
 
 const roundTrip = (t: unknown) => validateTemplate(JSON.parse(JSON.stringify(t)));
 
-describe('brak limitu graczy (EDT-8)', () => {
+describe('brak limitu graczy', () => {
   it.each([2, 8, 9, 12, 20])('tabela z %i miejscami przechodzi walidację', (n) => {
     const t = roundTrip(gridTemplate(n));
     expect(t).not.toBeNull();
@@ -128,7 +128,7 @@ describe('pliki notesu v2', () => {
   });
 });
 
-describe('tryb klubowy (PAD-1)', () => {
+describe('tryb klubowy', () => {
   const realIndexedDb = globalThis.indexedDB;
   afterEach(() => {
     Object.defineProperty(globalThis, 'indexedDB', { value: realIndexedDb, configurable: true });
@@ -180,7 +180,7 @@ describe('tryb klubowy (PAD-1)', () => {
     poc.destroy();
   });
 
-  it('zmiana kartki wysyła `scorepad:change` z wpisami zamiast zapisu w localStorage (PAD-4)', () => {
+  it('zmiana kartki wysyła `scorepad:change` z wpisami zamiast zapisu w localStorage', () => {
     stubIndexedDb();
     const host = document.createElement('div');
     const pad = new ScorePad(host, { club: true });
@@ -205,7 +205,7 @@ describe('tryb klubowy (PAD-1)', () => {
     pad.destroy();
   });
 
-  it('wyniki oderwanej kartki mają miejsca, remisy i wartości (PAD-7)', () => {
+  it('wyniki oderwanej kartki mają miejsca, remisy i wartości', () => {
     stubIndexedDb();
     const pad = new ScorePad(document.createElement('div'), { club: true, summary: false });
     const t = gridTemplate(3);

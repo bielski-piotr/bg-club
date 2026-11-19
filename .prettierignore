@@ -4,6 +4,5 @@ coverage/
 playwright-report/
 test-results/
 supabase/.temp/
-# Dokumenty źródłowe projektu są redagowane ręcznie.
-PRD.md
-DESIGN-SYSTEM.md
+# Design system składany z markupu i CSS aplikacji.
+DESIGN-SYSTEM.html

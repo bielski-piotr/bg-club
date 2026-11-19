@@ -4,7 +4,7 @@ import { png } from './support/png';
 import { ADA, mockSupabase, session, storeSession, type MockOptions } from './support/supabaseMock';
 
 /**
- * Pierwsze uruchomienie i zakładanie klubu (PRD CLUB-1…CLUB-4, NFR-10; DS §17). API Supabase
+ * Pierwsze uruchomienie i zakładanie klubu. API Supabase
  * i Storage są atrapą; każdy test przechodzi na 360 px i na desktopie, w obu motywach.
  */
 
@@ -32,7 +32,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
 }
 
 test.describe('pierwsze uruchomienie', () => {
-  // Strefa przeglądarki administratora jest domyślną strefą klubu (CLUB-2).
+  // Strefa przeglądarki administratora jest domyślną strefą klubu.
   test.use({ timezoneId: 'Asia/Tokyo' });
 
   test('admin zakłada klub z logo i strefą; hub pokazuje pięć pustych widżetów', async ({
@@ -40,7 +40,7 @@ test.describe('pierwsze uruchomienie', () => {
   }) => {
     const mock = await openApp(page, { club: null });
 
-    // CLUB-1: ilustracja, powitanie i jedyny przycisk zamiast widżetów; nagłówek bez klubu.
+    // Ilustracja, powitanie i jedyny przycisk zamiast widżetów; nagłówek bez klubu.
     await expect(page.getByRole('heading', { level: 1, name: 'Załóż swój klub' })).toBeVisible();
     const art = page.locator('.first-run__art');
     await expect(art).toBeVisible();
@@ -108,7 +108,7 @@ test.describe('pierwsze uruchomienie', () => {
 
     await dialog.getByRole('button', { name: 'Zapisz' }).click();
 
-    // CLUB-4: nazwa i logo w nagłówku oraz pięć widżetów z pustymi stanami.
+    // Nazwa i logo w nagłówku oraz pięć widżetów z pustymi stanami.
     await expect(page.getByRole('heading', { level: 1, name: 'Planszówki na Woli' })).toBeVisible();
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/\/$/);

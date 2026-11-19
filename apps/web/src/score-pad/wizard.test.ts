@@ -12,7 +12,7 @@ import {
   stepState,
 } from './wizard';
 
-/** Kroki kreatora edytora notesu (PRD §5.5.2, EDT-9, DS §18). */
+/** Kroki kreatora edytora notesu. */
 
 const EMPTY: ScorePadEditorStatus = {
   step: 1,
@@ -88,7 +88,7 @@ describe('poprawność kroków', () => {
     expect(isStepValid(2, PHOTO)).toBe(true);
   });
 
-  it('krok 2 wymaga też nazwy notesu (EDT-10)', () => {
+  it('krok 2 wymaga też nazwy notesu', () => {
     expect(isStepValid(2, { ...PHOTO, settings: { ...PHOTO.settings, name: ' ' } })).toBe(false);
     expect(isStepValid(3, { ...READY, settings: { ...READY.settings, name: '' } })).toBe(true);
     expect(canOpenStep(3, 2, 2, { ...READY, settings: { ...READY.settings, name: '' } })).toBe(
@@ -96,12 +96,12 @@ describe('poprawność kroków', () => {
     );
   });
 
-  it('kroki 3 i 4 wymagają pól i poprawnych kategorii (EDT-13)', () => {
+  it('kroki 3 i 4 wymagają pól i poprawnych kategorii', () => {
     expect(isStepValid(3, { ...PHOTO, seats: 0, lines: READY.lines })).toBe(false);
     expect(isStepValid(3, { ...PHOTO, seats: 4, lines: READY.lines, mapping: READY.mapping })).toBe(
       true,
     );
-    // EDT-11: miejsce albo kategoria bez pól blokuje przejście dalej.
+    // Miejsce albo kategoria bez pól blokuje przejście dalej.
     expect(
       isStepValid(3, {
         ...READY,

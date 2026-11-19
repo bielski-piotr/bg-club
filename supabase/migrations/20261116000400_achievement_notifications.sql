@@ -1,4 +1,4 @@
--- ACH-4: wynik odblokowań dostaje wyłącznie żądanie zapisujące partię.
+-- Powiadomienia o osiągnięciach: wynik odblokowań dostaje wyłącznie żądanie zapisujące partię.
 -- Osobny RPC zachowuje kontrakt i walidację save_play (również dla starszych klientów).
 -- Potwierdzenie w private przeżywa utratę odpowiedzi. Inny identyfikator żądania/autor
 -- dostaje pustą listę; nie ma kolejki do odczytu po odświeżeniu ani subskrypcji Realtime.
@@ -73,6 +73,6 @@ end;
 $$;
 
 comment on function public.save_play_with_achievements(uuid, uuid, jsonb, jsonb, uuid) is
-  'ACH-4: save_play i nowe odblokowania w jednej transakcji. Ponowienie tego samego żądania odzyskuje wynik; inne żądanie/urządzenie dostaje pustą listę.';
+  'Save_play i nowe odblokowania w jednej transakcji. Ponowienie tego samego żądania odzyskuje wynik; inne żądanie/urządzenie dostaje pustą listę.';
 revoke execute on function public.save_play_with_achievements(uuid, uuid, jsonb, jsonb, uuid) from public, anon;
 grant execute on function public.save_play_with_achievements(uuid, uuid, jsonb, jsonb, uuid) to authenticated;

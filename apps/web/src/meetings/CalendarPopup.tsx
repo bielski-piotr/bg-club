@@ -27,10 +27,10 @@ import { useCalendarMonth, type MeetingOverview } from './overview';
 import './calendar.css';
 
 /**
- * Kalendarz spotkań (CAL-1…CAL-3, DS §15.1). Desktop: siatka miesiąca z chipami spotkań
- * w kolorach statusu. Telefon: kompaktowa siatka i agenda miesiąca (CAL-2). Dni i „dziś” liczą
- * się w strefie klubu (NFR-10). Administrator planuje przyciskiem w nagłówku albo klikając
- * pusty dzień od dziś (data wypełniona, CAL-3).
+ * Kalendarz spotkań. Desktop: siatka miesiąca z chipami spotkań
+ * w kolorach statusu. Telefon: kompaktowa siatka i agenda miesiąca. Dni i „dziś” liczą
+ * się w strefie klubu. Administrator planuje przyciskiem w nagłówku albo klikając
+ * pusty dzień od dziś (data wypełniona).
  */
 export function CalendarPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   const { client } = useAuth();
@@ -150,7 +150,7 @@ function CalendarBody({ isAdmin, timeZone }: { isAdmin: boolean; timeZone: strin
         ))}
       </div>
 
-      {/* Telefon: kompaktowa siatka (CAL-2), pod nią agenda. */}
+      {/* Telefon: kompaktowa siatka, pod nią agenda. */}
       <div
         className="calendar__grid calendar__grid--compact"
         role="group"
@@ -212,7 +212,7 @@ function CalendarBody({ isAdmin, timeZone }: { isAdmin: boolean; timeZone: strin
   );
 }
 
-/** Kafelek dnia na desktopie (DS §15.1 „Calendar day cell”). */
+/** Kafelek dnia na desktopie. */
 function DayCell({
   day,
   today,
@@ -365,7 +365,7 @@ function agendaRowId(id: string): string {
   return `calendar-agenda-${id}`;
 }
 
-/** Wiersz agendy (DS §15.1 „Agenda row”). */
+/** Wiersz agendy. */
 function AgendaRow({ meeting, timeZone }: { meeting: MeetingOverview; timeZone: string }) {
   const finished = meeting.status === 'finished';
   const meta = finished

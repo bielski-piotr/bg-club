@@ -36,7 +36,7 @@ describe('compareByDirection', () => {
   });
 });
 
-describe('computeTotals: sumy (EDT-13)', () => {
+describe('computeTotals: sumy', () => {
   const t: ScoringTemplate = {
     lines: [
       names,
@@ -95,7 +95,7 @@ describe('computeTotals: sumy (EDT-13)', () => {
   });
 });
 
-describe('rankingOf: starszy format (EDT-7)', () => {
+describe('rankingOf: starszy format', () => {
   it('bez `ranking` decyduje najwyższa suma końcowa', () => {
     expect(
       rankingOf({ lines: [names, { id: 'a', kind: 'input' }, { id: 't', kind: 'total' }] }),
@@ -133,7 +133,7 @@ describe('rankPlayers', () => {
     ]);
   });
 
-  it('„rozstrzyga prowadzący” zostawia wspólne miejsce do ręcznej decyzji (EDT-5)', () => {
+  it('„rozstrzyga prowadzący” zostawia wspólne miejsce do ręcznej decyzji', () => {
     const manual = {
       ...t,
       ranking: { line: 't', dir: 'desc' as const, tiebreak: [{ type: 'manual' as const }] },

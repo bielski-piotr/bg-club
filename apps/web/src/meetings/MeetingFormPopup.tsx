@@ -36,7 +36,7 @@ const form = t.meetings.form;
 /** Wartość listy „Prowadzący” oznaczająca administratora (`host_id` = NULL). */
 const ADMIN_HOST = 'admin';
 
-/** „Zaplanuj spotkanie” (PLAN-1, PLAN-2), opcjonalnie z wypełnioną datą (CAL-3). */
+/** „Zaplanuj spotkanie”, opcjonalnie z wypełnioną datą. */
 export function AddMeetingPopup({
   me,
   date,
@@ -48,7 +48,7 @@ export function AddMeetingPopup({
 }
 
 /**
- * „Edytuj spotkanie” (PLAN-3, PLAN-4). Zaplanowane: wszystkie pola. W trakcie: dopisanie
+ * „Edytuj spotkanie”. Zaplanowane: wszystkie pola. W trakcie: dopisanie
  * uczestnika i zmiana prowadzącego. Zakończone i nieistniejące mają czytelny stan.
  */
 export function EditMeetingPopup({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
@@ -127,14 +127,14 @@ interface FormProps {
   readonly meeting: Meeting | null;
   readonly timeZone: string;
   readonly members: readonly Profile[];
-  /** Uczestnicy z partią w spotkaniu w trakcie: nie da się ich odznaczyć (PLAN-4). */
+  /** Uczestnicy z partią w spotkaniu w trakcie: nie da się ich odznaczyć. */
   readonly locked: ReadonlySet<string>;
   readonly date?: string | undefined;
 }
 
 /**
- * Formularz spotkania (PLAN-1, DS §15 „Member selection row”, „Time dropdown”): tytuł, data
- * i godzina w strefie klubu, uczestnicy z aktywnych członków (bez limitu, Q12) i opcjonalny
+ * Formularz spotkania: tytuł, data
+ * i godzina w strefie klubu, uczestnicy z aktywnych członków (bez limitu) i opcjonalny
  * prowadzący spośród uczestników innych niż admin. Zapis to jedno RPC `save_meeting`.
  */
 function MeetingForm({ me, meeting, timeZone, members, locked, date }: FormProps) {

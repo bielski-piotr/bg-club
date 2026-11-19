@@ -165,7 +165,7 @@ button { font-family: inherit; }
 .pk-name input:focus { outline: none; border-bottom-color: var(--ink); }
 .pk-name button[type="submit"] { font: 600 14px/1 var(--f-ui); padding: 0 14px; border-radius: 8px; cursor: pointer; color: var(--paper); background: var(--ink); border: 0; }
 
-/* wpisywanie punktów bezpośrednio w pole kartki (PAD-13…PAD-15): cyfry rysuje kartka, a pole
+/* wpisywanie punktów bezpośrednio w pole kartki: cyfry rysuje kartka, a pole
    tekstowe leży niewidoczne nad polem kartki, żeby przyjmować klawiaturę systemową i sprzętową */
 .entry { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
 .en-in {
@@ -224,7 +224,7 @@ button { font-family: inherit; }
 .note-title span { display: inline-block; clip-path: inset(0 100% 0 0); }
 .note-meta { margin: 3px 0 0; font-size: 13px; color: var(--graphite-dim); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 .note-rows { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 7px; }
-/* dowolna liczba graczy (EDT-8): długa lista przewija się w karteczce */
+/* dowolna liczba graczy: długa lista przewija się w karteczce */
 .note-rows { max-height: min(300px, calc(100vh - 220px)); overflow: hidden auto; overscroll-behavior: contain; }
 .note-rows li { display: grid; grid-template-columns: minmax(0, 80px) 1fr 52px; gap: 10px; align-items: center; opacity: 0; transform: translateX(10px); }
 .note-rows .nm { font: 600 15px/1.1 var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

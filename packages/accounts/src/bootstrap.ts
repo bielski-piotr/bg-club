@@ -1,5 +1,5 @@
 /**
- * Bootstrap pierwszego administratora (PRD AUTH-3, §9 przepływ 0).
+ * Bootstrap pierwszego administratora.
  *
  * Działa wyłącznie z kluczem service role, po stronie operatora instalacji (skrypt
  * `pnpm bootstrap:admin`). Nie ma publicznego endpointu, więc nikt z zewnątrz nie może
@@ -24,7 +24,7 @@ import {
 export interface BootstrapAdminInput {
   readonly firstName: string;
   readonly lastName: string;
-  /** Hasło administratora. Bez niego powstaje losowe hasło (AUTH-4), pokazywane raz. */
+  /** Hasło administratora. Bez niego powstaje losowe hasło, pokazywane raz. */
   readonly password?: string | undefined;
 }
 
@@ -122,7 +122,7 @@ export async function bootstrapAdmin(
         first_name: firstName,
         last_name: lastName,
         role: 'admin',
-        // Własne hasło administratora: bez propozycji zmiany przy pierwszym logowaniu (AUTH-6).
+        // Własne hasło administratora: bez propozycji zmiany przy pierwszym logowaniu.
         password_generated: ownPassword === null,
       },
     },

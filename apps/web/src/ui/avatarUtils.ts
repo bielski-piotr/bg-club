@@ -1,8 +1,8 @@
-/** Liczba kolorów palety awatarów i okładek (DS §3, tokeny `--c-avatar-0…9`). */
+/** Liczba kolorów palety awatarów i okładek (tokeny `--c-avatar-0…9`). */
 export const AVATAR_PALETTE_SIZE = 10;
 
 /**
- * Monogram z imienia i nazwiska: pierwsza litera pierwszego i ostatniego słowa (DS §8),
+ * Monogram z imienia i nazwiska: pierwsza litera pierwszego i ostatniego słowa,
  * np. „Łukasz Żak” → „ŁŻ”. Jedno słowo daje jedną literę.
  */
 export function monogram(name: string): string {

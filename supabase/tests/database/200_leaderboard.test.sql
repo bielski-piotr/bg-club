@@ -1,17 +1,19 @@
--- [032] Rankingi, serie i filtr roku: public.leaderboard(kind, year), public.leaderboard_years()
--- (PRD LB-1, LB-4–LB-7, §5.6.3, §5.6.4, §5.6.6, NFR-10, NFR-11). Dane testowe są fikcyjne.
+-- Rankingi, serie i filtr roku: public.leaderboard(kind, year), public.leaderboard_years()
+--. Dane testowe są fikcyjne.
 --
 -- Historia partii (punktacja 10/6/4/2; strefa klubu Europe/Warsaw):
---   m1 2025-12-31 23:30+01 (rok 2025)                  p1: Celina 1 (10), Łukasz 2 (6), Lucyna 3 (4)
---   m2 2026-01-01 00:30+01 (UTC jeszcze 2025, lokalnie 2026)
+--   m1 2025-12-31 23:30+01 (rok 2025)                  p1: Celina 1 (10), Łukasz 2 (6), Lucyna 3
+--   (4) m2 2026-01-01 00:30+01 (UTC jeszcze 2025, lokalnie 2026)
 --                                                      p2: Lucyna 1 (10), Łukasz 2 (6)
 --                                                      p3: Lucyna 1 (10), Mateusz 2 (6)
 --   m3 2026-03-10 18:00+01                             p4: Łukasz 1 (10), Celina 2 (6)
 --   m4 2026-10-25 02:30+02 (przed zmianą czasu, 00:30 UTC)
---                                                      p5: Lucyna 1 (8), Łukasz 1 (8), Mateusz 3 (4)
+--                                                      p5: Lucyna 1 (8), Łukasz 1 (8), Mateusz 3
+--                                                      (4)
 --   m5 2026-10-25 02:10+01 (po zmianie czasu, 01:10 UTC; w toku)
---                                                      p6: Mateusz 1 (10), Lucyna 2 (6); p7: szkic z Bartkiem
--- Celina jest usunięta (MEM-4). Bartek nie ma zapisanej partii.
+--                                                      p6: Mateusz 1 (10), Lucyna 2 (6); p7: szkic
+--                                                      z Bartkiem
+-- Celina jest usunięta. Bartek nie ma zapisanej partii.
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -162,17 +164,17 @@ select is(public.test_failure($$ select public.leaderboard('points', 10000) $$),
 select is(public.test_board('points', 9999), '{}'::text[], 'ostatni dozwolony rok: pusta klasyfikacja');
 
 -- =============================================================================================
--- Cała historia (LB-1, LB-5–LB-7)
+-- Cała historia
 -- =============================================================================================
 select is(public.test_board('points'),
   array['1 Lucyna 38 podium', '2 Łukasz 30 podium', '3 Mateusz 20 podium', '4 Celina 16 usunięty'],
-  'punkty: suma punktów leaderboardu; szkic i gracz bez partii pominięci (LB-5)');
+  'punkty: suma punktów leaderboardu; szkic i gracz bez partii pominięci');
 select is(public.test_board('wins'),
   array['1 Lucyna 3 podium', '2 Łukasz 2 podium', '3 Mateusz 1 podium', '4 Celina 1 usunięty'],
-  'wygrane: wspólne 1. miejsce to wygrana obu (§5.6.3); usunięta z tym samym wynikiem za aktywnymi');
+  'wygrane: wspólne 1. miejsce to wygrana obu; usunięta z tym samym wynikiem za aktywnymi');
 select is(public.test_board('streak'),
   array['1 Lucyna 2 podium', '1 Łukasz 2 podium', '3 Mateusz 1 podium', '4 Celina 1 usunięty'],
-  'seria: remis 1, 1, 3 alfabetycznie po polsku (L przed Ł, LB-6); usunięta bez podium (LB-7)');
+  'seria: remis 1, 1, 3 alfabetycznie po polsku (L przed Ł); usunięta bez podium');
 select is(
   (select value from public.leaderboard('points', null) where first_name = 'Celina'), 16::numeric,
   'brak roku = cała historia: punkty z 2025 (10) i 2026 (6)');
@@ -185,7 +187,7 @@ select is(
 -- Po lokalnej godzinie m5 (02:10) byłoby przed m4 (02:30) i rekord Lucyny wyniósłby 1.
 select is(
   (select value from public.leaderboard('streak', 2026) where first_name = 'Lucyna'), 2::numeric,
-  'kolejność spotkań według chwili (starts_at), także w nocy zmiany czasu (§5.6.6)');
+  'kolejność spotkań według chwili (starts_at), także w nocy zmiany czasu');
 select is(
   (select array_agg(l.profile_id::text order by l.profile_id) from public.leaderboard('points') l),
   array['00000000-0000-4000-a000-000000000011', '00000000-0000-4000-a000-000000000012',
@@ -197,7 +199,7 @@ select is(
   'wiersz ma imię, nazwisko, awatar i znacznik usunięcia');
 
 -- =============================================================================================
--- Filtr roku w strefie klubu (LB-4, NFR-10)
+-- Filtr roku w strefie klubu
 -- =============================================================================================
 select is(public.test_board('points', 2026),
   array['1 Lucyna 34 podium', '2 Łukasz 24 podium', '3 Mateusz 20 podium', '4 Celina 6 usunięty'],
@@ -218,7 +220,7 @@ select is(public.test_board('points', 2024), '{}'::text[], 'rok bez partii: pust
 select is(array(select public.leaderboard_years()), array[2026, 2025],
   'lata filtru w strefie klubu, od najnowszego');
 
--- Zmiana strefy klubu zmienia granice roku, nie zapisane terminy (CLUB-2, NFR-10).
+-- Zmiana strefy klubu zmienia granice roku, nie zapisane terminy.
 reset role;
 update public.club set timezone = 'America/New_York';
 set local role authenticated;
@@ -231,7 +233,7 @@ update public.club set timezone = 'Europe/Warsaw';
 set local role authenticated;
 
 -- =============================================================================================
--- Usunięcie wcześniejszego wyniku przelicza ranking i serie (§5.6.4, §5.6.5)
+-- Usunięcie wcześniejszego wyniku przelicza ranking i serie
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select lives_ok($$ select public.delete_play('00000000-0000-4000-f000-000000000004') $$,

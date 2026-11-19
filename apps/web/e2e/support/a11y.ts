@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 
 /**
- * Czeka, aż na stronie nie trwa żadna animacja ani przejście (DS §16). Najpierw dwie klatki:
+ * Czeka, aż na stronie nie trwa żadna animacja ani przejście. Najpierw dwie klatki:
  * przejście po zmianie stanu (np. przycisk przestaje być wyłączony) startuje dopiero w kolejnej
  * klatce i wcześniej `getAnimations()` go nie widzi, a kolor jest jeszcze stary.
  */
@@ -18,7 +18,7 @@ export async function settled(page: Page) {
   );
 }
 
-/** Naruszenia WCAG 2.1 A/AA na całej stronie (NFR-5) jako czytelne napisy. */
+/** Naruszenia WCAG 2.1 A/AA na całej stronie jako czytelne napisy. */
 export async function axeViolations(page: Page): Promise<string[]> {
   await settled(page);
   const results = await new AxeBuilder({ page })
@@ -27,7 +27,7 @@ export async function axeViolations(page: Page): Promise<string[]> {
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' | ')}`);
 }
 
-/** Strona nie przewija się w poziomie (DS §2, od 360 px). */
+/** Strona nie przewija się w poziomie (od 360 px). */
 export async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

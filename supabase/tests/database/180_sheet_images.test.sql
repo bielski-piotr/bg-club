@@ -1,6 +1,6 @@
--- [030] Obrazy karteczek (PAD-6): dołączenie obrazu do zapisanej partii, ścieżka i plik
+-- Obrazy karteczek: dołączenie obrazu do zapisanej partii, ścieżka i plik
 -- w Storage, pierwszy obraz zostaje, osierocone pliki do sprzątania i polityka usuwania
--- nieużywanych plików, historia po usunięciu gry i notesu (GAME-10, VIEW-3).
+-- nieużywanych plików, historia po usunięciu gry i notesu.
 -- Dane testowe są fikcyjne.
 begin;
 
@@ -172,7 +172,7 @@ select is((select count(*) from storage.objects where name = (select v from path
   'obraz wskazany przez partię jest w Storage');
 reset storage.allow_delete_query;
 
--- Historia po edycji i usunięciu gry i notesu (GAME-10, VIEW-3): partia nadal wskazuje grę,
+-- Historia po edycji i usunięciu gry i notesu: partia nadal wskazuje grę,
 -- wersję szablonu, kartkę i obraz.
 reset role;
 update public.games set title = 'Żółwie po zmianie' where id = '00000000-0000-4000-b000-000000000001';

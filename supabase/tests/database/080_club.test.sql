@@ -1,4 +1,4 @@
--- [008] Zakładanie klubu i strefa czasowa (PRD CLUB-2, NFR-10) z perspektywy klienta.
+-- Zakładanie klubu i strefa czasowa z perspektywy klienta.
 -- Klub zakłada i edytuje tylko admin; drugi klub nie powstaje (klucz główny z CHECK id = 1,
 -- także przy INSERT ... ON CONFLICT); zmiana strefy zmienia tylko `club.timezone`, a nie
 -- zapisane terminy spotkań (`timestamptz`). Równoległe próby przez prawdziwe API sprawdza
@@ -20,7 +20,7 @@ insert into public.meetings (id, title, starts_at, created_by) values
    '00000000-0000-4000-a000-000000000001');
 
 -- =============================================================================================
--- Pusta instalacja: klubu nie ma (CLUB-1), gracz go nie założy (CLUB-3)
+-- Pusta instalacja: klubu nie ma, gracz go nie założy
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000002", "role": "authenticated"}';
@@ -33,7 +33,7 @@ select throws_ok(
 reset role;
 
 -- =============================================================================================
--- Admin zakłada klub; drugiego nie ma (CLUB-2)
+-- Admin zakłada klub; drugiego nie ma
 -- =============================================================================================
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
@@ -58,7 +58,7 @@ select results_eq(
   'admin: po wszystkich próbach jest dokładnie jeden klub, ten pierwszy');
 
 -- =============================================================================================
--- Zmiana strefy nie zmienia terminów (CLUB-2, NFR-10)
+-- Zmiana strefy nie zmienia terminów
 -- =============================================================================================
 select results_eq(
   $$ select (m.starts_at at time zone c.timezone)::text from public.meetings m, public.club c $$,

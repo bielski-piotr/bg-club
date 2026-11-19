@@ -1,7 +1,7 @@
--- [031] Usunięcie partii (`delete_play`): tylko admin, tylko zapisana partia, kaskada wyników,
+-- Usunięcie partii (`delete_play`): tylko admin, tylko zapisana partia, kaskada wyników,
 -- kartki i odblokowań, obraz do sprzątania przez API Storage (także po błędzie Storage),
 -- ponowienie bez przywracania wyniku i usunięcie zakończonego spotkania po ostatniej partii
--- (PRD VIEW-6, PLAN-5, §5.6.5, Q4, Q17). Dane testowe są fikcyjne.
+--. Dane testowe są fikcyjne.
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -109,7 +109,7 @@ select lives_ok(
   'prowadzący zapisuje dwie partie (f001 z obrazem) i zaczyna trzecią'
 );
 
--- Odblokowania z przeliczenia osiągnięć ([036]) po zapisie: „gracz:osiągnięcie:partia”.
+-- Odblokowania z przeliczenia osiągnięć po zapisie: „gracz:osiągnięcie:partia”.
 reset role;
 create function public.test_unlocks()
 returns text[]
@@ -127,7 +127,7 @@ select is(public.test_unlocks(),
   'zapis partii przelicza osiągnięcia (Bartek wygrywa f001, Celina f002)');
 
 -- =============================================================================================
--- Uprawnienia (VIEW-6): tylko admin
+-- Uprawnienia: tylko admin
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000003", "role": "authenticated"}';
 select is(public.test_delete(1), '42501', 'gracz nie usuwa partii, także swojej');
@@ -151,7 +151,7 @@ select is((select status from public.plays where id = '00000000-0000-4000-f000-0
 select is(public.test_delete(9), 'P0002/plays_not_found', 'nieistniejąca partia');
 
 -- =============================================================================================
--- Usunięcie w spotkaniu w trakcie (§5.6.5)
+-- Usunięcie w spotkaniu w trakcie
 -- =============================================================================================
 select is(
   public.delete_play('00000000-0000-4000-f000-000000000001'),
@@ -204,7 +204,7 @@ select is((select array_agg(name) from d), (select array_agg(v) from paths where
 reset storage.allow_delete_query;
 
 -- =============================================================================================
--- Zakończone spotkanie: usunięcie partii, potem spotkania (PLAN-5, Q4)
+-- Zakończone spotkanie: usunięcie partii, potem spotkania
 -- =============================================================================================
 select lives_ok(
   $$ select public.discard_play('00000000-0000-4000-f000-000000000003');

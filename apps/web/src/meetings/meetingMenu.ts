@@ -5,7 +5,7 @@ import type { Meeting } from './meetings';
 import type { MeetingOverview } from './overview';
 
 /**
- * Usunięcie: nie trwające i bez zapisanych partii (PLAN-3, PLAN-5, Q4). Zakończone dopiero
+ * Usunięcie: nie trwające i bez zapisanych partii. Zakończone dopiero
  * po wczytaniu liczby partii.
  */
 export function canDelete(meeting: Meeting, overview: MeetingOverview | null | undefined): boolean {
@@ -15,16 +15,17 @@ export function canDelete(meeting: Meeting, overview: MeetingOverview | null | u
 
 /**
  * Pozycja menu: otwiera popup (`route`) albo, dla `reopen`, od razu otwiera głosowanie
- * ponownie (VOTE-6, bez potwierdzenia, jak w polu akcji).
+ * ponownie (bez potwierdzenia, jak w polu akcji).
  */
 export type MeetingMenuItem = Omit<MenuItem, 'onSelect'> &
   ({ readonly route: PopupRoute } | { readonly route?: undefined; readonly reopen: true });
 
 /**
- * Menu spotkania (DS §15 „Meeting menus”). Administrator: zaplanowane „Edytuj spotkanie”,
- * „Otwórz głosowanie ponownie” (po publikacji gier) i „Usuń spotkanie”; w trakcie „Dodaj uczestnika” i „Zmień prowadzącego” (PLAN-4, oba
- * w formularzu edycji); zakończone „Otwórz spotkanie ponownie” (RUN-5), a bez partii także „Usuń spotkanie”. Prowadzący: tylko „Zakończ
- * spotkanie” w trakcie (Q14), bez edycji uczestników i prowadzącego.
+ * Menu spotkania. Administrator: zaplanowane „Edytuj spotkanie”,
+ * „Otwórz głosowanie ponownie” (po publikacji gier) i „Usuń spotkanie”; w trakcie „Dodaj
+ * uczestnika” i „Zmień prowadzącego” (oba w formularzu edycji); zakończone „Otwórz spotkanie
+ * ponownie”, a bez partii także „Usuń spotkanie”. Prowadzący: tylko „Zakończ
+ * spotkanie” w trakcie, bez edycji uczestników i prowadzącego.
  */
 export function menuItems(
   meeting: Meeting,

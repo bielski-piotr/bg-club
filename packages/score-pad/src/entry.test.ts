@@ -3,7 +3,7 @@ import { checkTyped, cleanNumber, flipSign, nextInput, revealShift, stepTyped } 
 import { spots, validateTemplate, type LineDef, type PadTemplate } from './core/templates';
 
 /**
- * Wpisywanie punktów w pole kartki (zadanie [021], PAD-13…PAD-15): kolejność pól, zakres
+ * Wpisywanie punktów w pole kartki: kolejność pól, zakres
  * kategorii, minus i strzałki, przewijanie widoku do pola.
  */
 
@@ -53,7 +53,7 @@ function spotOf(t: PadTemplate, id: string, p: number) {
 const label = (t: PadTemplate, sp: ReturnType<typeof spotOf> | null) =>
   sp ? `${t.lines[sp.li].id}/${sp.p}` : null;
 
-describe('kolejne pola (PAD-15)', () => {
+describe('kolejne pola', () => {
   it('Enter/Tab idzie po kategoriach punktowych gracza, potem do następnego; pomija imiona, sumy i puste pola', () => {
     const t = table(3);
     const order: (string | null)[] = [];
@@ -97,7 +97,7 @@ describe('kolejne pola (PAD-15)', () => {
   });
 });
 
-describe('wpis z klawiatury (PAD-13, PAD-14)', () => {
+describe('wpis z klawiatury', () => {
   it('zostawia cyfry; minus zmienia znak tylko w kategorii z wartościami ujemnymi', () => {
     expect(cleanNumber('12a3', false)).toBe('123');
     expect(cleanNumber('007', false)).toBe('7');
@@ -139,7 +139,7 @@ describe('wpis z klawiatury (PAD-13, PAD-14)', () => {
   });
 });
 
-describe('pole w kadrze (PAD-15)', () => {
+describe('pole w kadrze', () => {
   const view = { x: 0, y: 60, w: 360, h: 300 };
 
   it('widoczne pole nie przesuwa widoku', () => {

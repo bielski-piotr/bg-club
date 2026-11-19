@@ -1,12 +1,12 @@
 /**
- * Katalog osiągnięć i ich warunki liczone z historii (PRD §5.10, ACH-1, ACH-2, Q16–Q18).
+ * Katalog osiągnięć i ich warunki liczone z historii.
  *
- * Katalog jest zdefiniowany w kodzie: zmiana listy wymaga zmiany kodu (ACH-1). Baza liczy te
+ * Katalog jest zdefiniowany w kodzie: zmiana listy wymaga zmiany kodu. Baza liczy te
  * same warunki w `private.computed_achievement_unlocks()` (migracja `…_achievements.sql`), a obie
  * implementacje przechodzą ten sam zestaw przypadków (`cases/achievements.ts`, test pgTAP
  * generowany przez `sql.ts`).
  *
- * Historia jest odtwarzana chronologicznie w kolejności z §5.6.6 (Q24): spotkania po
+ * Historia jest odtwarzana chronologicznie w kolejności ustalonej: spotkania po
  * `starts_at`, potem `id`; partie w spotkaniu po `saved_at`, potem `id`. Data odblokowania to
  * termin spotkania, na którym warunek spełniono po raz pierwszy, a `playId` wskazuje partię,
  * która go dopełniła (`null` dla `voter-10`, które wynika z głosowania, nie z partii).
@@ -18,13 +18,13 @@ export type AchievementGroup =
 export interface AchievementDefinition {
   readonly id: string;
   readonly group: AchievementGroup;
-  /** Nazwa w gablocie (ACH-3). */
+  /** Nazwa w gablocie. */
   readonly name: string;
   /** Warunek w języku gracza. */
   readonly description: string;
   /** Nazwa ikony z zestawu aplikacji (gablota, toast). */
   readonly icon: string;
-  /** Próg licznika dla postępu „7/10” (ACH-3); brak dla warunków jednorazowych. */
+  /** Próg licznika dla postępu „7/10”; brak dla warunków jednorazowych. */
   readonly goal?: number;
 }
 
@@ -40,7 +40,7 @@ export const ACHIEVEMENT_GROUPS: Readonly<Record<AchievementGroup, string>> = {
   club: 'Klub',
 };
 
-/** Katalog MVP (Q16): 29 pozycji w kolejności z PRD §5.10. */
+/** Katalog MVP: 29 pozycji w kolejności katalogu. */
 export const ACHIEVEMENTS = [
   {
     id: 'meet-1',
@@ -285,15 +285,15 @@ export interface HistoryMeeting {
   readonly id: string;
   /** Termin spotkania (ISO 8601); data odblokowania. */
   readonly startsAt: string;
-  /** Spotkanie zakończone: dopiero wtedy liczy się `flawless` (PRD §5.10). */
+  /** Spotkanie zakończone: dopiero wtedy liczy się `flawless`. */
   readonly finished: boolean;
 }
 
 export interface HistoryResult {
   readonly profileId: string;
-  /** Miejsce z remisami (1, 1, 3); wygrana to miejsce 1 (§5.6.3). */
+  /** Miejsce z remisami (1, 1, 3); wygrana to miejsce 1. */
   readonly place: number;
-  /** Punkty leaderboardu (§5.6.2). */
+  /** Punkty leaderboardu. */
   readonly points: number;
   /** Wartość kategorii decydującej; `null`, gdy gracz jej nie ma. */
   readonly rankingValue: number | null;
@@ -316,7 +316,7 @@ export interface HistoryPlay {
   readonly results: readonly HistoryResult[];
 }
 
-/** Gracz z ≥ 1 głosem w chwili zamknięcia głosowania spotkania (Q18). */
+/** Gracz z ≥ 1 głosem w chwili zamknięcia głosowania spotkania. */
 export interface HistoryVoter {
   readonly meetingId: string;
   readonly profileId: string;
@@ -333,7 +333,7 @@ export interface AchievementUnlock {
   readonly achievementId: AchievementId;
   readonly meetingId: string;
   readonly playId: string | null;
-  /** Termin spotkania, na którym warunek spełniono po raz pierwszy (ACH-2). */
+  /** Termin spotkania, na którym warunek spełniono po raz pierwszy. */
   readonly unlockedAt: string;
 }
 
@@ -346,11 +346,11 @@ const micros = (iso: string): number =>
 const compareTime = (a: string, b: string): number =>
   Date.parse(a) - Date.parse(b) || micros(a) - micros(b);
 
-/** Kolejność spotkań z §5.6.6: termin, potem identyfikator. */
+/** Kolejność spotkań ustalonej: termin, potem identyfikator. */
 export const compareMeetings = (a: HistoryMeeting, b: HistoryMeeting): number =>
   compareTime(a.startsAt, b.startsAt) || compareText(a.id, b.id);
 
-/** Kolejność partii w spotkaniu z §5.6.6: zatwierdzenie karteczki, potem identyfikator. */
+/** Kolejność partii w spotkaniu ustalonej: zatwierdzenie karteczki, potem identyfikator. */
 export const comparePlays = (a: HistoryPlay, b: HistoryPlay): number =>
   compareTime(a.savedAt, b.savedAt) || compareText(a.id, b.id);
 
@@ -414,7 +414,7 @@ const better = (dir: 'asc' | 'desc', a: number, b: number): boolean =>
  * Odblokowania wynikające z całej historii, posortowane po graczu i identyfikatorze osiągnięcia.
  * Każde osiągnięcie gracz ma najwyżej raz, z pierwszym spotkaniem, na którym warunek spełnił.
  * Wynik zależy tylko od historii, więc ponowne przeliczenie daje to samo, a usunięcie partii
- * cofa osiągnięcia, które przestały być spełnione (§5.6.5, Q17).
+ * cofa osiągnięcia, które przestały być spełnione.
  */
 export function computeAchievements(history: AchievementHistory): AchievementUnlock[] {
   const meetings = [...history.meetings].sort(compareMeetings);
@@ -475,7 +475,7 @@ export function computeAchievements(history: AchievementHistory): AchievementUnl
     }
     return state;
   };
-  /** Najlepsza dotychczasowa wartość gry w danym kierunku (rekord, GAME-11). */
+  /** Najlepsza dotychczasowa wartość gry w danym kierunku (rekord). */
   const records = new Map<string, number>();
 
   for (const meeting of meetings) {
@@ -548,7 +548,7 @@ export function computeAchievements(history: AchievementHistory): AchievementUnl
       }
     }
 
-    // Serie (§5.6.4): spotkanie z wygraną +1, z partiami bez wygranej zeruje, bez partii nic.
+    // Serie: spotkanie z wygraną +1, z partiami bez wygranej zeruje, bez partii nic.
     for (const [profileId, tally] of tallies) {
       const state = player(profileId);
       if (tally.firstWin !== null) {
@@ -565,7 +565,7 @@ export function computeAchievements(history: AchievementHistory): AchievementUnl
     }
   }
 
-  // Głos ludu: różne spotkania z głosem w chwili zamknięcia głosowania, chronologicznie (Q18).
+  // Głos ludu: różne spotkania z głosem w chwili zamknięcia głosowania, chronologicznie.
   const voted = new Map<string, Set<string>>();
   for (const v of history.voters) {
     if (!meetingById.has(v.meetingId))

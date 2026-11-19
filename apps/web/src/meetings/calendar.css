@@ -1,4 +1,4 @@
-/* Timeline, kalendarz, agenda i popup spotkania (DS §15.1). */
+/* Timeline, kalendarz, agenda i popup spotkania. */
 
 /* Mini kafelek daty 44×48. */
 .mini-tile {
@@ -460,7 +460,7 @@ a.calendar-dot {
   background: var(--c-muted);
 }
 
-/* Agenda (telefon, CAL-2). */
+/* Agenda (telefon). */
 .calendar__agenda {
   padding-top: 24px;
 }

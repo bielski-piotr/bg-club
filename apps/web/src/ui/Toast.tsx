@@ -18,7 +18,7 @@ export interface ToastProps {
   readonly rich?: boolean | undefined;
 }
 
-/** Ciemny toast 343 px (DS §12) z ikoną wariantu i opcjonalnym przyciskiem zamknięcia. */
+/** Ciemny toast 343 px z ikoną wariantu i opcjonalnym przyciskiem zamknięcia. */
 export function Toast({ variant = 'success', children, onDismiss, rich }: ToastProps) {
   return (
     <div className={cx('toast', `toast--${variant}`, rich && 'toast--rich')} aria-atomic="true">

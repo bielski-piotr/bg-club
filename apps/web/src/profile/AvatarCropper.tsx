@@ -12,7 +12,7 @@ import {
   type ImageSize,
 } from './crop';
 
-/** Bok kadru w px. Mieści się na ekranie 360 px z marginesami 16 (DS §7). */
+/** Bok kadru w px. Mieści się na ekranie 360 px z marginesami 16. */
 export const CROP_VIEW = 280;
 /** Krok przesunięcia strzałką (Shift: większy). */
 const KEY_STEP = 8;
@@ -27,7 +27,7 @@ interface AvatarCropperProps {
 }
 
 /**
- * Kadr awatara (USR-3, DS „Profil / Kadrowanie awatara”): kwadratowy kadr z okrągłą maską.
+ * Kadr awatara: kwadratowy kadr z okrągłą maską.
  * Zdjęcie przesuwa się przeciągnięciem (mysz, palec) albo strzałkami, a powiększa suwakiem,
  * kółkiem myszy albo klawiszami + i −. Zdjęcie zawsze pokrywa cały kadr.
  */

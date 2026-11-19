@@ -5,7 +5,7 @@ export type { IconName };
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   readonly name: IconName;
-  /** Rozmiar w px (DS: 14, 16, 20 lub 22). */
+  /** Rozmiar w px (14, 16, 20 lub 22). */
   readonly size?: number | undefined;
 }
 

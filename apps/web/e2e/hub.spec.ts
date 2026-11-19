@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { ADA, member, mockSupabase, session, storeSession } from './support/supabaseMock';
 
 /**
- * Hub i stos popupów z adresami (PRD §4, NFR-4, NFR-6; DS §6, §7, §17). API Supabase jest
+ * Hub i stos popupów z adresami. API Supabase jest
  * atrapą; każdy test przechodzi na 360 px i na desktopie, w motywie jasnym i ciemnym.
  */
 
@@ -50,7 +50,7 @@ test('układ huba: dwie kolumny 520 px na desktopie, jedna kolumna na telefonie'
 }) => {
   await openHub(page);
   const titles = ['Spotkanie', 'Ranking', 'Timeline', 'Kolekcja', 'Członkowie'];
-  // Kolejność dokumentu (czytnik ekranu, Tab) zawsze według PRD §4.
+  // Kolejność dokumentu (czytnik ekranu, Tab) zawsze w stałej kolejności widżetów.
   await expect(page.getByRole('heading', { level: 2 })).toHaveText(titles);
   const boxes = await Promise.all(
     titles.map(async (title) => (await card(page, title).boundingBox()) ?? undefined),
@@ -61,7 +61,7 @@ test('układ huba: dwie kolumny 520 px na desktopie, jedna kolumna na telefonie'
   }) as [DOMRectLike, DOMRectLike, DOMRectLike, DOMRectLike, DOMRectLike];
 
   if (isMobile()) {
-    // 360 px: karty na całą szerokość z marginesem 16, jedna pod drugą w kolejności PRD.
+    // 360 px: karty na całą szerokość z marginesem 16, jedna pod drugą w stałej kolejności.
     for (const box of [meeting, ranking, timeline, collection, members]) {
       expect(box.x).toBe(16);
       expect(box.width).toBe(328);
@@ -71,7 +71,8 @@ test('układ huba: dwie kolumny 520 px na desktopie, jedna kolumna na telefonie'
     expect(collection.y).toBeGreaterThan(timeline.y);
     expect(members.y).toBeGreaterThan(collection.y);
   } else {
-    // 1280 px: treść 1064 px, lewa kolumna Spotkanie, Timeline, Członkowie; prawa Ranking, Kolekcja.
+    // 1280 px: treść 1064 px, lewa kolumna Spotkanie, Timeline, Członkowie; prawa Ranking,
+    // Kolekcja.
     for (const box of [meeting, ranking, timeline, collection, members]) {
       expect(box.width).toBe(520);
     }
@@ -99,7 +100,7 @@ interface DOMRectLike {
 test('widżet członków: 4 awatary, licznik +N i profil po kliknięciu awatara', async ({ page }) => {
   await openHub(page);
   const widget = card(page, 'Członkowie');
-  // Ada + 6 aktywnych; usunięta Zoja nie jest liczona (MEM-5).
+  // Ada + 6 aktywnych; usunięta Zoja nie jest liczona.
   await expect(widget.getByText('7 osób')).toBeVisible();
   await expect(widget).toContainText('Ada, Bea, Cela, Dora i 3 inne osoby');
   await expect(widget.getByRole('link', { name: /^Otwórz profil:/ })).toHaveCount(4);

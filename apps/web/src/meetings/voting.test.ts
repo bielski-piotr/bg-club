@@ -49,7 +49,7 @@ const VOTES: Vote[] = [
   { game_id: 'g4', profile_id: 'bartek' },
 ];
 
-describe('lista głosowania (VOTE-3, VOTE-4)', () => {
+describe('lista głosowania', () => {
   it('sortuje malejąco po głosach, przy remisie alfabetycznie', () => {
     const rows = voteRows(GAMES, VOTES, { me: 'ania', participants: 3 });
     expect(rows.map((row) => [row.game.title, row.voters.length])).toEqual([
@@ -86,7 +86,7 @@ describe('lista głosowania (VOTE-3, VOTE-4)', () => {
     expect(myVoteCount(VOTES, 'dawid')).toBe(0);
   });
 
-  it('oznacza niepasujące gry zakresem graczy (VOTE-4)', () => {
+  it('oznacza niepasujące gry zakresem graczy', () => {
     expect(mismatchLabel({ min_players: 1, max_players: 1 })).toBe('Dla 1 gracza');
     expect(mismatchLabel({ min_players: 2, max_players: 2 })).toBe('Dla 2 graczy');
     expect(mismatchLabel({ min_players: 2, max_players: 4 })).toBe('Dla 2–4 graczy');
@@ -109,7 +109,7 @@ describe('lista głosowania (VOTE-3, VOTE-4)', () => {
   });
 });
 
-describe('błędy głosowania (migracje [003], [024])', () => {
+describe('błędy głosowania', () => {
   it('czyta reguły z HINT i komunikatów wyzwalaczy', () => {
     const cases: [{ code: string; hint?: string; message: string }, VotingFailure][] = [
       [{ code: '23514', hint: 'meeting_games_required', message: 'x' }, 'noGames'],

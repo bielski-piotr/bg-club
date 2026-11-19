@@ -1,4 +1,4 @@
-/* Badge, chipy statusu i chipy informacji (DS §3 słownik statusów, §11). */
+/* Badge, chipy statusu i chipy informacji (słownik statusów). */
 .tone--accent {
   background: var(--c-accent-tint-strong);
   color: var(--c-accent-text);

@@ -12,9 +12,9 @@ import { filterMembers } from './search';
 import './members.css';
 
 /**
- * Popup członków (PRD MEM-2): aktywni członkowie z hookiem i oznaczeniem admina, wyszukiwanie
+ * Popup członków: aktywni członkowie z hookiem i oznaczeniem admina, wyszukiwanie
  * po imieniu, nazwisku i hooku (bez polskich znaków). Wiersz otwiera profil nad tym popupem
- * (stos). Administrator ma w nagłówku „Dodaj członka” (MEM-3).
+ * (stos). Administrator ma w nagłówku „Dodaj członka”.
  */
 export function MembersPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   const { client, state } = useAuth();
@@ -29,7 +29,7 @@ export function MembersPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   const chunks = useChunks(shown, deferredQuery);
 
   const actions = isAdmin ? (
-    // Na telefonie krótka etykieta „Dodaj” (DS §7); nazwa dostępna jest zawsze pełna.
+    // Na telefonie krótka etykieta „Dodaj”; nazwa dostępna jest zawsze pełna.
     <Button
       size="sm"
       icon="plus"

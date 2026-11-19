@@ -1,30 +1,29 @@
--- [034] Statystyki gracza w profilu (PRD STAT-1–STAT-3, USR-4, MEM-5, §5.6, Q21).
+-- Statystyki gracza w profilu.
 --
--- Zasady (jak `leaderboard`, [032], i `game_stats`, [035]):
+-- Zasady (jak `leaderboard` i `game_stats`):
 -- - Liczą się tylko zapisane partie (`plays.status = 'saved'`), szkice nie. Wyniki są liczone
 --   z `play_results` przy odczycie, więc zapis i usunięcie partii (`save_play`, `delete_play`)
---   zmieniają statystyki od razu (§5.6.5). Funkcja działa z prawami wywołującego (security
+--   zmieniają statystyki od razu. Funkcja działa z prawami wywołującego (security
 --   invoker): RLS daje wynik tylko aktywnym członkom.
--- - `year` NULL = cała historia, inaczej rok kalendarzowy w strefie klubu (STAT-3 „jak
---   w leaderboardzie”, LB-4, NFR-10): liczą się partie spotkań, których `starts_at` wypada
+-- - `year` NULL = cała historia, inaczej rok kalendarzowy w strefie klubu (jak w leaderboardzie):
+--   liczą się partie spotkań, których `starts_at` wypada
 --   w tym roku lokalnie, a serie są liczone tylko w obrębie roku. Zły rok to błąd 22023
 --   z HINT `leaderboard_year_invalid` (ten sam co w `leaderboard`).
--- - Kolejność zdarzeń (§5.6.6, Q24): spotkania po `starts_at`, potem `id`; partie w spotkaniu po
+-- - Kolejność zdarzeń: spotkania po `starts_at`, potem `id`; partie w spotkaniu po
 --   `saved_at`, potem `id`. „Ostatnie partie” odwracają tę kolejność.
 --
--- `player_stats(profile_id, year)` zwraca obiekt jsonb (NULL, gdy profilu nie ma; usunięty
--- członek ma statystyki z historii, MEM-5):
+-- `player_stats(profile_id, year)` zwraca obiekt jsonb (NULL, gdy profilu nie ma, usunięty członek ma statystyki z historii):
 -- - `years`: lata (strefa klubu) z zapisanymi partiami gracza, od najnowszego: opcje filtru;
--- - `meetings` (obecność: spotkania z ≥ 1 partią gracza, jak `meet-*` w §5.10), `plays`, `wins`
---   (także wspólne 1. miejsce, §5.6.3), `points` (§5.6.2);
--- - `streak_record` i `streak_current` (§5.6.4): spotkanie z ≥ 1 wygraną daje +1, spotkanie
+-- - `meetings` (obecność: spotkania z ≥ 1 partią gracza, jak `meet-*`), `plays`, `wins`
+--   (także wspólne 1. miejsce), `points`;
+-- - `streak_record` i `streak_current`: spotkanie z ≥ 1 wygraną daje +1, spotkanie
 --   z partiami bez wygranej zeruje serię, spotkanie bez partii gracza nic nie zmienia;
 -- - `places`: aktualne miejsca w trzech klasyfikacjach `leaderboard` (points, wins, streak) dla
---   tego samego zakresu; NULL bez partii w zakresie i zawsze dla usuniętego członka (LB-7: nie
---   jest klasyfikowany razem z aktywnymi, DS §8: pozycja „–”);
--- - `favorite_game` (STAT-2): najczęściej grana; remis: więcej wygranych, potem tytuł
+--   tego samego zakresu; NULL bez partii w zakresie i zawsze dla usuniętego członka (nie jest
+--   klasyfikowany razem z aktywnymi, pozycja „–”);
+-- - `favorite_game`: najczęściej grana; remis: więcej wygranych, potem tytuł
 --   alfabetycznie (polskie sortowanie), potem `id`; NULL bez partii;
--- - `best_game` (STAT-2, Q21): spośród gier z ≥ 3 partiami gracza najwyższy % wygranych; remis:
+-- - `best_game`: spośród gier z ≥ 3 partiami gracza najwyższy % wygranych; remis:
 --   więcej wygranych, więcej partii, tytuł, `id`; NULL bez takiej gry (pusty stan);
 -- - `recent_plays`: najwyżej 10 ostatnich partii (od najnowszej) ze spotkaniem do linku, grą,
 --   miejscem, punktami i wygraną.
@@ -94,7 +93,7 @@ begin
      group by r.game_id, g.title
   ),
   -- Miejsca bierzemy z `leaderboard`, więc zawsze zgadzają się z rankingiem. Ranking liczymy
-  -- tylko dla aktywnego gracza z partiami w zakresie: inaczej miejsca i tak nie ma (LB-5, LB-7).
+  -- tylko dla aktywnego gracza z partiami w zakresie: inaczej miejsca i tak nie ma.
   places as (
     select k.kind,
            (select lb.place from public.leaderboard(k.kind, player_stats.year) lb
@@ -152,7 +151,7 @@ end;
 $$;
 
 comment on function public.player_stats(uuid, int) is
-  'Statystyki gracza (STAT-1–STAT-3): obecność, partie, wygrane, punkty, rekord i bieżąca seria, miejsca w trzech rankingach, ulubiona i najlepsza gra (Q21), ostatnie partie; cała historia albo rok w strefie klubu.';
+  'Statystyki gracza: obecność, partie, wygrane, punkty, rekord i bieżąca seria, miejsca w trzech rankingach, ulubiona i najlepsza gra, ostatnie partie; cała historia albo rok w strefie klubu.';
 
 revoke execute on function public.player_stats(uuid, int) from public, anon;
 grant execute on function public.player_stats(uuid, int) to authenticated;

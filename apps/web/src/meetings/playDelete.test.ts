@@ -40,7 +40,7 @@ function fakeClient(script: { rpc?: RpcResult; remove?: RemoveResult }) {
   return { client: client as unknown as SupabaseClient, calls };
 }
 
-describe('deletePlay (VIEW-6, §5.6.5)', () => {
+describe('deletePlay', () => {
   it('wywołuje delete_play i zwraca ścieżkę obrazu do sprzątania', async () => {
     const { client, calls } = fakeClient({ rpc: { data: IMAGE, error: null } });
     await expect(deletePlay(client, PLAY)).resolves.toEqual({ imagePath: IMAGE, deleted: true });

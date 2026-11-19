@@ -1,10 +1,9 @@
--- [045] Skomplikowanie gry, punkty ułamkowe, przesunięcie miejsc w mniejszych partiach i zespoły
--- (PRD GAME-4, GAME-5, §5.6.2, EDT-13, PAD-2, PAD-3).
+-- Skomplikowanie gry, punkty ułamkowe, przesunięcie miejsc w mniejszych partiach i zespoły.
 --
 -- Zasady:
 -- - `games.complexity`: skomplikowanie gry 1,00…5,00 (dwa miejsca po przecinku). Wymagane dla
 --   nowych gier i przy każdej edycji gry, która je ma; starsze gry bez wartości zostają bez
---   zmian (snapshoty partii, GAME-9), dopóki administrator go nie uzupełni. Formularz gry
+--   zmian (snapshoty partii), dopóki administrator go nie uzupełni. Formularz gry
 --   wylicza z niego punktację miejsc (`complexityPoints` w `@bg-club/scoring`); baza
 --   sprawdza tylko poprawność punktacji, bo administrator może ją poprawić ręcznie.
 -- - Punkty za miejsca, snapshot partii i punkty wyniku to `numeric` ≥ 0 z najwyżej dwoma
@@ -98,9 +97,9 @@ alter table public.games
     constraint games_complexity_range check (complexity between 1 and 5);
 
 comment on column public.games.complexity is
-  'Skomplikowanie gry 1,00…5,00 (GAME-5); podstawa wzoru punktacji miejsc. NULL tylko w grach sprzed tej migracji.';
+  'Skomplikowanie gry 1,00…5,00; podstawa wzoru punktacji miejsc. NULL tylko w grach sprzed tej migracji.';
 
--- Wymagane przy dodaniu gry przez aplikację (rola `authenticated`, formularz GAME-4); gra, która
+-- Wymagane przy dodaniu gry przez aplikację (rola `authenticated`, formularz gry); gra, która
 -- je ma, nie może go stracić. Import i dane techniczne (service_role, właściciel bazy) mogą
 -- dodać grę bez niego, jak gry sprzed tej migracji.
 create function public.games_require_complexity()
@@ -149,7 +148,7 @@ from public.games g
 where g.deleted_at is null;
 
 comment on view public.game_collection is
-  'Aktywne gry kolekcji (GAME-8) z datą ostatniej zapisanej partii (kolejność widżetu, GAME-1, Q11).';
+  'Aktywne gry kolekcji z datą ostatniej zapisanej partii (kolejność widżetu).';
 comment on column public.game_collection.last_played_at is
   'saved_at ostatniej zapisanej partii gry; NULL = gra jeszcze nie grana.';
 
@@ -169,7 +168,7 @@ as $$
 $$;
 
 comment on function public.search_games(text) is
-  'Aktywne gry, których tytuł zawiera zapytanie (bez wielkości liter i polskich znaków, GAME-2).';
+  'Aktywne gry, których tytuł zawiera zapytanie (bez wielkości liter i polskich znaków).';
 
 revoke all on public.game_collection from anon, authenticated;
 grant select on public.game_collection to authenticated;
@@ -236,7 +235,7 @@ end;
 $$;
 
 comment on function public.play_points(int[], numeric[]) is
-  'Punkty za miejsca stron partii: ostatnie n pozycji punktacji dla n stron, remis = średnia zaokrąglona w dół do setnych (PRD §5.6.2). Dla RPC zapisu partii.';
+  'Punkty za miejsca stron partii: ostatnie n pozycji punktacji dla n stron, remis = średnia zaokrąglona w dół do setnych. Dla RPC zapisu partii.';
 
 revoke execute on function public.play_points(int[], numeric[]) from public, anon, authenticated;
 
@@ -324,7 +323,7 @@ $fn$;
 -- - Szkic: najwyżej tylu graczy, ilu mieści snapshot punktacji gry (max graczy gry); w notesie
 --   bez zespołów miejsca są pojedyncze (`play_results_before_write`), więc graczy jest też
 --   najwyżej tyle, ile miejsc notesu.
--- - Zapisana partia: dodatkowo co najmniej 2 strony (Q2) i uzupełnione wyniki wszystkich.
+-- - Zapisana partia: dodatkowo co najmniej 2 strony i uzupełnione wyniki wszystkich.
 create or replace function public.check_play_players(target_play_id uuid)
 returns void
 language plpgsql
@@ -433,7 +432,7 @@ begin
   end if;
 
   -- Blokada współdzielona: zakończenie spotkania (FOR UPDATE) czeka na rozpoczęcie partii
-  -- i widzi nowy szkic (RUN-4), a partia nie powstanie w spotkaniu, które się właśnie kończy.
+  -- i widzi nowy szkic, a partia nie powstanie w spotkaniu, które się właśnie kończy.
   select m.status into meeting_status from public.meetings m where m.id = start_play.meeting_id for share;
   if meeting_status is distinct from 'in_progress' then
     raise exception 'plays can be started only in an in-progress meeting'
@@ -504,7 +503,7 @@ begin
       using errcode = '23514', constraint = 'plays_players_count', hint = 'plays_players_count';
   end if;
 
-  -- Uczestnik usunięty z klubu zostaje w historii spotkania (MEM-5), ale nie zagra.
+  -- Uczestnik usunięty z klubu zostaje w historii spotkania, ale nie zagra.
   if exists (
     select 1 from unnest(players) p(id)
      where not exists (
@@ -546,7 +545,7 @@ end;
 $$;
 
 comment on function public.start_play(uuid, uuid, uuid, uuid[], int[]) is
-  'Rozpoczyna partię (szkic) z bieżącą wersją notesu i graczami w miejscach notesu (RUN-2, PAD-2, PAD-3); z seat_numbers płaska lista graczy i miejsc, kilku na miejscu tylko w notesie z zespołami. Admin lub prowadzący, tylko spotkanie w trakcie.';
+  'Rozpoczyna partię (szkic) z bieżącą wersją notesu i graczami w miejscach notesu; z seat_numbers płaska lista graczy i miejsc, kilku na miejscu tylko w notesie z zespołami. Admin lub prowadzący, tylko spotkanie w trakcie.';
 
 revoke execute on function public.start_play(uuid, uuid, uuid, uuid[], int[]) from public, anon;
 grant execute on function public.start_play(uuid, uuid, uuid, uuid[], int[]) to authenticated;
@@ -577,7 +576,7 @@ begin
   play_meeting_id := private.play_meeting(save_play.play_id);
   perform private.require_meeting_runner(play_meeting_id);
 
-  -- Blokada współdzielona: zakończenie spotkania czeka na zapis partii (RUN-4 widzi wynik).
+  -- Blokada współdzielona: zakończenie spotkania czeka na zapis partii (koniec spotkania widzi wynik).
   -- Status sprawdzamy po ponowieniu: zapisana partia wraca także po zakończeniu spotkania.
   select m.status into meeting_status from public.meetings m where m.id = play_meeting_id for share;
 
@@ -649,7 +648,7 @@ begin
       using errcode = '23514', constraint = 'plays_min_players', hint = 'plays_results_players';
   end if;
 
-  -- Snapshot punktacji z rozpoczęcia partii obejmuje wszystkie strony (GAME-9).
+  -- Snapshot punktacji z rozpoczęcia partii obejmuje wszystkie strony.
   if cardinality(play.points_snapshot) < sides then
     raise exception 'points snapshot covers % places, play has % sides', cardinality(play.points_snapshot), sides
       using errcode = '23514', constraint = 'plays_max_players', hint = 'plays_points_snapshot';
@@ -683,9 +682,9 @@ begin
       using errcode = '23514', constraint = 'play_results_ranking', hint = 'plays_results_empty';
   end if;
 
-  -- Miejsca zgodne z kategorią decydującą (EDT-2, EDT-3): lepsze miejsce nie ma gorszej
+  -- Miejsca zgodne z kategorią decydującą: lepsze miejsce nie ma gorszej
   -- wartości, wspólne miejsce ma tę samą. Reguły remisów rozdzielają tylko równe wartości;
-  -- tego, jak je rozdzieliły, baza nie sprawdza (sumy i reguły liczy notes, §8.3).
+  -- tego, jak je rozdzieliły, baza nie sprawdza (sumy i reguły liczy notes).
   select r.dir, r.tiebreak into dir, tiebreak
     from public.scorepad_versions v
    cross join lateral private.scorepad_ranking(v.template) r
@@ -704,7 +703,7 @@ begin
       join unnest(input) b on a.place = b.place and a.profile_id <> b.profile_id
      where a.ranking_value is distinct from b.ranking_value
   ) or (not tiebreak and exists (
-    -- Bez reguł remisu równe wartości decydujące dają wspólne miejsce (EDT-4).
+    -- Bez reguł remisu równe wartości decydujące dają wspólne miejsce.
     select 1
       from unnest(input) a
       join unnest(input) b on a.place < b.place
@@ -714,7 +713,7 @@ begin
       using errcode = '23514', constraint = 'play_results_ranking', hint = 'plays_results_ranking';
   end if;
 
-  -- Punkty stron z snapshotu punktacji (§5.6.2); każdy członek zespołu dostaje punkty strony.
+  -- Punkty stron z snapshotu punktacji; każdy członek zespołu dostaje punkty strony.
   select array_agg(s.seat order by s.seat), array_agg(s.place order by s.seat)
     into seat_numbers, seat_places
     from (select distinct i.seat, i.place from unnest(input) i) s;
@@ -743,7 +742,7 @@ end;
 $$;
 
 comment on function public.save_play(uuid, uuid, jsonb, jsonb) is
-  'Kończy partię: zapisuje kartkę i wyniki graczy w jednej transakcji; punkty (po stronach: graczach albo zespołach), remisy i wygrane liczy baza (PAD-5, PAD-7, §5.6). Admin lub prowadzący, tylko spotkanie w trakcie; ponowienie z tą samą treścią zwraca zapisaną partię.';
+  'Kończy partię: zapisuje kartkę i wyniki graczy w jednej transakcji; punkty (po stronach: graczach albo zespołach), remisy i wygrane liczy baza. Admin lub prowadzący, tylko spotkanie w trakcie; ponowienie z tą samą treścią zwraca zapisaną partię.';
 
 -- ---------------------------------------------------------------------------------------------
 -- Rankingi, statystyki i osiągnięcia: punkty bez obcinania do liczb całkowitych
@@ -791,12 +790,12 @@ end;
 $$;
 
 comment on function public.leaderboard(text, int) is
-  'Klasyfikacja punktów, wygranych albo rekordu serii (LB-1) dla całej historii albo roku w strefie klubu (LB-4, NFR-10). Remisy 1, 1, 3 alfabetycznie (LB-6); usunięci na końcu, bez podium (LB-7).';
+  'Klasyfikacja punktów, wygranych albo rekordu serii dla całej historii albo roku w strefie klubu. Remisy 1, 1, 3 alfabetycznie; usunięci na końcu, bez podium.';
 revoke execute on function public.leaderboard(text, int) from public, anon;
 grant execute on function public.leaderboard(text, int) to authenticated;
 
 comment on function public.meeting_summary(uuid) is
-  'Podsumowanie leaderboardowe spotkania (VIEW-4): punkty i wygrane graczy z rozbiciem na gry oraz seria zwycięstw przed i po spotkaniu (§5.6.4).';
+  'Podsumowanie leaderboardowe spotkania: punkty i wygrane graczy z rozbiciem na gry oraz seria zwycięstw przed i po spotkaniu.';
 revoke execute on function public.meeting_summary(uuid) from public, anon;
 grant execute on function public.meeting_summary(uuid) to authenticated;
 

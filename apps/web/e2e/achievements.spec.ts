@@ -14,8 +14,8 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Gablota osiągnięć w profilu i osiągnięcia spotkania (PRD ACH-3, VIEW-5, USR-4, MEM-5,
- * zadanie [037]): cały katalog, kolorowe odblokowane z datą, wyszarzone z opisem albo postępem,
+ * Gablota osiągnięć w profilu i osiągnięcia spotkania: cały katalog, kolorowe odblokowane z datą,
+ * wyszarzone z opisem albo postępem,
  * szczegóły odznaki z warunkiem i spotkaniem, lista spotkania oraz odświeżenie obu widoków po
  * usunięciu partii. Odblokowania i liczniki liczy baza (`player_achievements`,
  * `meeting_achievements`, testy pgTAP `230`, `240`); tu API Supabase jest atrapą. Każdy test
@@ -69,7 +69,7 @@ const unlock = (id: string, play: number | null) => ({
 
 /**
  * Stan bazy po przeliczeniu: przed usunięciem partii Azul Bea ma Pierwszą wygraną i Hat-trick,
- * po usunięciu żadnej z nich (§5.6.5). Liczniki: 7 z 10 spotkań do Stałego bywalca.
+ * po usunięciu żadnej z nich. Liczniki: 7 z 10 spotkań do Stałego bywalca.
  */
 function database(deleted: () => boolean): MockOptions {
   return {
@@ -143,7 +143,7 @@ const showcase = (page: Page) =>
   profileDialog(page).getByRole('region', { name: 'Gablota osiągnięć' });
 const tile = (page: Page, id: string) => showcase(page).locator(`[data-achievement="${id}"]`);
 
-test('gablota: cały katalog, odblokowane z datą, wyszarzone z opisem i postępem (ACH-3)', async ({
+test('gablota: cały katalog, odblokowane z datą, wyszarzone z opisem i postępem', async ({
   page,
 }) => {
   await openApp(page, `/?p=profile/${BEA.id}`);
@@ -198,7 +198,7 @@ test('gablota: cały katalog, odblokowane z datą, wyszarzone z opisem i postęp
   await check(page);
 });
 
-test('pusta gablota i profil usuniętego członka (MEM-5)', async ({ page }) => {
+test('pusta gablota i profil usuniętego członka', async ({ page }) => {
   await openApp(page, `/?p=profile/${CEZARY.id}`);
   await expect(showcase(page)).toContainText('0 z 29');
   await expect(showcase(page).getByText('Gablota jest jeszcze pusta')).toBeVisible();
@@ -215,7 +215,7 @@ test('pusta gablota i profil usuniętego członka (MEM-5)', async ({ page }) => 
   await check(page);
 });
 
-test('spotkanie pokazuje odblokowane osiągnięcia, a usunięcie partii odświeża je i gablotę (VIEW-5, §5.6.5)', async ({
+test('spotkanie pokazuje odblokowane osiągnięcia, a usunięcie partii odświeża je i gablotę', async ({
   page,
 }) => {
   const mock = await openApp(page, `/?p=profile/${BEA.id}&p=meeting/${FINISHED.id}`);

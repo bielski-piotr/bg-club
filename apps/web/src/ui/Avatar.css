@@ -1,4 +1,4 @@
-/* Awatary i stosy (DS §8). */
+/* Awatary i stosy. */
 .avatar {
   position: relative;
   display: inline-grid;
@@ -37,7 +37,7 @@
   white-space: nowrap;
 }
 
-/* DS §8: w stosie 64 litery przesunięte w lewo od zakładki. */
+/* W stosie 64 litery przesunięte w lewo od zakładki. */
 .avatar--shifted .avatar__monogram {
   padding-right: 12px;
 }

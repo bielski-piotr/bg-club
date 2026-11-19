@@ -24,7 +24,7 @@ const STREAK_TONE: Record<StreakChange, Tone> = {
 };
 
 /**
- * Podsumowanie leaderboardowe spotkania (VIEW-4, DS §15 „Meeting summary row”): dla każdego
+ * Podsumowanie leaderboardowe spotkania: dla każdego
  * gracza z zapisaną partią punkty z rozbiciem na gry, wygrane (za które gry) i zmiana serii.
  * Bez zapisanych partii sekcji nie ma (listę partii i jej pusty stan pokazuje sekcja „Partie”).
  */

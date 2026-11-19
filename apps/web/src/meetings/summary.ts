@@ -5,7 +5,7 @@ import { isUuid } from '../popups/routes';
 import { meetingsKey } from './meetings';
 
 /**
- * Podsumowanie leaderboardowe spotkania (PRD VIEW-4, DS §15 „Meeting summary row”) z funkcji SQL
+ * Podsumowanie leaderboardowe spotkania z funkcji SQL
  * `meeting_summary(meeting_id)` (migracja `20261113001800_game_stats.sql`). Baza liczy punkty,
  * wygrane i serie z zapisanych partii (szkice się nie liczą); tu tylko teksty wiersza.
  */
@@ -14,7 +14,7 @@ import { meetingsKey } from './meetings';
 export interface SummaryGame {
   readonly game_id: string;
   readonly title: string;
-  /** Gra usunięta z kolekcji zostaje w historii z oznaczeniem (GAME-8). */
+  /** Gra usunięta z kolekcji zostaje w historii z oznaczeniem. */
   readonly deleted: boolean;
   readonly points: number;
   readonly wins: number;
@@ -26,14 +26,14 @@ export interface SummaryEntry {
   readonly deleted: boolean;
   readonly points: number;
   readonly wins: number;
-  /** Gry w kolejności pierwszej partii gry w spotkaniu (§5.6.6). */
+  /** Gry w kolejności pierwszej partii gry w spotkaniu. */
   readonly games: readonly SummaryGame[];
-  /** Seria zwycięstw przed spotkaniem i po nim (cała historia, §5.6.4). */
+  /** Seria zwycięstw przed spotkaniem i po nim (cała historia). */
   readonly streak_before: number;
   readonly streak_after: number;
 }
 
-/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają podsumowanie (§5.6.5). */
+/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają podsumowanie. */
 export const meetingSummaryKey = (id: string) => [...meetingsKey, 'summary', id] as const;
 
 export function useMeetingSummary(client: SupabaseClient, meetingId: string) {
@@ -53,7 +53,7 @@ const text = t.meetings.summary;
 export type StreakChange = 'up' | 'broken' | 'unchanged';
 
 /**
- * Zmiana serii na spotkaniu (§5.6.4): wygrana przedłuża serię, brak wygranej przerywa serię
+ * Zmiana serii na spotkaniu: wygrana przedłuża serię, brak wygranej przerywa serię
  * > 0, a seria 0 bez wygranej zostaje bez zmian.
  */
 export function streakChange(
@@ -64,7 +64,7 @@ export function streakChange(
   return 'unchanged';
 }
 
-/** „+1 → seria 4”, „seria przerwana”, „seria bez zmian” (VIEW-4). */
+/** „+1 → seria 4”, „seria przerwana”, „seria bez zmian”. */
 export function streakLabel(entry: Pick<SummaryEntry, 'streak_before' | 'streak_after'>): string {
   switch (streakChange(entry)) {
     case 'up':
@@ -80,14 +80,14 @@ function gameTitle(game: SummaryGame): string {
   return game.deleted ? format(text.deletedGame, { title: game.title }) : game.title;
 }
 
-/** Rozbicie punktów na gry: „Wingspan +8, Azul +4” (VIEW-4). */
+/** Rozbicie punktów na gry: „Wingspan +8, Azul +4”. */
 export function pointsBreakdown(games: readonly SummaryGame[]): string {
   return games
     .map((game) => format(text.gamePoints, { title: gameTitle(game), n: game.points }))
     .join(', ');
 }
 
-/** „1 wygrana · Azul”, „3 wygrane · Azul ×2, Wingspan”; `null` bez wygranych (VIEW-4). */
+/** „1 wygrana · Azul”, „3 wygrane · Azul ×2, Wingspan”; `null` bez wygranych. */
 export function winsLabel(entry: Pick<SummaryEntry, 'wins' | 'games'>): string | null {
   if (entry.wins === 0) return null;
   const games = entry.games

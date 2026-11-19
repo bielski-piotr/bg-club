@@ -1,5 +1,5 @@
 /**
- * Obsługa żądania `POST /functions/v1/create-member` (PRD MEM-3, AUTH-2, AUTH-4, USR-1).
+ * Obsługa żądania `POST /functions/v1/create-member`.
  * Bez zależności od Deno i supabase-js: dostęp do Auth i bazy podaje `index.ts`, a testy
  * (`handler.test.ts`) podstawiają atrapy.
  *
@@ -36,7 +36,7 @@ export interface CreatedMemberProfile {
   readonly first_name: string;
   readonly last_name: string;
   readonly role: 'player';
-  /** Nowy członek ma monogram; zdjęcie ustawia sam w ustawieniach (USR-3). */
+  /** Nowy członek ma monogram; zdjęcie ustawia sam w ustawieniach. */
   readonly avatar_path: null;
   readonly deleted_at: null;
 }

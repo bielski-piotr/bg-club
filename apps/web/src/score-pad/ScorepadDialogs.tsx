@@ -20,7 +20,7 @@ import {
   type Scorepad,
 } from './scorepads';
 
-/** „Zmień nazwę” notesu (GAME-7): bez nowej wersji, partie zachowują swój szablon. */
+/** „Zmień nazwę” notesu: bez nowej wersji, partie zachowują swój szablon. */
 export function RenameScorepadDialog({ id }: { readonly id: string }) {
   const { client } = useAuth();
   const query = useScorepad(client, id);
@@ -120,8 +120,8 @@ function RenameForm({ pad }: { readonly pad: Scorepad }) {
 }
 
 /**
- * Potwierdzenie „Usuń notes” (GAME-7). Usunięcie jest miękkie: notes znika z listy i z wyboru
- * przy nowej partii, a wersje, obrazy kartek i rozegrane partie zostają w historii (GAME-9).
+ * Potwierdzenie „Usuń notes”. Usunięcie jest miękkie: notes znika z listy i z wyboru
+ * przy nowej partii, a wersje, obrazy kartek i rozegrane partie zostają w historii.
  * Jest idempotentne, więc po błędzie można je bezpiecznie ponowić.
  */
 export function DeleteScorepadDialog({ id }: { readonly id: string }) {

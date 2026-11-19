@@ -9,7 +9,7 @@ export interface PopupLinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElem
 
 /**
  * Link do popupu. To prawdziwy `<a href>` z adresem popupu, więc można go skopiować albo
- * otworzyć w nowej karcie; zwykłe kliknięcie otwiera popup bez przeładowania (PRD §4).
+ * otworzyć w nowej karcie; zwykłe kliknięcie otwiera popup bez przeładowania.
  */
 export function PopupLink({ to, onClick, children, ...rest }: PopupLinkProps) {
   const { open, hrefFor } = usePopups();

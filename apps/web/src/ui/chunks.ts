@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
-/** Liczba pozycji długiej listy (kolekcja, członkowie) dorysowywanych naraz (NFR-2). */
+/** Liczba pozycji długiej listy (kolekcja, członkowie) dorysowywanych naraz. */
 const CHUNK_SIZE = 24;
 
 /**
- * Długa lista rysowana porcjami (NFR-2): najpierw `size` pozycji, kolejne po „Pokaż więcej”.
+ * Długa lista rysowana porcjami: najpierw `size` pozycji, kolejne po „Pokaż więcej”.
  * Mniej elementów w DOM i mniej obrazów (okładki, awatary) pobieranych przy otwarciu popupu.
  * Zmiana `resetKey` (np. wyszukiwanej frazy) wraca do pierwszej porcji. Po dorysowaniu fokus
  * przechodzi na pierwszą nową pozycję (oznaczoną `data-chunk-start`), bo przycisk może zniknąć.

@@ -21,7 +21,7 @@ async function reason(call: (client: SupabaseClient) => Promise<void>, error: un
 
 const ID = '00000000-0000-4000-a000-000000000002';
 
-describe('deleteMember i deleteOwnAccount: wywołanie Edge Functions (MEM-4, USR-6)', () => {
+describe('deleteMember i deleteOwnAccount: wywołanie Edge Functions', () => {
   it('wysyłają identyfikator członka albo hasło do właściwej funkcji', async () => {
     const admin = clientReturning(null);
     await deleteMember(admin.client, ID);

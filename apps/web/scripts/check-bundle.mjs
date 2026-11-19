@@ -1,16 +1,16 @@
-// Strażnik rozmiaru początkowego pakietu (NFR-2, zadanie [040]). Uruchamiany po `vite build`.
+// Strażnik rozmiaru początkowego pakietu. Uruchamiany po `vite build`.
 // Liczy pliki JS i CSS, które przeglądarka pobiera przed pierwszym renderem widoku Klubu:
 // skrypt wejściowy z `index.html` z jego statycznymi importami oraz arkusze CSS. Kończy się
 // błędem, gdy suma po gzip przekracza limit albo gdy do tych plików trafia Three.js, notes
 // lub edytor notesów (muszą być ładowane leniwie, `import()`).
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const DIST = join(import.meta.dirname, '..', 'dist');
-/** Limit JS po gzip (KB). Pomiar [040]: ≈ 182 KB (przed podziałem 240 KB); zapas na rozwój bez cofnięcia podziału. */
+/** Limit JS po gzip (KB). Pomiar: ≈ 182 KB (przed podziałem 240 KB); zapas na rozwój bez cofnięcia podziału. */
 const JS_LIMIT_KB = 215;
-/** Limit CSS po gzip (KB). Pomiar [040]: ≈ 15 KB. */
+/** Limit CSS po gzip (KB). Pomiar: ≈ 15 KB. */
 const CSS_LIMIT_KB = 30;
 /** Moduły, które nie mogą trafić do początkowego pakietu (źródła z mapy). */
 const FORBIDDEN = [/node_modules\/three\//, /packages\/score-pad\/src\/(pad|editor)\//];
@@ -41,6 +41,8 @@ const jsKb = sum(js);
 const cssKb = sum(styles);
 
 const leaks = js.flatMap((file) => {
+  // Runtime bundlera (np. `rolldown-runtime-*.js`) nie ma mapy ani źródeł aplikacji.
+  if (!existsSync(join(DIST, `${file}.map`))) return [];
   const map = JSON.parse(readFileSync(join(DIST, `${file}.map`), 'utf8'));
   return map.sources
     .filter((src) => FORBIDDEN.some((re) => re.test(src)))

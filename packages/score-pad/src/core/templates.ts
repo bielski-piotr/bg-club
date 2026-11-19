@@ -64,8 +64,10 @@ export interface LineDef {
 
 /**
  * Siatka pól w znormalizowanych współrzędnych kartki (0…1, od lewego górnego rogu).
- * players = "cols": x[] to granice kolumn (najpierw `labels` kolumn opisu, potem gracze), y[] to granice kategorii.
- * players = "rows": y[] to granice wierszy (najpierw `labels` wierszy opisu, potem gracze), x[] to granice kategorii.
+ * players = "cols": x[] to granice kolumn (najpierw `labels` kolumn opisu, potem gracze), y[] to
+ * granice kategorii.
+ * players = "rows": y[] to granice wierszy (najpierw `labels` wierszy opisu, potem gracze), x[] to
+ * granice kategorii.
  */
 export interface GridDef {
   x: number[];
@@ -77,8 +79,9 @@ export interface GridDef {
 }
 
 /**
- * Pole o dowolnym położeniu i rozmiarze (nie wiersz ani kolumna siatki), np. kratka na planszy gracza.
- * Należy do kategorii (`line`) i gracza (`p`); wartości wszystkich pól kategorii gracza sumują się.
+ * Pole o dowolnym położeniu i rozmiarze (nie wiersz ani kolumna siatki), np. kratka na planszy
+ * gracza. Należy do kategorii (`line`) i gracza (`p`); wartości wszystkich pól kategorii gracza
+ * sumują się.
  * Pole kategorii „Imiona” pokazuje imię gracza, a pole sumy lub wyniku — policzoną wartość.
  */
 export interface FreeField {
@@ -125,7 +128,7 @@ export interface PadTemplate {
   /** Krawędź klejona do grzbietu: u góry (domyślnie) albo z lewej — notes leży wtedy poziomo. */
   binding?: 'top' | 'left';
   /**
-   * Kategoria decydująca o miejscu, kierunek i reguły remisów (EDT-7). Brak = najwyższa suma
+   * Kategoria decydująca o miejscu, kierunek i reguły remisów. Brak = najwyższa suma
    * końcowa, jak w starszych plikach.
    */
   ranking?: Ranking;
@@ -186,7 +189,7 @@ export function playerTracks(t: PadTemplate): number[] {
 
 /**
  * Zabezpieczenie przed uszkodzonym plikiem (np. `players: 100000000` zamroziłoby kartę),
- * a nie limit produktu: EDT-8 nie ogranicza liczby graczy, a tylu miejsc nie ma żaden notes.
+ * a nie limit produktu: produkt nie ogranicza liczby graczy, a tylu miejsc nie ma żaden notes.
  */
 export const SEAT_SANITY_LIMIT = 200;
 
@@ -230,7 +233,8 @@ export function hitField(t: PadTemplate, u: number, v: number): { li: number; p:
   return p < 0 ? null : { li, p };
 }
 
-// ─────────────────────────────────────────────────────────── miejsca na kartce (siatka + pola dowolne)
+// ─────────────────────────────────────────────────────────── miejsca na kartce (siatka + pola
+// dowolne)
 
 /** Miejsce na kartce: pole siatki albo pole dowolne. */
 export interface Spot {
@@ -308,19 +312,19 @@ export function uniform(a: number, b: number, n: number): number[] {
 
 // ─────────────────────────────────────────────────────────── liczenie
 
-// Sumy i kategoria decydująca liczą się w `@bg-club/scoring` (PRD §8.3, EDT-13): ten sam kod
+// Sumy i kategoria decydująca liczą się w `@bg-club/scoring`: ten sam kod
 // liczy notes, edytor i testy wyników. Nazwy zostają z POC.
 export { effectiveOf, finalTotalIndex, inputLeaves, isComputed, isNumeric } from '@bg-club/scoring';
 
 /**
- * Reguła miejsc notesu (EDT-7): `ranking`, gdy jest poprawna, inaczej najwyższa suma końcowa.
+ * Reguła miejsc notesu: `ranking`, gdy jest poprawna, inaczej najwyższa suma końcowa.
  * `validateTemplate` usuwa błędną regułę, ale szablon mógł zostać zmieniony po wczytaniu.
  */
 export function padRanking(t: PadTemplate): Ranking {
   return (t.ranking && parseRanking(t.ranking, t.lines).ranking) || rankingOf({ lines: t.lines });
 }
 
-/** Miejsca graczy kartki według reguły notesu (PRD §5.6.1), w kolejności miejsc. */
+/** Miejsca graczy kartki według reguły notesu, w kolejności miejsc. */
 export function rankSheet(t: PadTemplate, players: PlayerEntry[]): RankedPlayer[] {
   return rankPlayers({ lines: t.lines, ranking: padRanking(t) }, players);
 }
@@ -514,7 +518,7 @@ export function validateTemplate(raw: unknown): PadTemplate | null {
   };
   // kategorii może być więcej niż pasów siatki: nadmiarowe mają tylko pola dowolne
   if (t.grid && lineCount(t) > t.lines.length) return null;
-  // bez limitu graczy (EDT-8): o liczbie miejsc decyduje sam notes; odrzucamy tylko uszkodzone pliki
+  // bez limitu graczy: o liczbie miejsc decyduje sam notes; odrzucamy tylko uszkodzone pliki
   if (playerCount(t) < 1 || playerCount(t) > SEAT_SANITY_LIMIT) return null;
   const ids = new Set(t.lines.map((l) => l.id));
   if (t.fields) t.fields = t.fields.filter((f) => ids.has(f.line));

@@ -10,7 +10,7 @@ import {
 } from './support/supabaseMock';
 
 /**
- * Profil i ustawienia (PRD USR-2…USR-5, USR-7, USR-8, AUTH-6): akcje właściciela i innych
+ * Profil i ustawienia: akcje właściciela i innych
  * graczy, zdjęcie z kadrowaniem 256×256, powrót do monogramu, motyw w profilu i localStorage,
  * zmiana hasła i propozycja przy pierwszym logowaniu. API Supabase jest atrapą; każdy test
  * przechodzi na 360 px i na desktopie, w motywie jasnym i ciemnym.
@@ -67,9 +67,7 @@ async function openSettings(page: Page) {
   return dialog;
 }
 
-test('własny profil ma Ustawienia i stany oczekiwania, cudzy nie ma akcji (USR-4, USR-7)', async ({
-  page,
-}) => {
+test('własny profil ma Ustawienia i stany oczekiwania, cudzy nie ma akcji', async ({ page }) => {
   await openApp(page);
   await page.getByRole('button', { name: 'Twoje konto: Ada Adminowska' }).click();
   await expect(page.getByRole('menu', { name: 'Menu konta' })).toBeVisible();
@@ -81,7 +79,7 @@ test('własny profil ma Ustawienia i stany oczekiwania, cudzy nie ma akcji (USR-
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);
 
-  // Admin ogląda profil gracza: bez ustawień i bez edycji (USR-7).
+  // Admin ogląda profil gracza: bez ustawień i bez edycji.
   await page.goto(`/?p=profile/${BEA.id}`);
   const other = page.getByRole('dialog', { name: 'Profil' });
   await expect(other.getByText('Bea Bobrowska')).toBeVisible();
@@ -89,7 +87,7 @@ test('własny profil ma Ustawienia i stany oczekiwania, cudzy nie ma akcji (USR-
   await expect(other.getByText('Statystyki pojawią się po pierwszej partii')).toBeVisible();
 });
 
-test('zdjęcie: wybór, kadrowanie 256×256 i zapis z nazwiskiem (USR-3, USR-5)', async ({ page }) => {
+test('zdjęcie: wybór, kadrowanie 256×256 i zapis z nazwiskiem', async ({ page }) => {
   const mock = await openApp(page);
   const dialog = await openSettings(page);
   expect(await search(page)).toBe('?p=settings');
@@ -147,7 +145,7 @@ test('zdjęcie: wybór, kadrowanie 256×256 i zapis z nazwiskiem (USR-3, USR-5)'
   ).toBeVisible();
 });
 
-test('powrót do monogramu usuwa zdjęcie (USR-3)', async ({ page }) => {
+test('powrót do monogramu usuwa zdjęcie', async ({ page }) => {
   const mock = await openApp(page, { profile: { ...ADA, avatar_path: OLD_AVATAR } });
   await expect(
     page.getByRole('button', { name: 'Twoje konto: Ada Adminowska' }).locator('img'),
@@ -164,7 +162,7 @@ test('powrót do monogramu usuwa zdjęcie (USR-3)', async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test('nieobsługiwany plik daje polski komunikat (USR-3)', async ({ page }) => {
+test('nieobsługiwany plik daje polski komunikat', async ({ page }) => {
   const mock = await openApp(page);
   const dialog = await openSettings(page);
   await dialog
@@ -174,7 +172,7 @@ test('nieobsługiwany plik daje polski komunikat (USR-3)', async ({ page }) => {
   expect(mock.avatarUploads).toEqual([]);
 });
 
-test('motyw zapisuje się w profilu i localStorage i nie miga po przeładowaniu (USR-8)', async ({
+test('motyw zapisuje się w profilu i localStorage i nie miga po przeładowaniu', async ({
   page,
 }) => {
   const mock = await openApp(page);
@@ -195,14 +193,14 @@ test('motyw zapisuje się w profilu i localStorage i nie miga po przeładowaniu 
   expect(await page.evaluate(() => localStorage.getItem('bg-club.theme'))).toBeNull();
 });
 
-test('motyw z profilu działa na nowym urządzeniu (USR-8)', async ({ page }) => {
+test('motyw z profilu działa na nowym urządzeniu', async ({ page }) => {
   await openApp(page, { profile: { ...ADA, theme: 'light' } });
   await expect(page.getByRole('heading', { level: 1, name: 'Planszówki' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => localStorage.getItem('bg-club.theme'))).toBe('light');
 });
 
-test('zmiana hasła sprawdza obecne hasło i dwa nowe wpisy (USR-5)', async ({ page }) => {
+test('zmiana hasła sprawdza obecne hasło i dwa nowe wpisy', async ({ page }) => {
   const mock = await openApp(page, {
     updateUserError: { status: 400, code: 'current_password_invalid' },
   });
@@ -238,9 +236,7 @@ test('zmiana hasła sprawdza obecne hasło i dwa nowe wpisy (USR-5)', async ({ p
   expect(page.url()).not.toContain('haslo');
 });
 
-test('pierwsze logowanie proponuje własne hasło, które można pominąć (AUTH-6)', async ({
-  page,
-}) => {
+test('pierwsze logowanie proponuje własne hasło, które można pominąć', async ({ page }) => {
   const mock = await openApp(page, { profile: { ...ADA, password_change_suggested: true } });
   const dialog = page.getByRole('dialog', { name: 'Ustaw własne hasło' });
   await expect(dialog).toBeVisible();

@@ -1,4 +1,4 @@
--- [044] Manual: runner ACL, subgroup boundaries, shared places, persistence and retry.
+-- Manual: runner ACL, subgroup boundaries, shared places, persistence and retry.
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(27);

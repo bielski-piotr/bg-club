@@ -5,7 +5,7 @@ import { FirstRunIllustration } from './FirstRunIllustration';
 import './club.css';
 
 /**
- * Pierwsze uruchomienie na pustej bazie (CLUB-1, CLUB-3, DS §17): zamiast widżetów ilustracja,
+ * Pierwsze uruchomienie na pustej bazie: zamiast widżetów ilustracja,
  * powitanie i dla administratora przycisk „Dodaj klub”. Gracz widzi tę samą ilustrację bez
  * przycisku. Tytuł jest nagłówkiem strony (nagłówek aplikacji nie ma jeszcze nazwy klubu).
  */

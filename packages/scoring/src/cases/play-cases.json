@@ -1,8 +1,8 @@
 {
-  "$comment": "Wspólne przypadki TS i SQL (PRD §5.6, §8.3). Po zmianie: pnpm --filter @bg-club/scoring gen:sql.",
+  "$comment": "Wspólne przypadki TS i SQL. Po zmianie: pnpm --filter @bg-club/scoring gen:sql.",
   "cases": [
     {
-      "name": "PRD §5.6.2: remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format)",
+      "name": "remis dwóch o 1. miejsce, punktacja 10/6/4/2/0 → 8/8/4/2/0 (starszy format)",
       "template": {
         "lines": [
           {
@@ -266,7 +266,7 @@
       ]
     },
     {
-      "name": "ujemne wyniki, mniej = lepiej (EDT-3)",
+      "name": "ujemne wyniki, mniej = lepiej",
       "template": {
         "lines": [
           {
@@ -348,7 +348,7 @@
       ]
     },
     {
-      "name": "remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch (EDT-4)",
+      "name": "remis w remisie: reguła 1 daje 1 + remis dwóch, reguła 2 rozstrzyga tylko tych dwóch",
       "template": {
         "lines": [
           {
@@ -660,7 +660,7 @@
       ]
     },
     {
-      "name": "punktacja decyduje (EDT-2), mniej = lepiej, remis rozstrzyga suma",
+      "name": "punktacja decyduje, mniej = lepiej, remis rozstrzyga suma",
       "template": {
         "lines": [
           {

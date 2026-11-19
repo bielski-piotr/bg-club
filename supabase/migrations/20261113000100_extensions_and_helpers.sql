@@ -1,6 +1,6 @@
--- [003] Rozszerzenia i funkcje pomocnicze schematu (PRD §6).
+-- Rozszerzenia i funkcje pomocnicze schematu.
 --
--- unaccent: wyszukiwanie gier bez rozróżniania wielkości liter i polskich znaków (GAME-2).
+-- unaccent: wyszukiwanie gier bez rozróżniania wielkości liter i polskich znaków.
 -- pg_trgm: indeks GIN dla wyszukiwania fragmentu tytułu (`ilike '%…%'`).
 -- Rozszerzenia trafiają do schematu `extensions`, zgodnie z konwencją Supabase.
 
@@ -20,7 +20,7 @@ set search_path = ''
 return extensions.unaccent('extensions.unaccent'::regdictionary, value);
 
 comment on function public.f_unaccent(text) is
-  'Niezmienna nakładka na unaccent ze stałym słownikiem; używana w kolumnach wyszukiwania (GAME-2).';
+  'Niezmienna nakładka na unaccent ze stałym słownikiem; używana w kolumnach wyszukiwania.';
 
 -- Postać tekstu do wyszukiwania: bez polskich znaków i małymi literami.
 -- `ł` nie ma rozkładu Unicode, ale słownik unaccent go zawiera (Ł → L, ł → l).
@@ -37,7 +37,7 @@ comment on function public.search_text(text) is
   'Normalizacja do wyszukiwania: unaccent + lower. Ta sama funkcja buduje kolumnę i zapytanie.';
 
 -- Czy tablica punktów zawiera wyłącznie liczby całkowite ≥ 0, bez NULL, jest jednowymiarowa
--- i ma oczekiwaną długość (GAME-5).
+-- i ma oczekiwaną długość.
 create function public.is_valid_points(points int[], expected_length int)
 returns boolean
 language sql
@@ -69,7 +69,7 @@ $$;
 
 comment on function public.set_updated_at() is 'Wyzwalacz BEFORE UPDATE ustawiający updated_at.';
 
--- Czy nazwa jest znaną strefą IANA (CLUB-2, NFR-10). Lista stref pochodzi z bazy,
+-- Czy nazwa jest znaną strefą IANA. Lista stref pochodzi z bazy,
 -- więc funkcja jest `stable` i jest używana w wyzwalaczu, a nie w CHECK.
 create function public.is_valid_timezone(tz text)
 returns boolean

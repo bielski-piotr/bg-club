@@ -1,5 +1,5 @@
 // Fonty kartki i nakładek notesu (Caveat, Alegreya SC, Archivo Narrow) z npm zamiast Google Fonts
-// (DS §4: fonty są hostowane razem z aplikacją). Podzbiory latin i latin-ext ładują się na żądanie.
+// (fonty są hostowane razem z aplikacją). Podzbiory latin i latin-ext ładują się na żądanie.
 import '@fontsource/alegreya-sc/500.css';
 import '@fontsource/alegreya-sc/700.css';
 import '@fontsource/archivo-narrow/400.css';

@@ -35,7 +35,7 @@ export interface PlaySummaryDialogProps {
 }
 
 /**
- * Podsumowanie oderwanej karteczki (PAD-5): miejsca, wyniki kategorii decydującej i punkty
+ * Podsumowanie oderwanej karteczki: miejsca, wyniki kategorii decydującej i punkty
  * leaderboardu (podgląd z tej samej reguły co w bazie). „Zapisz partię” kończy partię,
  * „Wróć do kartki”, Esc i tło kładą kartkę z powrotem na notes.
  */

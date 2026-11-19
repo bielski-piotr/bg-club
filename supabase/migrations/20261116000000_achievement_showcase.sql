@@ -1,25 +1,25 @@
--- [037] Gablota osiągnięć w profilu i osiągnięcia spotkania (PRD ACH-3, VIEW-5, USR-4, §5.10).
+-- Gablota osiągnięć w profilu i osiągnięcia spotkania.
 --
--- Odblokowania zapisuje przeliczenie z [036] (`private.recalculate_achievements()`), w tej samej
+-- Odblokowania zapisuje przeliczenie (`private.recalculate_achievements()`), w tej samej
 -- transakcji co zapis i usunięcie partii, zakończenie spotkania, zamknięcie głosowania i
 -- usunięcie spotkania. Te funkcje tylko je czytają, więc po usunięciu partii gablota i lista
--- spotkania pokazują stan po przeliczeniu (bez nieaktualnych odznak, §5.6.5).
+-- spotkania pokazują stan po przeliczeniu (bez nieaktualnych odznak).
 --
 -- `player_achievements(profile_id)` zwraca obiekt jsonb (NULL, gdy profilu nie ma):
 -- - `unlocks`: odblokowania gracza z terminem i tytułem spotkania (link w szczegółach odznaki);
--- - `progress`: liczniki do postępu „7/10” nieodblokowanych odznak (ACH-3), liczone z całej
+-- - `progress`: liczniki do postępu „7/10” nieodblokowanych odznak, liczone z całej
 --   historii tak samo jak warunki w `computed_achievement_unlocks()` / `computeAchievements`:
 --   `meetings` (spotkania z ≥ 1 partią), `plays`, `wins` (1. miejsce, także wspólne), `points`,
---   `streak` (bieżąca seria, §5.6.4), `games` (różne gry), `won_games` (różne wygrane gry),
+--   `streak` (bieżąca seria), `games` (różne gry), `won_games` (różne wygrane gry),
 --   `game_wins` (najwięcej wygranych w jednej grze), `last_places` (ostatnie miejsce, bez
---   partii, w której wszyscy dzielą 1. miejsce) i `votes` (zaliczone głosowania, Q18).
---   Usunięty członek zachowuje historię (MEM-5), więc ma gablotę tylko do odczytu.
+--   partii, w której wszyscy dzielą 1. miejsce) i `votes` (zaliczone głosowania).
+--   Usunięty członek zachowuje historię, więc ma gablotę tylko do odczytu.
 -- Funkcja działa z prawami właściciela (security definer), bo `votes` czyta migawkę
 -- `private.meeting_voters`, niedostępną dla klienta; dlatego sama sprawdza, że wywołuje ją
 -- aktywny członek (jak RLS pozostałych tabel).
 --
--- `meeting_achievements(meeting_id)` (VIEW-5): odblokowania, których datą jest to spotkanie,
--- w kolejności partii (§5.6.6), a `voter-10` (bez partii) na końcu. Security invoker: RLS
+-- `meeting_achievements(meeting_id)`: odblokowania, których datą jest to spotkanie,
+-- w kolejności partii, a `voter-10` (bez partii) na końcu. Security invoker: RLS
 -- `achievement_unlocks` daje wynik tylko aktywnym członkom.
 
 create function public.player_achievements(profile_id uuid)
@@ -58,7 +58,7 @@ begin
       from mine x
      group by x.meeting_id
   ),
-  -- Bieżąca seria (§5.6.4, jak `player_stats`): wygrane spotkania od ostatniego bez wygranej.
+  -- Bieżąca seria (jak `player_stats`): wygrane spotkania od ostatniego bez wygranej.
   last_loss as (
     select mp.starts_at, mp.meeting_id
       from meetings_played mp
@@ -104,7 +104,7 @@ end;
 $$;
 
 comment on function public.player_achievements(uuid) is
-  'Gablota osiągnięć gracza (ACH-3, USR-4): odblokowania ze spotkaniem i liczniki postępu nieodblokowanych odznak z całej historii.';
+  'Gablota osiągnięć gracza: odblokowania ze spotkaniem i liczniki postępu nieodblokowanych odznak z całej historii.';
 
 revoke execute on function public.player_achievements(uuid) from public, anon;
 grant execute on function public.player_achievements(uuid) to authenticated;
@@ -124,7 +124,7 @@ as $$
 $$;
 
 comment on function public.meeting_achievements(uuid) is
-  'Osiągnięcia odblokowane na spotkaniu (VIEW-5), w kolejności partii; voter-10 na końcu.';
+  'Osiągnięcia odblokowane na spotkaniu, w kolejności partii; voter-10 na końcu.';
 
 revoke execute on function public.meeting_achievements(uuid) from public, anon;
 grant execute on function public.meeting_achievements(uuid) to authenticated;

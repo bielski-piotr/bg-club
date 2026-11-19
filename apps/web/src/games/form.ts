@@ -1,5 +1,5 @@
 /**
- * Formularz gry (PRD GAME-4, GAME-5): stan pól, walidacja i zamiana na wiersz `games`.
+ * Formularz gry: stan pól, walidacja i zamiana na wiersz `games`.
  * Logika jest czysta, żeby dało się ją testować bez przeglądarki. Te same reguły wymusza baza
  * (CHECK `games_players_range`, `games_placement_points_check`, `games_complexity_range`,
  * `games_title_*`, wyzwalacz `games_require_complexity`).
@@ -22,7 +22,7 @@ export interface GameFormValues {
   readonly maxPlayers: number;
   /** Skomplikowanie gry 1…5 (np. „2,75”). */
   readonly complexity: string;
-  /** Długość = `maxPlayers`: pole dla każdego miejsca 1…max (GAME-5). */
+  /** Długość = `maxPlayers`: pole dla każdego miejsca 1…max. */
   readonly points: readonly string[];
 }
 
@@ -51,7 +51,7 @@ function parseDecimal(text: string): number | 'required' | 'invalid' {
   return Number(value.replace(',', '.'));
 }
 
-/** Nowa gra: 2–4 graczy, bez skomplikowania i z pustymi polami punktów (GAME-5). */
+/** Nowa gra: 2–4 graczy, bez skomplikowania i z pustymi polami punktów. */
 export function emptyGameForm(): GameFormValues {
   return { title: '', minPlayers: 2, maxPlayers: 4, complexity: '', points: ['', '', '', ''] };
 }
@@ -74,7 +74,7 @@ export function gameFormFrom(game: {
 }
 
 /**
- * Pola punktów po zmianie „max” (GAME-5): dłuższa lista dostaje puste pola na końcu, krótsza
+ * Pola punktów po zmianie „max”: dłuższa lista dostaje puste pola na końcu, krótsza
  * traci ostatnie. Wartości dla pozostałych miejsc zostają.
  */
 export function resizePoints(points: readonly string[], maxPlayers: number): string[] {
@@ -133,7 +133,7 @@ export function pointsEdited(values: GameFormValues): boolean {
 
 /**
  * Czy punktacja rośnie gdzieś w dół tabeli, tj. niższe miejsce ma więcej punktów niż wyższe.
- * Formularz pokazuje wtedy ostrzeżenie, ale nie blokuje zapisu (GAME-5). Puste i błędne pola
+ * Formularz pokazuje wtedy ostrzeżenie, ale nie blokuje zapisu. Puste i błędne pola
  * są pomijane.
  */
 export function pointsIncrease(points: readonly string[]): boolean {

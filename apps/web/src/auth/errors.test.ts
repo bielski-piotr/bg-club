@@ -10,7 +10,7 @@ describe('loginErrorKind', () => {
     ).toBe('invalidCredentials');
   });
 
-  it('rozpoznaje odmowę hooka Auth dla konta usuniętego (AUTH-7) i blokadę konta', () => {
+  it('rozpoznaje odmowę hooka Auth dla konta usuniętego i blokadę konta', () => {
     expect(loginErrorKind(new AuthApiError(ACCOUNT_INACTIVE_MESSAGE, 403, 'unknown'))).toBe(
       'accountInactive',
     );

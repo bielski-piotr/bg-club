@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 
-/** Cache danych z Supabase (PRD §8.1, Q13). */
+/** Cache danych z Supabase. */
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {

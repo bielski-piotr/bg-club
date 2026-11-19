@@ -6,23 +6,23 @@ import { cx } from '../ui/cx';
 import './games.css';
 
 interface GameCoverProps {
-  /** Id gry: stały kolor palety monogramu (DS §14). */
+  /** Id gry: stały kolor palety monogramu. */
   readonly id: string;
   readonly title: string;
-  /** Ścieżka okładki w buckecie `covers`; `null` = monogram (GAME-6). */
+  /** Ścieżka okładki w buckecie `covers`; `null` = monogram. */
   readonly coverPath: string | null;
   /** Adres obrazu, który ma pierwszeństwo przed `coverPath` (podgląd pliku w formularzu). */
   readonly src?: string | undefined;
   /**
    * `thumb` = miniatura 36 (promień 10, jedna litera), `form` = kafelek 88 w formularzu,
-   * `large` = okładka w siatce i w widżecie (promień 18, motyw i monogram, DS §14).
+   * `large` = okładka w siatce i w widżecie (promień 18, motyw i monogram).
    */
   readonly size: 'thumb' | 'form' | 'large';
   readonly className?: string | undefined;
 }
 
 /**
- * Okładka gry (GAME-6, DS §14): wgrany obraz albo kafelek w kolorze palety z białym
+ * Okładka gry: wgrany obraz albo kafelek w kolorze palety z białym
  * monogramem tytułu. Dekoracyjna: tytuł jest zawsze obok w tekście.
  */
 export function GameCover({ id, title, coverPath, src, size, className }: GameCoverProps) {

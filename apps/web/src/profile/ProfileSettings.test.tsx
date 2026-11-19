@@ -101,7 +101,7 @@ function renderHub(me: OwnProfile, options: FakeOptions = {}) {
 
 const type = (field: HTMLElement, value: string) => fireEvent.change(field, { target: { value } });
 
-describe('ustawienia (USR-5, USR-8)', () => {
+describe('ustawienia', () => {
   it('zapisuje imię i nazwisko z przyciętymi spacjami i wraca do huba', async () => {
     window.history.replaceState(null, '', '/?p=settings');
     const fake = renderHub(BEA);
@@ -125,7 +125,7 @@ describe('ustawienia (USR-5, USR-8)', () => {
     expect(await screen.findByText('Zapisano zmiany')).toBeInTheDocument();
   });
 
-  it('motyw działa od razu i trafia do profilu oraz localStorage (USR-8)', async () => {
+  it('motyw działa od razu i trafia do profilu oraz localStorage', async () => {
     setThemePreference('system');
     window.history.replaceState(null, '', '/?p=settings');
     const fake = renderHub(BEA);
@@ -154,7 +154,7 @@ describe('ustawienia (USR-5, USR-8)', () => {
   });
 });
 
-describe('motyw z profilu (USR-8)', () => {
+describe('motyw z profilu', () => {
   function Probe({ theme }: { readonly theme: OwnProfile['theme'] | undefined }) {
     useProfileTheme(theme);
     return null;
@@ -177,7 +177,7 @@ describe('motyw z profilu (USR-8)', () => {
   });
 });
 
-describe('zmiana hasła (USR-5)', () => {
+describe('zmiana hasła', () => {
   it('sprawdza obecne hasło i dwa nowe wpisy', async () => {
     window.history.replaceState(null, '', '/?p=settings&p=settings/password');
     const fake = renderHub(BEA, {
@@ -220,7 +220,7 @@ describe('zmiana hasła (USR-5)', () => {
   });
 });
 
-describe('pierwsze logowanie (AUTH-6)', () => {
+describe('pierwsze logowanie', () => {
   it('konto z wygenerowanym hasłem dostaje propozycję, którą można pominąć', async () => {
     window.history.replaceState(null, '', '/');
     const fake = renderHub({ ...BEA, password_change_suggested: true });

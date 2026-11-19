@@ -1,4 +1,4 @@
-/* Lista rozwijana i panel menu (DS §7 „Dropdown/context menu”, §10 „Select trigger”, §17). */
+/* Lista rozwijana i panel menu. */
 .select {
   position: relative;
 }
@@ -108,7 +108,7 @@
   flex-direction: column;
 }
 
-/* Panel listy w polu formularza ma szerokość pola (DS §17). */
+/* Panel listy w polu formularza ma szerokość pola. */
 .select--field .menu {
   right: 0;
 }
@@ -177,7 +177,7 @@
   color: var(--c-muted);
 }
 
-/* Panel z wyszukiwarką (DS §17 „Timezone select”): pigułka h40 nad listą, panel względem okna. */
+/* Panel z wyszukiwarką: pigułka h40 nad listą, panel względem okna. */
 .select__menu--search {
   z-index: 60;
   max-height: 340px;

@@ -1,6 +1,6 @@
 /**
- * Siatka miesiąca i etykiety dat kalendarza oraz timeline (CAL-1…CAL-3, MTG-3, DS §15.1).
- * Dni to daty `RRRR-MM-DD` w strefie klubu (NFR-10): spotkanie trafia na dzień, który pokazuje
+ * Siatka miesiąca i etykiety dat kalendarza oraz timeline.
+ * Dni to daty `RRRR-MM-DD` w strefie klubu: spotkanie trafia na dzień, który pokazuje
  * jego chwila rozpoczęcia w `club.timezone`, a „dziś” to dzisiejsza data w tej strefie.
  */
 import { localDateTime } from './datetime';
@@ -54,8 +54,8 @@ export function inMonth(date: string, ym: YearMonth): boolean {
 }
 
 /**
- * Pełne tygodnie od poniedziałku do niedzieli, które obejmują miesiąc (4–6 wierszy, jak
- * w DS: „Pn Wt Śr Cz Pt So Nd”).
+ * Pełne tygodnie od poniedziałku do niedzieli, które obejmują miesiąc (4–6 wierszy,
+ * nagłówek „Pn Wt Śr Cz Pt So Nd”).
  */
 export function monthGrid(ym: YearMonth): GridDay[][] {
   const first = utcDate(`${monthKey(ym)}-01`);
@@ -114,7 +114,7 @@ function capitalize(text: string): string {
   return text.charAt(0).toLocaleUpperCase('pl-PL') + text.slice(1);
 }
 
-/** „Listopad 2026” (mianownik, DS §15.1 „Month bar”). */
+/** „Listopad 2026” (mianownik). */
 export function monthLabel(ym: YearMonth): string {
   // Sam miesiąc (bez dnia) ma formę samodzielną, czyli mianownik („listopad”, nie „listopada”).
   const month = new Intl.DateTimeFormat('pl-PL', { timeZone: 'UTC', month: 'long' }).format(
@@ -135,7 +135,7 @@ export function longDayLabel(date: string): string {
   );
 }
 
-/** „czwartek, 12 lis” (divider „Dziś” w timeline, DS §15.1). */
+/** „czwartek, 12 lis” (divider „Dziś” w timeline). */
 export function shortDayLabel(date: string): string {
   const at = utcDate(date);
   const weekday = new Intl.DateTimeFormat('pl-PL', { timeZone: 'UTC', weekday: 'long' }).format(at);

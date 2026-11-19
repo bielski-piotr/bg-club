@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { functionFailure } from '../lib/functions';
 import type { Profile } from '../profile/profiles';
 
-/** Edge Function tworząca konto członka (MEM-3, `supabase/functions/create-member`). */
+/** Edge Function tworząca konto członka (`supabase/functions/create-member`). */
 export const CREATE_MEMBER_FUNCTION = 'create-member';
 
 export interface NewMember {
@@ -10,7 +10,7 @@ export interface NewMember {
   readonly lastName: string;
 }
 
-/** Dane logowania nowego członka. Hasło jest tylko tutaj i w stanie formularza (AUTH-4). */
+/** Dane logowania nowego członka. Hasło jest tylko tutaj i w stanie formularza. */
 export interface CreatedMember {
   readonly member: Profile;
   readonly password: string;
@@ -21,7 +21,8 @@ export type FieldProblem = 'required' | 'tooLong';
 export type FieldProblems = Partial<Record<keyof NewMember, FieldProblem>>;
 
 /**
- * Powód nieudanego dodania członka (komunikat w `t.addMember.errors`). `failed` = funkcja potwierdziła, że nic nie powstało; `unknown` = odpowiedź nie dotarła albo
+ * Powód nieudanego dodania członka (komunikat w `t.addMember.errors`). `failed` = funkcja
+ * potwierdziła, że nic nie powstało; `unknown` = odpowiedź nie dotarła albo
  * nie pochodzi od funkcji (bramka, przekroczony czas), więc konto mogło już powstać.
  */
 export type CreateMemberFailure =

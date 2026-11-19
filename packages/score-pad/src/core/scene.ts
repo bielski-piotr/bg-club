@@ -8,8 +8,8 @@ import type { ShapePt, SheetShape } from './shape';
 import { CARDBOARD, SHEET_T, makeCanvas, mulberry32, rotateContent } from './util';
 
 /**
- * Bryła o obrysie kartki: grubość wzdłuż osi Y, wyśrodkowana (jak BoxGeometry). Grupy: 0 wieka, 1 boki.
- * `rot`: obrys treści obrócony do układu fizycznego (notes klejony z lewej).
+ * Bryła o obrysie kartki: grubość wzdłuż osi Y, wyśrodkowana (jak BoxGeometry). Grupy: 0 wieka, 1
+ * boki. `rot`: obrys treści obrócony do układu fizycznego (notes klejony z lewej).
  */
 function extrudeShape(
   sh: SheetShape,
@@ -68,7 +68,7 @@ export class Pad {
     this.edgeTex.wrapS = this.edgeTex.wrapT = THREE.RepeatWrapping;
     const edgeMat = new THREE.MeshStandardMaterial({ map: this.edgeTex, roughness: 0.95 });
     const plainMat = new THREE.MeshStandardMaterial({ color: ps.tone, roughness: 0.95 });
-    // tektura pod blokiem: widać ją po obróceniu notesu (PAD-10)
+    // tektura pod blokiem: widać ją po obróceniu notesu
     const boardTex = cardboardTexture(aniso);
     // UV bryły z obrysu są w jednostkach sceny, UV prostopadłościanu od 0 do 1
     if (spec.mask) boardTex.repeat.set(1 / 1.6, 1 / 1.6);
@@ -98,7 +98,7 @@ export class Pad {
 
     this.topTex = new THREE.CanvasTexture(ps.print);
     this.topTex.encoding = THREE.sRGBEncoding;
-    // pełna rozdzielczość z mipmapami i maksymalną anizotropią (PAD-16)
+    // pełna rozdzielczość z mipmapami i maksymalną anizotropią
     this.topTex.generateMipmaps = true;
     this.topTex.minFilter = THREE.LinearMipmapLinearFilter;
     this.topTex.anisotropy = aniso;

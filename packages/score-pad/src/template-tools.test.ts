@@ -29,7 +29,7 @@ function template(): PadTemplate {
 
 const json = (v: unknown): unknown => JSON.parse(JSON.stringify(v));
 
-describe('readTemplate (import i zapis notesu, zadanie [015])', () => {
+describe('readTemplate (import i zapis notesu)', () => {
   it('przyjmuje poprawny notes, liczy miejsca dla graczy i zachowuje zdjęcie', () => {
     const result = readTemplate(json(template()));
     expect(result.ok).toBe(true);
@@ -39,7 +39,7 @@ describe('readTemplate (import i zapis notesu, zadanie [015])', () => {
     expect(result.template.ranking).toEqual(template().ranking);
   });
 
-  it('bez limitu graczy (EDT-8): pola dowolne dla 12 miejsc', () => {
+  it('bez limitu graczy: pola dowolne dla 12 miejsc', () => {
     const t = template();
     const free = {
       ...t,
@@ -66,7 +66,7 @@ describe('readTemplate (import i zapis notesu, zadanie [015])', () => {
     });
   });
 
-  it('odrzuca błędną regułę miejsc zamiast po cichu ją pomijać (EDT-7)', () => {
+  it('odrzuca błędną regułę miejsc zamiast po cichu ją pomijać', () => {
     const result = readTemplate(
       json({ ...template(), ranking: { line: 'nie-ma', dir: 'desc', tiebreak: [] } }),
     );

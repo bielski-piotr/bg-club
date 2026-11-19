@@ -1,5 +1,5 @@
 /**
- * Kadrowanie awatara w przeglądarce (PRD USR-3, NFR-7): użytkownik przesuwa i powiększa zdjęcie
+ * Kadrowanie awatara w przeglądarce: użytkownik przesuwa i powiększa zdjęcie
  * w kwadratowym kadrze, a wynik to kwadrat 256×256 w WebP (ok. 10–30 KB). Do Storage trafia
  * tylko wynik, nigdy oryginalny plik.
  *
@@ -8,13 +8,13 @@
  * przesunięty o (`x`, `y`) px kadru względem środka kadru. Obraz zawsze pokrywa cały kadr.
  */
 
-/** Bok zapisanego awatara (USR-3). */
+/** Bok zapisanego awatara. */
 export const AVATAR_SIDE = 256;
 /** Największe powiększenie względem „cover”. */
 export const MAX_ZOOM = 4;
 /** Limit bucketu `avatars` (migracja access_control). */
 export const AVATAR_MAX_BYTES = 1024 * 1024;
-/** Typy przyjmowane przez input pliku (USR-3). */
+/** Typy przyjmowane przez input pliku. */
 export const AVATAR_ACCEPT = 'image/jpeg,image/png,image/webp';
 /** Największy plik wejściowy: większy nie jest dekodowany (pamięć telefonu). */
 export const AVATAR_INPUT_MAX_BYTES = 25 * 1024 * 1024;

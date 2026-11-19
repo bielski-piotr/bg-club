@@ -12,7 +12,7 @@ import {
 } from '../profile/achievementNotifications';
 
 /*
- * Zakończenie partii (PRD PAD-5, PAD-7, §5.6, migracja [029]): po oderwaniu karteczki notes
+ * Zakończenie partii: po oderwaniu karteczki notes
  * podaje wyniki graczy (miejsca według reguły notesu), aplikacja pokazuje podsumowanie
  * z punktami leaderboardu, a po potwierdzeniu `save_play` zapisuje kartkę i wyniki w jednej
  * transakcji. Punkty, remisy i wygrane liczy baza; podgląd w podsumowaniu liczy je tymi samymi
@@ -135,7 +135,7 @@ const HINTS: Readonly<Record<string, PlaySaveFailure>> = {
 };
 
 /**
- * Błąd PostgREST → powód (HINT z migracji [029]); bez kodu to błąd sieci. Naruszenie reguły
+ * Błąd PostgREST → powód (HINT); bez kodu to błąd sieci. Naruszenie reguły
  * bez znanego HINT (np. z wyzwalacza: SQLSTATE 22…, 23…, P0…) też jest ostateczne: ponowienie
  * tej samej treści nic nie zmieni.
  */
