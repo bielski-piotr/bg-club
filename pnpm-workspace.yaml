@@ -1,7 +1,15 @@
 packages:
   - apps/*
   - packages/*
-
-# Pakiety, którym pozwalamy uruchomić skrypt instalacyjny (pnpm 10 domyślnie je blokuje).
-onlyBuiltDependencies:
-  - esbuild
+minimumReleaseAgeExclude:
+  - '@solidjs/diagnostics@2.0.3'
+  - '@solidjs/signals@2.0.3'
+  - '@solidjs/web@2.0.3'
+  - solid-js@2.0.3
+permissions:
+  '@solidjs/diagnostics':
+    skills: true
+  '@solidjs/web':
+    skills: true
+  solid-js:
+    skills: true

@@ -1,8 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    // `node` tylko dla `sql.test.ts` (zapis i odczyt pliku pgTAP); kod pakietu nie używa Node.
-    "types": ["node"]
-  },
-  "include": ["src"]
-}

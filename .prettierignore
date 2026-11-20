@@ -1,8 +1,6 @@
 pnpm-lock.yaml
 dist/
 coverage/
-playwright-report/
-test-results/
-supabase/.temp/
-# Design system składany z markupu i CSS aplikacji.
+# Dokumenty źródłowe produktu i design systemu, edytowane poza repozytorium kodu.
 DESIGN-SYSTEM.html
+PRD.md

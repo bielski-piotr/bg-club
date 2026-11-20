@@ -1,27 +1,31 @@
-import { useState } from 'react';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { monogram } from '../ui';
-import { cx } from '../ui/cx';
 import './club.css';
 
 interface ClubLogoProps {
   readonly name: string;
-  /** Adres obrazu (podpisany URL albo podgląd pliku); bez niego monogram nazwy. */
-  readonly src?: string | undefined;
-  /** 36 = nagłówek huba, 88 = formularz klubu. */
-  readonly size: 36 | 88;
-  readonly className?: string | undefined;
+  /** Adres logo; bez niego albo po błędzie wczytania monogram nazwy. */
+  readonly src: string | null;
+  /** 56 = nagłówek huba, 88 = formularz klubu. */
+  readonly size: 56 | 88;
 }
 
-/** Kafelek logo klubu: wgrane logo albo biały monogram nazwy na ciemnym tle. */
-export function ClubLogo({ name, src, size, className }: ClubLogoProps) {
-  const [failed, setFailed] = useState<string | undefined>(undefined);
-  const showImage = src !== undefined && src !== failed;
+/** Kafelek logo klubu: wgrane logo albo biały monogram nazwy na ciemnym tle. Dekoracyjny. */
+export function ClubLogo(props: ClubLogoProps): JSX.Element {
+  const [failed, setFailed] = createSignal<string | null>(null);
+  const image = () => (props.src && props.src !== failed() ? props.src : null);
   return (
-    <span className={cx('club-logo', `club-logo--${size}`, className)} aria-hidden="true">
-      {showImage ? (
-        <img className="club-logo__img" src={src} alt="" onError={() => setFailed(src)} />
+    <span class={['club-logo', `club-logo--${props.size}`]} aria-hidden="true">
+      {image() ? (
+        <img
+          class="club-logo__img"
+          src={image() ?? undefined}
+          alt=""
+          onError={(e) => setFailed(e.currentTarget.getAttribute('src'))}
+        />
       ) : (
-        monogram(name.trim() === '' ? '?' : name)
+        monogram(props.name)
       )}
     </span>
   );

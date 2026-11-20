@@ -1,7 +1,0 @@
-/* Wspólne elementy treści popupów. */
-.popup-loading {
-  display: grid;
-  place-items: center;
-  min-height: 160px;
-  color: var(--c-muted);
-}

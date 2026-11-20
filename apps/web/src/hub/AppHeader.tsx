@@ -1,123 +1,71 @@
-import { useAuth } from '../auth/authContext';
+import type { JSX } from '@solidjs/web';
 import { ClubLogo } from '../club/ClubLogo';
 import { format, t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { fullName, type Profile } from '../profile/profiles';
-import { IconButton, Menu, Skeleton } from '../ui';
-import { cx } from '../ui/cx';
-import { useCoverUrl, type Club } from './club';
+import type { Club } from '../model/club';
+import { fullName, type Member } from '../model/member';
+import { Avatar, Menu } from '../ui';
 
 interface AppHeaderProps {
-  /**
-   * Klub do pokazania. `null` = błąd wczytania (nazwa aplikacji zamiast nazwy klubu),
-   * `undefined` = wczytywanie (szkielet, żeby nie mignęła nazwa aplikacji),
-   * `'none'` = klub jeszcze nie założony: sam chip użytkownika, bez paska.
-   */
-  readonly club: Club | null | undefined | 'none';
-  readonly me: Profile;
+  readonly club: Club;
+  readonly me: Member;
+  readonly onOpenProfile?: (() => void) | undefined;
+  readonly onOpenSettings?: (() => void) | undefined;
+  readonly onSignOut?: (() => void) | undefined;
 }
 
 /**
- * Nagłówek huba: logo i nazwa klubu po lewej, dla admina ołówek otwierający
- * formularz klubu, chip użytkownika po prawej. Chip otwiera menu awatara:
- * własny profil, ustawienia i wylogowanie.
+ * Nagłówek huba bez paska: logo i nazwa klubu po lewej, chip użytkownika po prawej.
+ * Chip otwiera menu konta: własny profil, ustawienia i wylogowanie.
  */
-export function AppHeader({ club, me }: AppHeaderProps) {
-  const user = <UserMenu me={me} />;
-
-  if (club === 'none') {
-    return <header className="app-header app-header--bare">{user}</header>;
-  }
-
-  return (
-    <header className="app-header">
-      <div className="app-header__club">
-        {club === undefined ? (
-          <>
-            <Skeleton width={36} height={36} radius={12} />
-            <h1 className="app-header__name">
-              <Skeleton width={140} height={18} />
-              <span className="sr-only">{t.ui.loading}</span>
-            </h1>
-          </>
-        ) : (
-          <ClubIdentity club={club} isAdmin={me.role === 'admin'} />
-        )}
-      </div>
-      {user}
-    </header>
-  );
-}
-
-function ClubIdentity({
-  club,
-  isAdmin,
-}: {
-  readonly club: Club | null;
-  readonly isAdmin: boolean;
-}) {
-  const { client } = useAuth();
-  const { open } = usePopups();
-  const logo = useCoverUrl(client, club?.logo_path ?? null);
-  const name = club?.name ?? t.app.name;
-  return (
-    <>
-      <ClubLogo name={name} src={logo.data} size={36} />
-      <h1 className="app-header__name">{name}</h1>
-      {club && isAdmin ? (
-        <IconButton
-          icon="pencil"
-          size={32}
-          label={t.club.edit}
-          className="app-header__edit"
-          onClick={() => open({ kind: 'club' })}
-        />
-      ) : null}
-    </>
-  );
-}
-
-function UserMenu({ me }: { readonly me: Profile }) {
-  const { signOut } = useAuth();
-  const { open } = usePopups();
+export function AppHeader(props: AppHeaderProps): JSX.Element {
   const text = t.avatarMenu;
   return (
-    <Menu
-      label={text.label}
-      align="end"
-      items={[
-        {
-          id: 'profile',
-          label: text.profile,
-          icon: 'user',
-          onSelect: () => open({ kind: 'profile', id: me.id }),
-        },
-        {
-          id: 'settings',
-          label: text.settings,
-          icon: 'settings',
-          onSelect: () => open({ kind: 'settings' }),
-        },
-        {
-          id: 'sign-out',
-          label: text.signOut,
-          icon: 'logout',
-          // Wylogowanie lokalne usuwa sesję także bez sieci (AuthProvider).
-          onSelect: () => void signOut(),
-        },
-      ]}
-      trigger={(props, isOpen) => (
-        <button
-          type="button"
-          {...props}
-          className={cx('app-header__user', isOpen && 'app-header__user--open')}
-          aria-label={format(text.trigger, { name: fullName(me) })}
-          title={fullName(me)}
-        >
-          <ProfileAvatar profile={me} size={38} decorative />
-        </button>
-      )}
-    />
+    <header class="app-header">
+      <div class="app-header__club">
+        <ClubLogo name={props.club.name} src={props.club.logoUrl} size={56} />
+        <h1 class="app-header__name">{props.club.name}</h1>
+      </div>
+      <Menu
+        label={text.label}
+        align="end"
+        items={[
+          {
+            id: 'profile',
+            label: text.profile,
+            icon: 'user',
+            onSelect: () => props.onOpenProfile?.(),
+          },
+          {
+            id: 'settings',
+            label: text.settings,
+            icon: 'settings',
+            onSelect: () => props.onOpenSettings?.(),
+          },
+          {
+            id: 'sign-out',
+            label: text.signOut,
+            icon: 'logout',
+            onSelect: () => props.onSignOut?.(),
+          },
+        ]}
+        trigger={(trigger) => (
+          <button
+            type="button"
+            {...trigger}
+            class="app-header__user"
+            aria-label={format(text.trigger, { name: fullName(props.me) })}
+            title={fullName(props.me)}
+          >
+            <Avatar
+              name={fullName(props.me)}
+              colorKey={props.me.hook}
+              src={props.me.avatarUrl}
+              size={38}
+              decorative
+            />
+          </button>
+        )}
+      />
+    </header>
   );
 }

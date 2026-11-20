@@ -1,84 +1,69 @@
 /*
- * Widok Klubu. Telefon: padding 16/16/32, odstęp 16, karty na całą szerokość.
- * Od 768 px: odstęp 24 i karty do 520 px. Od 1112 px: treść 1064 px, dwie kolumny po 520 px
- * z odstępem 24 i niezależnymi wysokościami (useMasonry.ts).
+ * Widok Klubu na pełną szerokość okna. Marginesy rosną z ekranem:
+ * telefon 16, od 768 px 24, od 1112 px 32.
  */
 .hub {
   display: flex;
   flex-direction: column;
   gap: 16px;
   width: 100%;
-  max-width: 1064px;
-  margin-inline: auto;
   padding: 16px 16px 32px;
   padding-top: max(16px, env(safe-area-inset-top));
+  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+}
+
+@media (min-width: 768px) {
+  .hub {
+    gap: 24px;
+    padding: 24px;
+    padding-top: max(24px, env(safe-area-inset-top));
+  }
+}
+
+@media (min-width: 1112px) {
+  .hub {
+    padding: 32px;
+    padding-top: max(32px, env(safe-area-inset-top));
+  }
 }
 
 .hub__main:focus {
   outline: none;
 }
 
-.hub__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-}
-
-/* Nagłówek: pasek h64, promień 20, ramka, bez cienia. */
+/* Nagłówek bez paska: logo i nazwa klubu po lewej, chip użytkownika po prawej. */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 64px;
-  padding-inline: 16px 8px;
-  background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: 20px;
+  min-height: 56px;
 }
 
 .app-header__club {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-}
-
-.app-header__edit {
-  flex-shrink: 0;
-}
-
-/* Przed założeniem klubu: przezroczysty wiersz z samym chipem po prawej. */
-.app-header--bare {
-  justify-content: flex-end;
-  padding-inline: 0;
-  background: none;
-  border-color: transparent;
-}
-
-/* Pierwsze uruchomienie: blok wyśrodkowany w wysokości okna (min. 812 / 900). */
-.hub--first-run {
-  min-height: 100dvh;
-}
-
-.hub--first-run .hub__main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.hub__status {
-  display: grid;
-  place-items: center;
-  padding-block: 64px;
 }
 
 .app-header__name {
   margin: 0;
-  font: 700 18px/24px var(--font-display);
+  font: 700 22px/28px var(--font-display);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .app-header__club {
+    gap: 16px;
+  }
+
+  .app-header__name {
+    font-size: 28px;
+    line-height: 34px;
+  }
 }
 
 /* Chip użytkownika: kółko 48 z obwódką 2 px wokół awatara 38. */
@@ -88,182 +73,20 @@
   flex-shrink: 0;
   width: 48px;
   height: 48px;
-  border: 2px solid var(--c-border);
-  transition: border-color 120ms var(--ease);
-}
-
-.app-header__user {
   padding: 0;
+  border: 2px solid var(--c-border);
   border-radius: var(--r-pill);
   background: transparent;
   cursor: pointer;
+  transition: border-color 120ms var(--ease);
 }
 
 .app-header__user:hover,
-.app-header__user--open {
+.app-header__user[aria-expanded='true'] {
   border-color: var(--c-accent);
 }
 
 .app-header__user:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
-}
-
-/* Widżet członków: awatary 64 co 52 px (telefon 56 co 46), obwódka 3 px. */
-.members-widget {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 20px;
-}
-
-.members-widget__stack {
-  display: flex;
-  margin: 0;
-  padding: 3px;
-  list-style: none;
-}
-
-.members-widget__item + .members-widget__item {
-  margin-left: -10px;
-}
-
-.members-widget__item .profile-link,
-.members-widget__more {
-  position: relative;
-  box-shadow: 0 0 0 3px var(--c-surface);
-}
-
-.members-widget__item .profile-link:focus-visible,
-.members-widget__more:focus-visible {
-  z-index: 1;
-  box-shadow: var(--focus-ring);
-}
-
-/* Litery odsunięte w lewo od zakładki następnego awatara. */
-.members-widget__item:not(:last-child) .avatar__monogram {
-  padding-right: 10px;
-}
-
-.members-widget .members-avatar {
-  width: 56px !important;
-  height: 56px !important;
-  font-size: 20px !important;
-  line-height: 24px !important;
-}
-
-.members-widget__more {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--r-pill);
-  background: var(--c-tint);
-  color: var(--c-ink);
-  font: 700 20px/24px var(--font-display);
-  text-decoration: none;
-}
-
-.members-widget__more:hover {
-  background: var(--c-tint-hover);
-}
-
-.members-widget__caption {
-  margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
-  color: var(--c-muted);
-  overflow-wrap: anywhere;
-}
-
-.members-widget__names {
-  font-weight: 600;
-  color: var(--c-ink);
-}
-
-.members-widget__loading {
-  padding-top: 20px;
-}
-
-.members-widget__error {
-  margin-top: 20px;
-}
-
-@media (min-width: 768px) {
-  .hub {
-    gap: 24px;
-    padding: 24px 24px 64px;
-  }
-
-  .hub__grid {
-    gap: 24px;
-    justify-items: center;
-  }
-
-  .hub__slot {
-    width: 100%;
-    max-width: 520px;
-  }
-
-  .members-widget__item + .members-widget__item {
-    margin-left: -12px;
-  }
-
-  .members-widget__item:not(:last-child) .avatar__monogram {
-    padding-right: 12px;
-  }
-
-  .members-widget .members-avatar {
-    width: 64px !important;
-    height: 64px !important;
-    font-size: 18px !important;
-    line-height: 22px !important;
-  }
-
-  .members-widget__more {
-    width: 64px;
-    height: 64px;
-  }
-}
-
-@media (min-width: 1112px) {
-  .hub {
-    padding-inline: 0;
-  }
-
-  .hub__grid {
-    grid-template-columns: repeat(2, 520px);
-    justify-content: center;
-    align-items: start;
-  }
-
-  /* „dense”: karta prawej kolumny trafia pod poprzednią kartę tej kolumny, a nie poniżej
-     dłuższej karty lewej (rzadkie auto-placement przesuwa kursor wierszy tylko w przód). */
-  .hub__grid--masonry {
-    grid-auto-rows: 1px;
-    grid-auto-flow: row dense;
-    row-gap: 0;
-  }
-
-  .hub__slot {
-    max-width: none;
-  }
-
-  .hub__slot--left {
-    grid-column: 1;
-  }
-
-  .hub__slot--right {
-    grid-column: 2;
-  }
-}
-
-/* Zastępnik popupu, zanim dotrze jego fragment pakietu: środek ekranu nad hubem. */
-.hub__popup-loading {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
 }

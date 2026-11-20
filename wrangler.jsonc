@@ -1,9 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "bg-club",
-  "compatibility_date": "2026-11-16",
+  "compatibility_date": "2026-11-19",
   "assets": {
-    "directory": "./apps/web/dist",
-    "not_found_handling": "single-page-application"
-  }
+    "directory": "./apps/web/dist/client",
+    "not_found_handling": "single-page-application",
+  },
 }

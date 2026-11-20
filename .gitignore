@@ -9,21 +9,8 @@ coverage/
 .env.*
 !.env.example
 
-# Playwright
-playwright-report/
-test-results/
-blob-report/
-playwright/.cache/
-
-# Supabase CLI
-supabase/.branches/
-supabase/.temp/
-supabase/functions/.env
+# Skille Solid linkowane przez pnpm install
+.claude/skills/
 
 .DS_Store
 *.log
-
-# Backupy zawierają dane Auth i obrazy. Narzędzia wymagają katalogu poza checkoutem.
-backups/
-*.dump
-*.backup

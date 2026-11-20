@@ -2,8 +2,8 @@
 export const AVATAR_PALETTE_SIZE = 10;
 
 /**
- * Monogram z imienia i nazwiska: pierwsza litera pierwszego i ostatniego słowa,
- * np. „Łukasz Żak” → „ŁŻ”. Jedno słowo daje jedną literę.
+ * Monogram: pierwsza litera pierwszego i ostatniego słowa, np. „Łukasz Żak” → „ŁŻ”.
+ * Jedno słowo daje jedną literę.
  */
 export function monogram(name: string): string {
   const words = name
@@ -17,7 +17,7 @@ export function monogram(name: string): string {
   return (initial(first) + (last ? initial(last) : '')).toLocaleUpperCase('pl-PL');
 }
 
-/** Stały indeks koloru palety dla identyfikatora (np. id profilu albo gry). */
+/** Stały indeks koloru palety dla klucza (np. hooka profilu). */
 export function paletteIndex(seed: string): number {
   let hash = 5381;
   for (let i = 0; i < seed.length; i += 1) {

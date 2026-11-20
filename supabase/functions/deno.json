@@ -1,7 +1,0 @@
-{
-  "lock": false,
-  "nodeModulesDir": "none",
-  "lint": {
-    "rules": { "tags": ["recommended"] }
-  }
-}
