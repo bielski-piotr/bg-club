@@ -72,4 +72,4 @@ API Solid 2.0 różni się od Reacta i od Solid 1.x. Skille pochodzą z pakietó
 ## Przepływ pracy
 
 - Przed commitem: `pnpm check`.
-- Praca na gałęzi, PR do `master`.
+- Praca na gałęzi, PR do `develop`.
