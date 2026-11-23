@@ -50,34 +50,17 @@ const PLANSZOWKI: FakeClub = { name: 'Planszówki', logo_path: null, timezone: '
 
 /** `player_stats` gracza bez zapisanych partii. */
 const EMPTY_PLAYER_STATS = {
-  years: [],
   meetings: 0,
   plays: 0,
   wins: 0,
   points: 0,
+  wins_total: 0,
   streak_record: 0,
   streak_current: 0,
-  places: { points: null, wins: null, streak: null },
+  places: { points: null, wins: null },
   favorite_game: null,
   best_game: null,
-  recent_plays: [],
-};
-
-/** `player_achievements` gracza bez odblokowań (pusta gablota, ACH-3). */
-const EMPTY_PLAYER_ACHIEVEMENTS = {
-  unlocks: [],
-  progress: {
-    meetings: 0,
-    plays: 0,
-    wins: 0,
-    points: 0,
-    streak: 0,
-    games: 0,
-    won_games: 0,
-    game_wins: 0,
-    last_places: 0,
-    votes: 0,
-  },
+  recent_meetings: [],
 };
 
 /**
@@ -170,12 +153,7 @@ function fakeClient(members: Profile[], options: FakeOptions = {}) {
       storage,
       functions: { invoke },
       rpc: vi.fn(async (name: string) => ({
-        data:
-          name === 'player_stats'
-            ? EMPTY_PLAYER_STATS
-            : name === 'player_achievements'
-              ? EMPTY_PLAYER_ACHIEVEMENTS
-              : [],
+        data: name === 'player_stats' ? EMPTY_PLAYER_STATS : [],
         error: null,
       })),
     } as unknown as SupabaseClient,
@@ -305,11 +283,11 @@ describe('popupy huba', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Mój profil' }));
     const profile = await screen.findByRole('dialog', { name: 'Profil' });
     expect(window.location.search).toBe(`?p=profile/${ADA.id}`);
-    // Właściciel ma Ustawienia; bez partii statystyki i gablota mają puste stany.
+    // Właściciel ma Ustawienia; bez partii statystyki i rekordy (pusta kolekcja) mają puste stany.
     expect(
       await within(profile).findByText('Statystyki pojawią się po pierwszej partii'),
     ).toBeInTheDocument();
-    expect(profile).toHaveTextContent('Gablota jest jeszcze pusta');
+    expect(profile).toHaveTextContent('Kolekcja jest pusta');
     fireEvent.click(within(profile).getByRole('button', { name: 'Ustawienia' }));
     expect(await screen.findByRole('dialog', { name: 'Ustawienia' })).toBeInTheDocument();
     expect(window.location.search).toBe(`?p=profile/${ADA.id}&p=settings`);

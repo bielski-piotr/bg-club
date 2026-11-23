@@ -1,5 +1,6 @@
--- [034] Statystyki gracza: public.player_stats(profile_id, year) (PRD STAT-1–STAT-3, MEM-5,
--- §5.6, Q21, NFR-11). Dane fikcyjne.
+-- Statystyki gracza: public.player_stats(profile_id, date_from, date_to, game_ids) i rekordy
+-- osobiste public.player_records(...) (PRD STAT-1–STAT-3, USR-4, MEM-5, §5.6, Q21, Q25, NFR-11).
+-- Dane fikcyjne. Wartość decydująca (ranking_value) = punkty z notesu.
 --
 -- Gry: A „Azul”, B „Brzdęk”, C „Carcassonne” (punktacja 10/6/4/2). Strefa klubu Europe/Warsaw.
 --   m1 2025-12-31 23:30 (rok 2025 lokalnie, 2025-12-31 22:30 UTC)
@@ -10,12 +11,12 @@
 --                  p5 B: Celina 1 (10), Łukasz 2 (6)
 --   m4 2026-03-10: p6 B: Łukasz 1 (10), Mateusz 2 (6)
 --                  p7 C: Łukasz 1 (10), Lucyna 2 (6); p8 szkic B (Bartek)
--- Celina jest usunięta (MEM-4). Bartek ma tylko szkic (zero partii).
+-- Celina jest usunięta (MEM-4). Bartek ma tylko szkic (zero partii). D „Dixit” jest usunięta bez partii.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(39);
+select no_plan();
 
 insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw');
 
@@ -30,7 +31,9 @@ insert into public.profiles (id, hook, first_name, last_name, role) values
 insert into public.games (id, title, min_players, max_players, placement_points) values
   ('00000000-0000-4000-b000-000000000001', 'Azul', 2, 4, '{10,6,4,2}'),
   ('00000000-0000-4000-b000-000000000002', 'Brzdęk', 2, 4, '{10,6,4,2}'),
-  ('00000000-0000-4000-b000-000000000003', 'Carcassonne', 2, 4, '{10,6,4,2}');
+  ('00000000-0000-4000-b000-000000000003', 'Carcassonne', 2, 4, '{10,6,4,2}'),
+  ('00000000-0000-4000-b000-000000000004', 'Dixit', 2, 4, '{10,6,4,2}');
+update public.games set deleted_at = '2026-11-01 12:00+01' where id = '00000000-0000-4000-b000-000000000004';
 insert into public.scorepads (id, game_id, name) values
   ('00000000-0000-4000-d000-000000000001', '00000000-0000-4000-b000-000000000001', 'Notes'),
   ('00000000-0000-4000-d000-000000000002', '00000000-0000-4000-b000-000000000002', 'Notes'),
@@ -102,123 +105,149 @@ update public.profiles set deleted_at = '2026-11-01 12:00+01' where id = '000000
 
 reset session_replication_role;
 
--- Statystyki gracza a0NN dla roku (NULL = cała historia).
-create function public.test_stats(profile int, year int default null)
+-- Statystyki gracza a0NN z filtrami (NULL = bez ograniczenia).
+create function public.test_stats(profile int, date_from date default null, date_to date default null, games int[] default null)
 returns jsonb
 language sql
 set search_path = ''
 as $$
-  select public.player_stats(('00000000-0000-4000-a000-' || lpad(profile::text, 12, '0'))::uuid, year);
+  select public.player_stats(('00000000-0000-4000-a000-' || lpad(profile::text, 12, '0'))::uuid, date_from, date_to,
+    (select array_agg(('00000000-0000-4000-b000-' || lpad(g::text, 12, '0'))::uuid) from unnest(games) g));
 $$;
-grant execute on function public.test_stats(int, int) to authenticated;
+grant execute on function public.test_stats(int, date, date, int[]) to authenticated;
 
--- Liczniki jako tekst: „spotkania/partie/wygrane/punkty seria rekord/bieżąca”.
-create function public.test_totals(profile int, year int default null)
+-- Liczniki z filtrami jako tekst: „spotkania/partie/wygrane”.
+create function public.test_filtered(profile int, date_from date default null, date_to date default null, games int[] default null)
 returns text
 language sql
 set search_path = ''
 as $$
-  select s ->> 'meetings' || '/' || (s ->> 'plays') || '/' || (s ->> 'wins') || '/' || (s ->> 'points')
-         || ' seria ' || (s ->> 'streak_record') || '/' || (s ->> 'streak_current')
-    from public.test_stats(profile, year) s;
+  select s ->> 'meetings' || '/' || (s ->> 'plays') || '/' || (s ->> 'wins')
+    from public.test_stats(profile, date_from, date_to, games) s;
 $$;
-grant execute on function public.test_totals(int, int) to authenticated;
+grant execute on function public.test_filtered(int, date, date, int[]) to authenticated;
 
--- Miejsca w rankingach jako tekst: „punkty/wygrane” („-” = brak klasyfikacji).
-create function public.test_places(profile int, year int default null)
+-- Liczniki z całej historii: „punkty/wygrane seria rekord/bieżąca miejsca punkty/wygrane”.
+create function public.test_career(profile int, date_from date default null, date_to date default null, games int[] default null)
 returns text
 language sql
 set search_path = ''
 as $$
-  select coalesce(s -> 'places' ->> 'points', '-') || '/' || coalesce(s -> 'places' ->> 'wins', '-')
-    from public.test_stats(profile, year) s;
+  select (s ->> 'points') || '/' || (s ->> 'wins_total') || ' seria ' || (s ->> 'streak_record') || '/'
+         || (s ->> 'streak_current') || ' miejsca ' || coalesce(s -> 'places' ->> 'points', '-') || '/'
+         || coalesce(s -> 'places' ->> 'wins', '-')
+    from public.test_stats(profile, date_from, date_to, games) s;
 $$;
-grant execute on function public.test_places(int, int) to authenticated;
+grant execute on function public.test_career(int, date, date, int[]) to authenticated;
 
--- Numery partii z `recent_plays` (ostatnia cyfra uuid), od najnowszej.
-create function public.test_recent(profile int, year int default null)
+-- Numery spotkań z `recent_meetings`, od najnowszego.
+create function public.test_recent(profile int)
 returns int[]
 language sql
 set search_path = ''
 as $$
-  select coalesce(array_agg(right(e ->> 'play_id', 12)::int order by o), '{}')
-    from jsonb_array_elements(public.test_stats(profile, year) -> 'recent_plays') with ordinality as x(e, o);
+  select coalesce(array_agg(right(e ->> 'meeting_id', 12)::int order by o), '{}')
+    from jsonb_array_elements(public.test_stats(profile) -> 'recent_meetings') with ordinality as x(e, o);
 $$;
-grant execute on function public.test_recent(int, int) to authenticated;
+grant execute on function public.test_recent(int) to authenticated;
+
+-- Rekordy osobiste jako tekst: „tytuł:wartość@partia*” (* = rekord klubu, - = brak wyniku).
+create function public.test_records(profile int, date_from date default null, date_to date default null, games int[] default null)
+returns text[]
+language sql
+set search_path = ''
+as $$
+  select coalesce(array_agg(r.title || ':' || coalesce(r.value::int::text || '@' || right(r.play_id::text, 1), '-')
+                            || case when r.club_record then '*' else '' end), '{}')
+    from public.player_records(('00000000-0000-4000-a000-' || lpad(profile::text, 12, '0'))::uuid, date_from, date_to,
+      (select array_agg(('00000000-0000-4000-b000-' || lpad(g::text, 12, '0'))::uuid) from unnest(games) g)) r;
+$$;
+grant execute on function public.test_records(int, date, date, int[]) to authenticated;
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000013", "role": "authenticated"}';
 
 -- =============================================================================================
--- Liczniki, serie i remisy (STAT-1, §5.6.3, §5.6.4)
+-- Statystyki profilu bez filtrów (STAT-1, §5.6.3)
 -- =============================================================================================
-select is(public.test_totals(11), '4/7/4/56 seria 2/1',
-  'Łukasz: 4 spotkania, 7 partii, 4 wygrane (z remisem o 1. miejsce), 56 pkt; rekord 2, bieżąca 1');
-select is(public.test_totals(12), '3/3/1/20 seria 1/0',
-  'Lucyna: wygrana z remisu liczy się, przegrana w m4 zeruje bieżącą serię');
-select is(public.test_totals(13), '3/3/2/26 seria 2/0', 'Mateusz: rekord 2, bieżąca 0');
-select is(public.test_stats(11) -> 'years', '[2026, 2025]'::jsonb,
-  'lata gracza w strefie klubu, od najnowszego (23:30 31 grudnia to jeszcze 2025)');
+select is(public.test_filtered(11), '4/7/4', 'Łukasz: 4 spotkania, 7 partii, 4 wygrane (z remisem o 1. miejsce)');
+select is(public.test_filtered(12), '3/3/1', 'Lucyna: wygrana z remisu liczy się');
+select is(public.test_filtered(13), '3/3/2', 'Mateusz');
+
+-- =============================================================================================
+-- Filtry dat i gier jak w rankingu (LB-4, NFR-10)
+-- =============================================================================================
+select is(public.test_filtered(11, '2026-01-01', '2026-12-31'), '3/6/3', 'rok 2026 jako zakres dni');
+select is(public.test_filtered(11, '2025-12-31', '2025-12-31'), '1/1/1',
+  'jeden dzień w strefie klubu: 23:30 31 grudnia to jeszcze 31 grudnia');
+select is(public.test_filtered(11, null, null, array[2]), '3/3/1', 'tylko Brzdęk: 3 spotkania, 3 partie, 1 wygrana');
+select is(public.test_filtered(11, '2026-02-01', null, array[1]), '1/1/0', 'filtry łączą się: od lutego i tylko Azul');
+select is(public.test_filtered(11, null, null, '{}'), '4/7/4', 'pusta lista gier = wszystkie gry');
+select is(public.test_filtered(11, '2024-01-01', '2024-12-31'), '0/0/0', 'zakres bez partii: same zera');
+select throws_ok($$ select public.test_stats(11, '2026-02-01', '2026-01-01') $$, '22023', null,
+  'pusty zakres dat to błąd 22023');
+
+-- =============================================================================================
+-- Ranking z całej historii (bez filtrów, §5.6.4, LB-1)
+-- =============================================================================================
+select is(public.test_career(11), '56/4 seria 2/1 miejsca 1/1', 'Łukasz: 56 pkt, 4 wygrane, seria 2/1, 1. miejsca');
+select is(public.test_career(11, '2025-12-31', '2025-12-31', array[3]), '56/4 seria 2/1 miejsca 1/1',
+  'filtry nie zmieniają grupy rankingu');
+select is(public.test_career(12), '20/1 seria 1/0 miejsca 3/3', 'Lucyna: przegrana w m4 zeruje bieżącą serię');
+select is(public.test_career(13), '26/2 seria 2/0 miejsca 2/2', 'Mateusz');
+select ok(not (public.test_stats(11) -> 'places' ? 'streak'), 'brak miejsca w rankingu serii');
+
+-- =============================================================================================
+-- Ulubione z całej historii (STAT-2, Q21) — próg trzech partii
+-- =============================================================================================
+select is(public.test_stats(11) -> 'favorite_game' ->> 'title', 'Azul',
+  'ulubiona: Azul i Brzdęk po 3 partie, remis rozstrzyga więcej wygranych (2 > 1)');
+select is(public.test_stats(11) -> 'best_game', jsonb_build_object(
+    'game_id', '00000000-0000-4000-b000-000000000001', 'title', 'Azul', 'cover_path', null, 'plays', 3, 'wins', 2),
+  'najlepsza: Carcassonne ma 100% z 1 partii, ale liczą się gry z ≥ 3 partiami');
+select is(public.test_stats(11, null, null, array[3]) -> 'favorite_game' ->> 'title', 'Azul',
+  'filtr gier nie zmienia ulubionej gry');
+select ok(public.test_stats(12) -> 'best_game' = 'null'::jsonb,
+  'Lucyna: brak gry z ≥ 3 partiami, więc najlepsza gra jest pusta');
+
+-- =============================================================================================
+-- Ostatnie spotkania (5 najnowszych z partiami gracza, §5.6.6)
+-- =============================================================================================
+select is(public.test_recent(11), array[4, 3, 2, 1], 'spotkania od najnowszego');
+select is((public.test_stats(11) -> 'recent_meetings' -> 0) - 'starts_at', jsonb_build_object(
+    'meeting_id', '00000000-0000-4000-c000-000000000004', 'title', 'Marzec', 'plays', 2, 'wins', 2, 'points', 20),
+  'wpis spotkania: link, tytuł, partie, wygrane i punkty gracza');
+select is(public.test_recent(12), array[4, 2, 1], 'Lucyna: tylko spotkania z jej partiami');
 
 -- =============================================================================================
 -- Zero partii (Bartek ma tylko szkic)
 -- =============================================================================================
-select is(public.test_totals(15), '0/0/0/0 seria 0/0', 'zero partii: same zera (szkic się nie liczy)');
-select is(public.test_places(15), '-/-', 'zero partii: brak miejsc w rankingach');
+select is(public.test_filtered(15), '0/0/0', 'zero partii: same zera (szkic się nie liczy)');
+select is(public.test_career(15), '0/0 seria 0/0 miejsca -/-', 'zero partii: brak miejsc w rankingach');
 select ok(public.test_stats(15) -> 'favorite_game' = 'null'::jsonb, 'zero partii: brak ulubionej gry');
-select ok(public.test_stats(15) -> 'best_game' = 'null'::jsonb, 'zero partii: brak najlepszej gry');
-select is(public.test_stats(15) -> 'recent_plays', '[]'::jsonb, 'zero partii: pusta lista partii');
-select is(public.test_stats(15) -> 'years', '[]'::jsonb, 'zero partii: brak lat w filtrze');
+select is(public.test_stats(15) -> 'recent_meetings', '[]'::jsonb, 'zero partii: pusta lista spotkań');
 
 -- =============================================================================================
--- Miejsca w dwóch rankingach (STAT-1, LB-6, LB-7); seria nie jest już rankingiem
+-- Rekordy osobiste (USR-4, Q25): każda gra, także bez wyniku; pieczątka rekordu klubu
 -- =============================================================================================
-select is(public.test_places(11), '1/1', 'Łukasz: 1. w punktach i wygranych');
-select is(public.test_places(13), '2/2', 'Mateusz: 2. miejsca');
-select is(public.test_places(12), '3/3', 'Lucyna: 3. miejsca (usunięta Celina nie wyprzedza)');
-select ok(not (public.test_stats(11) -> 'places' ? 'streak'), 'brak miejsca w rankingu serii');
-
--- =============================================================================================
--- Ulubiona i najlepsza gra (STAT-2, Q21) — próg trzech partii
--- =============================================================================================
-select is(public.test_stats(11) -> 'favorite_game' ->> 'title', 'Azul',
-  'ulubiona: Azul i Brzdęk po 3 partie, remis rozstrzyga więcej wygranych (2 > 1)');
-select is(public.test_stats(11) -> 'best_game' ->> 'title', 'Azul',
-  'najlepsza: Carcassonne ma 100% z 1 partii, ale liczą się gry z ≥ 3 partiami');
-select is(public.test_stats(11) -> 'best_game', jsonb_build_object(
-    'game_id', '00000000-0000-4000-b000-000000000001', 'title', 'Azul', 'plays', 3, 'wins', 2),
-  'najlepsza gra z liczbą partii i wygranych');
-select ok(public.test_stats(12) -> 'best_game' = 'null'::jsonb,
-  'Lucyna: brak gry z ≥ 3 partiami, więc najlepsza gra jest pusta');
-select is(public.test_stats(13) -> 'favorite_game' ->> 'title', 'Brzdęk', 'Mateusz: ulubiona Brzdęk (2 partie)');
-
--- =============================================================================================
--- Ostatnie partie (STAT-2, §5.6.6 od najnowszej)
--- =============================================================================================
-select is(public.test_recent(11), array[7, 6, 5, 4, 3, 2, 1],
-  'ostatnie partie od najnowszej: spotkania malejąco, w spotkaniu po saved_at malejąco');
-select is((public.test_stats(11) -> 'recent_plays' -> 0) - 'starts_at', jsonb_build_object(
-    'play_id', '00000000-0000-4000-f000-000000000007', 'meeting_id', '00000000-0000-4000-c000-000000000004',
-    'meeting_title', 'Marzec', 'game_id', '00000000-0000-4000-b000-000000000003', 'game_title', 'Carcassonne',
-    'place', 1, 'points', 10, 'is_win', true),
-  'wpis partii: spotkanie do linku, gra, miejsce, punkty, wygrana');
-
--- =============================================================================================
--- Filtr roku (STAT-3, LB-4, NFR-10)
--- =============================================================================================
-select is(public.test_totals(11, 2025), '1/1/1/10 seria 1/1', 'rok 2025: tylko sylwestrowe spotkanie');
-select is(public.test_totals(11, 2026), '3/6/3/46 seria 1/1', 'rok 2026: seria liczona tylko w obrębie roku');
-select is(public.test_places(12, 2025), '2/2', 'miejsca w rankingach tego samego roku');
-select is(public.test_recent(11, 2025), array[1], 'ostatnie partie tylko z wybranego roku');
-select is(public.test_stats(11, 2025) -> 'years', '[2026, 2025]'::jsonb, 'lata filtru zawsze z całej historii');
-select is(public.test_totals(11, 2024), '0/0/0/0 seria 0/0', 'rok bez partii: same zera');
-select throws_ok($$ select public.test_stats(11, 0) $$, '22023', null, 'rok spoza zakresu to błąd 22023');
+select is(public.test_records(11), array['Azul:10@1*', 'Brzdęk:10@6*', 'Carcassonne:10@7*'],
+  'Łukasz: rekord w każdej grze, wszystkie równe rekordom klubu; usunięta gra bez partii pominięta');
+select is(public.test_records(12), array['Azul:8@2', 'Brzdęk:-', 'Carcassonne:6@7'],
+  'Lucyna: gra bez partii bez wyniku, rekordy poniżej rekordów klubu');
+select is(public.test_records(15), array['Azul:-', 'Brzdęk:-', 'Carcassonne:-'], 'zero partii: same gry bez wyników');
+select is(public.test_records(11, '2026-01-01', '2026-12-31'), array['Azul:8@2', 'Brzdęk:10@6*', 'Carcassonne:10@7*'],
+  'filtr dat: rekord z zakresu, pieczątka nadal względem rekordu klubu z całej historii');
+select is(public.test_records(11, null, null, array[2]), array['Brzdęk:10@6*'], 'filtr gier');
+select is(public.test_records(13), array['Azul:10@4*', 'Brzdęk:10@3*', 'Carcassonne:-'],
+  'Mateusz: rekordy z jego partii, gra bez wyniku');
+select throws_ok($$ select public.test_records(11, '2026-02-01', '2026-01-01') $$, '22023', null,
+  'rekordy: pusty zakres dat to błąd 22023');
 
 -- =============================================================================================
 -- Usunięty członek (MEM-5) i brak profilu
 -- =============================================================================================
-select is(public.test_totals(14), '1/1/1/10 seria 1/1', 'usunięta Celina zachowuje historyczne statystyki');
-select is(public.test_places(14), '-/-/-', 'usunięty członek nie ma miejsc w rankingach (LB-7)');
+select is(public.test_filtered(14), '1/1/1', 'usunięta Celina zachowuje historyczne statystyki');
+select is(public.test_career(14), '10/1 seria 1/1 miejsca -/-', 'usunięty członek nie ma miejsc w rankingach (LB-7)');
 select ok(public.player_stats('00000000-0000-4000-a000-000000000099') is null, 'brak profilu: NULL');
 
 -- =============================================================================================
@@ -226,24 +255,30 @@ select ok(public.player_stats('00000000-0000-4000-a000-000000000099') is null, '
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000014", "role": "authenticated"}';
 select ok(public.test_stats(11) is null, 'usunięte konto nie widzi profili ani partii (RLS)');
+select is(public.test_records(11), '{}'::text[], 'usunięte konto nie widzi rekordów (RLS)');
 reset role;
-select ok(not has_function_privilege('anon', 'public.player_stats(uuid, int)', 'execute'),
+select ok(not has_function_privilege('anon', 'public.player_stats(uuid, date, date, uuid[])', 'execute'),
   'anon nie wywoła player_stats');
+select ok(not has_function_privilege('anon', 'public.player_records(uuid, date, date, uuid[])', 'execute'),
+  'anon nie wywoła player_records');
 set local role authenticated;
 
 -- =============================================================================================
--- Usunięcie partii przelicza statystyki (§5.6.5)
+-- Usunięcie partii przelicza statystyki i rekordy (§5.6.5)
 -- =============================================================================================
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000001", "role": "authenticated"}';
 select lives_ok($$ select public.delete_play('00000000-0000-4000-f000-000000000004') $$,
   'admin usuwa p4 (Azul, wygrana Mateusza)');
-select is(public.test_totals(11), '4/6/4/50 seria 2/1', 'Łukasz: o jedną partię i 6 pkt mniej');
+select is(public.test_filtered(11), '4/6/4', 'Łukasz: o jedną partię mniej');
+select is(public.test_career(11), '50/4 seria 2/1 miejsca 1/1', 'Łukasz: 6 pkt mniej');
 select is(public.test_stats(11) -> 'best_game' ->> 'title', 'Brzdęk',
   'Azul spada poniżej progu 3 partii, najlepszą grą zostaje Brzdęk (1/3)');
+select is(public.test_records(13), array['Azul:-', 'Brzdęk:10@3*', 'Carcassonne:-'], 'Mateusz traci rekord w Azul');
 select lives_ok($$ select public.delete_play('00000000-0000-4000-f000-000000000003') $$,
   'admin usuwa p3 (Brzdęk, wygrana Mateusza)');
-select is(public.test_totals(13), '1/1/0/6 seria 0/0', 'Mateusz: zostaje jedna przegrana partia, seria 0');
-select is(public.test_places(13), '3/3/3', 'Mateusz spada na 3. miejsca we wszystkich rankingach');
+select is(public.test_filtered(13), '1/1/0', 'Mateusz: zostaje jedna przegrana partia');
+select is(public.test_career(13), '6/0 seria 0/0 miejsca 3/3', 'Mateusz spada na 3. miejsca');
+select is(public.test_records(13), array['Azul:-', 'Brzdęk:6@6', 'Carcassonne:-'], 'Mateusz: rekord 6 poniżej rekordu klubu');
 
 select * from finish();
 

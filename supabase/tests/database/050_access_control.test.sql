@@ -42,7 +42,6 @@ select results_eq(
       group by table_name
       order by table_name $$,
   $$ values
-       ('achievement_unlocks', 'SELECT'),
        ('club', 'SELECT'),
        ('game_collection', 'SELECT'),
        ('game_votes', 'DELETE,SELECT'),
@@ -91,12 +90,12 @@ select results_eq(
        ('is_valid_points(numeric[],integer)'),
        ('is_valid_timezone(text)'),
        ('leaderboard(text,date,date,uuid[])'),
-       ('meeting_achievements(uuid)'),
        ('meeting_summary(uuid)'),
        ('orphan_sheet_images(uuid)'),
-       ('player_achievements(uuid)'),
-       ('player_stats(uuid,integer)'),
+       ('player_records(uuid,date,date,uuid[])'),
+       ('player_stats(uuid,date,date,uuid[])'),
        ('private.club_timezone()'),
+       ('private.date_range_bounds(date,date)'),
        ('private.is_active_member()'),
        ('private.is_admin()'),
        ('private.is_meeting_runner(uuid)'),
@@ -109,13 +108,12 @@ select results_eq(
        ('save_meeting(uuid,text,date,time without time zone,uuid[],uuid,boolean)'),
        ('save_play(uuid,uuid,jsonb,jsonb)'),
        ('save_play_draft(uuid,jsonb,integer)'),
-       ('save_play_with_achievements(uuid,uuid,jsonb,jsonb,uuid)'),
        ('save_scorepad(uuid,uuid,text,jsonb,text,integer)'),
        ('search_games(text)'),
        ('search_text(text)'),
        ('start_meeting(uuid)'),
        ('start_play(uuid,uuid,uuid,uuid[],integer[])') $$,
-  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie, zapis i usunięcie partii, obrazy karteczek, rankingi, statystyki gry, podsumowanie spotkania, statystyki gracza i osiągnięcia'
+  'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie, zapis i usunięcie partii, obrazy karteczek, rankingi, statystyki gry, podsumowanie spotkania, statystyki i rekordy gracza'
 );
 
 -- Odmowa domyślna dla przyszłych obiektów: Supabase nie nada praw nowym tabelom i funkcjom.
@@ -165,7 +163,6 @@ select results_eq(
        from pg_policies where schemaname = 'public'
       group by tablename order by tablename $$,
   $$ values
-       ('achievement_unlocks', 'SELECT'),
        ('club', 'INSERT,SELECT,UPDATE'),
        ('game_votes', 'DELETE,INSERT,SELECT'),
        ('games', 'INSERT,SELECT,UPDATE'),

@@ -1,11 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {
-  ADA,
-  EMPTY_PLAYER_ACHIEVEMENTS,
-  mockSupabase,
-  session,
-  storeSession,
-} from './support/supabaseMock';
+import { ADA, mockSupabase, session, storeSession } from './support/supabaseMock';
 import { png } from './support/png';
 
 /** Stateful UI regression. API responses are mocked; SQL/Auth suites prove server permissions. */
@@ -170,22 +164,24 @@ test('MVP: pusty klub, członek, gra, notes, głosowanie, szkic i zapisana parti
   const ranking = page.getByRole('dialog', { name: 'Ranking' });
   await expect(ranking.getByRole('list', { name: 'Podium' })).toContainText('Ada');
   await expect(ranking.getByRole('list', { name: 'Podium' })).toContainText('4');
-  mock.options.playerAchievements = () => ({
-    ...EMPTY_PLAYER_ACHIEVEMENTS,
-    unlocks: [
-      {
-        achievement_id: 'win-1',
-        unlocked_at: meeting.starts_at,
-        meeting_id: meeting.id,
-        meeting_title: meeting.title,
-        play_id: savedPlay.id,
-      },
-    ],
-    progress: { ...EMPTY_PLAYER_ACHIEVEMENTS.progress, plays: 1, wins: 1, points: 10 },
-  });
+  mock.options.playerRecords = () => [
+    {
+      game_id: savedPlay.game_id,
+      title: 'Azul',
+      cover_path: null,
+      game_deleted: false,
+      dir: 'desc',
+      value: 12,
+      play_id: savedPlay.id,
+      meeting_id: meeting.id,
+      meeting_title: meeting.title,
+      starts_at: meeting.starts_at,
+      club_record: true,
+    },
+  ];
   await page.goto(`/?p=profile/${ADA.id}`);
   await expect(page.getByRole('dialog', { name: 'Profil' })).toBeVisible();
-  await expect(page.locator('[data-achievement]')).toHaveCount(29);
-  await expect(page.locator('[data-achievement="win-1"]')).toHaveAttribute('data-unlocked', 'true');
+  await expect(page.locator('.record')).toHaveCount(1);
+  await expect(page.locator('.record').first()).toHaveAttribute('data-club-record', 'true');
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });

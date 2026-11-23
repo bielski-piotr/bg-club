@@ -47,13 +47,11 @@ select is(public.game_vote_total('00000000-0000-4000-b000-000000000001'), 4::big
 set local request.jwt.claims to '{"sub":"00000000-0000-4000-a000-000000000004","role":"authenticated"}';
 select is(public.game_vote_total('00000000-0000-4000-b000-000000000001'), 4::bigint, 'aktywny członek spoza spotkań też widzi agregat');
 select is(public.game_vote_total('00000000-0000-4000-b000-000000000003'), 0::bigint, 'gra bez głosów wśród innych głosowań');
-select throws_ok($$select * from private.meeting_voters$$, '42501', null, 'migawki głosujących pozostają prywatne');
 
 set local request.jwt.claims to '{"sub":"00000000-0000-4000-a000-000000000001","role":"authenticated"}';
 select public.publish_meeting_games('00000000-0000-4000-c000-000000000001', array['00000000-0000-4000-b000-000000000002']::uuid[]);
 select is(public.game_vote_total('00000000-0000-4000-b000-000000000001'), 4::bigint, 'publikacja innej gry zachowuje sumę, bez podwójnego liczenia migawki');
 reset role;
-select is((select count(*) from private.meeting_voters), 2::bigint, 'publikacja zapisała migawkę dwóch głosujących, bez game_id');
 set local role authenticated;
 select public.reopen_voting('00000000-0000-4000-c000-000000000001');
 set local request.jwt.claims to '{"sub":"00000000-0000-4000-a000-000000000002","role":"authenticated"}';
@@ -67,7 +65,6 @@ select is(public.game_vote_total('00000000-0000-4000-b000-000000000001'), 2::big
 delete from public.meetings where id = '00000000-0000-4000-c000-000000000001';
 select is(public.game_vote_total('00000000-0000-4000-b000-000000000002'), 0::bigint, 'usunięcie opublikowanego planu usuwa jego głosy');
 reset role;
-select is((select count(*) from private.meeting_voters), 0::bigint, 'usunięcie spotkania usuwa również jego migawkę');
 set local role authenticated;
 delete from public.meetings where id = '00000000-0000-4000-c000-000000000002';
 select is(public.game_vote_total('00000000-0000-4000-b000-000000000001'), 1::bigint, 'usunięcie otwartego planu zmniejsza sumę');

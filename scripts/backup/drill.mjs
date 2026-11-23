@@ -313,14 +313,6 @@ async function fixture(stack) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ should_soft_delete: true }),
   });
-  check(
-    Number(await stack.db.query('select count(*) from public.achievement_unlocks;')) > 0,
-    'Fixture did not unlock achievements.',
-  );
-  check(
-    Number(await stack.db.query('select count(*) from private.meeting_voters;')) > 0,
-    'Fixture did not persist voter snapshots.',
-  );
   return { users, ids, images, version, sheet, png };
 }
 
@@ -337,12 +329,7 @@ async function expectFailure(task, message) {
 async function projections(stack, fixture, token) {
   return {
     ranking: await rpc(stack, 'leaderboard', { kind: 'points' }, token),
-    achievements: await rpc(
-      stack,
-      'player_achievements',
-      { profile_id: fixture.users[0].id },
-      token,
-    ),
+    records: await rpc(stack, 'player_records', { profile_id: fixture.users[0].id }, token),
     plays: await rest(stack, 'plays', 'GET', undefined, '?select=*&order=id', token),
     results: await rest(
       stack,
@@ -492,7 +479,7 @@ async function main() {
   await login(target, fixtureData.users[2].hook, fixtureData.users[2].password, false);
   pass('Original passwords log in admin/player with identical UUID; deleted account cannot log in');
   const actual = await projections(target, fixtureData, targetSession.access_token);
-  check(same(actual, expected), 'History/ranking/achievement projections changed.');
+  check(same(actual, expected), 'History/ranking/record projections changed.');
   check(
     actual.results
       .filter((r) => r.play_id === fixtureData.ids.play)

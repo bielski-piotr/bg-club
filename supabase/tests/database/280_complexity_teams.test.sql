@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(16);
 
 insert into public.profiles (id, hook, first_name, last_name, role) values
   ('00000000-0000-4000-a000-000000000001', 'ada-adminowska-a001', 'Ada', 'Adminowska', 'admin'),
@@ -120,10 +120,6 @@ select results_eq(
             ('00000000-0000-4000-a000-000000000004'::uuid, 2, false, 3.9::numeric, false),
             ('00000000-0000-4000-a000-000000000005'::uuid, 2, false, 3.9::numeric, false) $$,
   'zespół: każdy członek dostaje punkty i wygraną strony, bez remisu w zespole'
-);
-select is_empty(
-  $$ select 1 from public.achievement_unlocks where achievement_id = 'tie-top' $$,
-  'wygrana zespołu nie jest „ex aequo”'
 );
 
 -- Partia 4 graczy pojedynczo: zwycięzca za 3. miejsce punktacji, ostatni za 6.
