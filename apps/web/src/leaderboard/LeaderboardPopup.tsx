@@ -1,75 +1,52 @@
 import { useState } from 'react';
-import { useAuth } from '../auth/authContext';
-import { format, plural, t } from '../i18n';
+import { plural, t } from '../i18n';
 import { PopupModal } from '../popups/PopupModal';
 import type { Profile } from '../profile/profiles';
-import { Banner, Button, EmptyState, Select, Tabs, type SelectOption } from '../ui';
+import { EmptyState, Tabs } from '../ui';
 import { LeaderboardBoard } from './LeaderboardBoard';
-import {
-  filterYear,
-  useLeaderboardYears,
-  yearFilterValues,
-  type LeaderboardKind,
-  type YearFilter,
-} from './leaderboard';
+import { FilterBar } from './FilterBar';
+import { TiesLink } from './TiesPopup';
 import { kindTabs, useBoardData } from './board';
 import { BoardError, BoardLoading } from './BoardStatus';
+import { hasFilters, NO_FILTERS, type LeaderboardFilters } from './filters';
+import type { LeaderboardKind } from './leaderboard';
+import { tieGroups } from './ties';
 
 /**
- * Pełny ranking (LB-3, LB-4, DS §7): te same zakładki i podium co widżet, pełna lista oraz filtr
- * roku („Cała historia” domyślnie albo rok w strefie klubu, NFR-10). Lata pochodzą z
- * `leaderboard_years()`, więc lista zawiera tylko lata z zapisanymi partiami.
+ * Pełny ranking (LB-3, LB-4, DS §7): te same zakładki, filtry i podium co widżet oraz pełna
+ * lista. Filtry startowe (z widżetu albo adresu) można dalej zmieniać i czyścić; zakres dat
+ * liczy się w strefie klubu (NFR-10).
  */
 export function LeaderboardPopup({
   me,
   tab = 'points',
+  filters: initialFilters = NO_FILTERS,
 }: {
   readonly me: Profile;
   readonly tab?: LeaderboardKind | undefined;
+  readonly filters?: LeaderboardFilters | undefined;
 }) {
-  const { client } = useAuth();
   const [kind, setKind] = useState<LeaderboardKind>(tab);
-  const [year, setYear] = useState<YearFilter>('all');
-  const years = useLeaderboardYears(client);
-  const { entries, profiles, failed, retry } = useBoardData(kind, filterYear(year));
+  const [filters, setFilters] = useState<LeaderboardFilters>(initialFilters);
+  const { entries, profiles, failed, retry } = useBoardData(kind, filters);
   const text = t.leaderboard;
-  const options: SelectOption<YearFilter>[] = yearFilterValues(years.data ?? [], year).map(
-    (value) => ({ value, label: value === 'all' ? text.allTime : value }),
-  );
   const count = entries ? plural(entries.length, text.count) : undefined;
+  const filtered = hasFilters(filters);
 
   return (
     <PopupModal title={text.title} count={count} width={560} className="leaderboard-modal">
       <div className="leaderboard-controls">
         <Tabs label={text.tabsLabel} items={kindTabs} value={kind} onChange={setKind} />
-        <Select
-          label={text.yearLabel}
-          hideLabel
-          appearance="pill"
-          leadingIcon="calendar"
-          options={options}
-          value={year}
-          onChange={setYear}
+        <FilterBar
+          filters={filters}
+          onChange={setFilters}
+          extra={
+            entries && tieGroups(entries).length > 0 ? (
+              <TiesLink kind={kind} filters={filters} />
+            ) : undefined
+          }
         />
       </div>
-      {years.isError ? (
-        <Banner
-          variant="error"
-          className="leaderboard-years-error"
-          action={
-            <Button
-              size="sm"
-              variant="secondary"
-              icon="refresh"
-              onClick={() => void years.refetch()}
-            >
-              {t.hub.retry}
-            </Button>
-          }
-        >
-          {text.yearsError}
-        </Banner>
-      ) : null}
       <div aria-busy={!entries}>
         {failed ? (
           <div className="leaderboard">
@@ -81,10 +58,8 @@ export function LeaderboardPopup({
           <div className="leaderboard">
             <EmptyState
               icon="trophy"
-              title={
-                year === 'all' ? t.leaderboard.emptyTitle : format(text.emptyYearTitle, { year })
-              }
-              helper={year === 'all' ? t.leaderboard.emptyHelper : text.emptyYearHelper}
+              title={filtered ? text.emptyFilteredTitle : text.emptyTitle}
+              helper={filtered ? text.emptyFilteredHelper : text.emptyHelper}
             />
           </div>
         ) : (

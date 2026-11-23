@@ -1,6 +1,7 @@
 import { useAuth } from '../auth/authContext';
 import { t } from '../i18n';
 import { useAllProfiles } from '../profile/profiles';
+import type { LeaderboardFilters } from './filters';
 import { LEADERBOARD_KINDS, useLeaderboard, type LeaderboardKind } from './leaderboard';
 
 export const kindTabs = LEADERBOARD_KINDS.map((id) => ({ id, label: t.leaderboard.tabs[id] }));
@@ -9,9 +10,9 @@ export const kindTabs = LEADERBOARD_KINDS.map((id) => ({ id, label: t.leaderboar
  * Ranking z profilami do awatarów. Dane z cache'u mają pierwszeństwo przed błędem odświeżania;
  * błąd bez danych pokazuje banner z ponowieniem.
  */
-export function useBoardData(kind: LeaderboardKind, year: number | null) {
+export function useBoardData(kind: LeaderboardKind, filters: LeaderboardFilters) {
   const { client } = useAuth();
-  const board = useLeaderboard(client, kind, year);
+  const board = useLeaderboard(client, kind, filters);
   const profiles = useAllProfiles(client);
   const failed = (board.isError && !board.data) || (profiles.isError && !profiles.data);
   return {

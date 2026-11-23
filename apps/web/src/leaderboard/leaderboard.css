@@ -222,7 +222,7 @@
   margin-top: 6px;
 }
 
-/* Popup: zakładki i filtr roku w jednym wierszu (DS §7), na telefonie filtr pod zakładkami. */
+/* Popup: zakładki i filtry w jednym wierszu (DS §7), na telefonie filtry pod zakładkami. */
 .leaderboard-controls {
   display: flex;
   flex-wrap: wrap;
@@ -236,6 +236,406 @@
   padding-top: 20px;
 }
 
-.leaderboard-years-error {
-  margin-top: 12px;
+/* Filtry rankingu (LB-4): pigułki zakresu dat i gier, „Wyczyść filtry”, „Remisy”. */
+.lb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.leaderboard-tabs .lb-filters {
+  padding-bottom: 4px;
+}
+
+.lb-filters__extra {
+  display: flex;
+  margin-left: auto;
+}
+
+.lb-filter {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lb-filter__pill {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.lb-filter__pill .select__value {
+  max-width: 220px;
+}
+
+.lb-filter__pill--active {
+  border-color: var(--c-accent);
+  background: var(--c-accent-tint);
+  color: var(--c-accent-text);
+}
+
+.lb-filter__pill--active .select__lead {
+  color: var(--c-accent-text);
+}
+
+.lb-filter__panel {
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-menu);
+  box-shadow: var(--shadow-menu);
+}
+
+.lb-filter__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lb-ties-link {
+  text-decoration: none;
+}
+
+/* Kalendarz zakresu dat. */
+.range-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.range-calendar__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.range-calendar__title {
+  display: flex;
+  gap: 2px;
+}
+
+.range-calendar__switch,
+.range-calendar__heading {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--r-menu-item);
+  background: none;
+  color: var(--c-ink);
+  font: 700 15px/20px var(--font-display);
+}
+
+.range-calendar__switch {
+  cursor: pointer;
+}
+
+.range-calendar__switch:hover {
+  background: var(--c-tint);
+}
+
+.range-calendar__weekdays,
+.range-calendar__week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.range-calendar__weekdays span {
+  padding: 4px 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+  text-align: center;
+}
+
+.range-calendar__day {
+  height: 38px;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--c-ink);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.range-calendar__day:hover {
+  box-shadow: inset 0 0 0 1.5px var(--c-accent);
+  border-radius: var(--r-menu-item);
+}
+
+.range-calendar__day--outside {
+  color: var(--c-muted);
+}
+
+.range-calendar__day--today {
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.range-calendar__day--inside {
+  background: var(--c-accent-tint);
+  color: var(--c-accent-text);
+}
+
+.range-calendar__day--start,
+.range-calendar__day--end {
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+  font-weight: 700;
+}
+
+.range-calendar__day--start {
+  border-radius: var(--r-menu-item) 0 0 var(--r-menu-item);
+}
+
+.range-calendar__day--end {
+  border-radius: 0 var(--r-menu-item) var(--r-menu-item) 0;
+}
+
+.range-calendar__day--start.range-calendar__day--end {
+  border-radius: var(--r-menu-item);
+}
+
+.range-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.range-calendar__cell {
+  height: 44px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-menu-item);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.range-calendar__cell:hover {
+  background: var(--c-tint);
+}
+
+.range-calendar__cell--current {
+  border-color: var(--c-accent);
+  background: var(--c-accent-tint);
+  color: var(--c-accent-text);
+}
+
+.range-calendar__hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-muted);
+}
+
+/* Filtr gier: wyszukiwarka nad listą z polami wyboru. */
+.game-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.game-filter__options {
+  max-height: 260px;
+}
+
+.game-filter__check {
+  width: 20px;
+  height: 20px;
+}
+
+.checkbox.game-filter__check--on {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+/* Szczegóły rozstrzygnięcia remisów. */
+.ties {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.ties__applied,
+.ties__intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ties__applied {
+  color: var(--c-muted);
+}
+
+.ties__rules {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 22px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ties__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ties__group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font: 700 16px/20px var(--font-display);
+}
+
+.ties__group-places {
+  font: 500 13px/16px var(--font-body, inherit);
+  color: var(--c-muted);
+}
+
+.ties__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ties__item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-row);
+  background: var(--c-tint);
+}
+
+.ties__item--me {
+  background: var(--c-accent-tint);
+}
+
+.ties__player {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.ties__player--decisive .ties__name {
+  color: var(--c-accent-text);
+  font-weight: 800;
+}
+
+.ties__place {
+  color: var(--c-muted);
+}
+
+.ties__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ties__facts {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.ties__fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1.5px solid transparent;
+  border-radius: var(--r-menu-item);
+  background: var(--c-surface);
+}
+
+.ties__fact dt {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.ties__fact dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ties__fact--decisive {
+  border-color: var(--c-accent);
+}
+
+.ties__fact--decisive dd {
+  color: var(--c-accent-text);
+  font-weight: 800;
+}
+
+.ties__meeting {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.ties__meeting-date,
+.ties__muted {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.ties__note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--c-muted);
+}
+
+@media (max-width: 479px) {
+  .ties__facts {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ties__fact:first-child {
+    grid-column: 1 / -1;
+  }
 }

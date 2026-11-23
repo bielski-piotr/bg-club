@@ -266,12 +266,12 @@ Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po
 
 | ID | Wymaganie | P |
 |---|---|:-:|
-| LB-1 | Trzy klasyfikacje przełączane zakładkami: **Punkty** (suma punktów), **Wygrane** (liczba wygranych partii), **Seria** (rekord serii zwycięstw). | M |
+| LB-1 | Dwie klasyfikacje przełączane zakładkami: **Punkty** (suma punktów) i **Wygrane** (liczba wygranych partii). Seria zwycięstw nie jest rankingiem — to statystyka w profilu gracza (rekord i bieżąca seria). | M |
 | LB-2 | **Podium** dla miejsc 1, 2, 3 (awatar, imię, wynik). Pod podium lista miejsc od 4. (pozycja, awatar, imię i nazwisko, wynik). | M |
 | LB-3 | **Widżet** pokazuje podium i ograniczoną listę (domyślnie miejsca 4–7). **Popup** („Zobacz więcej”) pokazuje ten sam układ z pełną listą. | M |
-| LB-4 | **Filtr roku** w popupie: „Cała historia” (domyślnie) albo wybrany rok kalendarzowy. Dla roku liczą się tylko partie i spotkania z tego roku, a seria jest liczona tylko w obrębie tego roku. Widżet zawsze pokazuje całą historię. | M |
+| LB-4 | **Filtry** w widżecie i popupie: **zakres dat** (kalendarz; dni w strefie klubu, jeden dzień albo od–do) i **zestaw gier** (wyszukiwarka z autouzupełnianiem, wielokrotny wybór). Filtry działają osobno i razem. Stan domyślny to brak zaznaczenia: cała historia i wszystkie gry; „Wyczyść” przywraca go dla jednego filtru, „Wyczyść filtry” dla obu. Kalendarz: kliknięcie dnia sąsiedniego miesiąca przełącza na ten miesiąc, nazwa miesiąca i rok otwierają szybki wybór. „Zobacz więcej” przenosi zakładkę i filtry z widżetu do popupu. | M |
 | LB-5 | Klasyfikowani są członkowie z ≥ 1 rozegraną partią (w wybranym zakresie). | M |
-| LB-6 | Równe wyniki dają **wspólne miejsce** (numeracja 1, 1, 3). Kilka osób na tym samym stopniu podium jest pokazywanych razem. W obrębie remisu kolejność jest alfabetyczna. | M |
+| LB-6 | **Bez remisów**: każdy ma własne miejsce. Równy wynik rozstrzygają kolejno: (1) kto później osiągnął swój wynik (spotkanie, na którym wynik zmienił się ostatni raz; późniejsze wyżej), (2) kto na tym spotkaniu zdobył więcej punktów, (3) kto ma więcej zwycięstw w całej historii (bez względu na filtry), (4) kolejność alfabetyczna. Przycisk „Remisy” otwiera popup ze szczegółami rozstrzygnięcia każdej grupy równych wyników. | M |
 | LB-7 | **Usunięci członkowie** są zawsze na końcu klasyfikacji, bez względu na wynik (między sobą według wyniku), wyszarzeni. Nie stają na podium. | M |
 
 ### 5.8 Spotkania

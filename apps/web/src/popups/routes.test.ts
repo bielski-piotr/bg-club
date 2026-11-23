@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_STACK_DEPTH, parseRoute, parseStack, routeKey, stackSearch } from './routes';
+import {
+  MAX_STACK_DEPTH,
+  parseRoute,
+  parseStack,
+  routeKey,
+  serializeRoute,
+  stackSearch,
+} from './routes';
 
 const ID = '00000000-0000-4000-a000-000000000001';
 
@@ -34,15 +41,35 @@ describe('adresy popupów (PRD §4)', () => {
     }
   });
 
-  it('zna ranking z zakładką (LB-3)', () => {
-    expect(parseStack('?p=leaderboard&p=leaderboard/streak')).toEqual([
+  it('zna ranking z zakładką i filtrami oraz szczegóły remisów (LB-3, LB-4)', () => {
+    expect(parseStack('?p=leaderboard&p=leaderboard/wins')).toEqual([
       { kind: 'leaderboard' },
-      { kind: 'leaderboard', tab: 'streak' },
+      { kind: 'leaderboard', tab: 'wins' },
     ]);
     expect(stackSearch('', [{ kind: 'leaderboard', tab: 'wins' }])).toBe('?p=leaderboard/wins');
     expect(stackSearch('', [{ kind: 'leaderboard' }])).toBe('?p=leaderboard');
-    for (const raw of ['leaderboard/rok', 'leaderboard/points/2026']) {
-      expect(parseRoute(raw)).toEqual({ kind: 'invalid', raw });
+    const game = '00000000-0000-4000-b000-000000000001';
+    const filters = { from: '2026-01-01', to: '2026-03-31', games: [game] };
+    const raw = `leaderboard/points/from:2026-01-01/to:2026-03-31/games:${game}`;
+    expect(parseRoute(raw)).toEqual({ kind: 'leaderboard', tab: 'points', filters });
+    expect(serializeRoute({ kind: 'leaderboard', tab: 'points', filters })).toBe(raw);
+    expect(serializeRoute({ kind: 'leaderboard', filters })).toBe(raw);
+    expect(parseRoute('leaderboard/wins/ties/from:2026-01-01')).toEqual({
+      kind: 'leaderboard-ties',
+      tab: 'wins',
+      filters: { from: '2026-01-01', to: null, games: [] },
+    });
+    expect(serializeRoute({ kind: 'leaderboard-ties', tab: 'points' })).toBe(
+      'leaderboard/points/ties',
+    );
+    for (const bad of [
+      'leaderboard/rok',
+      'leaderboard/points/2026',
+      'leaderboard/streak',
+      'leaderboard/points/from:2026-13-01',
+      'leaderboard/ties',
+    ]) {
+      expect(parseRoute(bad)).toEqual({ kind: 'invalid', raw: bad });
     }
   });
 
