@@ -1,21 +1,11 @@
 /**
  * Generatory testów pgTAP ze wspólnych przypadków (PRD §8.3): `110_scoring` (punkty,
- * `public.play_points`), `171_save_play_cases` (pełny zapis partii, `public.save_play`)
- * i `231_achievement_cases` (przeliczenie osiągnięć, `private.recalculate_achievements`).
+ * `public.play_points`) i `171_save_play_cases` (pełny zapis partii, `public.save_play`).
  * Pliki SQL są wynikiem tych funkcji; `sql.test.ts` pilnuje, że są aktualne,
  * a `pnpm --filter @bg-club/scoring gen:sql` zapisuje je od nowa.
  */
-import { ACHIEVEMENT_IDS } from './achievements';
 import type { InvalidPlacingCase, PlayCase } from './cases';
 import { caseMemberId, caseSeats, placesInSeatOrder, teamSize } from './cases';
-import {
-  type AchievementCase,
-  achievementHistory,
-  caseGameId,
-  casePlayId,
-  caseProfileId,
-  expectedUnlocks,
-} from './cases/achievements';
 import type { SavePlayResult } from './save';
 
 export const SQL_TEST_PATH = 'supabase/tests/database/110_scoring.test.sql';
@@ -194,160 +184,6 @@ export function renderSavePlaySqlTest(
       '',
     );
   });
-  lines.push('select * from finish();', 'rollback;', '');
-  return lines.join('\n');
-}
-
-/** Test pgTAP przeliczenia osiągnięć (`private.recalculate_achievements`) z wspólnych przypadków. */
-export const ACHIEVEMENTS_SQL_TEST_PATH = 'supabase/tests/database/231_achievement_cases.test.sql';
-
-const ts = (iso: string): string => `${literal(iso)}::timestamptz`;
-const uuidLit = (id: string | null): string =>
-  id === null ? 'null::uuid' : `${literal(id)}::uuid`;
-
-/**
- * Każdy przypadek wstawia historię bezpośrednio (bez wyzwalaczy przebiegu spotkania i partii,
- * które pilnują testy 130–190), uruchamia przeliczenie i porównuje `achievement_unlocks`
- * z odblokowaniami oczekiwanymi przez przypadek (te same, które liczy `computeAchievements`).
- */
-export function renderAchievementSqlTest(cases: readonly AchievementCase[]): string {
-  const histories = cases.map((c) => ({ c, h: achievementHistory(c) }));
-  const players = Math.max(
-    ...cases.flatMap((c) =>
-      c.meetings.flatMap((m) => [
-        ...(m.voters ?? []),
-        ...(m.plays ?? []).flatMap((p) => p.results.map(([player]) => player)),
-      ]),
-    ),
-  );
-  const games = Math.max(
-    ...cases.flatMap((c) => c.meetings.flatMap((m) => (m.plays ?? []).map((p) => p.game ?? 1))),
-  );
-  const admin = uuid('a000', 1);
-  const version = (game: number, dir: 'asc' | 'desc') =>
-    uuid('e000', game * 10 + (dir === 'asc' ? 2 : 1));
-  const template = (dir: 'asc' | 'desc') =>
-    JSON.stringify({
-      v: 2,
-      lines: [
-        { id: 'names', kind: 'names' },
-        { id: 'total', kind: 'total' },
-      ],
-      ranking: { line: 'total', dir, tiebreak: [] },
-    });
-
-  const lines: string[] = [
-    '-- [036] Przeliczanie osiągnięć (PRD §5.10, ACH-2, §5.6.6, NFR-11) na wspólnych przypadkach.',
-    '-- PLIK GENEROWANY z packages/scoring/src/cases/achievements.ts — nie edytować ręcznie.',
-    '-- Po zmianie przypadków: pnpm --filter @bg-club/scoring gen:sql.',
-    '-- Te same przypadki przechodzi implementacja TypeScript (computeAchievements).',
-    '-- Dane testowe są fikcyjne.',
-    'begin;',
-    '',
-    'create extension if not exists pgtap with schema extensions;',
-    '',
-    `select plan(${cases.length});`,
-    '',
-    'insert into public.profiles (id, hook, first_name, last_name, role) values',
-    [
-      `  (${literal(admin)}, 'ada-adminowska-a001', 'Ada', 'Adminowska', 'admin')`,
-      ...Array.from(
-        { length: players },
-        (_, i) =>
-          `  (${literal(caseProfileId(i + 1))}, ${literal(`gracz-${i + 1}-testowy-${(0xa100 + i).toString(16)}`)}, 'Gracz', ${literal(`Testowy ${i + 1}`)}, 'player')`,
-      ),
-    ].join(',\n') + ';',
-    '',
-    '-- Gry z notesem w dwóch wersjach: „więcej = lepiej” i „mniej = lepiej”.',
-  ];
-  for (let g = 1; g <= games; g++) {
-    lines.push(
-      `insert into public.games (id, title, min_players, max_players, placement_points) values (${literal(caseGameId(g))}, ${literal(`Gra ${g}`)}, 2, 8, '{10,6,4,2,1,0,0,0}');`,
-      `insert into public.scorepads (id, game_id, name) values (${literal(uuid('d000', g))}, ${literal(caseGameId(g))}, 'Notes');`,
-      `insert into public.scorepad_versions (id, scorepad_id, template, player_slots) values (${literal(version(g, 'desc'))}, ${literal(uuid('d000', g))}, ${literal(template('desc'))}, 8), (${literal(version(g, 'asc'))}, ${literal(uuid('d000', g))}, ${literal(template('asc'))}, 8);`,
-    );
-  }
-  lines.push('', 'set local session_replication_role = replica;', '');
-
-  for (const { c, h } of histories) {
-    const gameOf = new Map(
-      c.meetings.flatMap((m, i) =>
-        (m.plays ?? []).map((p, j) => [casePlayId(i + 1, j + 1), p.game ?? 1] as const),
-      ),
-    );
-    lines.push(`-- ${c.name}`);
-    lines.push(
-      'insert into public.meetings (id, title, starts_at, status, voting_open, created_by, started_at, finished_at) values',
-      h.meetings
-        .map(
-          (m) =>
-            `  (${literal(m.id)}, 'Spotkanie', ${ts(m.startsAt)}, ${literal(m.finished ? 'finished' : 'in_progress')}, false, ${literal(admin)}, ${ts(m.startsAt)}, ${m.finished ? ts(m.startsAt) : 'null'})`,
-        )
-        .join(',\n') + ';',
-    );
-    if (h.plays.length > 0) {
-      lines.push(
-        'insert into public.plays (id, meeting_id, game_id, scorepad_version_id, status, points_snapshot, started_by, saved_at) values',
-        h.plays
-          .map((p) => {
-            const game = gameOf.get(p.id) ?? 1;
-            return `  (${literal(p.id)}, ${literal(p.meetingId)}, ${literal(p.gameId)}, ${literal(version(game, p.dir))}, 'saved', '{10,6,4,2,1,0,0,0}', ${literal(admin)}, ${ts(p.savedAt)})`;
-          })
-          .join(',\n') + ';',
-        'insert into public.play_results (play_id, meeting_id, profile_id, seat, place, tied, points, is_win, ranking_value) values',
-        h.plays
-          .flatMap((p) =>
-            p.results.map((r, k) => {
-              const seat = r.seat ?? k + 1;
-              // Remis: inna strona (miejsce na kartce) na tym samym miejscu w partii.
-              const tied = p.results.some(
-                (o, j) => o.place === r.place && (o.seat ?? j + 1) !== seat,
-              );
-              const value = r.rankingValue === null ? 'null' : String(r.rankingValue);
-              return `  (${literal(p.id)}, ${literal(p.meetingId)}, ${literal(r.profileId)}, ${seat}, ${r.place}, ${bool(tied)}, ${r.points}, ${bool(r.place === 1)}, ${value})`;
-            }),
-          )
-          .join(',\n') + ';',
-      );
-    }
-    if (h.voters.length > 0)
-      lines.push(
-        'insert into private.meeting_voters (meeting_id, profile_id) values',
-        h.voters.map((v) => `  (${literal(v.meetingId)}, ${literal(v.profileId)})`).join(',\n') +
-          ';',
-      );
-    const only = c.only ?? ACHIEVEMENT_IDS;
-    const query = [
-      `  $$ select profile_id, achievement_id, meeting_id, play_id, unlocked_at from public.achievement_unlocks`,
-      `      where achievement_id = any (array[${only.map(literal).join(', ')}])`,
-      `      order by profile_id, achievement_id $$,`,
-    ];
-    const expected = expectedUnlocks(c);
-    lines.push('select private.recalculate_achievements();');
-    if (expected.length === 0) {
-      lines.push('select is_empty(', ...query, `  ${literal(c.name)});`);
-    } else {
-      lines.push(
-        'select results_eq(',
-        ...query,
-        `  $$ values ${expected
-          .map(
-            (e) =>
-              `(${uuidLit(e.profileId)}, ${literal(e.achievementId)}, ${uuidLit(e.meetingId)}, ${uuidLit(e.playId)}, ${ts(e.unlockedAt)})`,
-          )
-          .join(',\n             ')} $$,`,
-        `  ${literal(c.name)});`,
-      );
-    }
-    lines.push(
-      'delete from public.achievement_unlocks;',
-      'delete from private.meeting_voters;',
-      'delete from public.play_results;',
-      'delete from public.plays;',
-      'delete from public.meetings;',
-      '',
-    );
-  }
   lines.push('select * from finish();', 'rollback;', '');
   return lines.join('\n');
 }

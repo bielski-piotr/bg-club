@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(27);
+select plan(24);
 
 -- a001 Ada: admin; a002 Bartek: prowadzący; a003 Celina: gracz.
 insert into public.profiles (id, hook, first_name, last_name, role) values
@@ -109,23 +109,6 @@ select lives_ok(
   'prowadzący zapisuje dwie partie (f001 z obrazem) i zaczyna trzecią'
 );
 
--- Odblokowania z przeliczenia osiągnięć ([036]) po zapisie: „gracz:osiągnięcie:partia”.
-reset role;
-create function public.test_unlocks()
-returns text[]
-language sql
-set search_path = ''
-as $$
-  select coalesce(array_agg(right(u.profile_id::text, 1) || ':' || u.achievement_id || ':'
-           || coalesce(right(u.play_id::text, 1), '-') order by u.profile_id, u.achievement_id), '{}')
-    from public.achievement_unlocks u;
-$$;
-grant execute on function public.test_unlocks() to authenticated;
-set local role authenticated;
-select is(public.test_unlocks(),
-  array['2:beginners-luck:1', '2:meet-1:1', '2:win-1:1', '3:meet-1:1', '3:win-1:2'],
-  'zapis partii przelicza osiągnięcia (Bartek wygrywa f001, Celina f002)');
-
 -- =============================================================================================
 -- Uprawnienia (VIEW-6): tylko admin
 -- =============================================================================================
@@ -161,9 +144,6 @@ select is((select count(*) from public.plays where id = '00000000-0000-4000-f000
   'partia i dane kartki usunięte trwale');
 select is((select count(*) from public.play_results where play_id = '00000000-0000-4000-f000-000000000001'), 0::bigint,
   'wyniki partii usunięte');
-select is(public.test_unlocks(),
-  array['2:meet-1:2', '3:beginners-luck:2', '3:meet-1:2', '3:win-1:2'],
-  'przeliczenie po usunięciu: wygrane Bartka cofnięte, pierwsza partia Celiny to teraz f002');
 
 -- Rankingi liczą się z wyników: zostaje tylko f002 (Celina 4 pkt i 1 wygrana, Bartek 2 pkt:
 -- partia 2 graczy w grze do 4 liczy ostatnie 2 miejsca punktacji 10/6/4/2).
@@ -216,8 +196,6 @@ select is(
 select is(public.test_delete(2), 'ok', 'admin usuwa ostatnią partię zakończonego spotkania');
 with d as (delete from public.meetings where id = '00000000-0000-4000-c000-000000000001' returning id)
 select is((select count(*) from d), 1::bigint, 'zakończone spotkanie bez partii admin usuwa');
-select is((select count(*) from public.achievement_unlocks), 0::bigint,
-  'odblokowania usuniętego spotkania znikają kaskadą');
 
 select * from finish();
 

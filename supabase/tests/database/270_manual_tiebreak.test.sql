@@ -1,7 +1,7 @@
 -- [044] Manual: runner ACL, subgroup boundaries, shared places, persistence and retry.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(26);
 insert into public.profiles (id, hook, first_name, last_name, role) values
   ('00000000-0000-4000-a000-000000000001', 'ada-adminowska-a001', 'Ada', 'Adminowska', 'admin'),
   ('00000000-0000-4000-a000-000000000002', 'bartek-testowy-b002', 'Bartek', 'Testowy', 'player'),
@@ -48,14 +48,13 @@ create function public.test_manual_save(n int, places int[]) returns public.play
      'seat',i,'place',places[i],'scores',jsonb_build_object('a',10,'b',case when i=1 then 1 else 2 end),'ranking_value',10)) from generate_series(1,4) i));
 $$;
 grant execute on function public.test_manual_save(int,int[]) to authenticated;
-create function public.test_manual_wrapper(places int[]) returns jsonb language sql as $$
- select public.save_play_with_achievements('00000000-0000-4000-f000-000000000004',
+create function public.test_manual_fourth(places int[]) returns public.plays language sql as $$
+ select public.save_play('00000000-0000-4000-f000-000000000004',
    '00000000-0000-4000-e000-000000000004', '{"game":1,"cells":{"a":[10,10,10,10]}}',
    (select jsonb_agg(jsonb_build_object('profile_id', ('00000000-0000-4000-a000-'||lpad(i::text,12,'0'))::uuid,
-     'seat',i,'place',places[i],'scores',jsonb_build_object('a',10),'ranking_value',10)) from generate_series(1,4) i),
-   '00000000-0000-4000-9000-000000000047');
+     'seat',i,'place',places[i],'scores',jsonb_build_object('a',10),'ranking_value',10)) from generate_series(1,4) i));
 $$;
-grant execute on function public.test_manual_wrapper(int[]) to authenticated;
+grant execute on function public.test_manual_fourth(int[]) to authenticated;
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"00000000-0000-4000-a000-000000000002","role":"authenticated"}';
 select lives_ok($$ select public.start_play(('00000000-0000-4000-f000-'||lpad(n::text,12,'0'))::uuid,
@@ -80,13 +79,11 @@ select lives_ok($$ select public.test_manual_save(3,array[2,1,3,4]) $$, 'first m
 select is((select count(*)::int from public.play_results where play_id='00000000-0000-4000-f000-000000000003' and is_win),1,'manual first place has one winner');
 select ok(has_function_privilege('authenticated', 'private.scorepad_ranking(jsonb)', 'execute'), 'stats retain ranking helper ACL');
 select ok(not has_function_privilege('authenticated', 'private.manual_score_value(jsonb,jsonb,text,text[])', 'execute'), 'client cannot invoke private evaluator');
-select throws_ok($$ select public.test_manual_wrapper(array[1,3,3,4]) $$, '23514', null::text, 'wrapper preserves validation of manual places');
-create temporary table manual_notification as select public.test_manual_wrapper(array[3,2,1,4]) as response;
+select throws_ok($$ select public.test_manual_fourth(array[1,3,3,4]) $$, '23514', null::text, 'save_play validates manual places');
+select lives_ok($$ select public.test_manual_fourth(array[3,2,1,4]) $$, 'host saves a fully manual order');
 select results_eq($$ select seat,place,is_win from public.play_results where play_id='00000000-0000-4000-f000-000000000004' order by seat $$,
- $$ values (1,3,false),(2,2,false),(3,1,true),(4,4,false) $$, 'wrapper persists manual winner');
-select ok((select response->'unlocks' @> '[{"profile_id":"00000000-0000-4000-a000-000000000003","achievement_id":"win-1"}]'::jsonb from manual_notification), 'manual winner receives new win achievement in wrapper response');
-select is(public.test_manual_wrapper(array[3,2,1,4]), (select response from manual_notification), 'manual retry recovers same notification receipt');
-select is((select count(*)::int from public.achievement_unlocks where profile_id='00000000-0000-4000-a000-000000000003' and achievement_id='win-1'), 1, 'manual retry never duplicates achievement');
+ $$ values (1,3,false),(2,2,false),(3,1,true),(4,4,false) $$, 'save_play persists manual winner');
+select lives_ok($$ select public.test_manual_fourth(array[3,2,1,4]) $$, 'manual retry with the same content succeeds');
 reset role;
 select is((select r.tiebreak from private.scorepad_ranking('{"lines":[{"id":"a","kind":"input"}],"ranking":{"line":"a","dir":"desc","tiebreak":[]}}') r), false, 'empty hierarchy retains a boolean false');
 select is((select r.tiebreak from private.scorepad_ranking('{"lines":[{"id":"a","kind":"input"}],"ranking":{"line":"a","dir":"desc","tiebreak":[{"type":"manual"}]}}') r), true, 'first manual rule allows a split');

@@ -4,7 +4,7 @@ import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { Badge, Banner, Button, EmptyState } from '../ui';
-import { AchievementShowcase } from './AchievementShowcase';
+import { PlayerRecordsSection } from './PlayerRecords';
 import { PlayerStatsSection } from './PlayerStats';
 import { ProfileAvatar } from './ProfileAvatar';
 import { fullName, useProfile } from './profiles';
@@ -12,8 +12,8 @@ import './profile.css';
 
 /**
  * Popup profilu gracza (PRD USR-4, USR-5, MEM-5): awatar, imię i nazwisko, hook, statystyki
- * i gablota osiągnięć. Statystyki (§5.9) liczy `player_stats`, gablotę (§5.10, ACH-3)
- * `player_achievements`. Właściciel ma przycisk **Ustawienia** (USR-5); cudzy profil nie ma akcji edycji
+ * i rekordy osobiste w grach. Statystyki (§5.9) liczy `player_stats`, rekordy
+ * `player_records`. Właściciel ma przycisk **Ustawienia** (USR-5); cudzy profil nie ma akcji edycji
  * także dla administratora (USR-7). Usunięty członek ma profil tylko do odczytu
  * (MEM-5) i zachowuje statystyki z historii.
  * Administrator ma w profilu aktywnego gracza przycisk **Usuń członka** (MEM-4); profilu
@@ -96,7 +96,7 @@ export function ProfilePopup({ id, isAdmin }: { readonly id: string; readonly is
         </Banner>
       ) : null}
       <PlayerStatsSection key={data.id} profileId={data.id} />
-      <AchievementShowcase key={`${data.id}-achievements`} profileId={data.id} />
+      <PlayerRecordsSection key={`${data.id}-records`} profileId={data.id} />
     </PopupModal>
   );
 }

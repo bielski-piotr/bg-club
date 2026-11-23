@@ -42,6 +42,8 @@ export interface FilterBarProps {
   readonly onChange: (filters: LeaderboardFilters) => void;
   /** Dodatkowa akcja na końcu paska (np. „Remisy”). */
   readonly extra?: ReactNode | undefined;
+  /** Nazwa grupy filtrów dla czytników ekranu; domyślnie „Filtry rankingu”. */
+  readonly label?: string | undefined;
 }
 
 /**
@@ -49,7 +51,7 @@ export interface FilterBarProps {
  * i „Wyczyść filtry” (wszystkie gry, cała historia). Filtry działają osobno i razem; bez
  * filtrów kontrolki nie mają nic zaznaczonego.
  */
-export function FilterBar({ filters, onChange, extra }: FilterBarProps) {
+export function FilterBar({ filters, onChange, extra, label }: FilterBarProps) {
   const { client } = useAuth();
   const club = useClub(client);
   const today = todayIn(club.data?.timezone ?? FALLBACK_TIMEZONE);
@@ -59,7 +61,7 @@ export function FilterBar({ filters, onChange, extra }: FilterBarProps) {
   const gamesText = gamesValue(filters, titles);
 
   return (
-    <div className="lb-filters" role="group" aria-label={text.label}>
+    <div className="lb-filters" role="group" aria-label={label ?? text.label}>
       <FilterPopover
         label={text.dates}
         triggerLabel={format(text.datesLabel, { value: dates })}

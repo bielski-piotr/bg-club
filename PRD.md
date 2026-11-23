@@ -18,7 +18,7 @@ BG Club pomaga jednemu klubowi miłośników gier planszowych:
 2. **liczyć wyniki** partii na cyfrowym notesie punktacji 3D,
 3. **prowadzić historię** spotkań i rozegranych partii (oderwane karteczki z notesu),
 4. **dawać powód do rywalizacji**: leaderboardy (punkty, wygrane, najdłuższa seria zwycięstw),
-5. **zachęcać do kolejnych spotkań** przez osiągnięcia.
+5. **zachęcać do kolejnych spotkań** przez statystyki i rekordy osobiste.
 
 ### 1.1 Założenia produktowe
 
@@ -135,7 +135,7 @@ Priorytety: **M** (must, MVP), **S** (should), **C** (could).
 | USR-1 | Hook powstaje przy tworzeniu konta z imienia i nazwiska (małe litery, transliteracja polskich znaków, myślniki) plus 4-znakowy hash, np. `Łukasz Żółw` → `lukasz-zolw-7c1e`. Jest unikalny i **niezmienny**, także po zmianie imienia lub nazwiska. | M |
 | USR-2 | Domyślny awatar to monogram (inicjały) na kolorze wyliczonym deterministycznie z hooka. | M |
 | USR-3 | Użytkownik może wgrać własny awatar (JPG/PNG/WebP). Obraz jest kadrowany do kwadratu i skalowany w przeglądarce (np. 256×256 WebP) przed wysłaniem do Supabase Storage. Może też wrócić do monogramu. | M |
-| USR-4 | Popup profilu pokazuje: awatar, imię i nazwisko, hook, statystyki (§5.9) i gablotę osiągnięć (§5.10). | M |
+| USR-4 | Popup profilu pokazuje: awatar, imię i nazwisko, hook, statystyki (§5.9) i rekordy osobiste w grach (§5.10). | M |
 | USR-5 | Właściciel konta widzi w profilu przycisk **Ustawienia**: edycja imienia, nazwiska i awatara; motyw (jasny / ciemny / systemowy); zmiana hasła (stare hasło + nowe ×2); wylogowanie; usunięcie konta. | M |
 | USR-6 | Usunięcie własnego konta wymaga potwierdzenia hasłem. Administrator nie widzi tej opcji (nie może usunąć swojego konta). | M |
 | USR-7 | Administrator nie może edytować kont innych użytkowników. | M |
@@ -256,11 +256,11 @@ Edytor jest kreatorem z **pięcioma krokami** widocznymi na pasku kroków (bież
 
 #### 5.6.5 Usunięcie partii (admin)
 
-- Partia (i jej karteczka) jest trwale usuwana po potwierdzeniu. Leaderboardy, statystyki, serie i osiągnięcia przeliczają się, więc osiągnięcie może zostać cofnięte, jeśli przestało być spełnione.
+- Partia (i jej karteczka) jest trwale usuwana po potwierdzeniu. Leaderboardy, statystyki, serie i rekordy przeliczają się bez niej.
 
 #### 5.6.6 Kolejność zdarzeń
 
-Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po `id`. Partie w spotkaniu: rosnąco po `saved_at` (zatwierdzenie karteczki, nie utworzenie szkicu), potem po `id`. Serie, osiągnięcia i rekordy odtwarzamy według spotkań, a w spotkaniu według partii. Widoki „od najnowszej” odwracają tę kolejność.
+Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po `id`. Partie w spotkaniu: rosnąco po `saved_at` (zatwierdzenie karteczki, nie utworzenie szkicu), potem po `id`. Serie i rekordy odtwarzamy według spotkań, a w spotkaniu według partii. Widoki „od najnowszej” odwracają tę kolejność.
 
 ### 5.7 Leaderboard
 
@@ -335,71 +335,27 @@ Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po
 | VIEW-2 | Zaplanowane: sekcja głosowania albo opublikowane gry, a dla admina akcje edycji. | M |
 | VIEW-3 | W trakcie i zakończone: lista **partii** w kolejności rozegrania. Każda partia ma miniaturę **oderwanej karteczki** (klikalną, z powiększeniem), grę oraz graczy z miejscami i wynikami. | M |
 | VIEW-4 | **Podsumowanie leaderboardowe spotkania:** dla każdego gracza punkty zdobyte (z rozbiciem na gry, np. „Wingspan +8, Azul +4”), liczba wygranych (za które gry) i zmiana serii (`+1 → seria 4`, `przerwana`, `bez zmian`). | M |
-| VIEW-5 | Odblokowane na tym spotkaniu osiągnięcia („Ania odblokowała: Hat-trick”). | S |
 | VIEW-6 | Admin: usunięcie partii (z potwierdzeniem, §5.6.5). | M |
 
 ### 5.9 Statystyki gracza (profil)
 
 | ID | Wymaganie | P |
 |---|---|:-:|
-| STAT-1 | Spotkania (obecność), rozegrane partie, wygrane, % wygranych, suma punktów, rekord serii, bieżąca seria, aktualne miejsca w trzech leaderboardach. | M |
-| STAT-2 | Ulubiona gra (najczęściej grana; przy remisie więcej wygranych, potem tytuł alfabetycznie), najlepsza gra (Q21: spośród gier z ≥ 3 partiami gracza najwyższy % wygranych; przy remisie więcej wygranych, potem więcej partii, potem tytuł alfabetycznie; bez takiej gry pusty stan), ostatnie partie (lista z linkami do spotkań). | M |
-| STAT-3 | Filtr roku jak w leaderboardzie. | S |
+| STAT-1 | **Statystyki profilu** z tymi samymi filtrami co leaderboard (zakres dat w strefie klubu i gry, LB-4): spotkania (obecność: spotkania z ≥ 1 partią gracza), rozegrane partie, wygrane, % wygranych. | M |
+| STAT-2 | **Leaderboard** z całej historii (bez filtrów): miejsce w leaderboardzie punktowym i liczba punktów, miejsce w leaderboardzie zwycięstw i liczba zwycięstw, obecna seria i najwyższa seria (§5.6.4). Usunięty członek nie ma miejsc (LB-7). | M |
+| STAT-3 | **Ulubione** z całej historii: ulubiona gra (najczęściej grana; przy remisie więcej wygranych, potem tytuł alfabetycznie) i najlepsza gra (Q21: spośród gier z ≥ 3 partiami gracza najwyższy % wygranych; przy remisie więcej wygranych, potem więcej partii, potem tytuł alfabetycznie; bez takiej gry pusty stan), obie z okładką. | M |
+| STAT-4 | **Ostatnie spotkania**: 5 ostatnich spotkań z partiami gracza (od najnowszego) z liczbą partii, wygranych i punktów gracza na spotkaniu i linkiem do spotkania. | M |
 
-### 5.10 Osiągnięcia
+### 5.10 Rekordy osobiste
+
+Osiągnięć nie ma (usunięte z systemu razem z katalogiem, gablotą, osiągnięciami spotkania i powiadomieniami).
 
 | ID | Wymaganie | P |
 |---|---|:-:|
-| ACH-1 | Katalog osiągnięć jest **zdefiniowany w kodzie**: identyfikator, nazwa, opis, ikona, warunek liczony z historii. Zmiana katalogu wymaga zmiany kodu. | M |
-| ACH-2 | Osiągnięcia są przeliczane automatycznie po zapisaniu i po usunięciu partii oraz po zakończeniu spotkania. `voter-10` jest przeliczane przy zamknięciu głosowania (publikacja gier albo rozpoczęcie spotkania) oraz przy usunięciu spotkania (Q18). Data odblokowania to data spotkania, na którym warunek został spełniony po raz pierwszy (odtwarzana chronologicznie w kolejności z §5.6.6, więc wynik jest deterministyczny). | M |
-| ACH-3 | **Gablota** w profilu: wszystkie osiągnięcia z katalogu. Odblokowane są kolorowe z datą, nieodblokowane wyszarzone, z opisem warunku i (gdzie ma to sens) postępem, np. „7/10 spotkań”. | M |
-| ACH-4 | Krótkie powiadomienie (toast) w aplikacji po odblokowaniu osiągnięcia na urządzeniu prowadzącym partię. | C |
-
-**Katalog MVP** (zatwierdzony bez zmian, Q16):
-
-| Grupa | ID | Nazwa | Warunek |
-|---|---|---|---|
-| Spotkania | `meet-1` | Pierwsze kroki | Udział w 1. spotkaniu (z ≥ 1 partią) |
-| | `meet-10` | Stały bywalec | 10 spotkań |
-| | `meet-25` | Weteran | 25 spotkań |
-| | `meet-50` | Filar klubu | 50 spotkań |
-| Partie | `play-10` | Rozgrzewka | 10 rozegranych partii |
-| | `play-50` | Zapalony gracz | 50 partii |
-| | `play-100` | Setka | 100 partii |
-| | `marathon` | Maratończyk | ≥ 5 partii na jednym spotkaniu |
-| Wygrane | `win-1` | Pierwsza wygrana | 1 wygrana partia |
-| | `win-10` | Zwycięzca | 10 wygranych |
-| | `win-50` | Mistrz | 50 wygranych |
-| | `hattrick` | Hat-trick | ≥ 3 wygrane na jednym spotkaniu |
-| | `flawless` | Bez skazy | Wygrane wszystkie partie spotkania (przy ≥ 3 partiach gracza) |
-| Serie | `streak-3` | W gazie | Seria 3 |
-| | `streak-5` | Nie do zatrzymania | Seria 5 |
-| | `streak-10` | Legenda | Seria 10 |
-| Różnorodność | `explorer-10` | Odkrywca | Zagrane 10 różnych gier |
-| | `explorer-25` | Ludoznawca | Zagrane 25 różnych gier |
-| | `versatile-5` | Wszechstronny | Wygrane w 5 różnych grach |
-| | `specialist` | Specjalista | 10 wygranych w jednej grze |
-| | `beginners-luck` | Szczęście debiutanta | Wygrana w swojej pierwszej partii danej gry |
-| Wyjątkowe | `record` | Rekordzista | Ustanowienie rekordu danej gry (GAME-11; zostaje na zawsze, Q17) |
-| | `big-table` | Wielki stół | Partia z ≥ 6 graczami |
-| | `tie-top` | Ex aequo | Wspólne 1. miejsce |
-| | `comeback` | Powrót z popiołów | Wygrana na spotkaniu bezpośrednio po spotkaniu, które przerwało serię ≥ 3 |
-| | `lantern-10` | Czerwona latarnia | 10 razy ostatnie miejsce |
-| Punkty | `pts-100` | Setka punktów | 100 punktów leaderboardu |
-| | `pts-500` | Pół tysiąca | 500 punktów |
-| Klub | `voter-10` | Głos ludu | Głos oddany w 10 głosowaniach |
-
-**Doprecyzowanie warunków:**
-
-- Progi oznaczają „co najmniej”. Liczą się tylko zapisane partie (szkice nie). Gry usunięte z kolekcji liczą się jak pozostałe.
-- `meet-*`: spotkania, na których gracz rozegrał ≥ 1 partię. Sama obecność na liście uczestników nie wystarcza.
-- `win-*`, `hattrick`, `flawless`, `versatile-5`, `specialist`, `beginners-luck`: wygrana według §5.6.3, także wspólne 1. miejsce. `flawless` jest sprawdzane przy zakończeniu spotkania.
-- `record`: rekord ustanawia wynik **lepszy** od wszystkich wcześniejszych partii tej gry (według kierunku kategorii decydującej). Pierwsza partia gry nie daje osiągnięcia, a samo wyrównanie rekordu też nie. Kilku graczy z tym samym nowym rekordem w jednej partii dostaje osiągnięcie razem. Późniejsze pobicie rekordu go nie odbiera. Usunięcie partii, w której rekord padł, przelicza rekordy od nowa, więc osiągnięcie może zniknąć (§5.6.5, Q17).
-- `tie-top`: wspólne 1. miejsce co najmniej dwóch graczy.
-- `comeback`: wygrana na pierwszym spotkaniu z partią gracza po spotkaniu, na którym jego seria ≥ 3 została przerwana.
-- `lantern-10`: ostatnie miejsce w partii, także wspólne (nikt nie zajął niższego miejsca).
-- `pts-*`: suma punktów leaderboardu (§5.6.2).
-- `voter-10`: liczba różnych spotkań, w których gracz miał ≥ 1 głos w chwili zamknięcia głosowania. Kilka głosów albo ponowne otwarcie głosowania w jednym spotkaniu liczą się raz (Q18).
+| REC-1 | Profil pokazuje **rekord osobisty** gracza w każdej grze kolekcji: najlepszą wartość kategorii decydującej w zapisanych partiach gracza, z tymi samymi zasadami co rekord gry (GAME-11, Q25): kierunek z wersji notesu ostatniej zapisanej partii gry, partie z wersji o innym kierunku i bez wartości się nie liczą, przy równej wartości liczy się pierwsza partia (§5.6.6). Wynik ma datę i link do spotkania. | M |
+| REC-2 | Gra, w którą gracz nie grał (albo bez wartości), też jest na liście, z „–” zamiast wyniku. Usunięte gry są na liście tylko z wynikiem gracza. Każda gra ma okładkę (GAME-6). | M |
+| REC-3 | Rekord osobisty równy rekordowi klubu w tej grze (z całej historii, bez filtrów) dostaje pieczątkę **„Rekord klubu”**. | M |
+| REC-4 | Filtry widoku: zakres dat i gry jak w leaderboardzie (LB-4) oraz widok „Wszystkie rekordy” / „Tylko z wynikiem” / „Tylko rekordy klubu”. | S |
 
 ---
 
@@ -433,14 +389,12 @@ plays               id, meeting_id, game_id, scorepad_version_id,
 play_results        play_id, meeting_id, profile_id, seat, scores jsonb (`values` z PAD-7),
                     ranking_value numeric, place int, tied bool, points numeric, is_win bool
                     PK (play_id, profile_id); kilku graczy na seat tylko w notesie z zespołami
-achievement_unlocks profile_id, achievement_id, unlocked_at, meeting_id, play_id
-                    PK (profile_id, achievement_id)
 ```
 
 Schemat wdrożony w zadaniu [003] (`supabase/migrations/`) realizuje ten model. Ograniczenia wymuszane w bazie opisuje README (sekcja „Schemat bazy”).
 
-- **Statystyki i leaderboardy** liczone są w bazie: widoki i funkcje SQL, np. `leaderboard(kind, year)`, `player_stats(profile_id, year)`, `game_stats(game_id)`. Przy skali jednego klubu (dziesiątki graczy, tysiące partii) wystarczą zwykłe zapytania. Seria jest wyliczana funkcją okienkową po spotkaniach.
-- **Zapis partii** odbywa się przez funkcję RPC `save_play(play_id, results)` w jednej transakcji. Funkcja sprawdza uprawnienia (admin lub prowadzący, spotkanie w trakcie, gracze są uczestnikami), wylicza punkty i wygrane (§5.6) i przelicza osiągnięcia graczy partii.
+- **Statystyki i leaderboardy** liczone są w bazie: widoki i funkcje SQL, np. `leaderboard(kind, date_from, date_to, game_ids)`, `player_stats(profile_id, date_from, date_to, game_ids)`, `player_records(profile_id, date_from, date_to, game_ids)`, `game_stats(game_id)`. Przy skali jednego klubu (dziesiątki graczy, tysiące partii) wystarczą zwykłe zapytania. Seria jest wyliczana funkcją okienkową po spotkaniach.
+- **Zapis partii** odbywa się przez funkcję RPC `save_play(play_id, results)` w jednej transakcji. Funkcja sprawdza uprawnienia (admin lub prowadzący, spotkanie w trakcie, gracze są uczestnikami), wylicza punkty i wygrane (§5.6).
 - **Storage:** buckety `avatars`, `covers` (okładki gier i logo klubu), `scorepads` (zdjęcia szablonów), `sheets` (obrazy karteczek). Odczyt dla zalogowanych, zapis według ról.
 
 ### 6.1 Bezpieczeństwo (RLS)
@@ -468,7 +422,7 @@ Schemat wdrożony w zadaniu [003] (`supabase/migrations/`) realizuje ten model. 
 | NFR-8 | **Kopie zapasowe:** opis w README procedury eksportu bazy i Storage (np. `supabase db dump` + skrypt kopiowania bucketów). |
 | NFR-9 | **Open source:** w repozytorium nie ma sekretów ani danych klubu. README opisuje wdrożenie od zera (projekt Supabase, migracje, seed admina, Cloudflare Pages). |
 | NFR-10 | **Strefa czasowa:** daty spotkań przechowywane jako `timestamptz` i wyświetlane w strefie klubu (`club.timezone`, ustawiana przy zakładaniu klubu, CLUB-2). Rok w filtrze leaderboardu liczy się według tej strefy. |
-| NFR-11 | **Testy:** testy jednostkowe logiki wyników (miejsca, remisy hierarchiczne, punkty z `floor`, serie, osiągnięcia) z przypadkami z tego dokumentu. Testy SQL funkcji leaderboardu. E2E (Playwright) dla głównych ścieżek. |
+| NFR-11 | **Testy:** testy jednostkowe logiki wyników (miejsca, remisy hierarchiczne, punkty z `floor`, serie) z przypadkami z tego dokumentu. Testy SQL funkcji leaderboardu. E2E (Playwright) dla głównych ścieżek. |
 
 ---
 
@@ -486,7 +440,7 @@ Schemat wdrożony w zadaniu [003] (`supabase/migrations/`) realizuje ten model. 
 bg-club/
   apps/web/                 # SPA (widok Klubu, popupy)
   packages/score-pad/       # źródła notesu + edytora (przeniesione z POC) z trybem klubowym
-  packages/scoring/         # czysta logika: miejsca, remisy, punkty, serie, osiągnięcia (+ testy)
+  packages/scoring/         # czysta logika: miejsca, remisy, punkty (+ testy)
   supabase/migrations/      # schemat, RLS, funkcje SQL
   supabase/functions/       # create-member, delete-member, delete-own-account
   supabase/seed/            # seed i dane pierwszego admina (skrypt: packages/accounts, `pnpm bootstrap:admin`)
@@ -523,7 +477,7 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 2. **Dodanie gry z notesem:** Admin → Kolekcja → Dodaj grę → tytuł, okładka, min/max, punkty za miejsca 1…max → Zapisz → Notesy → Dodaj notes → edytor: zdjęcie (plik lub aparat) → obszar kartki → mapowanie pól (prostokąty lub tabela) → kategorie (typy, zakresy, sumy, kategoria decydująca, remisy) → test z losowymi danymi → Zapisz.
 3. **Planowanie:** Admin → Kalendarz → Zaplanuj → tytuł, data, godzina, uczestnicy, (prowadzący) → Zapisz → głosowanie otwarte → uczestnicy głosują → Admin wybiera gry i publikuje.
 4. **Spotkanie:** Admin lub prowadzący → Rozpocznij → Nowa partia → gra, notes, gracze i miejsca → wpisywanie → Oderwij → podsumowanie → Zatwierdź → … → Zakończ spotkanie.
-5. **Przegląd:** Gracz → Timeline → spotkanie → karteczki, punkty, wygrane, serie. Kliknięcie awatara → profil → statystyki i gablota.
+5. **Przegląd:** Gracz → Timeline → spotkanie → karteczki, punkty, wygrane, serie. Kliknięcie awatara → profil → statystyki i rekordy osobiste.
 
 ---
 
@@ -537,7 +491,7 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 | **E3: Spotkania** | Kalendarz, planowanie, głosowanie, publikacja, widżety Timeline i Aktywne spotkanie. |
 | **E4: Partie** | Notes w trybie klubowym (wybór graczy, obrót, zoom i widok z góry, wpisywanie z klawiatury, jakość tekstury, szkice, oderwanie, obraz karteczki), RPC zapisu, usuwanie partii. |
 | **E5: Rywalizacja** | Leaderboardy z filtrem roku, statystyki gracza i gry, podsumowanie spotkania. |
-| **E6: Osiągnięcia i szlif** | Katalog osiągnięć, gablota, PWA, dostępność, testy E2E, README wdrożenia. |
+| **E6: Szlif** | Rekordy osobiste, PWA, dostępność, testy E2E, README wdrożenia. |
 
 ---
 
@@ -548,7 +502,7 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 | D1 | Notes podczas spotkania | Jedno urządzenie na partię, bez synchronizacji na żywo. |
 | D2 | Partia bez notesu | Niedozwolona: partie powstają wyłącznie z oderwanych karteczek. |
 | D3 | Seria a nieobecność | Nieobecność (lub brak partii) nie przerywa serii. Leaderboard pokazuje rekord. |
-| D4 | Osiągnięcia | Stała lista w kodzie. |
+| D4 | Osiągnięcia | Usunięte; w profilu są rekordy osobiste w grach (§5.10). |
 | D5 | Logowanie | Hook + hasło (techniczny e-mail ukryty). |
 | D6 | Reset hasła | Brak. |
 | D7 | Punktacja miejsc | Punkty zdefiniowane dla każdego miejsca 1…max. liczby graczy gry. |
@@ -594,8 +548,8 @@ Założenia zaproponowane w wersji 1.0 i zaakceptowane przez właściciela produ
 | Q13 | React czy Preact? Jak włączyć POC? | **React** z TanStack Query. POC jako web componenty z jednego źródła TS (§8.5). |
 | Q14 | Menu prowadzącego w DS §15 zawiera „Dodaj uczestnika” i „Zmień prowadzącego”, a macierz §2.1 nie. | Rozstrzyga PRD: obie akcje ma **tylko admin** (PLAN-4). DS poprawiony. |
 | Q15 | Gdzie są `design/reference-jsx/` i generatory `design/*/_build.mjs`? | **Utracone.** Jedynym źródłem projektu jest DESIGN-SYSTEM.md i plik Paper. Odwołania usunięte z DS. |
-| Q16 | Katalog osiągnięć. | Zatwierdzone **wszystkie 29** pozycje z §5.10, z doprecyzowaniem warunków. |
-| Q17 | Czy `record` przetrwa usunięcie partii, w której padł rekord? | **Nie.** Usunięcie partii przelicza rekordy od nowa. „Na zawsze” znaczy, że pobicie rekordu przez innego gracza nie odbiera osiągnięcia. |
+| Q16 | Katalog osiągnięć. | Nieaktualne: osiągnięcia usunięte z systemu (§5.10). |
+| Q17 | Czy `record` przetrwa usunięcie partii, w której padł rekord? | Nieaktualne: osiągnięcia usunięte. Rekordy gry i osobiste liczą się z historii przy odczycie, więc usunięcie partii je przelicza. |
 | Q18 | Kiedy przeliczać `voter-10`? | Przy **zamknięciu głosowania** (publikacja gier albo rozpoczęcie spotkania) i przy usunięciu spotkania, a nie przy każdym głosie. |
 | Q19 | Sprzeczności wewnątrz DS (ilustracja §14/§17, switch §10/§18). | Późniejsza, szczegółowa sekcja DS ma pierwszeństwo. DS opisuje wygląd, PRD zachowanie i uprawnienia. |
 | Q20 | Gałąź wdrożeniowa: `main` z PRD czy istniejąca `master`? | **`master`.** |
@@ -603,4 +557,4 @@ Założenia zaproponowane w wersji 1.0 i zaakceptowane przez właściciela produ
 | Q22 | Usunięcie konta aktywnego prowadzącego. | Prowadzenie wraca do admina we wszystkich niezakończonych spotkaniach (MEM-6). |
 | Q23 | Moment snapshotu punktacji i szablonu. | Przy rozpoczęciu partii (utworzeniu szkicu), w bazie (GAME-9). |
 | Q24 | Kolejność zdarzeń o tym samym czasie. | `starts_at`, potem `id` dla spotkań; `saved_at`, potem `id` dla partii (§5.6.6). |
-| Q25 | Remisy rekordów gry. | Rekord wymaga wyniku lepszego od dotychczasowego. Równy wynik w historii pokazuje wszystkich rekordzistów (GAME-11, §5.10). |
+| Q25 | Remisy rekordów gry. | Rekord wymaga wyniku lepszego od dotychczasowego. Równy wynik w historii pokazuje wszystkich rekordzistów (GAME-11); każdy z nich ma pieczątkę „Rekord klubu” w rekordach osobistych (REC-3). |

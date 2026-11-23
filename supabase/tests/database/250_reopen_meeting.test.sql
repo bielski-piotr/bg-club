@@ -1,4 +1,4 @@
--- RUN-5/Q10: rzeczywiste RPC, historia, serie i odblokowania po dograniu starszego spotkania.
+-- RUN-5/Q10: rzeczywiste RPC, historia i serie po dograniu starszego spotkania.
 begin;
 create extension if not exists pgtap with schema extensions;
 select no_plan();
@@ -59,10 +59,9 @@ select pg_temp.add_play(5, 3, true);
 select public.finish_meeting(pg_temp.mid(3));
 select is((select streak_after from public.meeting_summary(pg_temp.mid(3))
            where profile_id = '00000000-0000-4000-a000-000000000002'), 2, 'przed dograniem: seria 2');
-select ok(exists(select 1 from public.achievement_unlocks where achievement_id = 'flawless'), 'pierwsze zakończenie: flawless');
 
 reset role;
--- Pełne wiersze, w tym sheet, snapshot, saved_at, wyniki i migawka głosujących.
+-- Pełne wiersze, w tym sheet, snapshot, saved_at i wyniki.
 insert into storage.objects(bucket_id, name) values ('sheets',
   '00000000-0000-4000-c000-000000000001/00000000-0000-4000-f000-000000000001-history01.png');
 update public.plays set sheet_image_path =
@@ -70,10 +69,8 @@ update public.plays set sheet_image_path =
 where id = pg_temp.pid(1);
 create temp table history as select p.* from public.plays p;
 create temp table results_before as select r.* from public.play_results r;
-create temp table voters_before as select * from private.meeting_voters;
 create temp table meeting_before as select * from public.meetings where id = pg_temp.mid(1);
-create temp table unlocks_before as select * from public.achievement_unlocks;
-grant select on history, results_before, meeting_before, unlocks_before to authenticated;
+grant select on history, results_before, meeting_before to authenticated;
 select ok(not has_function_privilege('anon', 'public.reopen_meeting(uuid)', 'execute'), 'anon nie ma EXECUTE');
 
 set local role authenticated;
@@ -100,11 +97,8 @@ select results_eq(
   'to samo spotkanie, termin, pierwotne rozpoczęcie i prowadzący');
 select results_eq('select * from public.plays order by id', 'select * from history order by id', 'partie i pełne snapshoty bez zmian');
 select results_eq('select * from public.play_results order by play_id, seat', 'select * from results_before order by play_id, seat', 'historyczne wyniki bez zmian');
-select ok(not exists(select 1 from public.achievement_unlocks where achievement_id = 'flawless'), 'flawless czeka na ponowne zakończenie');
 select throws_ok('select public.reopen_meeting(pg_temp.mid(1))', '23514', 'meeting is not finished', 'drugie otwarcie odrzucone');
 select public.finish_meeting(pg_temp.mid(1));
-select results_eq('select * from public.achievement_unlocks order by profile_id, achievement_id',
-  'select * from unlocks_before order by profile_id, achievement_id', 'cykl bez nowych partii odtwarza dokładnie odblokowania i ich daty');
 
 select public.reopen_meeting(pg_temp.mid(1));
 -- Prowadzący może dograć partię w tym samym spotkaniu i je zakończyć.
@@ -116,23 +110,14 @@ select is((select wins from public.meeting_summary(pg_temp.mid(1)) where profile
 select is((select points from public.meeting_summary(pg_temp.mid(1)) where profile_id = '00000000-0000-4000-a000-000000000002'), 10::numeric, 'podsumowanie punktów po dograniu: 3 * 2 + 4 (partia 2 graczy w grze do 4 liczy ostatnie 2 miejsca punktacji)');
 select is((select streak_after from public.meeting_summary(pg_temp.mid(3)) where profile_id = '00000000-0000-4000-a000-000000000002'), 3, 'starsza wygrana przelicza późniejszą serię');
 select is((public.player_stats('00000000-0000-4000-a000-000000000002') ->> 'streak_record')::int, 3, 'rekord serii w statystykach po dograniu');
-select ok(exists(select 1 from public.achievement_unlocks where achievement_id = 'streak-3'
-  and profile_id = '00000000-0000-4000-a000-000000000002' and meeting_id = pg_temp.mid(3)), 'streak-3 na właściwym późniejszym spotkaniu');
-select ok(not exists(select 1 from public.achievement_unlocks where achievement_id = 'flawless'), 'przegrana odbiera flawless po ponownym zakończeniu');
 
 reset role;
-create temp table unlocks_after as select * from public.achievement_unlocks;
-grant select on unlocks_after to authenticated;
-select results_eq('select * from private.meeting_voters order by meeting_id, profile_id',
-  'select * from voters_before order by meeting_id, profile_id', 'migawki głosujących zachowane bez duplikatów');
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"00000000-0000-4000-a000-000000000001","role":"authenticated"}';
 select public.reopen_meeting(pg_temp.mid(1));
 select public.finish_meeting(pg_temp.mid(1));
 select public.reopen_meeting(pg_temp.mid(1));
 select public.finish_meeting(pg_temp.mid(1));
-select results_eq('select * from public.achievement_unlocks order by profile_id, achievement_id',
-  'select * from unlocks_after order by profile_id, achievement_id', 'wielokrotne otwarcie/zakończenie bez duplikatów i zmiany dat');
 select results_eq('select p.* from public.plays p join history h using(id) order by p.id',
   'select * from history order by id', 'dopisanie partii i kolejne cykle zachowują całą starą historię');
 reset role;

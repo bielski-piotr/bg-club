@@ -119,7 +119,7 @@ function fakeClient(replies: (() => Promise<{ error: unknown; data?: unknown }>)
 }
 
 const summary = { sheet, results: [] };
-const noSleep = { sleep: () => Promise.resolve(), retryDelays: [1, 1], requestId: 'request-1' };
+const noSleep = { sleep: () => Promise.resolve(), retryDelays: [1, 1] };
 
 describe('zapis partii z ponowieniem (powtórzenie po timeout bez duplikatów)', () => {
   it('ponawia tę samą treść po błędzie sieci i przekroczeniu czasu', async () => {
@@ -131,13 +131,12 @@ describe('zapis partii z ponowieniem (powtórzenie po timeout bez duplikatów)',
     await savePlay(client, play, summary, noSleep);
     expect(calls).toHaveLength(3);
     const body = {
-      name: 'save_play_with_achievements',
+      name: 'save_play',
       args: {
         play_id: 'play-1',
         scorepad_version_id: 'version-1',
         sheet,
         results: [],
-        request_id: 'request-1',
       },
     };
     expect(calls).toEqual([body, body, body]);
@@ -153,15 +152,13 @@ describe('zapis partii z ponowieniem (powtórzenie po timeout bez duplikatów)',
     expect(calls).toHaveLength(1);
   });
 
-  it('oddaje odblokowania z odzyskanej odpowiedzi po utracie pierwszej', async () => {
-    const unlocks = [
-      { profile_id: '00000000-0000-4000-a000-000000000001', achievement_id: 'win-1' },
-    ];
-    const { client } = fakeClient([
+  it('kończy się po odzyskanej odpowiedzi, gdy pierwsza zginęła', async () => {
+    const { client, calls } = fakeClient([
       () => Promise.reject(new Error('lost reply')),
-      () => Promise.resolve({ error: null, data: { id: play.id, unlocks } }),
+      () => Promise.resolve({ error: null, data: { id: play.id } }),
     ]);
-    await expect(savePlay(client, play, summary, noSleep)).resolves.toEqual(unlocks);
+    await expect(savePlay(client, play, summary, noSleep)).resolves.toBeUndefined();
+    expect(calls).toHaveLength(2);
   });
 
   it('po wyczerpaniu ponowień zgłasza błąd sieci', async () => {

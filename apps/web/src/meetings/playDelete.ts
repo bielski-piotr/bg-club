@@ -71,14 +71,14 @@ export const PLAY_DEPENDENT_KEYS: readonly (readonly string[])[] = [
   meetingsKey,
   // Kolekcja: „ostatnio grane”.
   gamesKey,
-  // Profile: statystyki, rankingi, serie i osiągnięcia (E5/E6); bez własnego profilu
+  // Profile: statystyki, rankingi i serie (E5/E6); bez własnego profilu
   // zalogowanego (rola, motyw), którego partie nie zmieniają.
   profilesKey,
 ];
 
 /**
  * Odświeża widoki zależne od zapisanych partii po ich zmianie (§5.6.5): przeliczenie w bazie
- * zmienia rankingi, serie i osiągnięcia, więc nieaktualne są wszystkie widoki z
+ * zmienia rankingi, serie i rekordy, więc nieaktualne są wszystkie widoki z
  * `PLAY_DEPENDENT_KEYS`. Aktywne pobierają się od razu, pozostałe przy następnym otwarciu.
  */
 export async function invalidatePlayData(queryClient: QueryClient): Promise<void> {

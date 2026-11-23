@@ -25,7 +25,6 @@ import {
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
 import type { OwnProfile } from '../auth/useOwnProfile';
-import { AchievementDialog } from '../profile/AchievementDialog';
 import { DeleteAccountDialog } from '../profile/DeleteAccountDialog';
 import { PasswordPopup } from '../profile/PasswordPopup';
 import { ProfilePopup } from '../profile/ProfilePopup';
@@ -50,8 +49,6 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <AddMemberPopup /> : <InvalidPopup />;
     case 'profile':
       return <ProfilePopup id={route.id} isAdmin={me.role === 'admin'} />;
-    case 'achievement':
-      return <AchievementDialog profileId={route.profileId} id={route.id} />;
     case 'delete-member':
       // Członków usuwa tylko administrator (MEM-4); Edge Function i tak odrzuci gracza (403).
       return me.role === 'admin' ? <DeleteMemberDialog id={route.id} /> : <InvalidPopup />;
