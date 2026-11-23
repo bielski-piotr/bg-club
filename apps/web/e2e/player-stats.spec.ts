@@ -53,7 +53,7 @@ const BEA_ALL = {
   points: 56,
   streak_record: 2,
   streak_current: 1,
-  places: { points: 1, wins: 2, streak: 1 },
+  places: { points: 1, wins: 2 },
   favorite_game: { game_id: AZUL.id, title: AZUL.title, plays: 3, wins: 2 },
   best_game: { game_id: AZUL.id, title: AZUL.title, plays: 3, wins: 2 },
   recent_plays: [recent(7, BRZDEK, 1, 10), recent(6, AZUL, 2, 6)],
@@ -68,7 +68,7 @@ const BEA_2025 = {
   points: 10,
   streak_record: 1,
   streak_current: 1,
-  places: { points: 1, wins: 1, streak: 1 },
+  places: { points: 1, wins: 1 },
   favorite_game: { game_id: AZUL.id, title: AZUL.title, plays: 1, wins: 1 },
   best_game: null,
   recent_plays: [recent(1, AZUL, 1, 10)],
@@ -145,11 +145,7 @@ test('statystyki gracza: liczniki, miejsca, ulubiona i najlepsza gra, ostatnie p
   await expect(tile(dialog, 'Wygrane').first()).toContainText('4');
 
   const places = dialog.locator('.player-stats--places');
-  await expect(places.locator('.player-stats__tile')).toHaveText([
-    'Punkty1.',
-    'Wygrane2.',
-    'Seria1.',
-  ]);
+  await expect(places.locator('.player-stats__tile')).toHaveText(['Punkty1.', 'Wygrane2.']);
 
   await expect(tile(dialog, 'Ulubiona gra')).toContainText('3 partie · 2 wygrane');
   await expect(tile(dialog, 'Najlepsza gra')).toContainText('67% wygranych · 3 partie');
@@ -210,7 +206,7 @@ test('usunięty członek: profil tylko do odczytu ze statystykami z historii (ME
   await expect(dialog.getByRole('button', { name: 'Ustawienia' })).toHaveCount(0);
   await expect(tile(dialog, 'Partie')).toContainText('1');
   const places = dialog.locator('.player-stats--places .player-stats__value');
-  await expect(places).toHaveText(['–Brak miejsca', '–Brak miejsca', '–Brak miejsca']);
+  await expect(places).toHaveText(['–Brak miejsca', '–Brak miejsca']);
   await expect(tile(dialog, 'Najlepsza gra')).toContainText('Zagraj co najmniej 3 partie');
   expect(await axe(page)).toEqual([]);
 });

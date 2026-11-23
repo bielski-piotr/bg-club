@@ -31,11 +31,10 @@ export interface RecentPlay {
   readonly is_win: boolean;
 }
 
-/** Miejsca w trzech rankingach (LB-1); `null` = gracz nie jest klasyfikowany (albo usunięty). */
+/** Miejsca w dwóch rankingach (LB-1); `null` = gracz nie jest klasyfikowany (albo usunięty). */
 export interface PlayerPlaces {
   readonly points: number | null;
   readonly wins: number | null;
-  readonly streak: number | null;
 }
 
 export interface PlayerStats {
@@ -83,4 +82,24 @@ export function usePlayerStats(client: SupabaseClient, id: string, year: number 
 /** Procent wygranych zaokrąglony do całości; `null` bez partii. */
 export function winRate(wins: number, plays: number): number | null {
   return plays > 0 ? Math.round((wins * 100) / plays) : null;
+}
+
+/** Wartość filtru roku statystyk: `all` = cała historia (domyślnie) albo rok, np. `2026`. */
+export type YearFilter = 'all' | `${number}`;
+
+export function filterYear(filter: YearFilter): number | null {
+  return filter === 'all' ? null : Number(filter);
+}
+
+/**
+ * Opcje filtru roku (STAT-3): „Cała historia”, potem lata od najnowszego.
+ * Wybrany rok, który zniknął z listy (np. po usunięciu jego jedynej partii), zostaje na końcu.
+ */
+export function yearFilterValues(
+  years: readonly number[],
+  selected: YearFilter,
+): readonly YearFilter[] {
+  const values: YearFilter[] = ['all', ...years.map((year) => `${year}` as const)];
+  if (!values.includes(selected)) values.push(selected);
+  return values;
 }

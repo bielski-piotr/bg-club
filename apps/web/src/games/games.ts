@@ -74,10 +74,11 @@ export function useCollectionWidget(client: SupabaseClient) {
  * unaccent + lower), więc „zolw” znajdzie „Żółwie”. Puste zapytanie = cała kolekcja. Przy
  * zmianie zapytania widać poprzednie wyniki, dopóki nie przyjdą nowe.
  */
-export function useGameSearch(client: SupabaseClient, query: string) {
+export function useGameSearch(client: SupabaseClient, query: string, enabled = true) {
   const normalized = query.trim();
   return useQuery({
     queryKey: gameSearchKey(normalized),
+    enabled,
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<Game[]> => {
       const { data, error } = await client

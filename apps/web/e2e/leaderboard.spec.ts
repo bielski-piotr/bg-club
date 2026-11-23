@@ -6,6 +6,8 @@ import {
   mockSupabase,
   session,
   storeSession,
+  mockGame,
+  type MockLeaderboardCall,
   type MockLeaderboardRow,
   type MockOptions,
   type MockProfile,
@@ -13,10 +15,10 @@ import {
 
 /**
  * Widżet i popup rankingu (PRD LB-1…LB-7, DS §6, §8). Ranking liczy baza (`leaderboard`, test
- * SQL `200`); tu atrapa zwraca gotowe wiersze, a test sprawdza układ: zakładki, podium z remisami,
- * miejsca 4–7 w widżecie, pełną listę i filtr roku w popupie, wyróżnienie bieżącego użytkownika,
- * wyszarzonych usuniętych na końcu, linki do profili, długie nazwiska i brak poziomego przewijania
- * na 360 px, w obu motywach.
+ * SQL `200`); tu atrapa zwraca gotowe wiersze, a test sprawdza układ: zakładki, podium bez
+ * remisów, miejsca 4–7 w widżecie, pełną listę, filtry dat (kalendarz) i gier (autouzupełnianie)
+ * w widżecie i popupie, szczegóły rozstrzygnięcia remisów, wyróżnienie bieżącego użytkownika,
+ * wyszarzonych usuniętych na końcu, linki do profili i brak poziomego przewijania na 360 px.
  */
 
 const CLUB = { name: 'Planszówki', logo_path: null, timezone: 'Europe/Warsaw' };
@@ -38,6 +40,7 @@ const row = (
   place: number,
   value: number,
   deleted = false,
+  extra: Partial<MockLeaderboardRow> = {},
 ): MockLeaderboardRow => ({
   place,
   profile_id: profile.id,
@@ -47,12 +50,26 @@ const row = (
   deleted,
   podium: !deleted && place <= 3,
   value,
+  ...extra,
 });
 
-/** Cała historia, punkty: Bartłomiej i Cezary remisują na 1., Ada jest 9. (poza 4–7). */
+const MEETING = '00000000-0000-4000-c000-000000000009';
+const AZUL = mockGame(1, 'Azul');
+const BRZDEK = mockGame(2, 'Brzdęk');
+const KOSCI = mockGame(3, 'Kości');
+const reached = (points: number, wins: number): Partial<MockLeaderboardRow> => ({
+  tied: true,
+  reached_meeting_id: MEETING,
+  reached_meeting_title: 'Listopadowe granie',
+  reached_at: '2026-11-07T17:00:00Z',
+  reached_points: points,
+  wins,
+});
+
+/** Cała historia, punkty: Bartłomiej i Cezary po 42 — wyżej Bartłomiej (więcej pkt na spotkaniu). */
 const POINTS: MockLeaderboardRow[] = [
-  row(LONG, 1, 42),
-  row(PEOPLE[1] as MockProfile, 1, 42),
+  row(LONG, 1, 42, false, reached(10, 3)),
+  row(PEOPLE[1] as MockProfile, 2, 42, false, reached(6, 3)),
   row(PEOPLE[2] as MockProfile, 3, 30),
   row(PEOPLE[3] as MockProfile, 4, 25),
   row(PEOPLE[4] as MockProfile, 5, 20),
@@ -62,8 +79,8 @@ const POINTS: MockLeaderboardRow[] = [
   row(ADA, 9, 4),
   row(ZOJA, 10, 50, true),
 ];
-/** Rok 2025: dwóch graczy. */
-const POINTS_2025: MockLeaderboardRow[] = [row(ADA, 1, 16), row(LONG, 2, 8)];
+/** Filtr dat albo gier: dwóch graczy. */
+const POINTS_FILTERED: MockLeaderboardRow[] = [row(ADA, 1, 16), row(LONG, 2, 8)];
 const WINS: MockLeaderboardRow[] = [row(ADA, 1, 7), row(LONG, 2, 1)];
 
 const isMobile = () => test.info().project.name.startsWith('mobile');
@@ -72,10 +89,16 @@ async function openApp(page: Page, options: MockOptions = {}, path = '/') {
   const mock = await mockSupabase(page, {
     club: CLUB,
     members: [...PEOPLE, ZOJA],
-    // Klasyfikowani są ci sami gracze we wszystkich zakładkach (LB-5); rok 2025 ma tylko punkty.
-    leaderboard: (kind, year) =>
-      year === 2025 ? (kind === 'points' ? POINTS_2025 : []) : kind === 'wins' ? WINS : POINTS,
-    leaderboardYears: [2026, 2025],
+    games: [AZUL, BRZDEK, KOSCI],
+    // Klasyfikowani są ci sami gracze we wszystkich zakładkach (LB-5); z filtrami są tylko punkty.
+    leaderboard: (kind, call: MockLeaderboardCall) =>
+      call.date_from || call.date_to || call.game_ids
+        ? kind === 'points'
+          ? POINTS_FILTERED
+          : []
+        : kind === 'wins'
+          ? WINS
+          : POINTS,
     ...options,
   });
   await storeSession(page, session());
@@ -98,19 +121,27 @@ async function horizontalOverflow(page: Page): Promise<number> {
 
 const search = (page: Page) => page.evaluate(() => decodeURIComponent(window.location.search));
 
-test('widżet: podium z remisem, miejsca 4–7 i własny wiersz z całej historii', async ({ page }) => {
+const noFilters = (call: MockLeaderboardCall) =>
+  call.date_from === null && call.date_to === null && call.game_ids === null;
+
+test('widżet: podium bez remisów, miejsca 4–7 i własny wiersz z całej historii', async ({
+  page,
+}) => {
   const mock = await openApp(page);
   const widget = page.getByRole('region', { name: 'Ranking', exact: true });
   await expect(widget.getByRole('tab', { name: 'Punkty' })).toHaveAttribute(
     'aria-selected',
     'true',
   );
+  await expect(widget.getByRole('tab')).toHaveText(['Punkty', 'Wygrane']);
   const podium = widget.getByRole('list', { name: 'Podium' });
   await expect(podium.getByRole('listitem').filter({ hasText: '1. miejsce' })).toContainText(
-    '1. miejsce, 2 osoby',
+    'Bartłomiej',
   );
-  await expect(podium).toContainText('Bartłomiej, Cezary');
-  await expect(podium).toContainText('Dorota');
+  await expect(podium.getByRole('listitem').filter({ hasText: '2. miejsce' })).toContainText(
+    'Cezary',
+  );
+  await expect(podium).not.toContainText('osoby');
 
   const list = widget.getByRole('list', { name: 'Kolejne miejsca' });
   const rows = list.locator(':scope > li');
@@ -123,9 +154,11 @@ test('widżet: podium z remisem, miejsca 4–7 i własny wiersz z całej histori
   await expect(rows.nth(4).locator('.row--highlighted')).toHaveCount(1);
   await expect(list).not.toContainText('Igor');
   await expect(widget).not.toContainText('Zoja');
-  // Widżet nie ma filtru roku: zawsze cała historia (LB-4).
-  await expect(widget.getByRole('button', { name: 'Zakres rankingu' })).toHaveCount(0);
-  expect(mock.leaderboardCalls.every((call) => call.year === null)).toBe(true);
+  // Bez filtrów: cała historia i wszystkie gry, nic nie jest zaznaczone.
+  await expect(widget.getByRole('button', { name: 'Zakres dat: Cała historia' })).toBeVisible();
+  await expect(widget.getByRole('button', { name: 'Gry: Wszystkie gry' })).toBeVisible();
+  await expect(widget.getByRole('button', { name: /Wyczyść filtry/ })).toHaveCount(0);
+  expect(mock.leaderboardCalls.every(noFilters)).toBe(true);
 
   await widget.getByRole('tab', { name: 'Wygrane' }).click();
   await expect(podium).toContainText('wygranych');
@@ -135,10 +168,79 @@ test('widżet: podium z remisem, miejsca 4–7 i własny wiersz z całej histori
   expect(await axe(page)).toEqual([]);
 });
 
-test('popup: pełna lista, usunięci na końcu, filtr roku i 2 graczy', async ({ page }) => {
+test('widżet: filtr dat w kalendarzu i gier z autouzupełnianiem, osobno i razem', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2026-11-23T12:00:00Z'));
   const mock = await openApp(page);
   const widget = page.getByRole('region', { name: 'Ranking', exact: true });
-  await widget.getByRole('tab', { name: 'Seria' }).click();
+
+  await widget.getByRole('button', { name: 'Zakres dat: Cała historia' }).click();
+  const calendar = page.getByRole('dialog', { name: 'Zakres dat' });
+  await expect(calendar.getByRole('button', { pressed: true })).toHaveCount(0);
+  await expect(
+    calendar.getByRole('button', { name: /Wybierz miesiąc \(Listopad\)/ }),
+  ).toBeVisible();
+  // Szybka zmiana miesiąca i roku.
+  await calendar.getByRole('button', { name: /Wybierz rok/ }).click();
+  await calendar.getByRole('button', { name: '2025', exact: true }).click();
+  await calendar.getByRole('button', { name: /Wybierz miesiąc/ }).click();
+  await calendar.getByRole('button', { name: 'Październik' }).click();
+  await calendar.getByRole('button', { name: /, 1 października 2025/ }).click();
+  // Dzień następnego miesiąca widoczny w siatce przełącza kalendarz na listopad.
+  await calendar.getByRole('button', { name: /, 2 listopada 2025/ }).click();
+  await expect(
+    calendar.getByRole('button', { name: /Wybierz miesiąc \(Listopad\)/ }),
+  ).toBeVisible();
+  await expect
+    .poll(() => mock.leaderboardCalls.at(-1))
+    .toEqual({ kind: 'points', date_from: '2025-10-01', date_to: '2025-11-02', game_ids: null });
+  await page.keyboard.press('Escape');
+  await expect(calendar).toHaveCount(0);
+  // Esc zamknął tylko panel filtru.
+  await expect(
+    widget.getByRole('button', { name: 'Zakres dat: 1 paź 2025 – 2 lis 2025' }),
+  ).toBeVisible();
+  await expect(widget.getByRole('list', { name: 'Podium' }).locator(':scope > li')).toHaveCount(2);
+
+  await widget.getByRole('button', { name: /^Gry:/ }).click();
+  const games = page.getByRole('dialog', { name: 'Gry' });
+  const search = games.getByRole('combobox', { name: 'Szukaj gry' });
+  await search.fill('brzd');
+  await expect(games.getByRole('option')).toHaveText(['Brzdęk']);
+  await search.press('Enter');
+  await search.fill('');
+  await games.getByRole('option', { name: 'Kości' }).click();
+  await expect(games.getByRole('option', { selected: true })).toHaveText(['Brzdęk', 'Kości']);
+  await games.getByRole('button', { name: 'Gotowe' }).click();
+  await expect(widget.getByRole('button', { name: 'Gry: 2 gry' })).toBeVisible();
+  await expect
+    .poll(() => mock.leaderboardCalls.at(-1))
+    .toEqual({
+      kind: 'points',
+      date_from: '2025-10-01',
+      date_to: '2025-11-02',
+      game_ids: [BRZDEK.id, KOSCI.id].sort(),
+    });
+
+  // „Zobacz więcej” przenosi zakładkę i filtry do popupu.
+  await widget.getByRole('link', { name: 'Zobacz pełny ranking' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ranking' });
+  await expect(dialog.getByRole('button', { name: 'Gry: 2 gry' })).toBeVisible();
+  await page.goBack();
+
+  await widget.getByRole('button', { name: /Wyczyść filtry/ }).click();
+  await expect(widget.getByRole('button', { name: 'Zakres dat: Cała historia' })).toBeVisible();
+  await expect(widget.getByRole('button', { name: 'Gry: Wszystkie gry' })).toBeVisible();
+  // Ranking bez filtrów wraca (z pamięci podręcznej zapytania).
+  await expect(widget.getByRole('list', { name: 'Podium' }).locator(':scope > li')).toHaveCount(3);
+  expect(await horizontalOverflow(page)).toBe(0);
+});
+
+test('popup: pełna lista, usunięci na końcu, filtr i 2 graczy', async ({ page }) => {
+  const mock = await openApp(page);
+  const widget = page.getByRole('region', { name: 'Ranking', exact: true });
+  await widget.getByRole('tab', { name: 'Wygrane' }).click();
   await widget.getByRole('tab', { name: 'Punkty' }).click();
   await widget.getByRole('link', { name: 'Zobacz pełny ranking' }).click();
   const dialog = page.getByRole('dialog', { name: 'Ranking' });
@@ -159,18 +261,47 @@ test('popup: pełna lista, usunięci na końcu, filtr roku i 2 graczy', async ({
   const dialogBox = await dialog.boundingBox();
   expect(box && dialogBox && box.x + box.width <= dialogBox.x + dialogBox.width).toBe(true);
 
-  await dialog.getByRole('button', { name: /Zakres rankingu/ }).click();
-  await page.getByRole('option', { name: '2025' }).click();
+  await dialog.getByRole('button', { name: /^Gry:/ }).click();
+  await page.getByRole('dialog', { name: 'Gry' }).getByRole('option', { name: 'Azul' }).click();
+  await page.keyboard.press('Escape');
   await expect(dialog).toContainText('2 graczy');
   await expect(dialog.getByRole('list', { name: 'Podium' }).locator(':scope > li')).toHaveCount(2);
   await expect(dialog.getByRole('list', { name: 'Kolejne miejsca' })).toHaveCount(0);
-  expect(mock.leaderboardCalls).toContainEqual({ kind: 'points', year: 2025 });
+  expect(mock.leaderboardCalls).toContainEqual({
+    kind: 'points',
+    date_from: null,
+    date_to: null,
+    game_ids: [AZUL.id],
+  });
 
-  await dialog.getByRole('tab', { name: 'Seria' }).click();
-  await expect(dialog).toContainText('Brak partii w 2025');
+  await dialog.getByRole('tab', { name: 'Wygrane' }).click();
+  await expect(dialog).toContainText('Brak partii dla wybranych filtrów');
 
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);
+});
+
+test('remisy: przycisk otwiera szczegóły rozstrzygnięcia', async ({ page }) => {
+  await openApp(page);
+  const widget = page.getByRole('region', { name: 'Ranking', exact: true });
+  await widget.getByRole('link', { name: /^Remisy/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Rozstrzygnięcie remisów' });
+  await expect(dialog).toBeVisible();
+  expect(await search(page)).toBe('?p=leaderboard/points/ties');
+  await expect(dialog.locator('.ties__rules > li')).toHaveCount(4);
+  const group = dialog.getByRole('region', { name: /Remis: wynik 42 pkt, miejsca 1–2/ });
+  await expect(group.getByRole('listitem')).toHaveCount(2);
+  await expect(group).toContainText('Listopadowe granie');
+  await expect(group).toContainText('Przed Cezary Cichy: więcej punktów na tym spotkaniu');
+  await expect(group.locator('.ties__fact--decisive')).toHaveText('Pkt na spotkaniu10');
+  expect(await horizontalOverflow(page)).toBe(0);
+  expect(await axe(page)).toEqual([]);
+
+  // Wygrane bez równych wyników: brak przycisku.
+  await page.goBack();
+  await widget.getByRole('tab', { name: 'Wygrane' }).click();
+  await expect(widget.getByRole('list', { name: 'Podium' })).toContainText('wygranych');
+  await expect(widget.getByRole('link', { name: /^Remisy/ })).toHaveCount(0);
 });
 
 test('awatar na podium i w liście otwiera profil gracza', async ({ page }) => {
