@@ -3,15 +3,14 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(45);
+select plan(43);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
   'public',
   array[
     'club', 'profiles', 'games', 'scorepads', 'scorepad_versions', 'meetings',
-    'meeting_participants', 'game_votes', 'meeting_games', 'plays', 'play_results',
-    'achievement_unlocks'
+    'meeting_participants', 'game_votes', 'meeting_games', 'plays', 'play_results'
   ],
   'schemat public ma dokładnie encje z PRD §6'
 );
@@ -47,8 +46,6 @@ select columns_are('public', 'plays',
 select columns_are('public', 'play_results',
   array['play_id', 'meeting_id', 'profile_id', 'seat', 'scores', 'ranking_value', 'place', 'tied',
         'points', 'is_win'], 'kolumny play_results');
-select columns_are('public', 'achievement_unlocks',
-  array['profile_id', 'achievement_id', 'unlocked_at', 'meeting_id', 'play_id'], 'kolumny achievement_unlocks');
 
 -- NFR-10: żadnej kolumny `timestamp without time zone` ani `date` w schemacie public.
 select is_empty(
@@ -64,7 +61,6 @@ select col_type_is('public', 'meetings', 'starts_at', 'timestamp with time zone'
 select col_is_pk('public', 'meeting_participants', array['meeting_id', 'profile_id'], 'PK meeting_participants');
 select col_is_pk('public', 'game_votes', array['meeting_id', 'game_id', 'profile_id'], 'PK game_votes');
 select col_is_pk('public', 'play_results', array['play_id', 'profile_id'], 'PK play_results');
-select col_is_pk('public', 'achievement_unlocks', array['profile_id', 'achievement_id'], 'PK achievement_unlocks');
 
 -- Profil bez klucza obcego do auth.users (przeżywa usunięcie konta Auth).
 select is_empty(
@@ -140,11 +136,9 @@ select is_empty(
           'public.save_play_draft(uuid,jsonb,int)'::regprocedure,
           'public.discard_play(uuid)'::regprocedure,
           'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
-          'public.save_play_with_achievements(uuid,uuid,jsonb,jsonb,uuid)'::regprocedure,
           'public.attach_play_sheet_image(uuid,text)'::regprocedure,
           'public.orphan_sheet_images(uuid)'::regprocedure,
           'public.delete_play(uuid)'::regprocedure,
-          'public.player_achievements(uuid)'::regprocedure,
           'public.reopen_meeting(uuid)'::regprocedure
         )
         and (has_function_privilege('anon', p.oid, 'execute')

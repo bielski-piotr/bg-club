@@ -186,19 +186,19 @@ export interface MockOptions {
   /** Wiersze `meeting_summary(meeting_id)` (VIEW-4); domyślnie puste podsumowanie. */
   meetingSummary?: (meetingId: string) => readonly unknown[];
   /**
-   * Wynik `player_stats(profile_id, year)` (STAT-1–STAT-3, migracja
-   * `20261115223700_player_stats.sql`); `year` `null` = cała historia. Domyślnie zero partii.
+   * Wynik `player_stats(profile_id, date_from, date_to, game_ids)` (STAT-1–STAT-3, migracja
+   * `20261124000000_profile_records_without_achievements.sql`). Domyślnie zero partii.
    */
-  playerStats?: (profileId: string, year: number | null) => unknown;
-  /**
-   * Wynik `player_achievements(profile_id)` (ACH-3, migracja
-   * `20261116000000_achievement_showcase.sql`); domyślnie pusta gablota.
-   */
-  playerAchievements?: (profileId: string) => unknown;
-  /** Nowe odblokowania zwracane wyłącznie pierwszemu żądaniu zapisu (ACH-4). */
-  savePlayUnlocks?: readonly { readonly profile_id: string; readonly achievement_id: string }[];
-  /** Wiersze `meeting_achievements(meeting_id)` (VIEW-5); domyślnie brak odblokowań. */
-  meetingAchievements?: (meetingId: string) => readonly unknown[];
+  playerStats?: (profileId: string, call: MockFilterCall) => unknown;
+  /** Wiersze `player_records(profile_id, date_from, date_to, game_ids)`; domyślnie brak gier. */
+  playerRecords?: (profileId: string, call: MockFilterCall) => readonly unknown[];
+}
+
+/** Filtry wywołania statystyk i rekordów gracza (jak w rankingu). */
+export interface MockFilterCall {
+  readonly date_from: string | null;
+  readonly date_to: string | null;
+  readonly game_ids: readonly string[] | null;
 }
 
 /** `game_stats` gry bez zapisanych partii. */
@@ -213,34 +213,17 @@ export const EMPTY_GAME_STATS = {
 
 /** `player_stats` gracza bez zapisanych partii. */
 export const EMPTY_PLAYER_STATS = {
-  years: [],
   meetings: 0,
   plays: 0,
   wins: 0,
   points: 0,
+  wins_total: 0,
   streak_record: 0,
   streak_current: 0,
   places: { points: null, wins: null },
   favorite_game: null,
   best_game: null,
-  recent_plays: [],
-} as const;
-
-/** `player_achievements` gracza bez odblokowań i bez historii. */
-export const EMPTY_PLAYER_ACHIEVEMENTS = {
-  unlocks: [],
-  progress: {
-    meetings: 0,
-    plays: 0,
-    wins: 0,
-    points: 0,
-    streak: 0,
-    games: 0,
-    won_games: 0,
-    game_wins: 0,
-    last_places: 0,
-    votes: 0,
-  },
+  recent_meetings: [],
 } as const;
 
 /** Wiersz `leaderboard(…)` (migracja `20261123000000_leaderboard_ties_filters.sql`). */
@@ -271,7 +254,6 @@ export interface MockLeaderboardCall {
 
 /** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
 export interface PlaySave {
-  readonly request_id?: string;
   readonly play_id: string;
   readonly scorepad_version_id: string;
   readonly sheet: Record<string, unknown>;
@@ -556,8 +538,10 @@ export interface SupabaseMock {
   readonly playDeletes: string[];
   /** Wywołania `leaderboard` (rodzaj i filtry). */
   readonly leaderboardCalls: MockLeaderboardCall[];
-  /** Wywołania `player_stats` (gracz i rok). */
-  readonly playerStatsCalls: { readonly profileId: string; readonly year: number | null }[];
+  /** Wywołania `player_stats` (gracz i filtry). */
+  readonly playerStatsCalls: ({ readonly profileId: string } & MockFilterCall)[];
+  /** Wywołania `player_records` (gracz i filtry). */
+  readonly playerRecordsCalls: ({ readonly profileId: string } & MockFilterCall)[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -595,10 +579,6 @@ function describe(request: Request): string {
 }
 
 export async function mockSupabase(page: Page, options: MockOptions = {}): Promise<SupabaseMock> {
-  const saveReceipts = new Map<
-    string,
-    { requestId: string | undefined; unlocks: NonNullable<MockOptions['savePlayUnlocks']> }
-  >();
   const mock: SupabaseMock = {
     options,
     calls: [],
@@ -632,6 +612,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     sheetRemoved: [],
     leaderboardCalls: [],
     playerStatsCalls: [],
+    playerRecordsCalls: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -1124,12 +1105,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     }
     // Zapis partii (PAD-5) jak `save_play`: punkty i wygrane liczy „baza” ze snapshotu,
     // ponowienie z tą samą treścią zwraca zapisaną partię, inna treść jest odrzucana.
-    if (
-      ['/rest/v1/rpc/save_play', '/rest/v1/rpc/save_play_with_achievements'].includes(
-        url.pathname,
-      ) &&
-      request.method() === 'POST'
-    ) {
+    if (url.pathname === '/rest/v1/rpc/save_play' && request.method() === 'POST') {
       const body = request.postDataJSON() as PlaySave;
       mock.playSaves.push(body);
       const fail = (status: number, code: string, hint: string) =>
@@ -1141,12 +1117,6 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       if (!play) return fail(404, 'P0002', 'plays_not_found');
       const payload = JSON.stringify({ sheet: body.sheet, results: body.results });
       let saved = play;
-      if (!saveReceipts.has(play.id)) {
-        saveReceipts.set(play.id, {
-          requestId: body.request_id,
-          unlocks: play.status === 'draft' ? (mock.options.savePlayUnlocks ?? []) : [],
-        });
-      }
       if (play.status === 'saved') {
         if (play.saved_payload !== payload) return fail(400, '23514', 'plays_already_saved');
       } else {
@@ -1191,13 +1161,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         mock.options.savePlayLostReplies = (mock.options.savePlayLostReplies ?? 0) - 1;
         return route.abort('timedout');
       }
-      const receipt = saveReceipts.get(play.id);
-      return route.fulfill({
-        json: {
-          id: saved.id,
-          unlocks: receipt?.requestId === body.request_id ? receipt?.unlocks : [],
-        },
-      });
+      return route.fulfill({ json: { id: saved.id } });
     }
     // Porzucenie partii w toku (PAD-8): szkic znika razem z graczami.
     if (url.pathname === '/rest/v1/rpc/discard_play' && request.method() === 'POST') {
@@ -1452,24 +1416,20 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return route.fulfill({ json: mock.options.gameStats?.(game_id) ?? EMPTY_GAME_STATS });
     }
     if (url.pathname === '/rest/v1/rpc/player_stats' && request.method() === 'POST') {
-      const { profile_id, year } = request.postDataJSON() as {
+      const { profile_id, ...call } = request.postDataJSON() as {
         profile_id: string;
-        year: number | null;
-      };
-      mock.playerStatsCalls.push({ profileId: profile_id, year });
+      } & MockFilterCall;
+      mock.playerStatsCalls.push({ profileId: profile_id, ...call });
       return route.fulfill({
-        json: mock.options.playerStats?.(profile_id, year) ?? EMPTY_PLAYER_STATS,
+        json: mock.options.playerStats?.(profile_id, call) ?? EMPTY_PLAYER_STATS,
       });
     }
-    if (url.pathname === '/rest/v1/rpc/player_achievements' && request.method() === 'POST') {
-      const { profile_id } = request.postDataJSON() as { profile_id: string };
-      return route.fulfill({
-        json: mock.options.playerAchievements?.(profile_id) ?? EMPTY_PLAYER_ACHIEVEMENTS,
-      });
-    }
-    if (url.pathname === '/rest/v1/rpc/meeting_achievements' && request.method() === 'POST') {
-      const { meeting_id } = request.postDataJSON() as { meeting_id: string };
-      return route.fulfill({ json: mock.options.meetingAchievements?.(meeting_id) ?? [] });
+    if (url.pathname === '/rest/v1/rpc/player_records' && request.method() === 'POST') {
+      const { profile_id, ...call } = request.postDataJSON() as {
+        profile_id: string;
+      } & MockFilterCall;
+      mock.playerRecordsCalls.push({ profileId: profile_id, ...call });
+      return route.fulfill({ json: mock.options.playerRecords?.(profile_id, call) ?? [] });
     }
     if (url.pathname === '/rest/v1/rpc/meeting_summary' && request.method() === 'POST') {
       const { meeting_id } = request.postDataJSON() as { meeting_id: string };

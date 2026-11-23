@@ -1,34 +1,38 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
+import { normalizeGames, type LeaderboardFilters } from '../leaderboard/filters';
 import { isUuid } from '../popups/routes';
 import { profilesKey } from './profiles';
 
 /**
- * Statystyki gracza w profilu (PRD STAT-1–STAT-3) z funkcji SQL `player_stats(profile_id, year)`
- * (migracja `20261115223700_player_stats.sql`). Baza liczy wszystko z zapisanych partii (szkice
- * się nie liczą), więc zapis i usunięcie partii zmieniają je od razu (§5.6.5).
+ * Statystyki gracza w profilu (PRD STAT-1–STAT-3) z funkcji SQL
+ * `player_stats(profile_id, date_from, date_to, game_ids)` (migracja
+ * `20261124000000_profile_records_without_achievements.sql`). Baza liczy wszystko z zapisanych
+ * partii (szkice się nie liczą), więc zapis i usunięcie partii zmieniają je od razu (§5.6.5).
+ *
+ * Trzy grupy: statystyki profilu z filtrami jak w rankingu (`meetings`, `plays`, `wins`),
+ * ranking z całej historii (miejsca, punkty, wygrane, serie) i ulubione gry z całej historii;
+ * do tego 5 ostatnich spotkań gracza.
  */
 
 /** Gra w statystykach gracza: ulubiona albo najlepsza (STAT-2, Q21). */
 export interface PlayerGame {
   readonly game_id: string;
   readonly title: string;
+  readonly cover_path: string | null;
   readonly plays: number;
   readonly wins: number;
 }
 
-/** Partia gracza na liście ostatnich (od najnowszej, §5.6.6). */
-export interface RecentPlay {
-  readonly play_id: string;
+/** Spotkanie z partiami gracza na liście ostatnich (od najnowszego, §5.6.6). */
+export interface RecentMeeting {
   readonly meeting_id: string;
-  readonly meeting_title: string;
-  /** Termin spotkania partii. */
+  readonly title: string;
+  /** Termin spotkania. */
   readonly starts_at: string;
-  readonly game_id: string;
-  readonly game_title: string;
-  readonly place: number;
+  readonly plays: number;
+  readonly wins: number;
   readonly points: number;
-  readonly is_win: boolean;
 }
 
 /** Miejsca w dwóch rankingach (LB-1); `null` = gracz nie jest klasyfikowany (albo usunięty). */
@@ -38,43 +42,64 @@ export interface PlayerPlaces {
 }
 
 export interface PlayerStats {
-  /** Lata (strefa klubu) z partiami gracza, od najnowszego; zawsze z całej historii. */
-  readonly years: readonly number[];
-  /** Obecność: spotkania z ≥ 1 partią gracza. */
+  /** Z filtrami: spotkania z ≥ 1 partią gracza. */
   readonly meetings: number;
+  /** Z filtrami. */
   readonly plays: number;
+  /** Z filtrami (także wspólne 1. miejsce, §5.6.3). */
   readonly wins: number;
+  /** Cała historia: punkty rankingu (§5.6.2). */
   readonly points: number;
+  /** Cała historia: wszystkie wygrane. */
+  readonly wins_total: number;
   readonly streak_record: number;
   readonly streak_current: number;
+  /** Cała historia. */
   readonly places: PlayerPlaces;
   readonly favorite_game: PlayerGame | null;
   /** `null` = brak gry z ≥ 3 partiami gracza (pusty stan, Q21). */
   readonly best_game: PlayerGame | null;
-  readonly recent_plays: readonly RecentPlay[];
+  /** Najwyżej 5 ostatnich spotkań z partiami gracza (bez filtrów). */
+  readonly recent_meetings: readonly RecentMeeting[];
 }
 
 /** Próg partii gry do „najlepszej gry” (Q21). Baza stosuje ten sam próg. */
 export const BEST_GAME_MIN_PLAYS = 3;
 
+/** Argumenty filtrów RPC: brak filtru to `null` (pusta lista gier też), jak w rankingu. */
+export function filterArgs(filters: LeaderboardFilters) {
+  return {
+    date_from: filters.from,
+    date_to: filters.to,
+    game_ids: filters.games.length > 0 ? normalizeGames(filters.games) : null,
+  };
+}
+
+/** Część klucza z filtrami: ten sam filtr = ten sam klucz. */
+export const filtersKey = (filters: LeaderboardFilters) =>
+  [filters.from ?? '', filters.to ?? '', normalizeGames(filters.games).join(',')] as const;
+
 /**
  * Klucz w `profilesKey`: zapis i usunięcie partii odświeżają statystyki razem z profilami
  * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
  */
-export const playerStatsKey = (id: string, year: number | null) =>
-  [...profilesKey, 'stats', id, year ?? 'all'] as const;
+export const playerStatsKey = (id: string, filters: LeaderboardFilters) =>
+  [...profilesKey, 'stats', id, ...filtersKey(filters)] as const;
 
-/** Statystyki gracza dla roku (`null` = cała historia); `null` w danych = nie ma profilu. */
-export function usePlayerStats(client: SupabaseClient, id: string, year: number | null) {
+/** Statystyki gracza z filtrami; `null` w danych = nie ma profilu. */
+export function usePlayerStats(client: SupabaseClient, id: string, filters: LeaderboardFilters) {
   return useQuery({
-    queryKey: playerStatsKey(id, year),
+    queryKey: playerStatsKey(id, filters),
     queryFn: async (): Promise<PlayerStats | null> => {
       if (!isUuid(id)) return null;
-      const { data, error } = await client.rpc('player_stats', { profile_id: id, year });
+      const { data, error } = await client.rpc('player_stats', {
+        profile_id: id,
+        ...filterArgs(filters),
+      });
       if (error) throw error;
       return (data ?? null) as PlayerStats | null;
     },
-    // Przy zmianie roku poprzedni wynik zostaje do czasu nowego (bez migania), jak w rankingu.
+    // Przy zmianie filtrów poprzedni wynik zostaje do czasu nowego (bez migania), jak w rankingu.
     placeholderData: (previous, query) => (query?.queryKey[2] === id ? previous : undefined),
   });
 }
@@ -82,24 +107,4 @@ export function usePlayerStats(client: SupabaseClient, id: string, year: number 
 /** Procent wygranych zaokrąglony do całości; `null` bez partii. */
 export function winRate(wins: number, plays: number): number | null {
   return plays > 0 ? Math.round((wins * 100) / plays) : null;
-}
-
-/** Wartość filtru roku statystyk: `all` = cała historia (domyślnie) albo rok, np. `2026`. */
-export type YearFilter = 'all' | `${number}`;
-
-export function filterYear(filter: YearFilter): number | null {
-  return filter === 'all' ? null : Number(filter);
-}
-
-/**
- * Opcje filtru roku (STAT-3): „Cała historia”, potem lata od najnowszego.
- * Wybrany rok, który zniknął z listy (np. po usunięciu jego jedynej partii), zostaje na końcu.
- */
-export function yearFilterValues(
-  years: readonly number[],
-  selected: YearFilter,
-): readonly YearFilter[] {
-  const values: YearFilter[] = ['all', ...years.map((year) => `${year}` as const)];
-  if (!values.includes(selected)) values.push(selected);
-  return values;
 }

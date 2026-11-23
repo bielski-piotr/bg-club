@@ -6,7 +6,7 @@ create extension if not exists pgtap with schema extensions;
 
 set constraints all immediate;
 
-select plan(49);
+select plan(46);
 
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe
@@ -350,22 +350,6 @@ select throws_like(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Osiągnięcia
--- ---------------------------------------------------------------------------------------------
-select lives_ok(
-  $$ insert into public.achievement_unlocks (profile_id, achievement_id, unlocked_at, meeting_id, play_id)
-     values ('00000000-0000-4000-a000-000000000002', 'voter-10', '2026-11-20 18:00+01',
-             '00000000-0000-4000-c000-000000000001', '00000000-0000-4000-f000-000000000001') $$,
-  'odblokowanie osiągnięcia'
-);
-select throws_like(
-  $$ insert into public.achievement_unlocks (profile_id, achievement_id, unlocked_at, meeting_id)
-     values ('00000000-0000-4000-a000-000000000003', 'Win 1', now(), '00000000-0000-4000-c000-000000000001') $$,
-  '%achievement_unlocks_id_format%',
-  'identyfikator osiągnięcia ma format z katalogu'
-);
-
--- ---------------------------------------------------------------------------------------------
 -- Profil przeżywa usunięcie konta Auth (MEM-4)
 -- ---------------------------------------------------------------------------------------------
 delete from auth.users where id = '00000000-0000-4000-a000-000000000002';
@@ -388,14 +372,6 @@ select throws_like(
   $$ delete from public.profiles where id = '00000000-0000-4000-a000-000000000002' $$,
   '%violates foreign key constraint%',
   'profilu z historią nie da się usunąć fizycznie'
-);
-
--- Usunięcie zapisanej partii (admin, §5.6.5) usuwa wyniki i odblokowania z tej partii.
-delete from public.plays where id = '00000000-0000-4000-f000-000000000001';
-select is(
-  (select count(*)::int from public.achievement_unlocks where play_id = '00000000-0000-4000-f000-000000000001'),
-  0,
-  'usunięcie partii usuwa wskazujące ją odblokowania'
 );
 
 select * from finish();

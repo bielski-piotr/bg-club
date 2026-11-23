@@ -81,10 +81,10 @@
   --c-avatar-removed: #c9cdda;
   --c-on-avatar-removed: #4a5068;
   --c-on-avatar: #ffffff;
-  /* Odblokowana odznaka (DS §15 „Achievement row”: #E09F1F z białym pucharem), przyciemniona
-     do 4,5:1 z białą ikoną jak bursztyn awatarów; ta sama w obu motywach. */
-  --c-achievement: #986c15;
-  --c-on-achievement: #ffffff;
+  /* Pieczątka „Rekord klubu” w rekordach osobistych: bursztyn #E09F1F przyciemniony do 4,5:1
+     z białym tekstem jak bursztyn awatarów; ta sama w obu motywach. */
+  --c-record: #986c15;
+  --c-on-record: #ffffff;
 
   /* Typografia (DS §4) */
   --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;

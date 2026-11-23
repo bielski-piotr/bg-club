@@ -153,7 +153,7 @@ export interface DialogProps {
    */
   readonly icon?: IconName | undefined;
   readonly tone?: 'accent' | 'danger' | 'warning' | undefined;
-  /** Własny element nad tytułem zamiast ikony (np. odznaka osiągnięcia); dekoracyjny. */
+  /** Własny element nad tytułem zamiast ikony (np. okładka albo ilustracja); dekoracyjny. */
   readonly media?: ReactNode | undefined;
   /** Kliknięcie tła poza oknem. Esc obsługuje `PopupHost`. */
   readonly onScrimClick?: (() => void) | undefined;

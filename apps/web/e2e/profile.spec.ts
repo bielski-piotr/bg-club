@@ -77,7 +77,7 @@ test('własny profil ma Ustawienia i stany oczekiwania, cudzy nie ma akcji (USR-
   const own = page.getByRole('dialog', { name: 'Profil' });
   await expect(own.getByRole('button', { name: 'Ustawienia' })).toBeVisible();
   await expect(own.getByText('Statystyki pojawią się po pierwszej partii')).toBeVisible();
-  await expect(own.getByText('Gablota jest jeszcze pusta')).toBeVisible();
+  await expect(own.getByRole('heading', { name: 'Rekordy osobiste' })).toBeVisible();
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);
 

@@ -1,4 +1,3 @@
-import { achievementById } from '@bg-club/scoring';
 import {
   filterSegments,
   parseFilterSegments,
@@ -21,11 +20,6 @@ export type PopupRoute =
   | { readonly kind: 'profile'; readonly id: string }
   /** Potwierdzenie „Usuń członka” (MEM-4, admin), adres `profile/<uuid>/delete`. */
   | { readonly kind: 'delete-member'; readonly id: string }
-  /**
-   * Szczegóły odznaki z gabloty gracza (ACH-3, DS „Profil / Osiągnięcie – szczegóły”): warunek,
-   * data i spotkanie odblokowania albo postęp; adres `profile/<uuid>/achievement/<id z katalogu>`.
-   */
-  | { readonly kind: 'achievement'; readonly profileId: string; readonly id: string }
   /** Ustawienia własnego profilu (USR-5), adres `settings`. Zawsze dotyczą zalogowanego. */
   | { readonly kind: 'settings' }
   /** Zmiana hasła (USR-5), adres `settings/password`. */
@@ -232,15 +226,6 @@ export function parseRoute(raw: string): PopupRoute {
   if (kind === 'profile' && args.length === 2 && isUuid(args[0] ?? '') && args[1] === 'delete') {
     return { kind: 'delete-member', id: (args[0] ?? '').toLowerCase() };
   }
-  if (
-    kind === 'profile' &&
-    args.length === 3 &&
-    isUuid(args[0] ?? '') &&
-    args[1] === 'achievement' &&
-    achievementById(args[2] ?? '')
-  ) {
-    return { kind: 'achievement', profileId: (args[0] ?? '').toLowerCase(), id: args[2] ?? '' };
-  }
   return { kind: 'invalid', raw };
 }
 
@@ -319,8 +304,6 @@ export function serializeRoute(route: PopupRoute): string {
       return `profile/${route.id}`;
     case 'delete-member':
       return `profile/${route.id}/delete`;
-    case 'achievement':
-      return `profile/${route.profileId}/achievement/${route.id}`;
     case 'settings':
       return 'settings';
     case 'change-password':

@@ -153,7 +153,7 @@ Fonts: **Bricolage Grotesque** (display, titles, numbers), **Instrument Sans** (
 | Monogram in avatar | Instrument | 600, scales with the avatar (see §8) | | #FFFFFF |
 
 ## 5. Radii, shadows, spacing
-- **Radii**: widget card **28** (desktop) / **24** (mobile). Modal **28**. Small dialog **24**. List tray **22**. Toast **16** (achievement toast 20). Dropdown menu **16** with items **10**. Game cover large **18**. Rows, inputs and banners **14**. Game thumbnail 36px uses radius **10**. Pills, buttons, chips, tabs, avatars and the search field are **999**.
+- **Radii**: widget card **28** (desktop) / **24** (mobile). Modal **28**. Small dialog **24**. List tray **22**. Toast **16**. Dropdown menu **16** with items **10**. Game cover large **18**. Rows, inputs and banners **14**. Game thumbnail 36px uses radius **10**. Pills, buttons, chips, tabs, avatars and the search field are **999**.
 - **Shadows** (all tinted navy #1E285A):
   - Widget card: `#1E285A47 0 20px 48px -28px`
   - Modal / dialog: `#1E285A59 0 32px 80px -24px`
@@ -217,7 +217,7 @@ Fonts: **Bricolage Grotesque** (display, titles, numbers), **Instrument Sans** (
 |---|---|
 | 20 | 9/12 (Meetings, voter stack) |
 | 24 | 10/12 (winner inline, result rows) |
-| 28 | 11/14 (Meetings, live card stack, achievement) |
+| 28 | 11/14 (Meetings, live card stack) |
 | 32 | 13/16 (Meetings, seat row) |
 | 36 | 14/18 (ranking/game rows) |
 | 40 | 15/20 (member rows in popup) |
@@ -281,7 +281,7 @@ There are no hover or disabled button variants in the file.
   - Success: check, stroke #7CE0A3.
   - Neutral (copied): copy icon, stroke #FFF.
   - Error: triangle, stroke #FFB4B4.
-- **Rich toast** (achievement): white, 1px #E4E7F0, radius 20, padding 12 left / 16 right, gap 12.
+- **Rich toast**: white, 1px #E4E7F0, radius 20, padding 12 left / 16 right, gap 12.
   - It has a 44px colored icon circle, an eyebrow 12/16/600 #6B7188, a title in Bricolage 16/20/700, and a trailing "Zobacz ›" link.
 
 ## 13. Icons
@@ -327,7 +327,7 @@ Shared: section head = title 15/20/600 #161A2B + right note 13/16/500 #6B7188 (s
 | Live play card | bg #E3F5EA, radius 18, padding 14, gap 12. Row gap 12: thumb 44 + title Bricolage 16/20/700 + "Trwa partia · od 20:55" 13/16/600 #1F7A4D + stack 28/8. Admin row (gap 8): primary h36 "Wróć do notesu" (pad icon, flex) + outline h36 "Porzuć" bg #FFF |
 | Score-sheet thumbnail | 44×56 (36×46 in the notes row), radius 6, bg #FBF7EC, 1px #E8DFC8, rotate(-3deg), overflow hidden, column gap 5. Top band h8 in the game color, then four lines h2 radius 2 #D9CFB4 (widths 28/22/26/16 at 44 wide), each in a row with paddingInline 6 |
 | Meeting summary row | In a tray: white, radius 14, padding 10/12, gap 10, top-aligned. Place 13/18/600 #6B7188 width 12 (paddingTop 9), avatar 36, then column gap 4: name 14/18/600 + points Bricolage 16/20/700 with "pkt" 12/16/500 #6B7188 (baseline, gap 3); breakdown 12/16/500 #6B7188 ("Wingspan +6, Azul +10"); badge row (gap 4, wrap). Badges 11/14/600: "1 wygrana · Azul" accent on #EAF0FF; "+1 → seria 2" success; "seria przerwana" #D63A3A on #FDECEC; "seria bez zmian" #6B7188 on #F1F3F9 |
-| Achievement row | 1px #E4E7F0, radius 20, padding 12/16/12/12, gap 12: 44px #E09F1F circle with white trophy, eyebrow "Nowe osiągnięcie" 12/16/600 #6B7188 + title Bricolage 16/20/700, avatar 28 |
+| Record card | Profile "Rekordy osobiste" (no achievements in the app): white tile on a tint tray, radius 14, padding 10/10/12; large game cover (radius 18, unplayed games greyed), title Bricolage 14/18/700, value Bricolage 20/24/700 or "–", meeting link 12/16/500. Club record stamp: #986C15 fill (#E09F1F darkened to 4.5:1), white 2px border, white 11/14/700 uppercase text with trophy icon, radius 8, rotated −8°, on the bottom-right corner of the cover |
 | Checkbox | 22×22, radius 7. On: bg #2F54EB + white check 14. Off: bg #FFF, 1.5px #C9CDDA |
 | Radio | 22×22 circle, bg #FFF. On: 1.5px #2F54EB border + 12px #2F54EB dot. Off: 1.5px #C9CDDA |
 | Member selection row | Tray row h52 (white, r14, padding 0 14, gap 12): checkbox, avatar 36, name 15/20/500 flex, optional badges (Admin, Ty). Label row above: "Uczestnicy" with right "Wybrano 5 z 8" 13/16/500 #6B7188 and "Zaznacz wszystkich" 13/16/600 #2F54EB (gap 12) |

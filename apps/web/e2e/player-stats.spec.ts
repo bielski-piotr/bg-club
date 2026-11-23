@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   EMPTY_PLAYER_STATS,
   member,
@@ -8,14 +8,16 @@ import {
   mockSupabase,
   session,
   storeSession,
+  type MockFilterCall,
   type MockOptions,
 } from './support/supabaseMock';
 
 /**
- * Statystyki gracza w profilu (PRD STAT-1–STAT-3, USR-4, MEM-5): liczniki, miejsca w trzech
- * rankingach, ulubiona i najlepsza gra (Q21), ostatnie partie z linkami do spotkań i filtr
- * roku. Wyniki liczy baza (`player_stats`, testy pgTAP `220`); tu API Supabase jest atrapą.
- * Każdy test przechodzi na 360 px i na desktopie, w motywie jasnym i ciemnym.
+ * Profil gracza (PRD STAT-1–STAT-3, USR-4, MEM-5): statystyki profilu z filtrami jak w rankingu,
+ * leaderboard i ulubione z całej historii, 5 ostatnich spotkań oraz rekordy osobiste w grach
+ * z okładkami i pieczątką rekordu klubu. Wyniki liczy baza (`player_stats`, `player_records`,
+ * test pgTAP `220`); tu API Supabase jest atrapą. Każdy test przechodzi na 360 px i na
+ * desktopie, w motywie jasnym i ciemnym.
  */
 
 const CLUB = { name: 'Planszówki', logo_path: null };
@@ -23,6 +25,7 @@ const BEA = member(2, 'Bea', 'Bobrowska');
 const ZOJA = member(3, 'Zoja', 'Zawada', true);
 const AZUL = mockGame(1, 'Azul');
 const BRZDEK = mockGame(2, 'Brzdęk');
+const CARCASSONNE = mockGame(3, 'Carcassonne');
 const MARZEC = mockMeeting(1, 'Marcowe granie', {
   starts_at: '2026-03-10T17:00:00+00:00',
   status: 'finished',
@@ -31,80 +34,100 @@ const MARZEC = mockMeeting(1, 'Marcowe granie', {
   finished_at: '2026-03-10T22:00:00+00:00',
   participants: [BEA.id],
 });
-
-const recent = (n: number, game: typeof AZUL, place: number, points: number) => ({
-  play_id: `00000000-0000-4000-f000-${n.toString(16).padStart(12, '0')}`,
-  meeting_id: MARZEC.id,
-  meeting_title: MARZEC.title,
-  starts_at: MARZEC.starts_at,
-  game_id: game.id,
-  game_title: game.title,
-  place,
-  points,
-  is_win: place === 1,
+const LUTY = mockMeeting(2, 'Lutowe granie', {
+  starts_at: '2026-02-10T17:00:00+00:00',
+  status: 'finished',
+  voting_open: false,
+  started_at: '2026-02-10T17:00:00+00:00',
+  finished_at: '2026-02-10T22:00:00+00:00',
+  participants: [BEA.id],
 });
 
-/** Cała historia Bei: 7 partii, 4 wygrane (57%), wspólne 1. miejsce w serii. */
+const recent = (meeting: typeof MARZEC, plays: number, wins: number, points: number) => ({
+  meeting_id: meeting.id,
+  title: meeting.title,
+  starts_at: meeting.starts_at,
+  plays,
+  wins,
+  points,
+});
+
+/** Cała historia Bei: 7 partii, 4 wygrane (57%). */
 const BEA_ALL = {
-  years: [2026, 2025],
   meetings: 4,
   plays: 7,
   wins: 4,
   points: 56,
+  wins_total: 4,
   streak_record: 2,
   streak_current: 1,
   places: { points: 1, wins: 2 },
-  favorite_game: { game_id: AZUL.id, title: AZUL.title, plays: 3, wins: 2 },
-  best_game: { game_id: AZUL.id, title: AZUL.title, plays: 3, wins: 2 },
-  recent_plays: [recent(7, BRZDEK, 1, 10), recent(6, AZUL, 2, 6)],
+  favorite_game: { game_id: AZUL.id, title: AZUL.title, cover_path: null, plays: 3, wins: 2 },
+  best_game: { game_id: AZUL.id, title: AZUL.title, cover_path: null, plays: 3, wins: 2 },
+  recent_meetings: [recent(MARZEC, 2, 2, 20), recent(LUTY, 2, 0, 12)],
 };
 
-/** Rok 2025 Bei: jedna partia, bez gry z ≥ 3 partiami. */
-const BEA_2025 = {
-  ...BEA_ALL,
-  meetings: 1,
-  plays: 1,
-  wins: 1,
-  points: 10,
-  streak_record: 1,
-  streak_current: 1,
-  places: { points: 1, wins: 1 },
-  favorite_game: { game_id: AZUL.id, title: AZUL.title, plays: 1, wins: 1 },
-  best_game: null,
-  recent_plays: [recent(1, AZUL, 1, 10)],
-};
+/** Tylko Brzdęk: statystyki profilu z filtrem, reszta bez zmian (cała historia). */
+const BEA_BRZDEK = { ...BEA_ALL, meetings: 3, plays: 3, wins: 1 };
 
 /** Usunięta Zoja: statystyki z historii, bez miejsc w rankingach (LB-7). */
 const ZOJA_ALL = {
   ...EMPTY_PLAYER_STATS,
-  years: [2026],
   meetings: 1,
   plays: 1,
   wins: 1,
   points: 10,
+  wins_total: 1,
   streak_record: 1,
   streak_current: 1,
-  favorite_game: { game_id: BRZDEK.id, title: BRZDEK.title, plays: 1, wins: 1 },
-  recent_plays: [recent(5, BRZDEK, 1, 10)],
+  favorite_game: { game_id: BRZDEK.id, title: BRZDEK.title, cover_path: null, plays: 1, wins: 1 },
+  recent_meetings: [recent(MARZEC, 1, 1, 10)],
 };
 
-function playerStats(profileId: string, year: number | null) {
+function playerStats(profileId: string, call: MockFilterCall) {
   if (profileId === BEA.id) {
-    if (year === null) return BEA_ALL;
-    if (year === 2025) return BEA_2025;
-    return { ...EMPTY_PLAYER_STATS, years: BEA_ALL.years };
+    if (call.game_ids?.length === 1 && call.game_ids[0] === BRZDEK.id) return BEA_BRZDEK;
+    if (call.date_from || call.date_to || call.game_ids)
+      return { ...BEA_ALL, meetings: 0, plays: 0, wins: 0 };
+    return BEA_ALL;
   }
   if (profileId === ZOJA.id) return ZOJA_ALL;
   return EMPTY_PLAYER_STATS;
+}
+
+const record = (
+  game: typeof AZUL,
+  value: number | null,
+  clubRecord = false,
+  meeting: typeof MARZEC | null = MARZEC,
+) => ({
+  game_id: game.id,
+  title: game.title,
+  cover_path: null,
+  game_deleted: false,
+  dir: value === null ? null : 'desc',
+  value,
+  play_id: value === null ? null : '00000000-0000-4000-f000-000000000001',
+  meeting_id: value === null ? null : (meeting?.id ?? null),
+  meeting_title: value === null ? null : (meeting?.title ?? null),
+  starts_at: value === null ? null : (meeting?.starts_at ?? null),
+  club_record: clubRecord,
+});
+
+function playerRecords(profileId: string, call: MockFilterCall) {
+  if (profileId !== BEA.id) return [];
+  const all = [record(AZUL, 42, true), record(BRZDEK, 17.5), record(CARCASSONNE, null)];
+  return call.game_ids ? all.filter((r) => call.game_ids?.includes(r.game_id)) : all;
 }
 
 async function openProfile(page: Page, id: string, options: MockOptions = {}) {
   const mock = await mockSupabase(page, {
     club: CLUB,
     members: [BEA, ZOJA],
-    games: [AZUL, BRZDEK],
-    meetings: [MARZEC],
+    games: [AZUL, BRZDEK, CARCASSONNE],
+    meetings: [MARZEC, LUTY],
     playerStats,
+    playerRecords,
     ...options,
   });
   await storeSession(page, session());
@@ -127,73 +150,142 @@ async function horizontalOverflow(page: Page): Promise<number> {
   );
 }
 
-/** Wartość kafla statystyk o podanej etykiecie. */
-const tile = (scope: ReturnType<Page['getByRole']>, label: string) =>
+/** Kafel statystyk o podanej etykiecie. */
+const tile = (scope: Locator, label: string) =>
   scope.locator('.player-stats__tile', { has: scope.page().getByText(label, { exact: true }) });
 
-test('statystyki gracza: liczniki, miejsca, ulubiona i najlepsza gra, ostatnie partie (STAT-1, STAT-2)', async ({
+/** Pasek filtrów grupy (statystyki profilu albo rekordy). */
+const filterBar = (dialog: Locator, name: string) => dialog.getByRole('group', { name });
+
+async function pickGame(page: Page, bar: Locator, title: string, label = title) {
+  await bar.getByRole('button', { name: /^Gry:/ }).click();
+  const games = page.getByRole('dialog', { name: 'Gry' });
+  await games.getByRole('option', { name: title }).click();
+  await games.getByRole('button', { name: 'Gotowe' }).click();
+  await expect(bar.getByRole('button', { name: `Gry: ${label}` })).toBeVisible();
+}
+
+test('statystyki: grupy profilu, leaderboardu i ulubionych, ostatnie spotkania (STAT-1, STAT-2)', async ({
   page,
 }) => {
   const { mock, dialog } = await openProfile(page, BEA.id);
-  const counters = dialog.getByRole('definition').first();
-  await expect(counters).toBeVisible();
+  const profileStats = dialog.getByRole('definition').first();
+  await expect(profileStats).toBeVisible();
   await expect(tile(dialog, 'Spotkania')).toContainText('4');
   await expect(tile(dialog, 'Partie')).toContainText('7');
+  await expect(tile(dialog, 'Wygrane')).toContainText('4');
   await expect(tile(dialog, '% wygranych')).toContainText('57%');
-  await expect(tile(dialog, 'Rekord serii')).toContainText('2');
-  await expect(tile(dialog, 'Bieżąca seria')).toContainText('1');
-  await expect(tile(dialog, 'Wygrane').first()).toContainText('4');
 
-  const places = dialog.locator('.player-stats--places');
-  await expect(places.locator('.player-stats__tile')).toHaveText(['Punkty1.', 'Wygrane2.']);
+  const leaderboard = dialog.getByLabel('Leaderboard z całej historii');
+  await expect(leaderboard.locator('.player-stats__tile')).toHaveText([
+    'Miejsce w leaderboardzie punktowym1.',
+    'Liczba punktów56',
+    'Miejsce w leaderboardzie zwycięstw2.',
+    'Liczba zwycięstw4',
+    'Obecna seria1',
+    'Najwyższa seria2',
+  ]);
 
-  await expect(tile(dialog, 'Ulubiona gra')).toContainText('3 partie · 2 wygrane');
-  await expect(tile(dialog, 'Najlepsza gra')).toContainText('67% wygranych · 3 partie');
+  const favorites = dialog.getByRole('group', { name: 'Ulubione gry z całej historii' });
+  await expect(tile(favorites, 'Ulubiona gra')).toContainText('3 partie · 2 wygrane');
+  await expect(tile(favorites, 'Najlepsza gra')).toContainText('67% wygranych · 3 partie');
+  await expect(favorites.locator('.game-cover')).toHaveCount(2);
 
-  const recentPlays = dialog.getByRole('list', { name: 'Ostatnie partie' }).getByRole('listitem');
-  await expect(recentPlays).toHaveCount(2);
-  await expect(recentPlays.first()).toContainText('Brzdęk');
-  await expect(recentPlays.first()).toContainText('10pkt');
-  expect(mock.playerStatsCalls).toContainEqual({ profileId: BEA.id, year: null });
+  const meetings = dialog.getByRole('list', { name: 'Ostatnie spotkania' }).getByRole('listitem');
+  await expect(meetings).toHaveCount(2);
+  await expect(meetings.first()).toContainText('Marcowe granie');
+  await expect(meetings.first()).toContainText('2 partie · 2 wygrane');
+  await expect(meetings.first()).toContainText('20pkt');
+  expect(mock.playerStatsCalls).toContainEqual({
+    profileId: BEA.id,
+    date_from: null,
+    date_to: null,
+    game_ids: null,
+  });
 
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);
 
-  // Link partii otwiera spotkanie, a link gry jej szczegóły (PRD §4).
-  await recentPlays
+  // Link spotkania otwiera spotkanie, a link gry jej szczegóły (PRD §4).
+  await meetings
     .first()
     .getByRole('link', { name: 'Otwórz spotkanie: Marcowe granie, 10 mar 2026' })
     .click();
   await expect(page.getByRole('dialog', { name: /Marcowe granie/ })).toBeVisible();
   await page.goBack();
-  await tile(dialog, 'Najlepsza gra').getByRole('link', { name: 'Azul' }).click();
+  await tile(favorites, 'Najlepsza gra').getByRole('link', { name: 'Azul' }).click();
   await expect(page.getByRole('dialog', { name: /Azul/ })).toBeVisible();
 });
 
-test('filtr roku: rok z partiami, pusta najlepsza gra i rok bez partii (STAT-3, Q21)', async ({
+test('statystyki profilu: filtry jak w rankingu zmieniają tylko pierwszą grupę (STAT-3, LB-4)', async ({
   page,
 }) => {
   const { mock, dialog } = await openProfile(page, BEA.id);
-  const filter = dialog.getByRole('button', { name: /Zakres statystyk/ });
-  await expect(filter).toContainText('Cała historia');
+  const bar = filterBar(dialog, 'Filtry statystyk profilu');
+  await expect(bar.getByRole('button', { name: 'Zakres dat: Cała historia' })).toBeVisible();
+  await pickGame(page, bar, 'Brzdęk');
+  await expect
+    .poll(() => mock.playerStatsCalls.at(-1))
+    .toEqual({ profileId: BEA.id, date_from: null, date_to: null, game_ids: [BRZDEK.id] });
+  await expect(tile(dialog, 'Partie')).toContainText('3');
+  await expect(tile(dialog, '% wygranych')).toContainText('33%');
+  // Leaderboard i ulubione zostają z całej historii.
+  await expect(tile(dialog, 'Liczba punktów')).toContainText('56');
+  await expect(tile(dialog, 'Ulubiona gra')).toContainText('Azul');
+  // Rekordy mają własne filtry.
+  expect(mock.playerRecordsCalls.every((c) => c.game_ids === null)).toBe(true);
 
-  await filter.click();
-  await expect(page.getByRole('option')).toHaveText(['Cała historia', '2026', '2025']);
-  await page.getByRole('option', { name: '2025' }).click();
-  await expect(tile(dialog, 'Partie')).toContainText('1');
-  await expect(tile(dialog, 'Najlepsza gra')).toContainText(
-    'Zagraj co najmniej 3 partie jednej gry.',
-  );
-  await expect(
-    dialog.getByRole('list', { name: 'Ostatnie partie' }).getByRole('listitem'),
-  ).toHaveCount(1);
-  expect(mock.playerStatsCalls).toContainEqual({ profileId: BEA.id, year: 2025 });
-
-  await filter.click();
-  await page.getByRole('option', { name: '2026' }).click();
-  await expect(dialog).toContainText('Brak partii w 2026');
+  // Druga gra dochodzi do wyboru; atrapa nie ma dla niej partii.
+  await pickGame(page, bar, 'Azul', '2 gry');
+  await expect(dialog).toContainText('Brak partii dla tych filtrów');
+  await bar.getByRole('button', { name: /Wyczyść filtry/ }).click();
+  await expect(tile(dialog, 'Partie')).toContainText('7');
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);
+});
+
+test('rekordy osobiste: każda gra z okładką, „–” bez wyniku, pieczątka rekordu klubu i filtry (USR-4)', async ({
+  page,
+}) => {
+  const { mock, dialog } = await openProfile(page, BEA.id);
+  const list = dialog.getByRole('list', { name: 'Rekordy osobiste w grach' });
+  const cards = list.locator('.record');
+  await expect(cards).toHaveCount(3);
+  await expect(list.locator('.game-cover')).toHaveCount(3);
+  await expect(cards.nth(0)).toContainText('Azul');
+  await expect(cards.nth(0)).toContainText('42');
+  await expect(cards.nth(0)).toContainText('Rekord klubu');
+  await expect(cards.nth(0)).toContainText('Marcowe granie');
+  await expect(cards.nth(1)).toContainText('17,5');
+  await expect(cards.nth(1)).not.toContainText('Rekord klubu');
+  await expect(cards.nth(2)).toContainText('–');
+  await expect(cards.nth(2)).toContainText('Brak wyniku');
+
+  // Widok: tylko z wynikiem, tylko rekordy klubu.
+  await dialog.getByRole('button', { name: /Pokaż rekordy/ }).click();
+  await page.getByRole('option', { name: 'Tylko z wynikiem' }).click();
+  await expect(cards).toHaveCount(2);
+  await dialog.getByRole('button', { name: /Pokaż rekordy/ }).click();
+  await page.getByRole('option', { name: 'Tylko rekordy klubu' }).click();
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toHaveAttribute('data-club-record', 'true');
+  expect(await axe(page)).toEqual([]);
+
+  await dialog.getByRole('button', { name: /Pokaż rekordy/ }).click();
+  await page.getByRole('option', { name: 'Wszystkie rekordy' }).click();
+  await pickGame(page, filterBar(dialog, 'Filtry rekordów osobistych'), 'Brzdęk');
+  await expect
+    .poll(() => mock.playerRecordsCalls.at(-1))
+    .toEqual({ profileId: BEA.id, date_from: null, date_to: null, game_ids: [BRZDEK.id] });
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText('Brzdęk');
+
+  await cards
+    .first()
+    .getByRole('link', { name: /Otwórz spotkanie z rekordem/ })
+    .click();
+  await expect(page.getByRole('dialog', { name: /Marcowe granie/ })).toBeVisible();
+  expect(await horizontalOverflow(page)).toBe(0);
 });
 
 test('usunięty członek: profil tylko do odczytu ze statystykami z historii (MEM-5, LB-7)', async ({
@@ -205,14 +297,20 @@ test('usunięty członek: profil tylko do odczytu ze statystykami z historii (ME
   await expect(dialog.getByRole('button', { name: 'Usuń członka' })).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Ustawienia' })).toHaveCount(0);
   await expect(tile(dialog, 'Partie')).toContainText('1');
-  const places = dialog.locator('.player-stats--places .player-stats__value');
-  await expect(places).toHaveText(['–Brak miejsca', '–Brak miejsca']);
+  await expect(tile(dialog, 'Miejsce w leaderboardzie punktowym')).toContainText('Brak miejsca');
+  await expect(tile(dialog, 'Miejsce w leaderboardzie zwycięstw')).toContainText('Brak miejsca');
   await expect(tile(dialog, 'Najlepsza gra')).toContainText('Zagraj co najmniej 3 partie');
   expect(await axe(page)).toEqual([]);
 });
 
-test('zero partii: stan oczekiwania bez filtru roku', async ({ page }) => {
-  const { dialog } = await openProfile(page, BEA.id, { playerStats: () => EMPTY_PLAYER_STATS });
+test('zero partii: stan oczekiwania bez filtrów statystyk, rekordy bez wyników', async ({
+  page,
+}) => {
+  const { dialog } = await openProfile(page, BEA.id, {
+    playerStats: () => EMPTY_PLAYER_STATS,
+    playerRecords: () => [record(AZUL, null), record(BRZDEK, null)],
+  });
   await expect(dialog.getByText('Statystyki pojawią się po pierwszej partii')).toBeVisible();
-  await expect(dialog.getByRole('button', { name: /Zakres statystyk/ })).toHaveCount(0);
+  await expect(filterBar(dialog, 'Filtry statystyk profilu')).toHaveCount(0);
+  await expect(dialog.locator('.record--empty')).toHaveCount(2);
 });

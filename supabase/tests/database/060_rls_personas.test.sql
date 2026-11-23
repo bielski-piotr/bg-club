@@ -12,7 +12,7 @@ set constraints all immediate;
 -- Storage blokuje bezpośrednie DELETE na storage.objects; w teście sprawdzamy same polityki.
 set local storage.allow_delete_query = 'true';
 
-select plan(105);
+select plan(104);
 
 -- ---------------------------------------------------------------------------------------------
 -- Dane testowe (jako właściciel, bez RLS)
@@ -287,10 +287,6 @@ select throws_ok(
 select throws_ok(
   $$ update public.play_results set points = 100 where profile_id = '00000000-0000-4000-a000-000000000002' $$,
   '42501', 'permission denied for table play_results', 'gracz: nie zmienia wyników');
-select throws_ok(
-  $$ insert into public.achievement_unlocks (profile_id, achievement_id, unlocked_at, meeting_id) values
-     ('00000000-0000-4000-a000-000000000002', 'win-1', now(), '00000000-0000-4000-c000-000000000001') $$,
-  '42501', 'permission denied for table achievement_unlocks', 'gracz: nie przyznaje sobie osiągnięć');
 
 -- Storage
 select lives_ok(
