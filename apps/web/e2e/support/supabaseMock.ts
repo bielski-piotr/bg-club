@@ -174,12 +174,10 @@ export interface MockOptions {
   /** Tyle pierwszych usunięć plików z bucketu `sheets` kończy się błędem Storage (500). */
   sheetRemoveFailures?: number;
   /**
-   * Wynik `leaderboard(kind, year)` (LB-1, LB-4) w kolejności z bazy; `year` `null` = cała
-   * historia. Domyślnie pusty ranking.
+   * Wynik `leaderboard(kind, date_from, date_to, game_ids)` (LB-1, LB-4) w kolejności z bazy;
+   * brak filtrów to `null`. Brakujące pola rozstrzygnięcia remisów dostają wartości domyślne.
    */
-  leaderboard?: (kind: string, year: number | null) => readonly MockLeaderboardRow[];
-  /** Wynik `leaderboard_years()`; domyślnie brak lat. */
-  leaderboardYears?: readonly number[];
+  leaderboard?: (kind: string, call: MockLeaderboardCall) => readonly MockLeaderboardRow[];
   /**
    * Wynik `game_stats(game_id)` (GAME-11, migracja `20261113001800_game_stats.sql`); domyślnie
    * statystyki bez partii.
@@ -222,7 +220,7 @@ export const EMPTY_PLAYER_STATS = {
   points: 0,
   streak_record: 0,
   streak_current: 0,
-  places: { points: null, wins: null, streak: null },
+  places: { points: null, wins: null },
   favorite_game: null,
   best_game: null,
   recent_plays: [],
@@ -245,7 +243,7 @@ export const EMPTY_PLAYER_ACHIEVEMENTS = {
   },
 } as const;
 
-/** Wiersz `leaderboard(kind, year)` (migracja `20261113001700_leaderboard.sql`). */
+/** Wiersz `leaderboard(…)` (migracja `20261123000000_leaderboard_ties_filters.sql`). */
 export interface MockLeaderboardRow {
   readonly place: number;
   readonly profile_id: string;
@@ -255,6 +253,20 @@ export interface MockLeaderboardRow {
   readonly deleted: boolean;
   readonly podium: boolean;
   readonly value: number;
+  readonly tied?: boolean;
+  readonly reached_meeting_id?: string | null;
+  readonly reached_meeting_title?: string | null;
+  readonly reached_at?: string | null;
+  readonly reached_points?: number | null;
+  readonly wins?: number;
+}
+
+/** Argumenty wywołania `leaderboard`. */
+export interface MockLeaderboardCall {
+  readonly kind: string;
+  readonly date_from: string | null;
+  readonly date_to: string | null;
+  readonly game_ids: readonly string[] | null;
 }
 
 /** Wywołanie `save_play` (PAD-5): kartka i wyniki graczy bez punktów. */
@@ -542,8 +554,8 @@ export interface SupabaseMock {
   readonly sheetRemoved: string[];
   /** Wywołania `delete_play` (VIEW-6, id partii), także odrzucone. */
   readonly playDeletes: string[];
-  /** Wywołania `leaderboard` (rodzaj i rok). */
-  readonly leaderboardCalls: { readonly kind: string; readonly year: number | null }[];
+  /** Wywołania `leaderboard` (rodzaj i filtry). */
+  readonly leaderboardCalls: MockLeaderboardCall[];
   /** Wywołania `player_stats` (gracz i rok). */
   readonly playerStatsCalls: { readonly profileId: string; readonly year: number | null }[];
 }
@@ -1408,12 +1420,26 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       return route.fulfill({ json: { version: (pad?.current.version ?? 0) + 1 } });
     }
     if (url.pathname === '/rest/v1/rpc/leaderboard' && request.method() === 'POST') {
-      const { kind, year } = request.postDataJSON() as { kind: string; year: number | null };
-      mock.leaderboardCalls.push({ kind, year });
-      return route.fulfill({ json: mock.options.leaderboard?.(kind, year) ?? [] });
-    }
-    if (url.pathname === '/rest/v1/rpc/leaderboard_years' && request.method() === 'POST') {
-      return route.fulfill({ json: mock.options.leaderboardYears ?? [] });
+      const body = request.postDataJSON() as Partial<MockLeaderboardCall> & { kind: string };
+      const call: MockLeaderboardCall = {
+        kind: body.kind,
+        date_from: body.date_from ?? null,
+        date_to: body.date_to ?? null,
+        game_ids: body.game_ids ?? null,
+      };
+      mock.leaderboardCalls.push(call);
+      const rows = mock.options.leaderboard?.(call.kind, call) ?? [];
+      return route.fulfill({
+        json: rows.map((row) => ({
+          tied: false,
+          reached_meeting_id: null,
+          reached_meeting_title: null,
+          reached_at: null,
+          reached_points: null,
+          wins: 0,
+          ...row,
+        })),
+      });
     }
     if (url.pathname === '/rest/v1/rpc/game_vote_total' && request.method() === 'POST') {
       const { game_id } = request.postDataJSON() as { game_id: string };

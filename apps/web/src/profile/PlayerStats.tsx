@@ -3,7 +3,6 @@ import { useAuth } from '../auth/authContext';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useClub } from '../hub/club';
 import { format, formatNumber, plural, t } from '../i18n';
-import { filterYear, yearFilterValues, type YearFilter } from '../leaderboard/leaderboard';
 import { shortMeetingDate } from '../meetings/datetime';
 import { PopupLink } from '../popups/PopupLink';
 import { QueryStatus } from '../popups/QueryStatus';
@@ -14,6 +13,9 @@ import {
   winRate,
   type PlayerGame,
   type PlayerStats,
+  filterYear,
+  yearFilterValues,
+  type YearFilter,
 } from './playerStatsData';
 
 const text = t.profile.stats;
@@ -99,7 +101,6 @@ function StatsBody({
   const places: readonly (readonly [string, number | null])[] = [
     [t.leaderboard.tabs.points, stats.places.points],
     [t.leaderboard.tabs.wins, stats.places.wins],
-    [t.leaderboard.tabs.streak, stats.places.streak],
   ];
   return (
     <>

@@ -15,7 +15,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(39);
 
 insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw');
 
@@ -124,14 +124,13 @@ as $$
 $$;
 grant execute on function public.test_totals(int, int) to authenticated;
 
--- Miejsca w rankingach jako tekst: „punkty/wygrane/seria” („-” = brak klasyfikacji).
+-- Miejsca w rankingach jako tekst: „punkty/wygrane” („-” = brak klasyfikacji).
 create function public.test_places(profile int, year int default null)
 returns text
 language sql
 set search_path = ''
 as $$
   select coalesce(s -> 'places' ->> 'points', '-') || '/' || coalesce(s -> 'places' ->> 'wins', '-')
-         || '/' || coalesce(s -> 'places' ->> 'streak', '-')
     from public.test_stats(profile, year) s;
 $$;
 grant execute on function public.test_places(int, int) to authenticated;
@@ -165,18 +164,19 @@ select is(public.test_stats(11) -> 'years', '[2026, 2025]'::jsonb,
 -- Zero partii (Bartek ma tylko szkic)
 -- =============================================================================================
 select is(public.test_totals(15), '0/0/0/0 seria 0/0', 'zero partii: same zera (szkic się nie liczy)');
-select is(public.test_places(15), '-/-/-', 'zero partii: brak miejsc w rankingach');
+select is(public.test_places(15), '-/-', 'zero partii: brak miejsc w rankingach');
 select ok(public.test_stats(15) -> 'favorite_game' = 'null'::jsonb, 'zero partii: brak ulubionej gry');
 select ok(public.test_stats(15) -> 'best_game' = 'null'::jsonb, 'zero partii: brak najlepszej gry');
 select is(public.test_stats(15) -> 'recent_plays', '[]'::jsonb, 'zero partii: pusta lista partii');
 select is(public.test_stats(15) -> 'years', '[]'::jsonb, 'zero partii: brak lat w filtrze');
 
 -- =============================================================================================
--- Miejsca w trzech rankingach (STAT-1, LB-6, LB-7)
+-- Miejsca w dwóch rankingach (STAT-1, LB-6, LB-7); seria nie jest już rankingiem
 -- =============================================================================================
-select is(public.test_places(11), '1/1/1', 'Łukasz: 1. w punktach i wygranych, wspólne 1. w serii');
-select is(public.test_places(13), '2/2/1', 'Mateusz: wspólne 1. miejsce w serii (rekord 2 jak Łukasz)');
-select is(public.test_places(12), '3/3/3', 'Lucyna: 3. miejsca (usunięta Celina nie wyprzedza)');
+select is(public.test_places(11), '1/1', 'Łukasz: 1. w punktach i wygranych');
+select is(public.test_places(13), '2/2', 'Mateusz: 2. miejsca');
+select is(public.test_places(12), '3/3', 'Lucyna: 3. miejsca (usunięta Celina nie wyprzedza)');
+select ok(not (public.test_stats(11) -> 'places' ? 'streak'), 'brak miejsca w rankingu serii');
 
 -- =============================================================================================
 -- Ulubiona i najlepsza gra (STAT-2, Q21) — próg trzech partii
@@ -208,7 +208,7 @@ select is((public.test_stats(11) -> 'recent_plays' -> 0) - 'starts_at', jsonb_bu
 -- =============================================================================================
 select is(public.test_totals(11, 2025), '1/1/1/10 seria 1/1', 'rok 2025: tylko sylwestrowe spotkanie');
 select is(public.test_totals(11, 2026), '3/6/3/46 seria 1/1', 'rok 2026: seria liczona tylko w obrębie roku');
-select is(public.test_places(12, 2025), '2/2/2', 'miejsca w rankingach tego samego roku');
+select is(public.test_places(12, 2025), '2/2', 'miejsca w rankingach tego samego roku');
 select is(public.test_recent(11, 2025), array[1], 'ostatnie partie tylko z wybranego roku');
 select is(public.test_stats(11, 2025) -> 'years', '[2026, 2025]'::jsonb, 'lata filtru zawsze z całej historii');
 select is(public.test_totals(11, 2024), '0/0/0/0 seria 0/0', 'rok bez partii: same zera');

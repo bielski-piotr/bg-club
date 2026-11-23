@@ -1,17 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import { profilesKey } from '../profile/profiles';
+import { normalizeGames, type LeaderboardFilters } from './filters';
 import type { LeaderboardKind } from './kinds';
 
 /**
- * Dane rankingu (PRD LB-1…LB-7) z funkcji SQL `leaderboard(kind, year)` i `leaderboard_years()`
- * (migracja `20261113001700_leaderboard.sql`). Baza liczy miejsca, remisy (1, 1, 3, alfabetycznie)
- * i usuniętych na końcu bez podium; tu tylko dzielimy wynik na stopnie podium i listę.
+ * Dane rankingu (PRD LB-1…LB-7) z funkcji SQL `leaderboard(kind, date_from, date_to, game_ids)`
+ * (migracja `20261123000000_leaderboard_ties_filters.sql`). Baza liczy miejsca bez remisów
+ * (rozstrzygnięcia: `ties.ts`) i usuniętych na końcu bez podium; tu tylko dzielimy wynik na
+ * stopnie podium i listę.
  */
 
 export { LEADERBOARD_KINDS, isLeaderboardKind, type LeaderboardKind } from './kinds';
 
-/** Wiersz `leaderboard(kind, year)` w kolejności wyświetlania. */
+/** Wiersz `leaderboard(…)` w kolejności wyświetlania. */
 export interface LeaderboardEntry {
   readonly place: number;
   readonly profile_id: string;
@@ -21,6 +23,16 @@ export interface LeaderboardEntry {
   readonly deleted: boolean;
   readonly podium: boolean;
   readonly value: number;
+  /** Ktoś inny (aktywny albo usunięty, w tej samej grupie) ma ten sam wynik. */
+  readonly tied: boolean;
+  /** Spotkanie, na którym gracz osiągnął wynik (ostatnie, które go zmieniło); `null` przy 0. */
+  readonly reached_meeting_id: string | null;
+  readonly reached_meeting_title: string | null;
+  readonly reached_at: string | null;
+  /** Punkty zdobyte na tym spotkaniu (w zakresie filtrów). */
+  readonly reached_points: number | null;
+  /** Wszystkie wygrane gracza z całej historii, bez filtrów (3. kryterium rozstrzygnięcia). */
+  readonly wins: number;
 }
 
 /** Jeden stopień podium: miejsce i wszyscy, którzy je dzielą (LB-6), alfabetycznie. */
@@ -72,61 +84,44 @@ export function widgetRows(
   return { shown, own };
 }
 
-/** Wartość filtru roku: `all` = cała historia (LB-4, domyślnie) albo rok, np. `2026`. */
-export type YearFilter = 'all' | `${number}`;
-
-export function filterYear(filter: YearFilter): number | null {
-  return filter === 'all' ? null : Number(filter);
-}
-
-/**
- * Opcje filtru roku (LB-4, STAT-3): „Cała historia”, potem lata od najnowszego.
- * Wybrany rok, który zniknął z listy (np. po usunięciu jego jedynej partii), zostaje na końcu.
- */
-export function yearFilterValues(
-  years: readonly number[],
-  selected: YearFilter,
-): readonly YearFilter[] {
-  const values: YearFilter[] = ['all', ...years.map((year) => `${year}` as const)];
-  if (!values.includes(selected)) values.push(selected);
-  return values;
-}
-
 /**
  * Klucze w `profilesKey`: zapis i usunięcie partii odświeżają ranking razem z profilami
  * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
  */
 export const leaderboardRootKey = [...profilesKey, 'leaderboard'] as const;
-export const leaderboardKey = (kind: LeaderboardKind, year: number | null) =>
-  [...leaderboardRootKey, kind, year ?? 'all'] as const;
-export const leaderboardYearsKey = [...leaderboardRootKey, 'years'] as const;
+export const leaderboardKey = (kind: LeaderboardKind, filters: LeaderboardFilters) =>
+  [
+    ...leaderboardRootKey,
+    kind,
+    filters.from ?? '',
+    filters.to ?? '',
+    normalizeGames(filters.games).join(','),
+  ] as const;
+
+/** Argumenty RPC: brak filtru to `null` (pusta lista gier też). */
+export function leaderboardArgs(kind: LeaderboardKind, filters: LeaderboardFilters) {
+  return {
+    kind,
+    date_from: filters.from,
+    date_to: filters.to,
+    game_ids: filters.games.length > 0 ? normalizeGames(filters.games) : null,
+  };
+}
 
 export function useLeaderboard(
   client: SupabaseClient,
   kind: LeaderboardKind,
-  year: number | null = null,
+  filters: LeaderboardFilters,
 ) {
   return useQuery({
-    queryKey: leaderboardKey(kind, year),
+    queryKey: leaderboardKey(kind, filters),
     queryFn: async (): Promise<readonly LeaderboardEntry[]> => {
-      const { data, error } = await client.rpc('leaderboard', { kind, year });
+      const { data, error } = await client.rpc('leaderboard', leaderboardArgs(kind, filters));
       if (error) throw error;
       return (data ?? []) as LeaderboardEntry[];
     },
-    // Przy zmianie roku w tej samej zakładce poprzedni wynik zostaje do czasu nowego (bez
+    // Przy zmianie filtrów w tej samej zakładce poprzedni wynik zostaje do czasu nowego (bez
     // migania); po zmianie zakładki nie, bo miałby jednostki innej klasyfikacji.
     placeholderData: (previous, query) => (query?.queryKey[2] === kind ? previous : undefined),
-  });
-}
-
-/** Lata z zapisanymi partiami (w strefie klubu, NFR-10), od najnowszego: opcje filtru roku. */
-export function useLeaderboardYears(client: SupabaseClient) {
-  return useQuery({
-    queryKey: leaderboardYearsKey,
-    queryFn: async (): Promise<readonly number[]> => {
-      const { data, error } = await client.rpc('leaderboard_years');
-      if (error) throw error;
-      return (data ?? []) as number[];
-    },
   });
 }

@@ -1,4 +1,9 @@
 import { achievementById } from '@bg-club/scoring';
+import {
+  filterSegments,
+  parseFilterSegments,
+  type LeaderboardFilters,
+} from '../leaderboard/filters';
 import { isLeaderboardKind, type LeaderboardKind } from '../leaderboard/kinds';
 
 /**
@@ -93,11 +98,25 @@ export type PopupRoute =
   /** Kalendarz spotkań (CAL-1…CAL-3), adres `calendar`. */
   | { readonly kind: 'calendar' }
   /**
-   * Pełny ranking z filtrem roku (LB-3, LB-4), adres `leaderboard` albo `leaderboard/<zakładka>`
-   * (`points`, `wins`, `streak`): zakładka startowa, z którą otworzył go widżet. Dalsze
-   * przełączanie zakładek i roku jest stanem popupu (bez nowych wpisów historii).
+   * Pełny ranking z filtrami dat i gier (LB-3, LB-4), adres `leaderboard` albo
+   * `leaderboard/<zakładka>` (`points`, `wins`) z opcjonalnymi segmentami filtrów
+   * (`from:RRRR-MM-DD`, `to:RRRR-MM-DD`, `games:<uuid>,<uuid>`): stan, z którym otworzył go
+   * widżet. Dalsze przełączanie zakładek i filtrów jest stanem popupu (bez wpisów historii).
    */
-  | { readonly kind: 'leaderboard'; readonly tab?: LeaderboardKind | undefined }
+  | {
+      readonly kind: 'leaderboard';
+      readonly tab?: LeaderboardKind | undefined;
+      readonly filters?: LeaderboardFilters | undefined;
+    }
+  /**
+   * Szczegóły rozstrzygnięcia remisów rankingu dla zakładki i filtrów, adres
+   * `leaderboard/<zakładka>/ties` z tymi samymi segmentami filtrów.
+   */
+  | {
+      readonly kind: 'leaderboard-ties';
+      readonly tab: LeaderboardKind;
+      readonly filters?: LeaderboardFilters | undefined;
+    }
   /** „Edytuj spotkanie” (PLAN-3, PLAN-4, admin), adres `meeting/<uuid>/edit`. */
   | { readonly kind: 'edit-meeting'; readonly id: string }
   /** Potwierdzenie „Usuń spotkanie” (PLAN-3, PLAN-5, admin), adres `meeting/<uuid>/delete`. */
@@ -162,8 +181,16 @@ export function parseRoute(raw: string): PopupRoute {
   }
   if (kind === 'calendar' && args.length === 0) return { kind: 'calendar' };
   if (kind === 'leaderboard' && args.length === 0) return { kind: 'leaderboard' };
-  if (kind === 'leaderboard' && args.length === 1 && isLeaderboardKind(args[0] ?? '')) {
-    return { kind: 'leaderboard', tab: args[0] as LeaderboardKind };
+  if (kind === 'leaderboard' && isLeaderboardKind(args[0] ?? '')) {
+    const tab = args[0] as LeaderboardKind;
+    const ties = args[1] === 'ties';
+    const filters = parseFilterSegments(args.slice(ties ? 2 : 1));
+    if (filters) {
+      const extra = filters.from || filters.to || filters.games.length > 0 ? { filters } : {};
+      return ties
+        ? { kind: 'leaderboard-ties', tab, ...extra }
+        : { kind: 'leaderboard', tab, ...extra };
+    }
   }
   if (kind === 'meeting' && args.length === 1 && isUuid(args[0] ?? '')) {
     return { kind: 'meeting', id: (args[0] ?? '').toLowerCase() };
@@ -253,8 +280,21 @@ export function serializeRoute(route: PopupRoute): string {
       return `meeting/${route.id}`;
     case 'calendar':
       return 'calendar';
-    case 'leaderboard':
-      return route.tab ? `leaderboard/${route.tab}` : 'leaderboard';
+    case 'leaderboard': {
+      const filters = route.filters ? filterSegments(route.filters) : [];
+      return [
+        'leaderboard',
+        ...(route.tab || filters.length > 0 ? [route.tab ?? 'points'] : []),
+        ...filters,
+      ].join('/');
+    }
+    case 'leaderboard-ties':
+      return [
+        'leaderboard',
+        route.tab,
+        'ties',
+        ...(route.filters ? filterSegments(route.filters) : []),
+      ].join('/');
     case 'publish-games':
       return `meeting/${route.id}/publish`;
     case 'edit-meeting':
