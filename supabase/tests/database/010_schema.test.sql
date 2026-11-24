@@ -3,14 +3,15 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(43);
+select plan(47);
 
 -- Wszystkie encje z PRD §6.
 select tables_are(
   'public',
   array[
     'club', 'profiles', 'games', 'scorepads', 'scorepad_versions', 'meetings',
-    'meeting_participants', 'game_votes', 'meeting_games', 'plays', 'play_results'
+    'meeting_participants', 'game_votes', 'meeting_games', 'plays', 'play_results',
+    'meeting_date_options', 'meeting_date_votes'
   ],
   'schemat public ma dokładnie encje z PRD §6'
 );
@@ -32,7 +33,11 @@ select columns_are('public', 'scorepad_versions',
   'kolumny scorepad_versions');
 select columns_are('public', 'meetings',
   array['id', 'title', 'starts_at', 'status', 'voting_open', 'host_id', 'created_by', 'started_at',
-        'finished_at', 'created_at', 'updated_at'], 'kolumny meetings');
+        'finished_at', 'created_at', 'updated_at', 'date_voting_open'], 'kolumny meetings');
+select columns_are('public', 'meeting_date_options',
+  array['id', 'meeting_id', 'starts_at', 'created_by', 'created_at'], 'kolumny meeting_date_options');
+select columns_are('public', 'meeting_date_votes',
+  array['option_id', 'meeting_id', 'profile_id', 'created_at'], 'kolumny meeting_date_votes');
 select columns_are('public', 'meeting_participants',
   array['meeting_id', 'profile_id', 'added_at'], 'kolumny meeting_participants');
 select columns_are('public', 'game_votes',
@@ -127,7 +132,10 @@ select is_empty(
         and (p.prorettype = 'trigger'::regtype or p.prosecdef)
         and p.oid not in (
           'public.save_scorepad(uuid,uuid,text,jsonb,text,int)'::regprocedure,
-          'public.save_meeting(uuid,text,date,time,uuid[],uuid,boolean)'::regprocedure,
+          'public.save_meeting(uuid,text,date,time,uuid[],uuid,boolean,jsonb,boolean)'::regprocedure,
+          'public.decide_meeting_date(uuid,uuid)'::regprocedure,
+          'public.reopen_date_voting(uuid)'::regprocedure,
+          'public.propose_meeting_date(uuid,date,time)'::regprocedure,
           'public.start_meeting(uuid)'::regprocedure,
           'public.finish_meeting(uuid)'::regprocedure,
           'public.publish_meeting_games(uuid,uuid[])'::regprocedure,
@@ -152,8 +160,19 @@ select ok(
 );
 select ok(
   (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);'
-     from pg_proc where oid = 'public.save_meeting(uuid,text,date,time,uuid[],uuid,boolean)'::regprocedure),
+     from pg_proc where oid = 'public.save_meeting(uuid,text,date,time,uuid[],uuid,boolean,jsonb,boolean)'::regprocedure),
   'save_meeting (security definer) zaczyna od strażnika private.require_admin()'
+);
+select ok(
+  (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_admin\(\);')
+     from pg_proc where oid in ('public.decide_meeting_date(uuid,uuid)'::regprocedure,
+                                'public.reopen_date_voting(uuid)'::regprocedure)),
+  'decide_meeting_date i reopen_date_voting (security definer) zaczynają od strażnika private.require_admin()'
+);
+select ok(
+  (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_active_member\(\);'
+     from pg_proc where oid = 'public.propose_meeting_date(uuid,date,time)'::regprocedure),
+  'propose_meeting_date (security definer) zaczyna od strażnika private.require_active_member()'
 );
 select ok(
   (select bool_and(prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(')

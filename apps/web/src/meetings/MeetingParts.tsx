@@ -1,9 +1,10 @@
 import { t } from '../i18n';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import type { Profile } from '../profile/profiles';
-import { Icon, StatusChip } from '../ui';
-import { dateTile } from './datetime';
+import { Badge, Icon, StatusChip } from '../ui';
+import { dateTile, durationLabel, localDateTime } from './datetime';
 import type { Meeting } from './meetings';
+import type { RecordKind } from './records';
 
 /**
  * Wspólne elementy timeline, kalendarza i popupu spotkania (DS §15.1): mini kafelek daty,
@@ -85,5 +86,57 @@ export function WinnersLine({
         {names}
       </span>
     </span>
+  );
+}
+
+/** Oznaczenie rekordu przy wyniku gracza: rekord klubu (akcent) albo osobisty. */
+export function RecordBadge({ kind }: { kind: RecordKind }) {
+  const text = t.meetings.plays;
+  return (
+    <Badge tone={kind === 'club' ? 'accent' : 'success'} className="record-badge">
+      <Icon name="trophy" size={12} />
+      {kind === 'club' ? text.clubRecord : text.personalRecord}
+    </Badge>
+  );
+}
+
+/** Początek, koniec i czas trwania partii (podsumowanie przed zapisem i zapisana karteczka). */
+export function PlayTimes({
+  startedAt,
+  endedAt,
+  timeZone,
+  labels,
+}: {
+  readonly startedAt: string;
+  readonly endedAt: string | Date;
+  readonly timeZone: string;
+  readonly labels: {
+    readonly timesLabel: string;
+    readonly started: string;
+    readonly ended: string;
+    readonly duration: string;
+  };
+}) {
+  const plays = t.meetings.plays;
+  return (
+    <dl className="play-times" aria-label={labels.timesLabel}>
+      <div className="play-times__item">
+        <dt>{labels.started}</dt>
+        <dd>{localDateTime(startedAt, timeZone).time}</dd>
+      </div>
+      <div className="play-times__item">
+        <dt>{labels.ended}</dt>
+        <dd>{localDateTime(endedAt, timeZone).time}</dd>
+      </div>
+      <div className="play-times__item">
+        <dt>{labels.duration}</dt>
+        <dd>
+          {durationLabel(startedAt, endedAt, {
+            hours: plays.durationHours,
+            minutes: plays.durationMinutes,
+          })}
+        </dd>
+      </div>
+    </dl>
   );
 }

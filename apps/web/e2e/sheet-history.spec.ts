@@ -227,9 +227,9 @@ test('oderwanie: obraz karteczki WebP ≤ 150 KB do Storage i do partii po zapis
   expect(mock.sheetRemoved).not.toContain(second);
   await expect.poll(() => mock.options.plays?.[0]?.sheet_image_path).toBe(second);
 
-  // Karta partii w spotkaniu pokazuje obraz karteczki.
+  // Karteczka partii w spotkaniu pokazuje obraz.
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
-  const thumb = meeting.locator('.play-card .play-sheet__img');
+  const thumb = meeting.locator('.meeting-sheets .play-sheet__img');
   await expect(thumb).toBeVisible();
   await check(page);
 });
@@ -247,31 +247,54 @@ test('przerwany upload obrazu: partia i tak zapisana, bez obrazu i bez dołącze
   expect(mock.sheetAttaches).toEqual([]);
   expect(mock.options.plays?.[0]?.status).toBe('saved');
   expect(mock.options.plays?.[0]?.sheet_image_path ?? null).toBeNull();
-  // Bez obrazu karta partii ma karteczkę zastępczą w kolorze gry.
+  // Bez obrazu karteczka partii jest zastępcza, w kolorze gry.
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
-  await expect(meeting.locator('.play-card .play-sheet__band')).toBeVisible();
+  await expect(meeting.locator('.meeting-sheets .play-sheet__band')).toBeVisible();
 });
 
 test('karteczka z historii: powiększenie, wyniki, link do spotkania i 3D tylko do odczytu', async ({
   page,
 }) => {
   test.slow();
-  const mock = await openHistory(page, `/?p=meeting/${FINISHED.id}`);
+  const mock = await openHistory(page, `/?p=meeting/${FINISHED.id}`, {
+    meetingRecords: () => [
+      {
+        play_id: savedPlay(1).id,
+        profile_id: BEA.id,
+        value: 22,
+        club_record: false,
+        personal_record: true,
+      },
+    ],
+  });
   const meeting = page.getByRole('dialog', { name: 'Listopadowe granie' });
   const cards = meeting.getByRole('list', { name: 'Zapisane partie' }).locator(':scope > li');
   await expect(cards).toHaveCount(2);
   await expect(cards.nth(0).locator('.play-sheet__img')).toBeVisible();
   await expect(cards.nth(1).locator('.play-sheet__band')).toBeVisible();
+  // Karteczki bez wyników: tylko gra, numer i godzina; partia z rekordem ma znacznik.
+  await expect(cards.nth(0)).toContainText('AzulPartia 1 · 20:00');
+  await expect(cards.nth(0).locator('.meeting-sheets__record')).toBeVisible();
+  await expect(cards.nth(1).locator('.meeting-sheets__record')).toHaveCount(0);
   await check(page);
 
-  await cards.nth(0).getByRole('button', { name: 'Karteczka partii Azul' }).click();
+  await cards
+    .nth(0)
+    .getByRole('button', {
+      name: 'Karteczka partii 1: Azul, zapisana o 20:00. Rekord osobisty w tej partii',
+    })
+    .click();
   const sheet = page.getByRole('dialog', { name: 'Azul' });
   await expect(sheet.getByRole('img', { name: /^Karteczka partii Azul z / })).toBeVisible();
+  // Czas partii: początek, koniec i czas trwania.
+  await expect(sheet.getByRole('definition')).toHaveText(['19:00', '20:00', '1 godz.']);
   const results = sheet.getByRole('list', { name: 'Wyniki partii Azul' }).getByRole('listitem');
   await expect(results).toHaveCount(2);
   await expect(results.nth(0)).toContainText('Bea Bobrowska');
+  await expect(results.nth(0)).toContainText('Rekord osobisty');
   await expect(results.nth(0)).toContainText('22');
   await expect(results.nth(0)).toContainText('+10');
+  await expect(results.nth(1)).not.toContainText('Rekord');
   await expect(sheet.getByText('Notes: Azul podstawowy')).toBeVisible();
   await check(page);
 

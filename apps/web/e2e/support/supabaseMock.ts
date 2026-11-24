@@ -75,6 +75,7 @@ function accessToken(seconds: number, serial: number): string {
 }
 
 let serial = 0;
+let dateOptionSeq = 1;
 
 /** Sesja jak z `POST /auth/v1/token`. Ujemne `seconds` = token już wygasł. */
 export function session(seconds = 3600) {
@@ -183,8 +184,19 @@ export interface MockOptions {
    * statystyki bez partii.
    */
   gameStats?: (gameId: string) => unknown;
-  /** Wiersze `meeting_summary(meeting_id)` (VIEW-4); domyślnie puste podsumowanie. */
-  meetingSummary?: (meetingId: string) => readonly unknown[];
+  /**
+   * Wiersze `meeting_leaderboard_changes(meeting_id, game_ids)` (podsumowanie spotkania);
+   * `games` = wybrane gry filtra (`null` = wszystkie). Domyślnie puste podsumowanie.
+   */
+  meetingSummary?: (meetingId: string, games: readonly string[] | null) => readonly unknown[];
+  /** Wiersze `meeting_play_records(meeting_id)` (rekordy w partiach); domyślnie brak. */
+  meetingRecords?: (meetingId: string) => readonly unknown[];
+  /** Wiersze `play_record_preview(play_id, results)`; domyślnie brak rekordów. */
+  recordPreview?: (playId: string) => readonly unknown[];
+  /** Proponowane terminy spotkań (`meeting_date_options`). Zapis formularza zmienia listę. */
+  dateOptions?: MockDateOption[];
+  /** Głosy na terminy (`meeting_date_votes`). Głos i cofnięcie z aplikacji zmieniają listę. */
+  dateVotes?: MockDateVote[];
   /**
    * Wynik `player_stats(profile_id, date_from, date_to, game_ids)` (STAT-1–STAT-3, migracja
    * `20261124000000_profile_records_without_achievements.sql`). Domyślnie zero partii.
@@ -281,6 +293,19 @@ export interface PlayStart {
   readonly player_ids: (string | null)[];
 }
 
+export interface MockDateOption {
+  readonly id: string;
+  readonly meeting_id: string;
+  readonly starts_at: string;
+}
+
+export interface MockDateVote {
+  readonly option_id: string;
+  readonly meeting_id: string;
+  readonly profile_id: string;
+  readonly created_at?: string;
+}
+
 export interface MockVote {
   readonly meeting_id: string;
   readonly game_id: string;
@@ -328,6 +353,8 @@ export interface MockMeeting {
   readonly starts_at: string;
   readonly status: 'planned' | 'in_progress' | 'finished';
   readonly voting_open: boolean;
+  /** Głosowanie na proponowane terminy; domyślnie zamknięte. */
+  readonly date_voting_open?: boolean;
   readonly host_id: string | null;
   readonly started_at: string | null;
   readonly finished_at: string | null;
@@ -345,6 +372,7 @@ export function mockMeeting(
     starts_at: '2026-11-28T17:00:00+00:00',
     status: 'planned',
     voting_open: true,
+    date_voting_open: false,
     host_id: null,
     started_at: null,
     finished_at: null,
@@ -363,6 +391,10 @@ export interface MeetingSave {
   readonly participant_ids: string[];
   readonly host_id: string | null;
   readonly is_new: boolean;
+  /** Proponowane terminy; brak = lista bez zmian. */
+  readonly date_options?: readonly { readonly date: string; readonly time: string }[];
+  /** Głosowanie na termin; brak = bez zmian. */
+  readonly date_voting?: boolean;
 }
 
 /** Data i godzina w strefie `timeZone` → chwila ISO (jak `save_meeting` w bazie). */
@@ -542,6 +574,16 @@ export interface SupabaseMock {
   readonly playerStatsCalls: ({ readonly profileId: string } & MockFilterCall)[];
   /** Wywołania `player_records` (gracz i filtry). */
   readonly playerRecordsCalls: ({ readonly profileId: string } & MockFilterCall)[];
+  /** Wywołania `meeting_leaderboard_changes` (filtr gier podsumowania). */
+  readonly summaryCalls: { readonly meetingId: string; readonly games: string[] | null }[];
+  /** Propozycje `propose_meeting_date`. */
+  readonly dateProposals: {
+    readonly meeting_id: string;
+    readonly local_date: string;
+    readonly local_time: string;
+  }[];
+  /** Decyzje `decide_meeting_date`. */
+  readonly dateDecisions: { readonly meetingId: string; readonly optionId: string }[];
 }
 
 /** Wiersz `profiles` z wartościami domyślnymi kolumn, których test nie podał. */
@@ -613,6 +655,9 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     leaderboardCalls: [],
     playerStatsCalls: [],
     playerRecordsCalls: [],
+    summaryCalls: [],
+    dateDecisions: [],
+    dateProposals: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -836,7 +881,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         });
       }
       const base = existing ?? mockMeeting(0, '');
-      const saved: MockMeeting = {
+      let saved: MockMeeting = {
         ...base,
         id: body.meeting_id,
         title: body.title,
@@ -847,6 +892,27 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         participants: body.participant_ids,
         host_id: body.host_id,
       };
+      if (body.date_options) {
+        const wanted = [
+          ...new Set(body.date_options.map((o) => zonedToIso(o.date, o.time, timeZone))),
+        ];
+        const others = (mock.options.dateOptions ?? []).filter((o) => o.meeting_id !== saved.id);
+        const kept = (mock.options.dateOptions ?? []).filter(
+          (o) => o.meeting_id === saved.id && wanted.includes(new Date(o.starts_at).toISOString()),
+        );
+        const added = wanted
+          .filter((at) => !kept.some((o) => new Date(o.starts_at).toISOString() === at))
+          .map((at, i) => ({
+            id: `00000000-0000-4000-9000-${String(dateOptionSeq++ + i).padStart(12, '0')}`,
+            meeting_id: saved.id,
+            starts_at: at,
+          }));
+        mock.options.dateOptions = [...others, ...kept, ...added];
+        mock.options.dateVotes = (mock.options.dateVotes ?? []).filter((v) =>
+          (mock.options.dateOptions ?? []).some((o) => o.id === v.option_id),
+        );
+      }
+      if (body.date_voting !== undefined) saved = { ...saved, date_voting_open: body.date_voting };
       mock.options.meetings = existing
         ? (mock.options.meetings ?? []).map((row) => (row.id === saved.id ? saved : row))
         : [...(mock.options.meetings ?? []), saved];
@@ -906,6 +972,135 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         mock.options.votes = votes.filter((v) => !hit(v));
         return route.fulfill({ json: removed.map((v) => ({ game_id: v.game_id })) });
       }
+    }
+    // Głosowanie na termin: propozycje, głosy jak RLS i wyzwalacz, decyzja administratora.
+    if (url.pathname === '/rest/v1/meeting_date_options' && request.method() === 'GET') {
+      const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
+      const json = (mock.options.dateOptions ?? [])
+        .filter((o) => o.meeting_id === meetingId)
+        .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+        .map((o) => ({
+          id: o.id,
+          starts_at: o.starts_at,
+          meeting_date_votes: (mock.options.dateVotes ?? [])
+            .filter((v) => v.option_id === o.id)
+            .map((v) => ({
+              profile_id: v.profile_id,
+              created_at: v.created_at ?? '2026-11-01T10:00:00Z',
+            })),
+        }));
+      return route.fulfill({ json });
+    }
+    if (url.pathname === '/rest/v1/meeting_date_votes') {
+      const eq = (name: string) => url.searchParams.get(name)?.replace(/^eq\./, '');
+      const votes = mock.options.dateVotes ?? [];
+      if (request.method() === 'POST') {
+        const body = request.postDataJSON() as MockDateVote;
+        const target = meetingById(body.meeting_id);
+        if (!target?.date_voting_open) {
+          return route.fulfill({
+            status: 400,
+            json: {
+              code: '23514',
+              hint: 'meeting_date_voting_closed',
+              message: `date voting is closed in meeting ${body.meeting_id}`,
+            },
+          });
+        }
+        if (!target.participants.includes(body.profile_id)) {
+          return route.fulfill({ status: 409, json: { code: '23503', message: 'fkey' } });
+        }
+        if (votes.some((v) => v.option_id === body.option_id && v.profile_id === body.profile_id)) {
+          return route.fulfill({ status: 409, json: { code: '23505', message: 'pkey' } });
+        }
+        mock.options.dateVotes = [...votes, { ...body, created_at: new Date().toISOString() }];
+        return route.fulfill({ status: 201, body: '' });
+      }
+      if (request.method() === 'DELETE') {
+        const [optionId, profileId] = [eq('option_id'), eq('profile_id')];
+        const option = (mock.options.dateOptions ?? []).find((o) => o.id === optionId);
+        if (!meetingById(option?.meeting_id)?.date_voting_open) return route.fulfill({ json: [] });
+        const hit = (v: MockDateVote) => v.option_id === optionId && v.profile_id === profileId;
+        const removed = votes.filter(hit);
+        mock.options.dateVotes = votes.filter((v) => !hit(v));
+        return route.fulfill({ json: removed.map((v) => ({ option_id: v.option_id })) });
+      }
+    }
+    if (url.pathname === '/rest/v1/rpc/propose_meeting_date' && request.method() === 'POST') {
+      const body = request.postDataJSON() as {
+        meeting_id: string;
+        local_date: string;
+        local_time: string;
+      };
+      mock.dateProposals.push(body);
+      const target = meetingById(body.meeting_id);
+      if (!target?.date_voting_open) {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'meeting_date_voting_closed', message: 'closed' },
+        });
+      }
+      const me = mock.options.profile?.id ?? ADA.id;
+      const at = zonedToIso(
+        body.local_date,
+        body.local_time,
+        mock.options.club?.timezone ?? 'Europe/Warsaw',
+      );
+      let option = (mock.options.dateOptions ?? []).find(
+        (o) => o.meeting_id === target.id && new Date(o.starts_at).toISOString() === at,
+      );
+      if (!option) {
+        option = {
+          id: `00000000-0000-4000-9000-${String(dateOptionSeq++).padStart(12, '0')}`,
+          meeting_id: target.id,
+          starts_at: at,
+        };
+        mock.options.dateOptions = [...(mock.options.dateOptions ?? []), option];
+      }
+      const optionId = option.id;
+      if (
+        target.participants.includes(me) &&
+        !(mock.options.dateVotes ?? []).some((v) => v.option_id === optionId && v.profile_id === me)
+      ) {
+        mock.options.dateVotes = [
+          ...(mock.options.dateVotes ?? []),
+          { option_id: optionId, meeting_id: target.id, profile_id: me },
+        ];
+      }
+      return route.fulfill({ json: option });
+    }
+    if (url.pathname === '/rest/v1/rpc/decide_meeting_date' && request.method() === 'POST') {
+      const { meeting_id, option_id } = request.postDataJSON() as {
+        meeting_id: string;
+        option_id: string;
+      };
+      mock.dateDecisions.push({ meetingId: meeting_id, optionId: option_id });
+      const target = meetingById(meeting_id);
+      const option = (mock.options.dateOptions ?? []).find(
+        (o) => o.id === option_id && o.meeting_id === meeting_id,
+      );
+      if (!target || target.status !== 'planned' || !option) {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'meetings_schedule_locked', message: 'locked' },
+        });
+      }
+      const saved = { ...target, starts_at: option.starts_at, date_voting_open: false };
+      setMeeting(saved);
+      return route.fulfill({ json: saved });
+    }
+    if (url.pathname === '/rest/v1/rpc/reopen_date_voting' && request.method() === 'POST') {
+      const { meeting_id } = request.postDataJSON() as { meeting_id: string };
+      const target = meetingById(meeting_id);
+      if (!target || target.status !== 'planned') {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'meetings_reopen_planned', message: 'has started' },
+        });
+      }
+      const saved = { ...target, date_voting_open: true };
+      setMeeting(saved);
+      return route.fulfill({ json: saved });
     }
     if (url.pathname === '/rest/v1/meeting_games' && request.method() === 'GET') {
       const meetingId = url.searchParams.get('meeting_id')?.replace(/^eq\./, '');
@@ -1431,9 +1626,24 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.playerRecordsCalls.push({ profileId: profile_id, ...call });
       return route.fulfill({ json: mock.options.playerRecords?.(profile_id, call) ?? [] });
     }
-    if (url.pathname === '/rest/v1/rpc/meeting_summary' && request.method() === 'POST') {
+    if (
+      url.pathname === '/rest/v1/rpc/meeting_leaderboard_changes' &&
+      request.method() === 'POST'
+    ) {
+      const { meeting_id, game_ids } = request.postDataJSON() as {
+        meeting_id: string;
+        game_ids: string[] | null;
+      };
+      mock.summaryCalls.push({ meetingId: meeting_id, games: game_ids });
+      return route.fulfill({ json: mock.options.meetingSummary?.(meeting_id, game_ids) ?? [] });
+    }
+    if (url.pathname === '/rest/v1/rpc/meeting_play_records' && request.method() === 'POST') {
       const { meeting_id } = request.postDataJSON() as { meeting_id: string };
-      return route.fulfill({ json: mock.options.meetingSummary?.(meeting_id) ?? [] });
+      return route.fulfill({ json: mock.options.meetingRecords?.(meeting_id) ?? [] });
+    }
+    if (url.pathname === '/rest/v1/rpc/play_record_preview' && request.method() === 'POST') {
+      const { play_id } = request.postDataJSON() as { play_id: string };
+      return route.fulfill({ json: mock.options.recordPreview?.(play_id) ?? [] });
     }
     if (url.pathname === '/rest/v1/rpc/search_games' && request.method() === 'POST') {
       const { query } = request.postDataJSON() as { query: string };

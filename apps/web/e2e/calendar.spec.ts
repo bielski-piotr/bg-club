@@ -174,16 +174,19 @@ test('timeline: 2 nadchodzące od dalszego, divider „Dziś” i 4 ostatnie zak
   expect(await search(page)).toBe(`?p=meeting/${PLAYED.id}`);
   await expect(dialog.getByText('Zakończone', { exact: true })).toBeVisible();
   await expect(dialog.getByText('3 rozegrane')).toBeVisible();
-  await expect(dialog.getByText('Zoja, Ada, Bea')).toBeVisible();
-  // Partie w kolejności rozegrania (VIEW-3), a usunięty członek zostaje w historii (MEM-5).
+  // Zwycięzcy przy grze w „Gramy w” (chip zwycięzców).
+  await expect(dialog.getByText('Zoja, Ada, Bea', { exact: true })).toBeVisible();
+  // Partie w kolejności rozegrania jako karteczki (VIEW-3), a usunięty członek zostaje w historii (MEM-5).
   await expect(
-    dialog.getByRole('list', { name: 'Zapisane partie' }).getByRole('article'),
+    dialog.getByRole('list', { name: 'Zapisane partie' }).getByRole('listitem'),
   ).toHaveCount(3);
   await expect(
     dialog.getByRole('list', { name: 'Uczestnicy spotkania' }).getByText('Zoja Zawada'),
   ).toBeVisible();
-  // Zakończonego z partiami nie edytujemy ani nie usuwamy (PLAN-5): brak menu.
-  await expect(dialog.getByRole('button', { name: 'Akcje spotkania' })).toHaveCount(0);
+  // Zakończonego z partiami nie edytujemy ani nie usuwamy (PLAN-5): w menu tylko otwarcie (RUN-5).
+  await dialog.getByRole('button', { name: 'Akcje spotkania' }).click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Otwórz spotkanie ponownie']);
+  await page.keyboard.press('Escape');
   expect(await axe(page)).toEqual([]);
 });
 

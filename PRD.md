@@ -300,7 +300,7 @@ Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po
 
 | ID | Wymaganie | P |
 |---|---|:-:|
-| PLAN-1 | Formularz: **tytuł**, **data**, **godzina**, **uczestnicy** (wielokrotny wybór z aktywnych członków), opcjonalnie **prowadzący** (jeden z uczestników innych niż admin). | M |
+| PLAN-1 | Formularz: **tytuł**, **data**, **godzina**, **uczestnicy** (wielokrotny wybór z aktywnych członków), opcjonalnie **prowadzący** (jeden z uczestników innych niż admin) i opcjonalnie **głosowanie na termin** z własnymi propozycjami (§5.8.4a). | M |
 | PLAN-2 | Zapisanie zaplanowanego spotkania **otwiera głosowanie** na gry. | M |
 | PLAN-3 | Admin może dowolnie edytować zaplanowane spotkanie (wszystkie pola, uczestników i prowadzącego), także po zamknięciu głosowania. Może też je usunąć, a usunięcie kasuje głosy. | M |
 | PLAN-4 | W spotkaniu *w trakcie* admin może dodać uczestnika (np. spóźnionego gościa klubu) i zmienić prowadzącego. Prowadzący nie ma tych akcji (Q14). Nie może usunąć uczestnika, który ma już partię. | S |
@@ -317,6 +317,14 @@ Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po
 | VOTE-5 | Admin **zamyka głosowanie, publikując wybrane gry**. Wybiera je dowolnie z kolekcji: nie muszą to być gry z największą liczbą głosów ani gry, na które ktoś głosował. Po publikacji spotkanie pokazuje listę „Gramy w:”. | M |
 | VOTE-6 | Admin może ponownie otworzyć głosowanie przed rozpoczęciem spotkania. | S |
 
+#### 5.8.4a Głosowanie na termin
+
+| ID | Wymaganie | P |
+|---|---|:-:|
+| DATE-1 | Admin **włącza głosowanie na termin** w formularzu zaplanowanego spotkania i może dodać własne propozycje (data i godzina w strefie klubu). Każdy **uczestnik** może przy otwartym głosowaniu **zaproponować własny termin** (nie w przeszłości) i od razu na niego głosuje. Propozycji nie ogranicza limit; ten sam termin nie powtarza się. Propozycja, która zostaje w formularzu, zachowuje głosy. | S |
+| DATE-2 | Uczestnicy głosują na **dowolną liczbę terminów**, jeden głos na termin, i cofają głos, dopóki głosowanie na termin jest otwarte. Głosowanie jest jawne (liczba głosów i awatary), propozycje z największą liczbą głosów są oznaczone. | S |
+| DATE-3 | Głosowanie jest **opiniotwórcze**: termin spotkania ustala admin, wybierając propozycję (to zamyka głosowanie na termin) albo wpisując dowolny termin w formularzu. Decyzja nie musi się pokrywać z głosami. Admin może otworzyć głosowanie ponownie przed rozpoczęciem; rozpoczęcie spotkania je zamyka. | S |
+
 #### 5.8.5 Przebieg spotkania (admin lub prowadzący)
 
 | ID | Wymaganie | P |
@@ -332,9 +340,10 @@ Ta sama w SQL i w TypeScript (Q24). Spotkania: rosnąco po `starts_at`, potem po
 | ID | Wymaganie | P |
 |---|---|:-:|
 | VIEW-1 | Nagłówek: tytuł, data, godzina, status, prowadzący, uczestnicy (awatary). | M |
-| VIEW-2 | Zaplanowane: sekcja głosowania albo opublikowane gry, a dla admina akcje edycji. | M |
-| VIEW-3 | W trakcie i zakończone: lista **partii** w kolejności rozegrania. Każda partia ma miniaturę **oderwanej karteczki** (klikalną, z powiększeniem), grę oraz graczy z miejscami i wynikami. | M |
-| VIEW-4 | **Podsumowanie leaderboardowe spotkania:** dla każdego gracza punkty zdobyte (z rozbiciem na gry, np. „Wingspan +8, Azul +4”), liczba wygranych (za które gry) i zmiana serii (`+1 → seria 4`, `przerwana`, `bez zmian`). | M |
+| VIEW-2 | Zaplanowane: głosowanie na termin (gdy są propozycje), sekcja głosowania albo opublikowane gry, a dla admina akcje edycji. Przy grze z listy „Gramy w” z zapisaną partią jest **chip zwycięzców** tej gry na spotkaniu (awatary i imiona); gry rozegrane spoza listy dochodzą na jej końcu. | M |
+| VIEW-3 | W trakcie i zakończone: lista **partii** w kolejności rozegrania jako same **oderwane karteczki** z notesu (klikalne, z powiększeniem), z grą, numerem i godziną. Karteczka partii z rekordem klubu albo osobistym ma znacznik. Wyniki graczy są w powiększeniu karteczki (podsumowanie partii), a zmiany w rankingu w podsumowaniu spotkania. | M |
+| VIEW-4 | **Podsumowanie spotkania:** tabela zmian w **rankingu punktów** dla graczy z partią spotkania: miejsce po spotkaniu ze zmianą względem miejsca przed spotkaniem (awans, spadek, bez zmian, nowy), punkty zdobyte (z rozbiciem na gry, np. „Wingspan +8, Azul +4”) i suma. **Filtr gier** działa jak filtr gier rankingu (LB-4, bez zakresu dat), ale ma tylko gry rozegrane na spotkaniu; wtedy ranking i punkty liczą się tylko z wybranych gier. | M |
+| VIEW-5 | **Podsumowanie partii** (powiększona karteczka i podsumowanie przed zapisem, PAD-5): godzina rozpoczęcia, godzina zakończenia i czas trwania partii oraz oznaczenie wyniku, który był **rekordem klubu** (najlepsza wartość partii, lepsza od wszystkich wcześniejszych w tej grze) albo **rekordem osobistym** (lepsza od wcześniejszych wyników gracza w tej grze). Kierunek „lepiej” jak w rekordzie gry (GAME-11). Pierwsza partia w grę ustanawia rekord klubu (najlepszy wynik partii); pierwsza partia gracza w grze nie jest jego rekordem osobistym. | S |
 | VIEW-6 | Admin: usunięcie partii (z potwierdzeniem, §5.6.5). | M |
 
 ### 5.9 Statystyki gracza (profil)

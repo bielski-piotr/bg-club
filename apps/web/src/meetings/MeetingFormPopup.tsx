@@ -10,15 +10,30 @@ import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { fullName, useMembers, type Profile } from '../profile/profiles';
-import { Badge, Banner, Button, Checkbox, Select, TextField, Tray, useToast } from '../ui';
+import {
+  Badge,
+  Banner,
+  Button,
+  Checkbox,
+  IconButton,
+  Select,
+  TextField,
+  Tray,
+  useToast,
+} from '../ui';
+import { duplicateDateOptions, type DateOptionValue } from './dateOptions';
+import { dateOptionValues, useMeetingDateOptions } from './dateVoting';
 import { TIME_SLOTS, todayIn } from './datetime';
 import {
+  addDateOption,
   emptyMeetingForm,
   hasErrors,
   MEETING_TITLE_MAX,
   meetingFormFrom,
+  removeDateOption,
   setAllParticipants,
   toggleParticipant,
+  updateDateOption,
   validateMeetingForm,
   type MeetingFormValues,
 } from './form';
@@ -91,10 +106,18 @@ function MeetingFormLoader({ me, meeting, date }: LoaderProps) {
   const members = useMembers(client);
   const inProgress = meeting?.status === 'in_progress';
   const players = useMeetingPlayers(client, meeting?.id ?? '', inProgress);
+  // Propozycje terminu zmienia się tylko w zaplanowanym spotkaniu.
+  const planned = meeting?.status === 'planned';
+  const options = useMeetingDateOptions(client, meeting?.id ?? '', planned);
   const title = meeting ? form.editTitle : form.addTitle;
 
-  if (!club.isSuccess || !members.isSuccess || (inProgress && !players.isSuccess)) {
-    const failed = club.isError || members.isError || players.isError;
+  if (
+    !club.isSuccess ||
+    !members.isSuccess ||
+    (inProgress && !players.isSuccess) ||
+    (planned && !options.isSuccess)
+  ) {
+    const failed = club.isError || members.isError || players.isError || options.isError;
     return (
       <PopupModal title={title}>
         <QueryStatus
@@ -103,6 +126,7 @@ function MeetingFormLoader({ me, meeting, date }: LoaderProps) {
             void club.refetch();
             void members.refetch();
             if (inProgress) void players.refetch();
+            if (planned) void options.refetch();
           }}
         />
       </PopupModal>
@@ -117,6 +141,7 @@ function MeetingFormLoader({ me, meeting, date }: LoaderProps) {
       timeZone={timeZone}
       members={members.data}
       locked={players.data ?? new Set()}
+      dateOptions={planned ? dateOptionValues(options.data ?? [], timeZone) : []}
       date={date}
     />
   );
@@ -129,6 +154,8 @@ interface FormProps {
   readonly members: readonly Profile[];
   /** Uczestnicy z partią w spotkaniu w trakcie: nie da się ich odznaczyć (PLAN-4). */
   readonly locked: ReadonlySet<string>;
+  /** Zapisane propozycje terminu (edycja zaplanowanego spotkania). */
+  readonly dateOptions: readonly DateOptionValue[];
   readonly date?: string | undefined;
 }
 
@@ -137,7 +164,7 @@ interface FormProps {
  * i godzina w strefie klubu, uczestnicy z aktywnych członków (bez limitu, Q12) i opcjonalny
  * prowadzący spośród uczestników innych niż admin. Zapis to jedno RPC `save_meeting`.
  */
-function MeetingForm({ me, meeting, timeZone, members, locked, date }: FormProps) {
+function MeetingForm({ me, meeting, timeZone, members, locked, dateOptions, date }: FormProps) {
   const { client } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -147,7 +174,9 @@ function MeetingForm({ me, meeting, timeZone, members, locked, date }: FormProps
   const inProgress = meeting?.status === 'in_progress';
   // Id nowego spotkania od razu: ponowienie po błędzie sieci nie zaplanuje drugiego.
   const [id] = useState(() => meeting?.id ?? crypto.randomUUID());
-  const [original] = useState(() => (meeting ? meetingFormFrom(meeting, timeZone) : null));
+  const [original] = useState(() =>
+    meeting ? meetingFormFrom(meeting, timeZone, dateOptions) : null,
+  );
   const [values, setValues] = useState<MeetingFormValues>(
     () => original ?? emptyMeetingForm(timeZone, me.id, date),
   );
@@ -340,8 +369,117 @@ function MeetingForm({ me, meeting, timeZone, members, locked, date }: FormProps
           }
         />
 
+        {inProgress ? null : (
+          <DateOptionsField
+            enabled={values.dateVoting}
+            values={values.dateOptions}
+            minDate={creating ? todayIn(timeZone) : undefined}
+            error={
+              showErrors && errors.dateOptions
+                ? errors.dateOptions === 'incomplete'
+                  ? form.errors.dateOptionsIncomplete
+                  : form.errors.dateOptionsDuplicate
+                : undefined
+            }
+            onToggle={(dateVoting) => setValues((current) => ({ ...current, dateVoting }))}
+            onAdd={() => setValues((current) => addDateOption(current))}
+            onChange={(index, change) =>
+              setValues((current) => updateDateOption(current, index, change))
+            }
+            onRemove={(index) => setValues((current) => removeDateOption(current, index))}
+          />
+        )}
+
         {creating ? <p className="meeting-form__hint">{form.votingNote}</p> : null}
       </form>
     </PopupModal>
+  );
+}
+
+/**
+ * Głosowanie na termin: przełącznik (uczestnicy proponują terminy i głosują) i własne propozycje
+ * administratora, wiersze z datą i godziną (jak termin spotkania) i usunięciem, bez limitu.
+ * Termin spotkania zostaje polem powyżej; propozycje są tylko pytaniem do uczestników.
+ */
+function DateOptionsField({
+  enabled,
+  onToggle,
+  values,
+  minDate,
+  error,
+  onAdd,
+  onChange,
+  onRemove,
+}: {
+  readonly enabled: boolean;
+  readonly onToggle: (enabled: boolean) => void;
+  readonly values: readonly DateOptionValue[];
+  readonly minDate: string | undefined;
+  readonly error: string | undefined;
+  readonly onAdd: () => void;
+  readonly onChange: (index: number, change: Partial<DateOptionValue>) => void;
+  readonly onRemove: (index: number) => void;
+}) {
+  const duplicates = duplicateDateOptions(values);
+  return (
+    <fieldset className="meeting-form__group">
+      <legend className="meeting-form__label">{form.dateVotingLabel}</legend>
+      <Checkbox
+        className="row meeting-member"
+        checked={enabled}
+        onCheckedChange={onToggle}
+        label={<span className="meeting-member__name">{form.dateVotingLabel}</span>}
+      />
+      <p className="meeting-form__hint date-options__hint">{form.dateVotingHint}</p>
+      {enabled || values.length > 0 ? (
+        <p className="meeting-form__hint date-options__hint">{form.dateOptionsHint}</p>
+      ) : null}
+      {values.length > 0 ? (
+        <ol className="date-options" aria-label={form.dateOptionsLegend}>
+          {values.map((option, index) => {
+            const n = index + 1;
+            const slots =
+              TIME_SLOTS.includes(option.time) || option.time === ''
+                ? TIME_SLOTS
+                : [...TIME_SLOTS, option.time].sort();
+            return (
+              <li key={index} className="date-options__row">
+                <TextField
+                  label={format(form.dateOptionDate, { n })}
+                  type="date"
+                  value={option.date}
+                  min={minDate}
+                  error={duplicates.has(index) ? form.errors.dateOptionsDuplicate : undefined}
+                  onChange={(event) => onChange(index, { date: event.target.value })}
+                />
+                <Select
+                  label={format(form.dateOptionTime, { n })}
+                  options={slots.map((slot) => ({ value: slot, label: slot }))}
+                  value={option.time === '' ? null : option.time}
+                  leadingIcon="clock"
+                  onChange={(time) => onChange(index, { time })}
+                />
+                <IconButton
+                  icon="trash"
+                  label={format(form.removeDateOption, { n })}
+                  className="date-options__remove"
+                  onClick={() => onRemove(index)}
+                />
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
+      {enabled || values.length > 0 ? (
+        <Button size="sm" variant="secondary" icon="plus" onClick={onAdd}>
+          {form.addDateOption}
+        </Button>
+      ) : null}
+      {error ? (
+        <p className="meeting-form__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </fieldset>
   );
 }

@@ -1,39 +1,48 @@
 import { describe, expect, it } from 'vitest';
 import { formatScore } from '../games/gameStatsData';
-import { pointsBreakdown, streakChange, streakLabel, winsLabel, type SummaryGame } from './summary';
+import {
+  meetingGames,
+  placeChange,
+  placeChangeLabel,
+  pointsBreakdown,
+  type SummaryGame,
+} from './summary';
 
-const game = (title: string, points: number, wins = 0, deleted = false): SummaryGame => ({
+const game = (title: string, points: number, deleted = false): SummaryGame => ({
   game_id: title,
   title,
   deleted,
   points,
-  wins,
 });
 
-describe('podsumowanie spotkania (VIEW-4)', () => {
-  it('opisuje zmianę serii', () => {
-    expect(streakChange({ streak_before: 3, streak_after: 4 })).toBe('up');
-    expect(streakLabel({ streak_before: 3, streak_after: 4 })).toBe('+1 → seria 4');
-    expect(streakChange({ streak_before: 2, streak_after: 0 })).toBe('broken');
-    expect(streakLabel({ streak_before: 2, streak_after: 0 })).toBe('seria przerwana');
-    // Seria 0 bez wygranej nie jest przerwana.
-    expect(streakChange({ streak_before: 0, streak_after: 0 })).toBe('unchanged');
-    expect(streakLabel({ streak_before: 0, streak_after: 0 })).toBe('seria bez zmian');
+describe('podsumowanie spotkania: zmiany w rankingu punktów', () => {
+  it('opisuje zmianę miejsca', () => {
+    expect(placeChange({ place_before: 4, place_after: 2 })).toEqual({ kind: 'up', by: 2 });
+    expect(placeChangeLabel({ kind: 'up', by: 2 })).toEqual({
+      short: '▲ 2',
+      long: 'awans o 2',
+    });
+    expect(placeChange({ place_before: 1, place_after: 3 })).toEqual({ kind: 'down', by: 2 });
+    expect(placeChangeLabel({ kind: 'down', by: 2 }).short).toBe('▼ 2');
+    expect(placeChange({ place_before: 2, place_after: 2 })).toEqual({ kind: 'same' });
+    expect(placeChangeLabel({ kind: 'same' }).short).toBe('–');
+    // Pierwsze partie gracza: nie było go w rankingu przed spotkaniem.
+    expect(placeChange({ place_before: null, place_after: 5 })).toEqual({ kind: 'new' });
+    expect(placeChangeLabel({ kind: 'new' }).short).toBe('nowy');
   });
 
   it('rozbija punkty na gry w kolejności z bazy', () => {
     expect(pointsBreakdown([game('Wingspan', 8), game('Azul', 4)])).toBe('Wingspan +8, Azul +4');
-    expect(pointsBreakdown([game('Azul', 0, 0, true)])).toBe('Azul (usunięta z kolekcji) +0');
+    expect(pointsBreakdown([game('Azul', 0, true)])).toBe('Azul (usunięta z kolekcji) +0');
+    expect(pointsBreakdown([game('Azul', 2.5)])).toBe('Azul +2,5');
   });
 
-  it('wymienia gry z wygranymi', () => {
-    expect(winsLabel({ wins: 0, games: [game('Azul', 4)] })).toBeNull();
-    expect(winsLabel({ wins: 1, games: [game('Wingspan', 6), game('Azul', 10, 1)] })).toBe(
-      '1 wygrana · Azul',
-    );
-    expect(winsLabel({ wins: 3, games: [game('Azul', 20, 2), game('Wingspan', 10, 1)] })).toBe(
-      '3 wygrane · Azul ×2, Wingspan',
-    );
+  it('gry do filtra to gry zapisanych partii w kolejności pierwszej partii', () => {
+    const play = (id: string, title: string) => ({ game: { id, title, cover_path: null } });
+    expect(meetingGames([play('g2', 'Azul'), play('g1', 'Wingspan'), play('g2', 'Azul')])).toEqual([
+      { id: 'g2', title: 'Azul' },
+      { id: 'g1', title: 'Wingspan' },
+    ]);
   });
 });
 

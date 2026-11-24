@@ -65,9 +65,15 @@ export function fromPlayRow(row: PlayRow): MeetingPlay {
  * Partie spotkania: zapisane i szkice (partie w toku). `fresh`: pobiera je od nowa przy każdym
  * otwarciu (dialog zakończenia nie może polegać na liście sprzed chwili, RUN-4).
  */
-export function useMeetingPlays(client: SupabaseClient, meetingId: string, fresh = false) {
+export function useMeetingPlays(
+  client: SupabaseClient,
+  meetingId: string,
+  fresh = false,
+  enabled = true,
+) {
   return useQuery({
     queryKey: meetingPlaysKey(meetingId),
+    enabled,
     ...(fresh ? { refetchOnMount: 'always' as const } : {}),
     queryFn: async (): Promise<MeetingPlay[]> => {
       if (!isUuid(meetingId)) return [];
@@ -174,6 +180,32 @@ export function splitPlays(plays: readonly MeetingPlay[]): SplitPlays {
     .filter((play) => play.status === 'draft')
     .sort((a, b) => time(a.started_at) - time(b.started_at) || a.id.localeCompare(b.id));
   return { saved, drafts };
+}
+
+/**
+ * Zwycięzcy zapisanych partii spotkania według gry (miejsce 1, także wspólne): gra → gracze
+ * w kolejności pierwszej wygranej (§5.6.6), bez powtórzeń.
+ */
+export function gameWinners(plays: readonly MeetingPlay[]): ReadonlyMap<string, readonly string[]> {
+  const byGame = new Map<string, string[]>();
+  for (const play of splitPlays(plays).saved) {
+    for (const result of sortedResults(play)) {
+      if (result.is_win !== true) continue;
+      const winners = byGame.get(play.game.id) ?? [];
+      if (!winners.includes(result.profile_id)) winners.push(result.profile_id);
+      byGame.set(play.game.id, winners);
+    }
+  }
+  return byGame;
+}
+
+/** Gry zapisanych partii spotkania w kolejności pierwszej partii, bez powtórzeń. */
+export function playedGames(plays: readonly MeetingPlay[]): MeetingPlay['game'][] {
+  const games = new Map<string, MeetingPlay['game']>();
+  for (const play of splitPlays(plays).saved) {
+    if (!games.has(play.game.id)) games.set(play.game.id, play.game);
+  }
+  return [...games.values()];
 }
 
 /**

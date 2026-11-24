@@ -5,18 +5,26 @@ import {
   type RankedPlayer,
   type ScoringTemplate,
 } from '@bg-club/scoring';
+import { useAuth } from '../auth/authContext';
 import { ManualTieControls } from '../score-pad/ManualTieControls';
 import { format, formatNumber, t } from '../i18n';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { fullName, type Profile } from '../profile/profiles';
 import { Banner, Button, Dialog } from '../ui';
 import { cx } from '../ui/cx';
+import { PlayTimes, RecordBadge } from './MeetingParts';
 import { playSummary, type PlaySeats, type PlaySaveFailure, type PlaySummary } from './playSave';
+import { useRecordPreview } from './records';
 
 const text = t.meetings.play.summary;
 
 export interface PlaySummaryDialogProps {
   readonly title: string;
+  /** Partia w toku: podgląd rekordów (porównanie z zapisanymi partiami gry). */
+  readonly playId: string;
+  /** Początek partii; koniec to chwila oderwania karteczki (zapis). */
+  readonly startedAt: string;
+  readonly timeZone: string;
   /** `null`: kartki nie da się zapisać (wyniki nie pasują do partii). */
   readonly summary: PlaySummary | null;
   readonly profiles: ReadonlyMap<string, Profile>;
@@ -35,12 +43,16 @@ export interface PlaySummaryDialogProps {
 }
 
 /**
- * Podsumowanie oderwanej karteczki (PAD-5): miejsca, wyniki kategorii decydującej i punkty
- * leaderboardu (podgląd z tej samej reguły co w bazie). „Zapisz partię” kończy partię,
+ * Podsumowanie oderwanej karteczki (PAD-5): godzina rozpoczęcia, zakończenia (oderwanie
+ * karteczki) i czas trwania, miejsca, wyniki kategorii decydującej z oznaczeniem rekordu klubu
+ * albo osobistego oraz punkty leaderboardu (podgląd z tej samej reguły co w bazie). „Zapisz partię” kończy partię,
  * „Wróć do kartki”, Esc i tło kładą kartkę z powrotem na notes.
  */
 export function PlaySummaryDialog({
   title,
+  playId,
+  startedAt,
+  timeZone,
   summary: original,
   profiles,
   saving,
@@ -53,6 +65,13 @@ export function PlaySummaryDialog({
   const summary =
     original && resolved && manual ? playSummary(manual.play, original.sheet, resolved) : original;
   const groups = manual ? manualTieGroups(manual.template, manual.ranked) : [];
+  const { client } = useAuth();
+  const [endedAt] = useState(() => new Date());
+  const records = useRecordPreview(
+    client,
+    playId,
+    summary ? summary.rows.map((row) => ({ profileId: row.profileId, value: row.value })) : null,
+  ).data;
   const cancel = () => {
     if (!saving) onCancel();
   };
@@ -103,6 +122,7 @@ export function PlaySummaryDialog({
             }
           />
         ) : null}
+        <PlayTimes startedAt={startedAt} endedAt={endedAt} timeZone={timeZone} labels={text} />
         {summary ? (
           <ol className="play-summary__list" aria-label={format(text.listLabel, { title })}>
             {summary.rows.map((row) => {
@@ -125,6 +145,9 @@ export function PlaySummaryDialog({
                       {person ? fullName(person) : t.meetings.plays.unknownPlayer}
                     </span>
                     {note ? <span className="play-summary__note">{note}</span> : null}
+                    {records?.get(row.profileId) ? (
+                      <RecordBadge kind={records.get(row.profileId) ?? 'personal'} />
+                    ) : null}
                   </span>
                   <span className="play-summary__score">
                     {row.value === null ? (

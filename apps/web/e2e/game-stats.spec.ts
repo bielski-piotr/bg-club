@@ -89,40 +89,54 @@ const STATS = {
 
 const SUMMARY = [
   {
-    place: 1,
     profile_id: BEA.id,
     deleted: false,
     points: 26,
-    wins: 3,
     games: [
-      { game_id: AZUL.id, title: 'Azul', deleted: false, points: 20, wins: 2 },
-      { game_id: OLD.id, title: 'Stara gra', deleted: true, points: 6, wins: 1 },
+      { game_id: AZUL.id, title: 'Azul', deleted: false, points: 20 },
+      { game_id: OLD.id, title: 'Stara gra', deleted: true, points: 6 },
     ],
-    streak_before: 3,
-    streak_after: 4,
+    total_before: 40,
+    total_after: 66,
+    place_before: 3,
+    place_after: 1,
   },
   {
-    place: 2,
     profile_id: LONG.id,
     deleted: false,
     points: 12,
-    wins: 0,
     games: [
-      { game_id: AZUL.id, title: 'Azul', deleted: false, points: 6, wins: 0 },
-      { game_id: GOLF.id, title: 'Golf', deleted: false, points: 6, wins: 0 },
+      { game_id: AZUL.id, title: 'Azul', deleted: false, points: 6 },
+      { game_id: GOLF.id, title: 'Golf', deleted: false, points: 6 },
     ],
-    streak_before: 2,
-    streak_after: 0,
+    total_before: 50,
+    total_after: 62,
+    place_before: 1,
+    place_after: 2,
   },
   {
-    place: 3,
     profile_id: CEZARY.id,
     deleted: false,
     points: 4,
-    wins: 0,
-    games: [{ game_id: GOLF.id, title: 'Golf', deleted: false, points: 4, wins: 0 }],
-    streak_before: 0,
-    streak_after: 0,
+    games: [{ game_id: GOLF.id, title: 'Golf', deleted: false, points: 4 }],
+    total_before: null,
+    total_after: 4,
+    place_before: null,
+    place_after: 5,
+  },
+];
+
+/** Podsumowanie z filtrem „tylko Golf”. */
+const GOLF_SUMMARY = [
+  {
+    profile_id: LONG.id,
+    deleted: false,
+    points: 6,
+    games: [{ game_id: GOLF.id, title: 'Golf', deleted: false, points: 6 }],
+    total_before: 10,
+    total_after: 16,
+    place_before: 1,
+    place_after: 1,
   },
 ];
 
@@ -135,7 +149,12 @@ async function openApp(page: Page, url: string, options: MockOptions = {}) {
     meetings: [{ ...FINISHED }],
     plays: [play(1, AZUL.id), play(2, AZUL.id), play(3, OLD.id), play(4, GOLF.id)],
     gameStats: (id) => (id === AZUL.id ? STATS : undefined),
-    meetingSummary: (id) => (id === FINISHED.id ? SUMMARY : []),
+    meetingSummary: (id, games) =>
+      id !== FINISHED.id
+        ? []
+        : games?.length === 1 && games[0] === GOLF.id
+          ? GOLF_SUMMARY
+          : SUMMARY,
     ...options,
   });
   await storeSession(page, session());
@@ -204,26 +223,35 @@ test('gra bez partii: pusty stan statystyk', async ({ page }) => {
   await check(page);
 });
 
-test('podsumowanie spotkania: punkty z rozbiciem na gry, wygrane i seria (VIEW-4)', async ({
-  page,
-}) => {
-  await openApp(page, `/?p=meeting/${FINISHED.id}`);
+test('podsumowanie spotkania: tabela zmian w rankingu punktów z filtrem gier', async ({ page }) => {
+  const mock = await openApp(page, `/?p=meeting/${FINISHED.id}`);
   const dialog = page.getByRole('dialog', { name: 'Listopadowe granie' });
-  const summary = dialog.getByRole('list', {
-    name: 'Podsumowanie spotkania: punkty, wygrane i serie graczy',
+  const table = dialog.getByRole('table', {
+    name: 'Podsumowanie spotkania: zmiany w rankingu punktów',
   });
-  const rows = summary.locator(':scope > li');
+  const rows = table.locator('tbody tr');
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText('Bea Bobrowska');
-  await expect(rows.nth(0)).toContainText('26 pkt');
   await expect(rows.nth(0)).toContainText('Azul +20, Stara gra (usunięta z kolekcji) +6');
-  await expect(rows.nth(0)).toContainText('3 wygrane · Azul ×2, Stara gra (usunięta z kolekcji)');
-  await expect(rows.nth(0)).toContainText('+1 → seria 4');
-  await expect(rows.nth(1)).toContainText('Azul +6, Golf +6');
-  await expect(rows.nth(1)).toContainText('seria przerwana');
-  await expect(rows.nth(1)).not.toContainText('wygran');
-  await expect(rows.nth(2)).toContainText('seria bez zmian');
+  await expect(rows.nth(0).locator('td').nth(0)).toContainText('1.▲ 2');
+  await expect(rows.nth(0).locator('td').nth(2)).toContainText('+26');
+  await expect(rows.nth(0).locator('td').nth(3)).toContainText('66');
+  await expect(rows.nth(1).locator('td').nth(0)).toContainText('2.▼ 1');
+  await expect(rows.nth(2).locator('td').nth(0)).toContainText('5.nowy');
+  // Bez wygranych i serii: tylko zmiany w rankingu punktów.
+  await expect(table).not.toContainText('seria');
   await check(page);
+
+  // Filtr gier ma tylko gry rozegrane na spotkaniu.
+  await dialog.getByRole('button', { name: 'Gry: Wszystkie gry' }).click();
+  const options = page.getByRole('listbox', { name: 'Gry' }).getByRole('option');
+  await expect(options).toHaveText(['Azul', 'Stara gra', 'Golf']);
+  await options.filter({ hasText: 'Golf' }).click();
+  await page.keyboard.press('Escape');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.nth(0)).toContainText('Golf +6');
+  expect(mock.summaryCalls.at(-1)?.games).toEqual([GOLF.id]);
+  await expect(dialog.getByRole('button', { name: 'Gry: Golf' })).toBeVisible();
 });
 
 test('spotkanie bez zapisanych partii nie ma podsumowania', async ({ page }) => {

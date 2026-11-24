@@ -18,6 +18,30 @@
   gap: 12px;
 }
 
+.meeting-form__hint.date-options__hint {
+  margin: 0 0 4px;
+}
+
+.date-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.date-options__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.date-options__remove {
+  margin-bottom: 4px;
+}
+
 .meeting-form__hint {
   margin: -8px 0 0;
   font-size: 12px;
@@ -335,6 +359,75 @@
   padding-block: 8px;
 }
 
+/* Propozycja terminu: kafelek z kalendarzem zamiast okładki gry. */
+.date-row__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--c-tint);
+  color: var(--c-muted);
+}
+
+.date-row--chosen .date-row__icon {
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+.date-row {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.date-row .vote-row__body {
+  flex: 1 1 180px;
+}
+
+.date-row .vote-row__name {
+  white-space: normal;
+}
+
+.date-row__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.date-propose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.date-propose__submit {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 480px) {
+  .date-propose {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .date-propose__submit {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+.date-voting__admin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .vote-row__body {
   display: flex;
   flex: 1;
@@ -626,47 +719,6 @@
   min-width: 0;
 }
 
-.play-card__head--button {
-  width: 100%;
-  margin: -4px;
-  padding: 4px;
-  border: 0;
-  border-radius: 12px;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  box-sizing: content-box;
-}
-
-.play-card__head--button:hover .play-card__title {
-  color: var(--c-accent-text);
-}
-
-.play-card__head--button:focus-visible {
-  outline: 2px solid var(--c-accent);
-  outline-offset: 2px;
-}
-
-.play-card__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.play-card__row > .play-card__head--button {
-  flex: 1;
-  width: auto;
-  min-width: 0;
-}
-
-.play-card__chevron {
-  flex-shrink: 0;
-  color: var(--c-disabled);
-}
-
 .play-card__cover.game-cover--thumb {
   width: 44px;
   height: 44px;
@@ -864,10 +916,6 @@
   line-height: 16px;
   font-weight: 600;
   color: var(--c-success-text);
-}
-
-.play-winners {
-  margin-bottom: 12px;
 }
 
 /* Nowa partia (RUN-2, DS §15 „Step pills”, „Game / notes pick row”, „Seat row”). */
@@ -1464,64 +1512,109 @@
   color: var(--c-muted);
 }
 
-/* Podsumowanie spotkania (VIEW-4, DS §15 „Meeting summary row”). */
-.summary-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--c-surface);
-  border-radius: var(--r-row);
+/* Podsumowanie spotkania: tabela zmian w rankingu punktów z filtrem gier. */
+.meeting-summary__filters {
+  margin-bottom: 12px;
 }
 
-.summary-row__place {
-  flex-shrink: 0;
-  width: 18px;
-  padding-top: 9px;
-  font-size: 13px;
-  line-height: 18px;
+.meeting-summary {
+  overflow-x: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-row);
+  background: var(--c-surface);
+}
+
+.meeting-summary.is-stale {
+  opacity: 0.6;
+}
+
+.meeting-changes {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.meeting-changes th {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 600;
   color: var(--c-muted);
-  font-feature-settings: 'tnum';
+  text-align: left;
+  white-space: nowrap;
 }
 
-.summary-row__body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+.meeting-changes td {
+  padding: 8px 12px;
+  vertical-align: middle;
 }
 
-.summary-row__head {
+.meeting-changes__row + .meeting-changes__row td {
+  border-top: 1px solid var(--c-border);
+}
+
+.meeting-changes th.meeting-changes__num,
+.meeting-changes td.meeting-changes__num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+td.meeting-changes__place {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.meeting-changes__place-n {
+  display: inline-block;
+  min-width: 22px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.meeting-changes__move {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+
+.meeting-changes__move--up {
+  color: var(--c-success-text);
+}
+
+.meeting-changes__move--down {
+  color: var(--c-danger-text);
+}
+
+.meeting-changes__move--new {
+  color: var(--c-accent-text);
+}
+
+.meeting-changes__who {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
-.summary-row__name {
+.meeting-changes__text {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  overflow-wrap: anywhere;
+}
+
+.meeting-changes__name {
   font-size: 14px;
   line-height: 18px;
   font-weight: 600;
   color: var(--c-ink);
+  overflow-wrap: anywhere;
 }
 
-.summary-row__points {
-  flex-shrink: 0;
-  font: 700 16px/20px var(--font-display);
-  color: var(--c-ink);
-  font-feature-settings: 'tnum';
-}
-
-.summary-row__unit {
-  font: 500 12px/16px var(--font-ui);
-  color: var(--c-muted);
-}
-
-.summary-row__breakdown {
+.meeting-changes__breakdown {
   font-size: 12px;
   line-height: 16px;
   font-weight: 500;
@@ -1529,20 +1622,144 @@
   overflow-wrap: anywhere;
 }
 
-.summary-row__badges {
+.meeting-changes td.meeting-changes__num {
+  font: 700 15px/20px var(--font-display);
+  color: var(--c-ink);
+}
+
+.meeting-changes td.meeting-changes__gained {
+  color: var(--c-accent-text);
+}
+
+.meeting-changes__row.is-muted .meeting-changes__name,
+.meeting-changes__row.is-muted td.meeting-changes__num {
+  color: var(--c-muted);
+}
+
+@media (max-width: 480px) {
+  .meeting-changes th,
+  .meeting-changes td {
+    padding-inline: 8px;
+  }
+
+  .meeting-changes__who .profile-link {
+    display: none;
+  }
+}
+
+/* Partie spotkania jako karteczki z notesu (galeria jak w grze, sheets.css). */
+.meeting-sheets__caption {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meeting-sheets__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--c-ink);
+}
+
+.sheet-gallery__frame {
+  position: relative;
+}
+
+.meeting-sheets__record {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--c-success-bg);
+  color: var(--c-success-text);
+}
+
+.meeting-sheets__record--club {
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+/* Oznaczenie rekordu przy wyniku gracza. */
+.record-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
   gap: 4px;
 }
 
-.summary-row__badges .badge {
+/* Zwycięzcy gry na spotkaniu w wierszu „Gramy w”. */
+.winner-chip {
+  display: inline-flex;
   flex-shrink: 1;
+  align-items: center;
+  gap: 6px;
+  max-width: 45%;
   min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: var(--c-accent-tint);
 }
 
-.summary-row--muted .summary-row__name,
-.summary-row--muted .summary-row__points {
+.winner-chip__icon {
+  flex-shrink: 0;
+  color: var(--c-accent-text);
+}
+
+.winner-chip__stack {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.winner-chip__stack > * + * {
+  margin-left: -6px;
+}
+
+.winner-chip__names {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--c-accent-text);
+}
+
+/* Czas partii: początek, koniec, czas trwania. */
+.play-times {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.play-times__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--c-tint);
+}
+
+.play-times dt {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
   color: var(--c-muted);
+}
+
+.play-times dd {
+  margin: 0;
+  font: 700 15px/20px var(--font-display);
+  color: var(--c-ink);
+  font-variant-numeric: tabular-nums;
 }
