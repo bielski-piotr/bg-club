@@ -1602,8 +1602,6 @@ export const pl = {
         intro:
           'Notes działa tu jak w partii, z fikcyjnymi graczami. Wpisz punkty albo wypełnij kartkę losowo i oderwij ją, żeby sprawdzić miejsca i remisy. Testowe karteczki nie są zapisywane.',
         stage: 'Test notesu',
-        toolbar: 'Narzędzia notesu',
-        topView: 'Widok z góry',
         fill: 'Wypełnij losowo',
         tear: 'Oderwij kartkę',
         tie: 'Wymuś remis przy losowaniu',

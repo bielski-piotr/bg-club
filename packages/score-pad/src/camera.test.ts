@@ -5,12 +5,11 @@ import {
   clonePose,
   eyeOf,
   lerpPose,
+  panPose,
   poseLookingAt,
-  rotatePose,
-  seesTop,
   twoFinger,
   zoomPose,
-} from './core/orbit';
+} from './core/camera';
 import { texSize } from './core/print';
 import type { PadTemplate } from './core/templates';
 
@@ -23,15 +22,28 @@ function topView(dist = 10, top = 0.2) {
   );
 }
 
+/** Widok pod kątem: kamera odchylona od pionu w stronę widza (+Z). */
+function angledView(deg: number, dist = 10, top = 0.2) {
+  const a = THREE.MathUtils.degToRad(deg);
+  return poseLookingAt(
+    new THREE.Vector3(0, top + dist * Math.cos(a), dist * Math.sin(a)),
+    new THREE.Vector3(0, top, 0),
+    new THREE.Vector3(0, 0, -1),
+  );
+}
+
+const FOV = 30;
+const SIZE = 600;
+
 function project(pose: ReturnType<typeof topView>, point: THREE.Vector3) {
-  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
+  const cam = new THREE.PerspectiveCamera(FOV, 1, 0.01, 100);
   eyeOf(pose, cam.position);
   cam.quaternion.copy(pose.quat);
   cam.updateMatrixWorld();
   return point.clone().project(cam);
 }
 
-describe('kamera notesu (PAD-10…PAD-12)', () => {
+describe('kamera notesu (PAD-11, PAD-12)', () => {
   it('widok z góry patrzy prostopadle w dół z zadanej odległości', () => {
     const p = topView(10);
     const eye = eyeOf(p);
@@ -40,44 +52,14 @@ describe('kamera notesu (PAD-10…PAD-12)', () => {
     expect(eye.z).toBeCloseTo(0);
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(p.quat);
     expect(fwd.y).toBeCloseTo(-1);
-    expect(seesTop(eye, 0.2)).toBe(true);
   });
 
-  it('obrót nie ma ograniczeń: pionowy ruch pokazuje tył notesu i wraca na wierzch', () => {
-    const p = topView(10);
-    // pół obrotu w pionie: kamera pod notesem, patrzy w górę
-    rotatePose(p, 0, Math.PI, 0);
-    const below = eyeOf(p);
-    expect(below.y).toBeLessThan(0);
-    expect(seesTop(below, 0.2)).toBe(false);
-    // drugie pół: z powrotem nad notesem
-    rotatePose(p, 0, Math.PI, 0);
-    expect(eyeOf(p).y).toBeCloseTo(10.2);
-    expect(p.dist).toBeCloseTo(10);
-  });
-
-  it('poziomy ruch obraca notes w kierunku ruchu, a skręt wokół osi patrzenia', () => {
-    const p = topView(10);
-    const before = project(p, new THREE.Vector3(1, 0.2, 0));
-    const raised = new THREE.Vector3(0, 1.2, 0);
-    expect(project(p, raised).x).toBeCloseTo(0, 6);
-    rotatePose(p, 0.3, 0, 0);
-    // ruch w prawo obraca notes w prawo: bliższa widzowi część (punkt nad środkiem) idzie w prawo
-    expect(project(p, raised).x).toBeGreaterThan(0.05);
-    // ruch w dół nachyla notes jak chwycony: bliższa część idzie w dół, grzbiet przechyla się do widza
-    const t = topView(10);
-    rotatePose(t, 0, 0.3, 0);
-    expect(project(t, raised).y).toBeLessThan(-0.05);
-
-    const q = topView(10);
-    rotatePose(q, 0, 0, Math.PI / 2);
-    const after = project(q, new THREE.Vector3(1, 0.2, 0));
-    // skręt o 90° zgodnie ze wskazówkami zegara: punkt z prawej trafia na dół kadru
-    expect(after.x).toBeCloseTo(0, 5);
-    expect(after.y).toBeLessThan(0);
-    expect(Math.abs(after.y)).toBeCloseTo(Math.abs(before.x), 5);
-    // obrót wokół osi patrzenia nie zmienia położenia kamery
-    expect(eyeOf(q).y).toBeCloseTo(10.2);
+  it('widok pod kątem patrzy w dół, lekko od strony widza', () => {
+    const p = angledView(10);
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(p.quat);
+    expect(fwd.y).toBeCloseTo(-Math.cos(THREE.MathUtils.degToRad(10)));
+    expect(fwd.z).toBeLessThan(0);
+    expect(eyeOf(p).distanceTo(new THREE.Vector3(0, 0.2, 0))).toBeCloseTo(10);
   });
 
   it('zoom zostawia punkt pod kursorem w tym samym miejscu kadru i ma granice', () => {
@@ -98,10 +80,28 @@ describe('kamera notesu (PAD-10…PAD-12)', () => {
     expect(p.dist).toBeCloseTo(12);
   });
 
-  it('powrót do widoku z góry przechodzi płynnie i kończy się dokładnie w nim', () => {
+  it('zoom i przesunięcie nie zmieniają orientacji kamery', () => {
+    const p = angledView(10);
+    const q = p.quat.clone();
+    zoomPose(p, new THREE.Vector3(0.5, 0.2, 0.3), 0.4, 1, 20);
+    panPose(p, 40, -25, p.dist, FOV, SIZE);
+    expect(p.quat.angleTo(q)).toBeLessThan(1e-9);
+  });
+
+  it('przesunięcie o piksele przesuwa punkt na płaszczyźnie kartki o tyle samo pikseli', () => {
+    const p = topView(10);
+    const point = new THREE.Vector3(0.4, 0.2, -0.3);
+    const before = project(p, point);
+    // kamera w prawo i w dół o 60 i 30 px: punkt na ekranie idzie w lewo i w górę
+    panPose(p, 60, 30, 10, FOV, SIZE);
+    const after = project(p, point);
+    expect(((before.x - after.x) * SIZE) / 2).toBeCloseTo(60, 4);
+    expect(((after.y - before.y) * SIZE) / 2).toBeCloseTo(30, 4);
+  });
+
+  it('płynne przejście do widoku domyślnego kończy się dokładnie w nim', () => {
     const home = topView(10);
-    const from = topView(10);
-    rotatePose(from, 1.1, -0.7, 0.4);
+    const from = angledView(10);
     zoomPose(from, new THREE.Vector3(0.5, 0.2, 0), 0.3, 1, 20);
     const out = clonePose(from);
     lerpPose(from, home, 0.5, out);
@@ -112,7 +112,7 @@ describe('kamera notesu (PAD-10…PAD-12)', () => {
     expect(out.quat.angleTo(home.quat)).toBeLessThan(1e-6);
   });
 
-  it('gest dwoma palcami: przesunięcie środka, szczypanie i skręt', () => {
+  it('gest dwoma palcami: przesunięcie środka i szczypanie', () => {
     const m = twoFinger(
       { x: 100, y: 100 },
       { x: 200, y: 100 },
@@ -122,9 +122,7 @@ describe('kamera notesu (PAD-10…PAD-12)', () => {
     expect(m.dx).toBeCloseTo((110 + 110 - 100 - 200) / 2);
     expect(m.dy).toBeCloseTo((90 + 290 - 200) / 2);
     expect(m.scale).toBeCloseTo(2);
-    expect(m.twist).toBeCloseTo(Math.PI / 2);
-    // palce prawie w jednym punkcie: bez skrętu
-    expect(twoFinger({ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 5 }).twist).toBe(0);
+    expect(m).toMatchObject({ x: 110, y: 190 });
   });
 });
 

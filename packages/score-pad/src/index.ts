@@ -123,7 +123,7 @@ export interface ScorePadClubOptions {
   readonly summary?: boolean | undefined;
   /**
    * Podgląd zapisanej karteczki w 3D (PAD-6): bez wpisów i odrywania, bez `scorepad:change`;
-   * obrót, zoom i widok z góry działają.
+   * zoom, reset widoku i widok z góry albo pod kątem działają.
    */
   readonly readOnly?: boolean | undefined;
 }
@@ -397,8 +397,10 @@ export interface ScorePadApi {
   exportConfig(opt?: { sheet?: boolean }): ScorePadFile;
   /** Wczytuje plik notesu v2; w trybie klubowym tylko do pamięci tego osadzenia. */
   importConfig(raw: unknown, persist?: boolean): Promise<string>;
-  /** Płynnie przywraca widok domyślny z góry po obrocie lub zoomie (PAD-12). */
+  /** Płynnie przywraca widok domyślny (z góry albo pod kątem) po zoomie lub przesunięciu (PAD-12). */
   resetView(): void;
+  /** Przełącza widok domyślny: `true` pod lekkim kątem, `false` prosto z góry (płynnie). */
+  setAngled(on: boolean): void;
   /** Zastępuje wpisy na wierzchniej kartce; `null` daje czystą kartkę (test w kreatorze). */
   setSheet(sheet: ScorePadSheet | null): void;
   /** Odrywa wierzchnią kartkę bez gestu (wynik w `scorepad:save`). */

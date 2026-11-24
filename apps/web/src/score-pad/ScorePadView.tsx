@@ -32,7 +32,7 @@ export interface ScorePadViewProps {
   readonly tear?: boolean | undefined;
   /** `false`: po oderwaniu bez karteczki z wynikiem notesu (podsumowanie pokazuje aplikacja). */
   readonly summary?: boolean | undefined;
-  /** Podgląd zapisanej karteczki (PAD-6): bez wpisów i odrywania; obrót i zoom działają. */
+  /** Podgląd zapisanej karteczki (PAD-6): bez wpisów i odrywania; zoom i widoki kamery działają. */
   readonly readOnly?: boolean | undefined;
   readonly onReady?: (() => void) | undefined;
   readonly onSave?: ((detail: ScorePadSaveDetail) => void) | undefined;
@@ -57,7 +57,7 @@ export interface ScorePadHandle {
    * gdy notesu nie ma albo nie jest gotowy.
    */
   restoreSheet(sheet: ScorePadSheet): boolean;
-  /** Płynnie wraca do widoku z góry (PAD-12). */
+  /** Płynnie wraca do widoku domyślnego (PAD-12). */
   resetView(): void;
 }
 

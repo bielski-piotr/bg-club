@@ -8,21 +8,20 @@ import { dropPrint, preparePrint, refreshBuiltinPrints } from './print';
 import { DebugViz } from './viz';
 import type { HostEvent, MenuItem, PadHost } from './plugins';
 import { hostGone, hostReady } from './plugins';
-import type { OrbitPose } from './orbit';
+import type { CameraPose } from './camera';
 import {
-  HOME_MS,
   MAX_ZOOM,
   MIN_ZOOM,
+  MOVE_MS,
   applyPose,
   clonePose,
   easeInOut,
   lerpPose,
+  panPose,
   poseLookingAt,
-  rotatePose,
-  seesTop,
   twoFinger,
   zoomPose,
-} from './orbit';
+} from './camera';
 import { Pad, Sfx, woodTexture } from './scene';
 import type { TransLight } from './sheet';
 import { PaperSheet } from './sheet';
@@ -78,7 +77,7 @@ export interface ScorePadOptions {
   controls?: boolean;
   /** Karta wskazówek (domyślnie widoczna na większych ekranach). */
   help?: boolean;
-  /** Odchylenie kamery od pionu w stopniach (0 = dokładnie z góry). */
+  /** Nachylenie widoku „pod kątem” w stopniach od pionu (widok z góry ma zawsze 0°). */
   tilt?: number;
   /** Przestrzeń nazw zapisu w przeglądarce (osobna dla każdego osadzenia). */
   storageKey?: string;
@@ -239,7 +238,9 @@ function ensureFonts(): Promise<void> {
 }
 
 const ICON_SOUND = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="waves" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" d="M16 9.5l5 5M21 9.5l-5 5"/></svg>`;
-const ICON_TOP = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`;
+const ICON_RESET = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 15v5h-5M4 4l5.5 5.5M20 20l-5.5-5.5"/><rect x="8" y="8" width="8" height="8" rx="1.5"/></svg>`;
+const ICON_ANGLE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 17.5l5-9h12l-5 9z"/><path d="M12 3.5v3M12 6.5l-1.6-1.6M12 6.5l1.6-1.6"/></svg>`;
+const ICON_TEAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14v12H5z"/><path d="M5 4.5h2M9 4.5h2M13 4.5h2M17 4.5h2"/><path d="M12 11v6M9.5 14.5L12 17l2.5-2.5"/></svg>`;
 const ICON_CHEV = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>`;
 const RING =
   '<svg class="ring" viewBox="0 0 96 52" aria-hidden="true"><path pathLength="1" d="M70 9C55 2 18 4 8 20c-8 13 8 27 36 28 26 1 47-8 46-22C89 12 70 5 46 6"/></svg>';
@@ -311,18 +312,20 @@ export class ScorePad {
   private aniso = 8;
   private autoZoom = 1;
   private dragCam: THREE.PerspectiveCamera | null = null;
-  /** Widok zmieniony obrotem lub zoomem (PAD-10, PAD-11); `null` to widok domyślny z góry. */
-  private free: OrbitPose | null = null;
-  /** Płynny powrót do widoku z góry (PAD-12). */
-  private homeAnim: { from: OrbitPose; t0: number } | null = null;
-  /** Obrót myszą (prawy przycisk albo lewy poza notesem). */
-  private orbitDrag: { pointerId: number; x: number; y: number } | null = null;
-  /** Palce na ekranie i gest dwoma palcami (obrót, zoom, skręt). */
+  /** Widok zmieniony zoomem albo przesunięciem (PAD-11); `null` to widok domyślny. */
+  private free: CameraPose | null = null;
+  /** Widok domyślny pod lekkim kątem (`view.tilt`) zamiast prosto z góry. */
+  private angled = false;
+  /**
+   * Płynne przejście kamery: do `to` (dojazd do pola wpisywania) albo, gdy `to` jest `null`,
+   * do widoku domyślnego (reset, zmiana kąta; PAD-12).
+   */
+  private camAnim: { from: CameraPose; to: CameraPose | null; t0: number } | null = null;
+  /** Palce na ekranie i gest dwoma palcami (szczypanie przybliża, środek przesuwa widok). */
   private touches = new Map<number, { x: number; y: number }>();
   private gesture: { a: number; b: number } | null = null;
   /** Palce, które brały udział w geście: do podniesienia nie piszą i nie odrywają. */
   private gestureIds = new Set<number>();
-  private under!: THREE.DirectionalLight;
   private maxSide = 4096;
   /** Obniża gęstość renderu na słabym GPU (NFR-2); tekstura zostaje w pełnej rozdzielczości. */
   private budget: FrameBudget | null = null;
@@ -571,7 +574,6 @@ export class ScorePad {
           <button type="button" class="tpl-btn" aria-haspopup="true" aria-expanded="false">
             <span class="tpl-name">Notes</span><span class="tpl-sub"></span>${ICON_CHEV}
           </button>
-          <button type="button" class="icon-btn" data-ui="home" aria-label="Widok z góry" title="Widok z góry (0)" disabled>${ICON_TOP}</button>
           <button type="button" class="icon-btn" data-ui="sound" aria-pressed="true" aria-label="Dźwięki">${ICON_SOUND}</button>
           <div class="menu" hidden></div>
         </header>
@@ -580,7 +582,7 @@ export class ScorePad {
             <li><span><b>Kliknij pole</b> i wpisz punkty z klawiatury. Enter albo Tab przechodzi do następnej kategorii, Shift+Tab cofa. Sumy liczą się same.</span></li>
             <li data-tear><span><b>Chwyć <span data-edge>dolną</span> krawędź</b> i przeciągnij w stronę grzbietu — kartka uniesie się i przewróci pod światło lampy.</span></li>
             <li data-tear><span><b>Szarpnij mocno</b> <span data-pull>w dół albo w bok</span>, a kartka oderwie się i wynik zostanie zapisany.</span></li>
-            <li><span><b>Obróć notes</b> dwoma palcami albo prawym przyciskiem myszy, <b>przybliż</b> szczypaniem albo kółkiem. Klawisz 0 wraca do widoku z góry.</span></li>
+            <li><span><b>Przybliż</b> kółkiem albo szczypaniem w miejscu kursora lub palców. Przyciski w rogu resetują widok i przełączają widok z góry albo pod kątem (klawisze 0 i V).</span></li>
           </ol>
           <button type="button" class="help-close" aria-label="Ukryj wskazówki">×</button>
         </section>
@@ -612,7 +614,13 @@ export class ScorePad {
         </div>
         <div class="annot" aria-live="polite" hidden></div>
         <button type="button" class="chip" hidden></button>
-        <div class="tools"></div>
+        <div class="tools">
+          <div class="cam" role="toolbar" aria-label="Widok notesu">
+            <button type="button" class="tool-btn" data-ui="reset" aria-label="Resetuj widok" title="Resetuj widok (0)" disabled>${ICON_RESET}</button>
+            <button type="button" class="tool-btn" data-ui="angle" aria-pressed="false" aria-label="Widok pod kątem" title="Widok pod kątem (V)">${ICON_ANGLE}</button>
+            <button type="button" class="tool-btn" data-ui="tear" data-tear aria-label="Oderwij wierzchnią kartkę" title="Oderwij kartkę">${ICON_TEAR}</button>
+          </div>
+        </div>
         <input type="file" class="file-in" accept=".json,application/json" hidden>
         <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-t" hidden>
           <div class="dlg-card">
@@ -637,7 +645,9 @@ export class ScorePad {
       tplSub: q('.tpl-sub'),
       menu: q('.menu'),
       sound: q('[data-ui="sound"]'),
-      homeBtn: q('[data-ui="home"]'),
+      resetBtn: q('[data-ui="reset"]'),
+      angleBtn: q('[data-ui="angle"]'),
+      tearBtn: q('[data-ui="tear"]'),
       help: q('.help'),
       helpBtn: q('.help-btn'),
       picker: q('.picker'),
@@ -816,7 +826,7 @@ export class ScorePad {
     r.domElement.tabIndex = 0;
     r.domElement.setAttribute(
       'aria-label',
-      'Notes 3D. Kliknij pole i wpisz punkty z klawiatury, Enter albo Tab przechodzi do następnej kategorii; przeciągnij dolną krawędź, aby przewrócić kartkę; szarpnij, aby ją oderwać. Prawy przycisk albo dwa palce obracają notes, kółko albo szczypanie przybliża, klawisz 0 wraca do widoku z góry.',
+      'Notes 3D. Kliknij pole i wpisz punkty z klawiatury, Enter albo Tab przechodzi do następnej kategorii; przeciągnij dolną krawędź, aby przewrócić kartkę; szarpnij, aby ją oderwać. Kółko albo szczypanie przybliża w miejscu kursora lub palców, klawisz 0 resetuje widok, V przełącza widok z góry i pod kątem.',
     );
     this.ui.stage.appendChild(r.domElement);
     this.renderer = r;
@@ -848,14 +858,6 @@ export class ScorePad {
     this.back = back;
     this.hemi = new THREE.HemisphereLight(0xb9c3d6, 0x3a281b, 0.36);
     scene.add(this.hemi);
-    const fill = new THREE.DirectionalLight(0xcdd8ff, 0.12);
-    fill.position.set(0.5, 9, 6);
-    scene.add(fill);
-    // światło od spodu: włącza się tylko, gdy kamera ogląda tył notesu (tekturę)
-    const under = new THREE.DirectionalLight(0xfff1e0, 0);
-    under.position.set(0.6, -8, 2.5);
-    scene.add(under);
-    this.under = under;
     this.trans = [
       { dir: new THREE.Vector3(), color: new THREE.Color() },
       { dir: new THREE.Vector3(), color: new THREE.Color() },
@@ -937,8 +939,8 @@ export class ScorePad {
     this.syncView();
   }
 
-  /** Widok domyślny: z góry (nachylenie `view.tilt`), cały notes w kadrze z niewielkim marginesem. */
-  private homePose(autoZoom = 1): OrbitPose {
+  /** Widok domyślny: z góry albo pod kątem `view.tilt`, cały notes w kadrze z niewielkim marginesem. */
+  private homePose(autoZoom = 1): CameraPose {
     const cam = this.camera;
     const { W, H, rot } = this.spec as Spec;
     const room = H * this.cfg.view.room;
@@ -954,7 +956,7 @@ export class ScorePad {
     const aspect = (fw - pw) / fh;
     const d = Math.max(regionH / 2 / tanV, regionW / 2 / (tanV * aspect)) * autoZoom;
     const cz = (mb - room) / 2 - (autoZoom - 1) * H * 0.35;
-    const tilt = THREE.MathUtils.degToRad(this.cfg.view.tilt);
+    const tilt = this.angled ? THREE.MathUtils.degToRad(this.cfg.view.tilt) : 0;
     const top = (this.pad as Pad).top;
     const eye = rot
       ? new THREE.Vector3(-d * Math.sin(tilt), top + d * Math.cos(tilt), cz)
@@ -963,31 +965,18 @@ export class ScorePad {
     return poseLookingAt(eye, new THREE.Vector3(0, top, cz), up);
   }
 
-  /** Czy widać wierzchnią kartkę; od tyłu wpisywanie i odrywanie są wyłączone (PAD-10). */
-  private seesTop(): boolean {
-    return !this.pad || seesTop(this.camera.position, this.pad.top);
-  }
-
-  /** Stan przycisku „Widok z góry” i światła od spodu po zmianie kamery. */
+  /** Stan przycisków widoku po zmianie kamery. */
   private syncView(): void {
+    const reset = this.ui.resetBtn as HTMLButtonElement;
     const home = !this.free;
-    const btn = this.ui.homeBtn as HTMLButtonElement | undefined;
-    if (btn && btn.disabled !== home) btn.disabled = home;
-    const front = this.seesTop();
-    this.wrap.classList.toggle('from-below', !front);
-    if (this.under) this.under.intensity = front ? 0 : 0.9;
-    if (!front) {
-      // od spodu notesu nie da się wpisywać (także w zaznaczone wcześniej pole)
-      this.closePicker();
-      if (this.drag) this.endDrag(true);
-      if (this.active && this.active.cloth.hoverWant) this.active.cloth.hoverWant = 0;
-    }
+    if (reset.disabled !== home) reset.disabled = home;
+    this.ui.angleBtn.setAttribute('aria-pressed', String(this.angled));
   }
 
   /** Przechodzi z widoku domyślnego do zmienianego przez użytkownika (zachowuje obecny kadr). */
-  private freePose(): OrbitPose | null {
+  private freePose(): CameraPose | null {
     if (!this.spec || !this.pad) return null;
-    this.homeAnim = null;
+    this.camAnim = null;
     if (!this.free) {
       this.free = this.homePose(this.autoZoom);
       // autoZoom działa tylko w widoku domyślnym (PAD-12)
@@ -1000,31 +989,37 @@ export class ScorePad {
     return this.free;
   }
 
-  /** Obrót notesu o przesunięcie w pikselach ekranu i skręt w radianach (PAD-10). */
-  private rotateView(dx: number, dy: number, twist = 0, apply = true): void {
-    const p = this.freePose();
-    if (!p) return;
-    const k = Math.PI / Math.max(240, Math.min(this.wrap.clientWidth, this.wrap.clientHeight));
-    rotatePose(p, dx * k, dy * k, twist);
-    if (apply) this.poseCamera();
-  }
-
   /** Zoom względem punktu ekranu (PAD-11); `k` < 1 przybliża. */
   private zoomView(cx: number, cy: number, k: number): void {
     const p = this.freePose();
-    if (!p || !this.spec || !this.pad) return;
+    if (!p) return;
     // kamera musi stać tam, gdzie liczymy promień spod kursora
     this.poseCamera();
-    const point = this.zoomPoint(cx, cy, p);
     const home = this.homePose(1).dist;
     // kamera odsunięta przez autoZoom dalej niż zwykły limit nie przeskakuje przy pierwszym ruchu
-    zoomPose(p, point, k, home / MAX_ZOOM, Math.max(home / MIN_ZOOM, p.dist));
+    zoomPose(p, this.zoomPoint(cx, cy, p), k, home / MAX_ZOOM, Math.max(home / MIN_ZOOM, p.dist));
     this.clampTarget(p);
     this.poseCamera();
   }
 
-  /** Punkt obrotu zostaje przy notesie, żeby obrót po oddaleniu nie wyrzucał go z kadru. */
-  private clampTarget(p: OrbitPose): void {
+  /** Przesuwa widok za palcami: `dx`, `dy` to ruch palców w pikselach ekranu. */
+  private panView(cx: number, cy: number, dx: number, dy: number): void {
+    const p = this.freePose();
+    if (!p) return;
+    this.poseCamera();
+    const depth = this.depthOf(this.zoomPoint(cx, cy, p));
+    panPose(p, -dx, -dy, depth, this.camera.fov, this.renderer.domElement.clientHeight);
+    this.clampTarget(p);
+    this.poseCamera();
+  }
+
+  /** Odległość punktu sceny od kamery wzdłuż osi patrzenia. */
+  private depthOf(pt: THREE.Vector3): number {
+    return Math.max(0.01, -pt.clone().applyMatrix4(this.camera.matrixWorldInverse).z);
+  }
+
+  /** Punkt, na który patrzy kamera, zostaje przy notesie, żeby nie zgubić go z kadru. */
+  private clampTarget(p: CameraPose): void {
     if (!this.spec || !this.pad) return;
     const { W, H } = this.spec;
     const lim = Math.max(W, H) * 0.75;
@@ -1033,8 +1028,8 @@ export class ScorePad {
     p.target.y = clamp(p.target.y, -lim, this.pad.top + lim);
   }
 
-  /** Punkt sceny pod kursorem: notes albo kartka, a poza nimi płaszczyzna punktu obrotu. */
-  private zoomPoint(cx: number, cy: number, p: OrbitPose): THREE.Vector3 {
+  /** Punkt sceny pod kursorem: notes albo kartka, a poza nimi płaszczyzna punktu, na który patrzy kamera. */
+  private zoomPoint(cx: number, cy: number, p: CameraPose): THREE.Vector3 {
     this.setRay(cx, cy);
     const objs: THREE.Object3D[] = [];
     if (this.active) objs.push(this.active.mesh);
@@ -1047,20 +1042,34 @@ export class ScorePad {
     return this.raycaster.ray.intersectPlane(plane, out) ?? p.target.clone();
   }
 
-  /** Płynnie przywraca widok domyślny z góry (przycisk „Widok z góry”, klawisz 0; PAD-12). */
+  /** Płynnie przywraca widok domyślny (przycisk „Resetuj widok”, klawisz 0; PAD-12). */
   resetView(): void {
     if (!this.free || !this.spec) return;
-    this.homeAnim = { from: clonePose(this.free), t0: performance.now() };
+    this.camAnim = { from: clonePose(this.free), to: null, t0: performance.now() };
   }
 
-  private stepHome(now: number): void {
-    const h = this.homeAnim;
-    if (!h || !this.free) return;
-    const t = Math.min(1, (now - h.t0) / HOME_MS);
-    lerpPose(h.from, this.homePose(1), easeInOut(t), this.free);
+  /** Przełącza widok domyślny z góry i pod lekkim kątem (płynnie, przybliżenie wraca do 1×). */
+  setAngled(on: boolean): void {
+    if (on === this.angled) return;
+    const from =
+      this.spec && this.pad ? clonePose(this.free ?? this.homePose(this.autoZoom)) : null;
+    this.angled = on;
+    if (from) {
+      this.free = clonePose(from);
+      this.autoZoom = 1;
+      this.camAnim = { from, to: null, t0: performance.now() };
+    }
+    this.syncView();
+  }
+
+  private stepCamera(now: number): void {
+    const an = this.camAnim;
+    if (!an || !this.free) return;
+    const t = Math.min(1, (now - an.t0) / MOVE_MS);
+    lerpPose(an.from, an.to ?? this.homePose(1), easeInOut(t), this.free);
     if (t >= 1) {
-      this.homeAnim = null;
-      this.free = null;
+      this.camAnim = null;
+      if (!an.to) this.free = null;
     }
     this.poseCamera();
   }
@@ -1124,7 +1133,7 @@ export class ScorePad {
       this.host.style.setProperty('--accent', t.accent ?? t.tape);
       // notes otwiera się zawsze w widoku z góry (PAD-12)
       this.free = null;
-      this.homeAnim = null;
+      this.camAnim = null;
       this.autoZoom = 1;
       this.layoutCamera();
       this.updatePadInfo();
@@ -1321,13 +1330,7 @@ export class ScorePad {
     c.addEventListener('pointermove', (e) => this.onMove(e));
     c.addEventListener('pointerup', (e) => this.onUp(e));
     c.addEventListener('pointercancel', (e) => this.onUp(e));
-    // utracone przechwycenie (np. przełączenie okna w trakcie obrotu) kończy obrót
-    c.addEventListener('lostpointercapture', (e) => {
-      if (this.orbitDrag?.pointerId !== e.pointerId) return;
-      this.orbitDrag = null;
-      c.style.cursor = '';
-    });
-    // prawy przycisk obraca notes, a przytrzymanie pola na dotyku pokazuje opis: bez menu przeglądarki
+    // przytrzymanie pola na dotyku pokazuje opis: bez menu przeglądarki
     c.addEventListener('contextmenu', (e) => e.preventDefault());
     c.addEventListener('pointerleave', (e) => {
       if (e.pointerType === 'mouse') this.hideTip();
@@ -1380,12 +1383,15 @@ export class ScorePad {
       const mx = r.left + r.width / 2;
       const my = r.top + r.height / 2;
       if (e.key === '0') this.resetView();
+      else if (e.key === 'v' || e.key === 'V') this.setAngled(!this.angled);
       else if (e.key === '+' || e.key === '=') this.zoomView(mx, my, 1 / 1.4);
       else if (e.key === '-') this.zoomView(mx, my, 1.4);
       else return;
       e.preventDefault();
     });
-    this.ui.homeBtn.addEventListener('click', () => this.resetView());
+    this.ui.resetBtn.addEventListener('click', () => this.resetView());
+    this.ui.angleBtn.addEventListener('click', () => this.setAngled(!this.angled));
+    this.ui.tearBtn?.addEventListener('click', () => this.tear());
     this.wrap.addEventListener('pointerdown', (e) => {
       if (!this.ui.menu.hidden && !(e.target as HTMLElement).closest('.bar')) this.closeMenu();
     });
@@ -1468,8 +1474,6 @@ export class ScorePad {
     const t = this.t;
     const s = this.spec;
     if (!a || !t || !s) return null;
-    // od tyłu notesu nie da się pisać ani odrywać (PAD-10)
-    if (!this.seesTop()) return null;
     this.setRay(cx, cy);
     const area = s.area;
     // przy kartce o niestandardowym kształcie liczy się tylko trafienie w papier (wycięcia przepuszczają)
@@ -1575,12 +1579,7 @@ export class ScorePad {
         return;
       }
     }
-    if (this.gesture || this.orbitDrag || this.switching) return;
-    // mysz: prawy przycisk obraca notes w każdym miejscu (PAD-10)
-    if (e.pointerType === 'mouse' && e.button === 2) {
-      this.beginOrbit(e);
-      return;
-    }
+    if (this.gesture || this.switching) return;
     if (!e.isPrimary || e.button > 0) return;
     if (this.pickerOpen) {
       this.closePicker();
@@ -1590,11 +1589,7 @@ export class ScorePad {
     const hit = this.hitTest(e.clientX, e.clientY);
     // poza polami punktów wpisywanie się kończy (poprawny wpis zostaje zapisany)
     if (this.entry && hit?.kind !== 'cell') this.leaveEntry();
-    if (!hit) {
-      // lewy przycisk poza notesem (albo od tyłu notesu) też obraca
-      if (e.pointerType !== 'touch') this.beginOrbit(e);
-      return;
-    }
+    if (!hit) return;
     if (hit.kind === 'edge') {
       e.preventDefault();
       this.beginDrag(e, hit);
@@ -1639,18 +1634,6 @@ export class ScorePad {
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.gestureIds.has(e.pointerId)) return;
     }
-    const o = this.orbitDrag;
-    if (o) {
-      if (e.pointerId !== o.pointerId) return;
-      const dx = e.clientX - o.x;
-      const dy = e.clientY - o.y;
-      o.x = e.clientX;
-      o.y = e.clientY;
-      // Shift: poziomy ruch skręca notes wokół osi patrzenia
-      if (e.shiftKey) this.rotateView(0, 0, dx * 0.01);
-      else this.rotateView(dx, dy);
-      return;
-    }
     if (this.drag) {
       if (e.pointerId === this.drag.pointerId) this.updateDragRaw(this.drag, e.clientX, e.clientY);
       return;
@@ -1666,12 +1649,6 @@ export class ScorePad {
       if (this.gesture && (e.pointerId === this.gesture.a || e.pointerId === this.gesture.b))
         this.gesture = null;
       if (this.gestureIds.delete(e.pointerId)) return;
-    }
-    if (this.orbitDrag && e.pointerId === this.orbitDrag.pointerId) {
-      this.orbitDrag = null;
-      this.releasePointer(e.pointerId);
-      this.renderer.domElement.style.cursor = '';
-      return;
     }
     if (this.drag && e.pointerId === this.drag.pointerId) {
       this.endDrag(false);
@@ -1691,27 +1668,7 @@ export class ScorePad {
     }
   }
 
-  private releasePointer(id: number): void {
-    try {
-      this.renderer.domElement.releasePointerCapture(id);
-    } catch {
-      /* już zwolniony */
-    }
-  }
-
-  private beginOrbit(e: PointerEvent): void {
-    if (!this.spec) return;
-    e.preventDefault();
-    this.orbitDrag = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
-    try {
-      this.renderer.domElement.setPointerCapture(e.pointerId);
-    } catch {
-      /* obrót działa i bez przechwycenia */
-    }
-    this.renderer.domElement.style.cursor = 'move';
-  }
-
-  /** Drugi palec: przerywa pisanie i przewracanie kartki, dalej palce obracają i przybliżają. */
+  /** Drugi palec: przerywa przewracanie kartki, dalej palce przybliżają i przesuwają widok. */
   private beginGesture(): void {
     const ids = [...this.touches.keys()].slice(-2);
     const [a, b] = ids as [number, number];
@@ -1720,8 +1677,7 @@ export class ScorePad {
     clearTimeout(this.holdTimer);
     this.press = null;
     if (this.drag) this.endDrag(true);
-    this.orbitDrag = null;
-    // wpisywanie punktów zostaje: palce obracają i przybliżają, klawiatura telefonu się nie chowa
+    // wpisywanie punktów zostaje: palce przybliżają, klawiatura telefonu się nie chowa
     this.closeNamePicker();
     this.hideTip();
   }
@@ -1738,10 +1694,9 @@ export class ScorePad {
       this.touches.get(g.a) as { x: number; y: number },
       this.touches.get(g.b) as { x: number; y: number },
     );
-    if (m.scale !== 1) {
-      this.rotateView(m.dx, m.dy, m.twist, false);
-      this.zoomView(m.x, m.y, 1 / m.scale);
-    } else this.rotateView(m.dx, m.dy, m.twist);
+    // punkt pod palcami zostaje pod nimi: środek przesuwa widok, rozstaw przybliża
+    if (m.dx || m.dy) this.panView(m.x, m.y, m.dx, m.dy);
+    if (m.scale !== 1) this.zoomView(m.x, m.y, 1 / m.scale);
   }
 
   private processHover(): void {
@@ -2597,31 +2552,39 @@ export class ScorePad {
     }
   }
 
-  /** Przesuwa widok, gdy zaznaczone pole (z paskiem) wychodzi poza kadr (PAD-15). */
+  /**
+   * Gdy zaznaczone pole (z paskiem) wychodzi poza kadr, kamera płynnie dojeżdża tak, żeby było
+   * widoczne (PAD-15). Przesunięcie liczone jest od celu trwającego dojazdu, więc szybkie
+   * przechodzenie między polami nie gubi kroku.
+   */
   private revealEntry(): void {
     const en = this.entry;
-    if (!en || !this.active || !this.spec) return;
+    if (!en || !this.active || !this.spec || !this.pad) return;
+    const cam = this.camera;
+    const base = this.camAnim?.to ?? this.free ?? this.homePose(this.autoZoom);
+    applyPose(base, cam);
+    cam.updateMatrixWorld();
     const wr = this.wrap.getBoundingClientRect();
     const b = this.cellBox(en.spot, wr);
     const extra = this.ui.enBar.hidden ? 0 : this.barSize().h + 8;
-    const { dx, dy } = revealShift({ ...b, h: b.h + extra }, this.visibleBox(wr), 12);
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    const view = this.visibleBox(wr);
+    // margines: obok pola widać sąsiednie kategorie, a nie tylko krawędź kadru
+    const pad = clamp(Math.min(view.w, view.h) * 0.08, 12, 48);
+    const { dx, dy } = revealShift({ ...b, h: b.h + extra }, view, pad);
+    let to: CameraPose | null = null;
+    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
+      const r = en.spot.rect;
+      const depth = this.depthOf(this.sheetPoint(r.x + r.w / 2, 1 - r.y - r.h / 2));
+      to = clonePose(base);
+      panPose(to, dx, dy, depth, cam.fov, this.renderer.domElement.clientHeight || wr.height);
+      this.clampTarget(to);
+    }
+    // kamera wraca tam, gdzie jest teraz; cel (jeśli trzeba) osiąga płynnie
+    this.poseCamera();
+    if (!to) return;
     const p = this.freePose();
     if (!p) return;
-    this.poseCamera();
-    const r = en.spot.rect;
-    const pt = this.sheetPoint(r.x + r.w / 2, 1 - r.y - r.h / 2);
-    const cam = this.camera;
-    const depth = Math.max(0.01, -pt.clone().applyMatrix4(cam.matrixWorldInverse).z);
-    const h = this.renderer.domElement.clientHeight || wr.height || 1;
-    const wpp = (2 * depth * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / h;
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
-    p.target.addScaledVector(right, dx * wpp).addScaledVector(up, -dy * wpp);
-    this.clampTarget(p);
-    this.poseCamera();
-    this.entryPos = '';
-    this.placeEntry();
+    this.camAnim = { from: clonePose(p), to, t0: performance.now() };
   }
 
   private openNamePicker(sp: Spot): void {
@@ -3206,7 +3169,7 @@ export class ScorePad {
       (a.cloth.maxLift > 0.04 || a.cloth.flipped)
     )
       want = clamp(this.autoZoom * this.sheetExtent(a), 1, this.cfg.view.autoZoomMax);
-    if (this.homeAnim) this.stepHome(now);
+    if (this.camAnim) this.stepCamera(now);
     else if (!this.free && Math.abs(want - this.autoZoom) > 0.002) {
       const rate = want > this.autoZoom ? 2.6 : 1.1;
       this.autoZoom += (want - this.autoZoom) * Math.min(1, dt * rate);
@@ -3287,7 +3250,8 @@ export class ScorePad {
       flyers: this.flyers.length,
       tpl: this.t?.id,
       view: this.free ? 'free' : 'home',
-      seesTop: this.seesTop(),
+      angled: this.angled,
+      moving: !!this.camAnim,
       zoom: this.free && this.spec ? this.homePose(1).dist / this.free.dist : 1,
       fps: Math.round(this.fps),
       texture: this.ps ? [this.ps.CW, this.ps.CH] : null,

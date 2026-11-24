@@ -690,9 +690,7 @@ describe('kreator edytora notesu', () => {
     expect(within(result).queryAllByRole('listitem')).toHaveLength(0);
     expect(within(dialog).getByText(/Oderwij wypełnioną kartkę/)).toBeInTheDocument();
 
-    // Widok z góry z paska sceny; test niczego nie zapisuje, zapis jest osobnym przyciskiem.
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Widok z góry' }));
-    expect(padFake.resetView).toHaveBeenCalled();
+    // Test niczego nie zapisuje, zapis jest osobnym przyciskiem.
     expect(save).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz notes' }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));

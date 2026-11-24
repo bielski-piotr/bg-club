@@ -117,7 +117,7 @@ test('widok Klubu jest interaktywny w < 2 s przy 4G i CPU ×4 (NFR-2)', async ({
   expect(timing.ready).toBeLessThan(HUB_INTERACTIVE_LIMIT_MS);
 });
 
-test('notes 3D: liczba klatek przy obrocie i zoomie (NFR-2, PAD-16)', async ({ page }) => {
+test('notes 3D: liczba klatek przy zmianie widoku i zoomie (NFR-2, PAD-16)', async ({ page }) => {
   // WebGL w headless Chromium jest programowy (SwiftShader): wynik to dolna granica, bez CPU ×4.
   test.slow();
   await page.goto('/design-system');
@@ -159,13 +159,15 @@ test('notes 3D: liczba klatek przy obrocie i zoomie (NFR-2, PAD-16)', async ({ p
 
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  // Obrót: przeciągnięcie jednym palcem (dotyk emulowany myszą lewym przyciskiem).
-  const rotate = await fps(async () => {
-    await page.mouse.move(cx, cy);
-    await page.mouse.down();
-    for (let i = 0; i < 40; i += 1) await page.mouse.move(cx + Math.sin(i / 6) * 80, cy + i);
-    await page.mouse.up();
+  // Zmiana widoku: płynne przejścia kamery z góry ↔ pod kątem.
+  const angle = pad.getByRole('button', { name: 'Widok pod kątem' });
+  const view = await fps(async () => {
+    for (let i = 0; i < 4; i += 1) {
+      await angle.click();
+      await page.waitForTimeout(500);
+    }
   });
+  await page.mouse.move(cx, cy);
   const zoom = await fps(async () => {
     for (let i = 0; i < 20; i += 1) await page.mouse.wheel(0, i < 10 ? -120 : 120);
     await page.waitForTimeout(500);
@@ -182,7 +184,7 @@ test('notes 3D: liczba klatek przy obrocie i zoomie (NFR-2, PAD-16)', async ({ p
       maxTextureSize: ctx?.getParameter(ctx.MAX_TEXTURE_SIZE),
     };
   });
-  report('pad', { rotate, zoom, texture: state?.texture, pixelRatio: state?.pixelRatio, gl });
+  report('pad', { view, zoom, texture: state?.texture, pixelRatio: state?.pixelRatio, gl });
   // Strażnik: notes nie może się „zawiesić” (pomiar programowego GPU, nie cel 30/60 kl./s).
-  expect(rotate.fps).toBeGreaterThan(5);
+  expect(view.fps).toBeGreaterThan(5);
 });

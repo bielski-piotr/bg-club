@@ -16,7 +16,7 @@ import {
 import { ManualTieControls } from './ManualTieControls';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, t } from '../i18n';
-import { Banner, Button, Checkbox, IconButton, Spinner } from '../ui';
+import { Banner, Button, Checkbox, Spinner } from '../ui';
 import { cx } from '../ui/cx';
 import { fewerSeatsMessage } from './messages';
 import { ScorePadView, type ScorePadHandle } from './ScorePadView';
@@ -134,16 +134,6 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
             <Spinner label={t.scorePad.loadingPad} />
           </div>
         )}
-        {ready ? (
-          <div className="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
-            <IconButton
-              icon="target"
-              label={text.topView}
-              className="wizard-toolbar__btn"
-              onClick={() => pad.current?.resetView()}
-            />
-          </div>
-        ) : null}
       </div>
       <div className="wizard-panel">
         {error ? <Banner variant="error">{error}</Banner> : null}

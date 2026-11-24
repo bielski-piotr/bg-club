@@ -305,6 +305,9 @@ button { font-family: inherit; }
 }
 /* przyciski narzędzi (np. tryb debugowania z pakietu edytora) */
 .tools { position: absolute; top: 12px; right: calc(12px + var(--inset, 0px)); z-index: 22; display: flex; gap: 6px; transition: right 0.25s ease; }
+/* widok notesu: reset kamery, z góry albo pod kątem, oderwanie kartki */
+.cam { display: flex; gap: 6px; }
+.tool-btn:disabled { opacity: 0.45; cursor: default; }
 .tool-btn {
   width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; cursor: pointer;
   background: var(--glass); border: 1px solid var(--glass-line); color: var(--chalk);

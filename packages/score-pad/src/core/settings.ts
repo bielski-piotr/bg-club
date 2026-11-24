@@ -59,7 +59,7 @@ export const DEFAULTS: Settings = {
   tear: { threshold: 0.36, rate: 14, speed: 1, spread: 30, edgeGrab: 0.17 },
   sim: { rate: 180, maxSteps: 9, timeScale: 1, paused: false },
   view: {
-    tilt: 0,
+    tilt: 10,
     fov: 30,
     room: 0.3,
     autoZoom: true,
@@ -244,7 +244,7 @@ export const SECTIONS: SectionDef[] = [
     fields: [
       {
         key: 'view.tilt',
-        label: 'Odchylenie kamery',
+        label: 'Nachylenie widoku pod kątem',
         type: 'range',
         min: 0,
         max: 40,
