@@ -45,6 +45,10 @@ function game(n: number, title: string, extra: Partial<Game> = {}): Game {
     complexity: null,
     created_at: `2026-10-${String(n).padStart(2, '0')}T12:00:00Z`,
     last_played_at: null,
+    base_game_id: null,
+    cover_source_path: null,
+    cover_crop: null,
+    play_count: null,
     ...extra,
   };
 }
@@ -323,7 +327,6 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
         max_players: 3,
         complexity: 1,
         placement_points: [5, 3, 7],
-        cover_path: null,
       },
     });
     expect(writes[0]?.row.id).toMatch(/^[0-9a-f-]{36}$/);
@@ -378,7 +381,6 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
           max_players: 5,
           complexity: 1,
           placement_points: complexityPoints(1, 5),
-          cover_path: null,
         },
         filters: { id: ZOLWIE.id, 'deleted_at is': null },
       },

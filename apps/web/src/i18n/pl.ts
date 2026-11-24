@@ -330,6 +330,7 @@ export const pl = {
       clubRecord: 'Rekord klubu',
       lowerBetter: 'mniej = lepiej',
       meetingMeta: '{date} · {title}',
+      expansions: 'z dodatkami: {titles}',
       meetingLink: 'Otwórz spotkanie z rekordem: {title}, {date}',
       gameLink: 'Otwórz grę {title}',
       emptyTitle: 'Brak gier do pokazania',
@@ -415,6 +416,9 @@ export const pl = {
     back: 'Wybierz inne',
     apply: 'Gotowe',
     loading: 'Wczytywanie zdjęcia…',
+    coverTitle: 'Kadrowanie okładki',
+    coverIntro:
+      'Przeciągnij obraz i ustaw powiększenie. Jasny obszar to okładka w takim kształcie, jak w widoku gry.',
   },
   /** Zmiana hasła i propozycja przy pierwszym logowaniu (PRD USR-5, AUTH-6). */
   password: {
@@ -544,16 +548,24 @@ export const pl = {
       details: 'Szczegóły gry {title}',
       edit: 'Edytuj',
       scorepads: 'Notesy',
+      addExpansion: 'Dodaj dodatek',
       delete: 'Usuń',
     },
     form: {
       addTitle: 'Dodaj grę',
       editTitle: 'Edytuj grę',
+      addExpansionTitle: 'Dodaj dodatek',
+      editExpansionTitle: 'Edytuj dodatek',
+      expansionOf:
+        'Dodatek do gry {title}. Nie pojawi się w kolekcji ani w głosowaniu: zaznacza się go przy rozpoczęciu partii.',
       coverLabel: 'Okładka gry',
       addCover: 'Dodaj okładkę',
       changeCover: 'Zmień okładkę',
       removeCover: 'Usuń okładkę',
-      coverHelper: 'WebP, JPEG lub PNG. Zmniejszymy ją do 800 px i ok. 100 KB.',
+      pasteCover: 'Wklej ze schowka',
+      recropCover: 'Zmień kadr',
+      coverHelper:
+        'WebP, JPEG lub PNG z pliku albo wklejony ze schowka (Ctrl+V). Po wyborze ustawisz kadr; okładka ma do 800 px i ok. 100 KB.',
       coverFallback: 'Bez okładki pokazujemy monogram tytułu.',
       coverProcessing: 'Przygotowywanie okładki…',
       titleLabel: 'Tytuł',
@@ -597,6 +609,10 @@ export const pl = {
         coverType: 'Okładka musi być plikiem WebP, JPEG lub PNG.',
         coverDecode: 'Nie udało się odczytać tego obrazu. Wybierz inny plik.',
         coverSize: 'Okładka jest za duża nawet po zmniejszeniu. Wybierz mniejszy plik.',
+        coverLoad: 'Nie udało się wczytać okładki do kadrowania. Spróbuj ponownie.',
+        clipboardEmpty: 'W schowku nie ma obrazu. Skopiuj obraz i spróbuj ponownie.',
+        clipboardDenied:
+          'Przeglądarka nie pozwoliła odczytać schowka. Wklej obraz skrótem Ctrl+V (⌘V) albo wybierz plik.',
         upload: 'Nie udało się wysłać okładki. Sprawdź połączenie i spróbuj ponownie.',
         save: 'Nie udało się zapisać gry. Sprawdź połączenie i spróbuj ponownie.',
         forbidden: 'Gry może dodawać i edytować tylko administrator.',
@@ -606,7 +622,7 @@ export const pl = {
     remove: {
       title: 'Usunąć grę?',
       description:
-        '„{title}” zniknie z kolekcji, wyszukiwania i głosowań w zaplanowanych spotkaniach. Rozegrane partie, karteczki i punkty zostaną w historii. Tej operacji nie można cofnąć.',
+        '„{title}” zniknie z kolekcji, wyszukiwania i głosowań w zaplanowanych spotkaniach, razem z jej dodatkami. Rozegrane partie, karteczki i punkty zostaną w historii. Tej operacji nie można cofnąć.',
       cancel: 'Anuluj',
       submit: 'Usuń',
       errors: {
@@ -614,8 +630,32 @@ export const pl = {
         save: 'Nie udało się usunąć gry. Sprawdź połączenie i spróbuj ponownie.',
       },
     },
+    removeExpansion: {
+      title: 'Usunąć dodatek?',
+      description:
+        '„{title}” zniknie z widoku gry i z wyboru dodatków przy nowej partii. Rozegrane partie z tym dodatkiem, karteczki i punkty zostaną w historii. Tej operacji nie można cofnąć.',
+      cancel: 'Anuluj',
+      submit: 'Usuń',
+      errors: {
+        forbidden: 'Dodatki może usuwać tylko administrator.',
+        save: 'Nie udało się usunąć dodatku. Sprawdź połączenie i spróbuj ponownie.',
+      },
+    },
     /** Szczegóły gry z galerią karteczek (GAME-10, zadanie [030]). */
     details: {
+      edit: 'Edytuj',
+      scorepads: 'Notesy',
+      delete: 'Usuń',
+      addExpansion: 'Dodaj dodatek',
+      expansions: 'Dodatki',
+      expansionCount: { one: '{n} dodatek', few: '{n} dodatki', many: '{n} dodatków' },
+      expansionsLabel: 'Dodatki gry {title}',
+      expansionsEmpty: 'Ta gra nie ma jeszcze dodatków.',
+      expansionBadge: 'Dodatek',
+      expansionOf: 'Dodatek do gry {title}',
+      expansionPlays: 'Rozegrane partie: {count}',
+      expansionNote:
+        'Dodatek zaznacza prowadzący przy rozpoczęciu partii gry podstawowej. Wyniki, rankingi i rekordy trafiają do gry podstawowej; dodatek zbiera tylko liczbę rozegranych partii.',
       lastPlayed: 'Ostatnia partia: {date}',
       neverPlayed: 'Jeszcze nie grana',
       complexity: 'Skomplikowanie {n} / 5',
@@ -640,6 +680,7 @@ export const pl = {
         recordAsc: 'mniej = lepiej',
         recordEmpty: 'Brak wyników kategorii decydującej.',
         recordHolder: '{name} · {date}',
+        recordExpansions: 'z dodatkami: {titles}',
         recordMeeting: 'Otwórz spotkanie z rekordem: {name}, {date}',
         ranking: 'Ranking graczy',
         rankingLabel: 'Ranking graczy w grze {title}',
@@ -659,6 +700,11 @@ export const pl = {
       created: 'Dodano grę {title}',
       updated: 'Zapisano zmiany w grze {title}',
       deleted: 'Usunięto grę {title}',
+      expansion: {
+        created: 'Dodano dodatek {title}',
+        updated: 'Zapisano zmiany w dodatku {title}',
+        deleted: 'Usunięto dodatek {title}',
+      },
     },
   },
   /** Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”, zadanie [030]). */
@@ -681,6 +727,7 @@ export const pl = {
     ended: 'Koniec',
     duration: 'Czas trwania',
     scorepad: 'Notes: {name}',
+    expansions: 'Dodatki: {titles}',
     meeting: 'Spotkanie',
     meetingSub: 'Spotkanie · {date}',
     meetingLabel: 'Otwórz spotkanie {title}',
@@ -748,6 +795,7 @@ export const pl = {
       durationHours: '{h} godz.',
       durationMinutes: '{m} min',
       sheetCaption: 'Partia {n} · {time}',
+      withExpansions: 'z dodatkami: {titles}',
       sheetLabel: 'Karteczka partii {n}: {title}, zapisana o {time}',
       sheetRecords: 'Partia z rekordem',
       clubRecord: 'Rekord klubu',
@@ -816,7 +864,7 @@ export const pl = {
      */
     newPlay: {
       title: 'Nowa partia',
-      steps: { game: 'Gra', scorepad: 'Notes', players: 'Gracze' },
+      steps: { game: 'Gra', expansions: 'Dodatki', scorepad: 'Notes', players: 'Gracze' },
       stepsLabel: 'Kroki nowej partii',
       stepCurrent: '{n}. {name}',
       stepDone: '{name}: gotowe, wróć do kroku',
@@ -830,6 +878,14 @@ export const pl = {
       noGamesTitle: 'Kolekcja jest pusta',
       noGamesHelper: 'Gdy administrator doda grę z notesem, będzie można rozpocząć partię.',
       scorepadIntro: 'Wybierz notes, na którym zapiszecie wyniki partii {title}.',
+      expansionsIntro:
+        'Zaznacz dodatki użyte w tej partii {title} (albo żaden). Wyniki trafią do gry podstawowej, a punktacja będzie z tytułu o najwyższym skomplikowaniu, który mieści wszystkich graczy.',
+      expansionsLabel: 'Dodatki gry {title}',
+      expansionSub: '{players} · skomplikowanie {complexity}',
+      expansionSubNoComplexity: '{players}',
+      scorepadOf: '{pad} · {title}',
+      withExpansions: '{title} z dodatkami: {expansions}',
+      scoring: 'Punktacja: {title}',
       scorepadsLabel: 'Notesy gry {title}',
       version: 'wersja {n}',
       seatsTitle: 'Gracze i miejsca w notesie',
@@ -892,6 +948,8 @@ export const pl = {
         duplicate: 'Każdy gracz może zająć tylko jedno miejsce.',
         count: 'Liczba graczy nie pasuje do gry albo notesu.',
         participant: 'Jeden z graczy nie jest już uczestnikiem spotkania. Odśwież listę.',
+        expansionGone:
+          'Jeden z dodatków jest niedostępny albo notes należy do niezaznaczonego dodatku. Wróć do wyboru dodatków.',
         save: 'Nie udało się rozpocząć partii. Sprawdź połączenie i spróbuj ponownie.',
       },
     },
@@ -1284,6 +1342,7 @@ export const pl = {
       actions: 'Akcje notesu {name}',
       edit: 'Edytuj',
       rename: 'Zmień nazwę',
+      move: 'Przenieś do innej gry',
       export: 'Eksportuj do pliku',
       delete: 'Usuń',
       notFoundTitle: 'Nie znaleziono gry',
@@ -1595,10 +1654,21 @@ export const pl = {
       required: 'Wpisz nazwę notesu.',
       tooLong: 'Nazwa może mieć najwyżej {max} znaków.',
     },
+    move: {
+      title: 'Przenieś notes',
+      description:
+        'Wybierz grę albo dodatek, do którego trafi notes „{name}”. Rozegrane partie zostaną przy swojej grze, więc historia, statystyki i leaderboardy się nie zmienią.',
+      label: 'Gra albo dodatek',
+      search: 'Szukaj gry albo dodatku',
+      hint: 'Obecna gra notesu jest wyłączona.',
+      expansionOption: '{game} › {title}',
+      cancel: 'Anuluj',
+      submit: 'Przenieś',
+    },
     remove: {
       title: 'Usunąć notes?',
       description:
-        '„{name}” zniknie z listy notesów i z wyboru przy nowej partii. Rozegrane partie i ich karteczki zostaną w historii. Tej operacji nie można cofnąć.',
+        '„{name}” zniknie z listy notesów i z wyboru przy nowej partii. Rozegrane partie, ich karteczki, statystyki i leaderboardy zostaną bez zmian. Tej operacji nie można cofnąć.',
       cancel: 'Anuluj',
       submit: 'Usuń',
     },
@@ -1610,6 +1680,7 @@ export const pl = {
       imported: 'Zaimportowano notes {name}',
       saved: 'Zapisano wersję {version} notesu {name}',
       renamed: 'Zmieniono nazwę notesu na {name}',
+      moved: 'Przeniesiono notes {name} do: {title}',
       deleted: 'Usunięto notes {name}',
       exported: 'Wyeksportowano notes {name}',
     },

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
+import { useGameTitles } from '../games/games';
 import { useClub } from '../hub/club';
 import { format, t } from '../i18n';
 import { formatMeetingDate } from '../meetings/datetime';
@@ -85,6 +86,7 @@ function SheetView({
   const { open } = usePopups();
   const [view3d, setView3d] = useState(false);
   const records = useMeetingRecords(client, sheet.meeting.id).data?.get(sheet.id);
+  const expansions = useGameTitles(client, sheet.expansion_ids);
   const date = formatMeetingDate(sheet.saved_at, timeZone);
   return (
     <div className="sheet-view">
@@ -114,6 +116,18 @@ function SheetView({
             <>
               <br />
               {format(text.scorepad, { name: sheet.scorepad_name })}
+            </>
+          ) : null}
+          {expansions.data && sheet.expansion_ids.length > 0 ? (
+            <>
+              <br />
+              {format(text.expansions, {
+                titles: sheet.expansion_ids
+                  .map((id) => expansions.data.get(id) ?? '')
+                  .filter((title) => title !== '')
+                  .sort((a, b) => a.localeCompare(b, 'pl'))
+                  .join(', '),
+              })}
             </>
           ) : null}
         </p>

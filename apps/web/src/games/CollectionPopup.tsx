@@ -29,7 +29,7 @@ function useDebounced(value: string, delay: number): string {
  * Popup kolekcji (PRD GAME-2, GAME-3, DS „Kolekcja / Popup”): siatka okładek aktywnych gier
  * z wyszukiwaniem po tytule filtrowanym na bieżąco (zapytanie po krótkiej przerwie w pisaniu).
  * Porównanie bez wielkości liter i polskich znaków robi baza (`search_games`, unaccent). Administrator ma „Dodaj grę”, a przy każdej grze
- * menu z „Edytuj”, „Notesy” (GAME-7) i „Usuń”; formularz otwiera się w tym samym stosie, ze strzałką „wstecz”.
+ * menu z „Edytuj”, „Notesy” (GAME-7), „Dodaj dodatek” i „Usuń”. Dodatków nie ma w kolekcji; formularz otwiera się w tym samym stosie, ze strzałką „wstecz”.
  */
 export function CollectionPopup({ isAdmin }: { readonly isAdmin: boolean }) {
   const { client } = useAuth();
@@ -153,6 +153,12 @@ function GameTile({
                 label: text.scorepads,
                 icon: 'pad',
                 onSelect: () => open({ kind: 'scorepads', gameId: game.id }),
+              },
+              {
+                id: 'add-expansion',
+                label: text.addExpansion,
+                icon: 'plus',
+                onSelect: () => open({ kind: 'add-expansion', baseId: game.id }),
               },
               {
                 id: 'delete',

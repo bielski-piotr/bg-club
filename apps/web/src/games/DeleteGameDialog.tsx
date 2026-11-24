@@ -9,8 +9,6 @@ import { QueryStatus } from '../popups/QueryStatus';
 import { Banner, Button, useToast } from '../ui';
 import { deleteGame, GameSaveError, gamesKey, useGame } from './games';
 
-const text = t.games.remove;
-
 /**
  * Potwierdzenie „Usuń grę” (PRD GAME-8, DS „Kolekcja / Usuń grę – potwierdzenie”). Usunięcie
  * jest miękkie: gra znika z kolekcji, wyszukiwania i głosowań zaplanowanych spotkań, a jej
@@ -26,10 +24,13 @@ export function DeleteGameDialog({ id }: { readonly id: string }) {
   const query = useGame(client, id);
   const game = query.data;
 
+  const expansion = (game?.base_game_id ?? null) !== null;
+  const text = expansion ? t.games.removeExpansion : t.games.remove;
   const remove = useMutation({
     mutationFn: () => deleteGame(client, id),
     onSuccess: () => {
-      if (game) toast.show(format(t.games.toasts.deleted, { title: game.title }), 'success');
+      const toasts = expansion ? t.games.toasts.expansion : t.games.toasts;
+      if (game) toast.show(format(toasts.deleted, { title: game.title }), 'success');
       if (mounted.current) back();
       void queryClient.invalidateQueries({ queryKey: gamesKey });
     },

@@ -38,6 +38,8 @@ export interface MeetingPlay {
     readonly cover_path: string | null;
   };
   readonly results: readonly PlayResult[];
+  /** Dodatki gry użyte w partii (`plays.expansion_ids`); brak = bez dodatków. */
+  readonly expansion_ids?: readonly string[] | undefined;
 }
 
 interface PlayRow extends Omit<MeetingPlay, 'game' | 'results'> {
@@ -47,7 +49,8 @@ interface PlayRow extends Omit<MeetingPlay, 'game' | 'results'> {
 }
 
 const PLAY_COLUMNS =
-  'id, status, started_at, saved_at, started_by, sheet_image_path, game_id, games(id, title, cover_path), ' +
+  'id, status, started_at, saved_at, started_by, sheet_image_path, game_id, expansion_ids, ' +
+  'games(id, title, cover_path), ' +
   'play_results!play_results_play_id_meeting_id_fkey(profile_id, seat, ranking_value, place, points, is_win)';
 
 export const meetingPlaysKey = (id: string) => [...meetingsKey, 'plays', id] as const;

@@ -22,6 +22,8 @@ export interface RecordHolder {
   readonly meeting_id: string;
   /** Termin spotkania partii. */
   readonly starts_at: string;
+  /** Dodatki partii rekordu (rekord gry z dodatkami trafia do gry podstawowej z ich listą). */
+  readonly expansions?: readonly { readonly id: string; readonly title: string }[] | undefined;
 }
 
 /** Rekord gry: najlepsza wartość kategorii decydującej w kierunku notesu (EDT-2, Q6). */

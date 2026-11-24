@@ -29,6 +29,10 @@ function game(id: string, title: string, min = 2, max = 4): Game {
     placement_points: [],
     created_at: '2026-11-01T00:00:00Z',
     last_played_at: null,
+    base_game_id: null,
+    cover_source_path: null,
+    cover_crop: null,
+    play_count: null,
   };
 }
 

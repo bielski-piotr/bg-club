@@ -141,6 +141,13 @@ function RecordCard({
           {format(text.meetingMeta, { date, title: record.meeting_title ?? '' })}
         </PopupLink>
       ) : null}
+      {played && record.expansions && record.expansions.length > 0 ? (
+        <p className="record__expansions">
+          {format(text.expansions, {
+            titles: record.expansions.map((expansion) => expansion.title).join(', '),
+          })}
+        </p>
+      ) : null}
     </article>
   );
 }

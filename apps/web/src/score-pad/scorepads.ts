@@ -420,6 +420,26 @@ export async function renameScorepad(
 }
 
 /**
+ * Przenosi notes do innej gry albo dodatku. Partie wskazują swoją grę i wersję notesu, więc
+ * historia, statystyki i leaderboardy się nie zmieniają; notes po prostu pojawia się przy
+ * nowej grze (i jej partiach od teraz).
+ */
+export async function moveScorepad(
+  client: SupabaseClient,
+  id: string,
+  gameId: string,
+): Promise<void> {
+  const { error } = await client
+    .from('scorepads')
+    .update({ game_id: gameId })
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select('id')
+    .single();
+  if (error) throw new ScorepadError(failureFor(error));
+}
+
+/**
  * Usuwa notes (miękko): znika z listy i z wyboru przy nowej partii, a jego wersje, obrazy
  * i rozegrane partie zostają w historii. Ponowne usunięcie niczego nie zmienia.
  */

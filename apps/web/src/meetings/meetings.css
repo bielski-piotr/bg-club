@@ -1763,3 +1763,18 @@ td.meeting-changes__place {
   color: var(--c-ink);
   font-variant-numeric: tabular-nums;
 }
+
+/* Dodatki partii: „z dodatkami: …” pod tytułem gry (karteczka i partia w toku). */
+.meeting-sheets__expansions {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--c-muted);
+}
+
+.play-card__expansions {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--c-muted);
+}

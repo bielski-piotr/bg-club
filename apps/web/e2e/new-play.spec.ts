@@ -328,3 +328,72 @@ test('gracz i spotkanie poza trwaniem: bez akcji, link pokazuje wyjaśnienie (PA
       .getByText('Partie można rozpoczynać tylko w trwającym spotkaniu.'),
   ).toBeVisible();
 });
+
+test('dodatki partii: krok „Dodatki”, notes dodatku, więcej graczy i punktacja (dodatki)', async ({
+  page,
+}) => {
+  const TURBO = mockGame(7, 'Żółwie: Turbo', {
+    base_game_id: ZOLWIE.id,
+    min_players: 2,
+    max_players: 4,
+    complexity: 3,
+  });
+  const TURBO_PAD = pad(7, TURBO.id, 'Turbo', 4);
+  const mock = await openApp(page, {
+    games: [...GAMES, TURBO].map((g) => ({ ...g })),
+    scorepads: [...PADS, TURBO_PAD],
+  });
+  const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
+  await meeting.getByRole('button', { name: 'Nowa partia' }).click();
+  const wizard = page.getByRole('dialog', { name: 'Nowa partia' });
+  // Dodatku nie ma na liście gier.
+  await expect(wizard.getByRole('radio', { name: /Turbo/ })).toHaveCount(0);
+  await wizard.getByText('Żółwie Wyścigi', { exact: true }).click();
+  const steps = wizard.getByRole('list', { name: 'Kroki nowej partii' });
+  await expect(steps.getByRole('listitem')).toHaveText([
+    '1. Gra',
+    '2. Dodatki',
+    '3. Notes',
+    '4. Gracze',
+  ]);
+  const next = wizard.getByRole('button', { name: 'Dalej' });
+  await next.click();
+
+  const list = wizard.getByRole('list', { name: 'Dodatki gry Żółwie Wyścigi' });
+  await expect(list.getByRole('listitem')).toHaveText([/Żółwie: Turbo.*2–4 graczy/]);
+  await wizard.getByRole('checkbox', { name: /Żółwie: Turbo/ }).check();
+  await check(page);
+  await next.click();
+
+  // Notesy gry i zaznaczonego dodatku.
+  const notes = wizard.getByRole('list', { name: 'Notesy gry Żółwie Wyścigi' });
+  await expect(notes.getByRole('listitem')).toHaveText([/^Wyścig/, /Turbo · Żółwie: Turbo/]);
+  await wizard.getByText('Turbo · Żółwie: Turbo', { exact: true }).click();
+  await next.click();
+
+  // Dodatek rozszerza grę do 4 graczy; punktacja z wyżej skomplikowanego dodatku.
+  await expect(
+    wizard.getByText(/Żółwie Wyścigi z dodatkami: Żółwie: Turbo · Turbo · 2–4 graczy/),
+  ).toBeVisible();
+  const outside = wizard.getByRole('list', { name: 'Uczestnicy poza partią' });
+  for (const name of ['Ada Adminowska', 'Bea Bobrowska', 'Cezary Cichy']) {
+    await outside
+      .getByRole('button', { name: `Posadź ${name} na pierwszym wolnym miejscu` })
+      .click();
+  }
+  await expect(wizard.getByText('Zajęte 3 z 4 miejsc')).toBeVisible();
+  await expect(wizard.getByText('Punktacja: Żółwie: Turbo')).toBeVisible();
+  await check(page);
+  await wizard.getByRole('button', { name: 'Rozpocznij', exact: true }).click();
+  await expect(page.getByText('Partia rozpoczęta: Żółwie Wyścigi')).toBeVisible();
+  expect(mock.playStarts[0]).toMatchObject({
+    scorepad_id: TURBO_PAD.id,
+    expansion_ids: [TURBO.id],
+  });
+  const play = page.getByRole('dialog', { name: 'Żółwie Wyścigi' });
+  await play.getByRole('button', { name: 'Wróć' }).click();
+  // Widok spotkania: partia w toku z dodatkami.
+  await expect(
+    meeting.getByRole('list', { name: 'Partie w toku' }).getByText('z dodatkami: Żółwie: Turbo'),
+  ).toBeVisible();
+});

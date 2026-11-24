@@ -70,11 +70,11 @@ select results_eq(
        ('club', 'INSERT', 'logo_path,name,timezone'),
        ('club', 'UPDATE', 'logo_path,name,timezone'),
        ('game_votes', 'INSERT', 'game_id,meeting_id,profile_id'),
-       ('games', 'INSERT', 'complexity,cover_path,id,max_players,min_players,placement_points,title'),
-       ('games', 'UPDATE', 'complexity,cover_path,deleted_at,max_players,min_players,placement_points,title'),
+       ('games', 'INSERT', 'base_game_id,complexity,cover_crop,cover_path,cover_source_path,id,max_players,min_players,placement_points,title'),
+       ('games', 'UPDATE', 'complexity,cover_crop,cover_path,cover_source_path,deleted_at,max_players,min_players,placement_points,title'),
        ('meeting_date_votes', 'INSERT', 'meeting_id,option_id,profile_id'),
        ('profiles', 'UPDATE', 'avatar_path,first_name,last_name,password_change_suggested,theme'),
-       ('scorepads', 'UPDATE', 'current_version_id,deleted_at,name') $$,
+       ('scorepads', 'UPDATE', 'current_version_id,deleted_at,game_id,name') $$,
   'authenticated: zapis tylko dozwolonych kolumn (profil bez role, hook, deleted_at; notesy przez save_scorepad, spotkania przez save_meeting, gry spotkania przez publish_meeting_games)'
 );
 select results_eq(
@@ -108,6 +108,7 @@ select results_eq(
        ('private.is_date_voting_open(uuid)'),
        ('private.is_meeting_runner(uuid)'),
        ('private.is_voting_open(uuid)'),
+       ('private.play_expansions_json(uuid[])'),
        ('private.scorepad_ranking(jsonb)'),
        ('private.try_uuid(text)'),
        ('propose_meeting_date(uuid,date,time without time zone)'),
@@ -122,7 +123,7 @@ select results_eq(
        ('search_games(text)'),
        ('search_text(text)'),
        ('start_meeting(uuid)'),
-       ('start_play(uuid,uuid,uuid,uuid[],integer[])') $$,
+       ('start_play(uuid,uuid,uuid,uuid[],integer[],uuid[])') $$,
   'authenticated wykona tylko funkcje czyste, sprawdzające role, wyszukiwanie gier, zapis notesu, RPC spotkań, rozpoczęcie, szkic, porzucenie, zapis i usunięcie partii, obrazy karteczek, rankingi, statystyki gry, podsumowanie spotkania, statystyki i rekordy gracza'
 );
 

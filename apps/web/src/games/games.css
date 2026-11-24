@@ -408,6 +408,7 @@
 
 .game-record__holder {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -438,4 +439,43 @@
     grid-column: 1 / -1;
     order: 1;
   }
+}
+
+/* Rekord z partii z dodatkami: lista dodatków przy rekordziście. */
+.game-record__expansions {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--c-muted);
+}
+
+/* Dodatki w widoku gry podstawowej (nie ma ich w kolekcji). */
+.expansion-list .row__title {
+  overflow-wrap: anywhere;
+}
+
+.expansion-row__open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.expansion-row__open:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 12px;
+}
+
+.game-details__base {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
 }

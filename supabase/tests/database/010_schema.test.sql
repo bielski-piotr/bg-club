@@ -24,7 +24,8 @@ select columns_are('public', 'profiles',
   'kolumny profiles');
 select columns_are('public', 'games',
   array['id', 'title', 'title_search', 'cover_path', 'min_players', 'max_players', 'placement_points',
-        'created_at', 'updated_at', 'deleted_at', 'complexity'], 'kolumny games');
+        'created_at', 'updated_at', 'deleted_at', 'complexity', 'base_game_id', 'cover_source_path',
+        'cover_crop'], 'kolumny games');
 select columns_are('public', 'scorepads',
   array['id', 'game_id', 'name', 'current_version_id', 'created_at', 'updated_at', 'deleted_at'],
   'kolumny scorepads');
@@ -47,7 +48,7 @@ select columns_are('public', 'meeting_games',
 select columns_are('public', 'plays',
   array['id', 'meeting_id', 'game_id', 'scorepad_version_id', 'status', 'sheet', 'sheet_image_path',
         'points_snapshot', 'started_by', 'started_at', 'saved_at', 'draft_version', 'draft_saved_at',
-        'draft_saved_by'], 'kolumny plays');
+        'draft_saved_by', 'expansion_ids'], 'kolumny plays');
 select columns_are('public', 'play_results',
   array['play_id', 'meeting_id', 'profile_id', 'seat', 'scores', 'ranking_value', 'place', 'tied',
         'points', 'is_win'], 'kolumny play_results');
@@ -140,7 +141,7 @@ select is_empty(
           'public.finish_meeting(uuid)'::regprocedure,
           'public.publish_meeting_games(uuid,uuid[])'::regprocedure,
           'public.reopen_voting(uuid)'::regprocedure,
-          'public.start_play(uuid,uuid,uuid,uuid[],int[])'::regprocedure,
+          'public.start_play(uuid,uuid,uuid,uuid[],int[],uuid[])'::regprocedure,
           'public.save_play_draft(uuid,jsonb,int)'::regprocedure,
           'public.discard_play(uuid)'::regprocedure,
           'public.save_play(uuid,uuid,jsonb,jsonb)'::regprocedure,
@@ -181,7 +182,7 @@ select ok(
 );
 select ok(
   (select prosrc ~ '^\s*declare[^$]*begin\s+perform private\.require_meeting_runner\(start_play\.meeting_id\);'
-     from pg_proc where oid = 'public.start_play(uuid,uuid,uuid,uuid[],int[])'::regprocedure),
+     from pg_proc where oid = 'public.start_play(uuid,uuid,uuid,uuid[],int[],uuid[])'::regprocedure),
   'start_play (security definer) zaczyna od strażnika private.require_meeting_runner()'
 );
 select ok(

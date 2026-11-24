@@ -38,6 +38,8 @@ export interface SavedSheet {
   readonly game: MeetingPlay['game'];
   readonly meeting: { readonly id: string; readonly title: string; readonly starts_at: string };
   readonly results: readonly PlayResult[];
+  /** Dodatki partii (`plays.expansion_ids`). */
+  readonly expansion_ids: readonly string[];
 }
 
 interface SheetRow {
@@ -54,10 +56,11 @@ interface SheetRow {
   readonly meetings: SavedSheet['meeting'] | null;
   readonly scorepad_versions: { readonly scorepads: { readonly name: string } | null } | null;
   readonly play_results: readonly PlayResult[];
+  readonly expansion_ids?: readonly string[] | null | undefined;
 }
 
 const SHEET_COLUMNS =
-  'id, status, started_at, saved_at, sheet, sheet_image_path, scorepad_version_id, game_id, meeting_id, ' +
+  'id, status, started_at, saved_at, sheet, sheet_image_path, scorepad_version_id, game_id, meeting_id, expansion_ids, ' +
   'games(id, title, cover_path), meetings!plays_meeting_id_fkey(id, title, starts_at), ' +
   'scorepad_versions(scorepads!scorepad_versions_scorepad_id_fkey(name)), ' +
   'play_results!play_results_play_id_meeting_id_fkey(profile_id, seat, ranking_value, place, points, is_win)';
@@ -82,6 +85,7 @@ export function fromSheetRow(row: SheetRow): SavedSheet | null {
     game: row.games ?? { id: row.game_id, title: t.meetings.plays.unknownGame, cover_path: null },
     meeting: row.meetings ?? { id: row.meeting_id, title: '', starts_at: row.saved_at },
     results: row.play_results,
+    expansion_ids: row.expansion_ids ?? [],
   };
 }
 

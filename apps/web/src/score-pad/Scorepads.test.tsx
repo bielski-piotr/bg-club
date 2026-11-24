@@ -34,8 +34,13 @@ const GAME: Game = {
   min_players: 2,
   max_players: 5,
   placement_points: [10, 6, 4, 2, 1],
+  complexity: null,
   created_at: '2026-10-01T12:00:00Z',
   last_played_at: null,
+  base_game_id: null,
+  cover_source_path: null,
+  cover_crop: null,
+  play_count: null,
 };
 
 function pad(n: number, name: string, seats: number, version: number): Scorepad {
@@ -54,6 +59,14 @@ function pad(n: number, name: string, seats: number, version: number): Scorepad 
     },
   };
 }
+
+/** Dodatek gry (nie ma go w kolekcji): cel przeniesienia notesu. */
+const TURBO: Game = {
+  ...GAME,
+  id: '00000000-0000-4000-b000-000000000009',
+  title: 'Turbo',
+  base_game_id: GAME.id,
+};
 
 const TURNIEJ = pad(1, 'Turniejowy', 5, 2);
 const MALY = pad(2, 'Mały', 3, 1);
@@ -82,7 +95,7 @@ function fakeClient(pads: Scorepad[]) {
         : table === 'club'
           ? [{ name: 'Planszówki', logo_path: null, timezone: 'Europe/Warsaw' }]
           : table === 'game_collection'
-            ? [GAME]
+            ? [GAME, TURBO]
             : table === 'scorepads'
               ? db.pads
               : [];
@@ -103,6 +116,10 @@ function fakeClient(pads: Scorepad[]) {
         return query;
       },
       is: () => query,
+      not: (column: string) => {
+        rows = rows.filter((row) => (row as Record<string, unknown>)[column] != null);
+        return query;
+      },
       single: async () => {
         if (update) {
           updates.push({ row: update, id: filters.id });
@@ -260,6 +277,25 @@ describe('notesy gry (GAME-7)', () => {
     expect(await screen.findByText('Zmieniono nazwę notesu na Finałowy')).toBeInTheDocument();
     expect(fake.updates).toEqual([{ row: { name: 'Finałowy' }, id: TURNIEJ.id }]);
     expect(fake.rpc).not.toHaveBeenCalledWith('save_scorepad', expect.anything());
+  });
+
+  it('przeniesienie notesu do dodatku (historia bez zmian)', async () => {
+    const fake = renderPopup([TURNIEJ], ADA, `?p=scorepad/${TURNIEJ.id}/move`);
+    const dialog = await loaded('Przenieś notes', /trafi notes „Turniejowy”/);
+    const submit = within(dialog).getByRole('button', { name: 'Przenieś' });
+    expect(submit).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: /Gra albo dodatek/ }));
+    // Obecna gra notesu jest wyłączona; dodatek jest pod swoją grą.
+    expect(screen.getByRole('option', { name: 'Żółwie Wyścigi' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Żółwie Wyścigi › Turbo' }));
+    fireEvent.click(submit);
+    expect(
+      await screen.findByText('Przeniesiono notes Turniejowy do: Żółwie Wyścigi › Turbo'),
+    ).toBeInTheDocument();
+    expect(fake.updates).toEqual([{ row: { game_id: TURBO.id }, id: TURNIEJ.id }]);
   });
 
   it('usunięcie notesu jest miękkie', async () => {

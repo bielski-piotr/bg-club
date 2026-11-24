@@ -177,6 +177,7 @@ async function references(db) {
     await db.query(`select count(*) from (
     select 'avatars' bucket, avatar_path name from public.profiles where avatar_path is not null
     union all select 'covers', cover_path from public.games where cover_path is not null
+    union all select 'covers', cover_source_path from public.games where cover_source_path is not null
     union all select 'covers', logo_path from public.club where logo_path is not null
     union all select 'scorepads', image_path from public.scorepad_versions where image_path is not null
     union all select 'sheets', sheet_image_path from public.plays where sheet_image_path is not null

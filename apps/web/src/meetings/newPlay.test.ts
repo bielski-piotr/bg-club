@@ -4,6 +4,7 @@ import type { Scorepad } from '../score-pad/scorepads';
 import {
   assignSeat,
   boundsLabel,
+  combinedRange,
   emptySeats,
   firstFreeSeat,
   fittingScorepads,
@@ -11,10 +12,12 @@ import {
   gameSubtitle,
   groupGames,
   minPlayers,
+  newPlaySteps,
   playerBounds,
   scorepadReason,
   scorepadsByGame,
   scorepadSubtitle,
+  scoringTitle,
   seatOf,
   seatedPlayers,
   seatsProblem,
@@ -36,6 +39,10 @@ function game(n: number, title: string, min = 2, max = 4): Game {
     complexity: 2,
     created_at: '2026-10-01T00:00:00Z',
     last_played_at: null,
+    base_game_id: null,
+    cover_source_path: null,
+    cover_crop: null,
+    play_count: null,
   };
 }
 
@@ -218,6 +225,66 @@ describe('miejsca w notesie (PAD-2)', () => {
     const game = { min_players: 2, max_players: 6 };
     expect(playerBounds(game, 2)).toEqual({ min: 2, max: 2 });
     expect(playerBounds(game, 2, true)).toEqual({ min: 2, max: 6 });
+  });
+});
+
+describe('dodatki partii', () => {
+  const base = { ...game(1, 'Podstawka', 2, 4), complexity: 2 };
+  const harder = { ...game(11, 'Dodatek A', 2, 4), complexity: 3 };
+  const bigger = { ...game(12, 'Dodatek B', 2, 6), complexity: 1.5 };
+  const biggerHarder = { ...game(13, 'Dodatek C', 1, 6), complexity: 2.5 };
+
+  it('krok „Dodatki” tylko dla gry z dodatkami', () => {
+    expect(newPlaySteps(false)).toEqual(['game', 'scorepad', 'players']);
+    expect(newPlaySteps(true)).toEqual(['game', 'expansions', 'scorepad', 'players']);
+  });
+
+  it('liczba graczy: najmniejsze min i największe max z gry i dodatków', () => {
+    expect(combinedRange(base, [])).toEqual({ min_players: 2, max_players: 4 });
+    expect(combinedRange(base, [bigger, biggerHarder])).toEqual({ min_players: 1, max_players: 6 });
+  });
+
+  it('punktacja: najwyższe skomplikowanie spośród tytułów, które mieszczą graczy', () => {
+    expect(scoringTitle(base, [], 3)).toBe(base);
+    expect(scoringTitle(base, [harder], 4)).toBe(harder);
+    // Dodatek rozszerza liczbę graczy, ale przy 4 graczach mieści podstawka (wyższa).
+    expect(scoringTitle(base, [bigger], 4)).toBe(base);
+    // 5 graczy: mieści tylko dodatek.
+    expect(scoringTitle(base, [bigger], 5)).toBe(bigger);
+    // 5 graczy: najwyższy (A) nie mieści, z mieszczących najwyższe ma C.
+    expect(scoringTitle(base, [harder, bigger, biggerHarder], 5)).toBe(biggerHarder);
+    // Remis skomplikowania wygrywa gra podstawowa.
+    expect(scoringTitle(base, [{ ...harder, complexity: 2 }], 3)).toBe(base);
+  });
+
+  it('wysyła zaznaczone dodatki do start_play (posortowane)', async () => {
+    const calls: unknown[] = [];
+    const client = {
+      rpc: (name: string, args: unknown) => {
+        calls.push([name, args]);
+        return Promise.resolve({ error: null });
+      },
+    };
+    await startPlay(client as never, {
+      playId: 'p',
+      meetingId: 'm',
+      scorepadId: 's',
+      seats: [[A], [B]],
+      expansionIds: ['z', 'a'],
+    });
+    expect(calls).toEqual([
+      [
+        'start_play',
+        {
+          play_id: 'p',
+          meeting_id: 'm',
+          scorepad_id: 's',
+          player_ids: [A, B],
+          expansion_ids: ['a', 'z'],
+        },
+      ],
+    ]);
+    expect(startPlayFailure({ hint: 'plays_expansion_unavailable' })).toBe('expansionGone');
   });
 });
 
