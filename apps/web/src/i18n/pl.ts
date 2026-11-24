@@ -714,14 +714,15 @@ export const pl = {
   sheets: {
     loading: 'Karteczka',
     image: 'Karteczka partii {title} z {date}',
-    noImage:
-      'Obraz tej karteczki nie został zapisany. Wpisy są w historii, więc możesz ją obejrzeć w 3D.',
-    show3d: 'Pokaż w 3D',
-    showImage: 'Pokaż obraz',
-    readOnly: 'Podgląd tylko do odczytu: obracaj i przybliżaj kartkę.',
-    noSheet: 'Ta partia nie ma zapisanych wpisów kartki, więc nie da się jej pokazać w 3D.',
-    padError: 'Nie udało się wczytać notesu tej partii.',
-    retry: 'Spróbuj ponownie',
+    noImage: 'Obraz tej karteczki nie został zapisany. Wyniki partii są obok.',
+    zoom: {
+      label: 'Powiększenie karteczki',
+      in: 'Przybliż',
+      out: 'Oddal',
+      reset: 'Pokaż całą karteczkę',
+      value: '{n}%',
+      hint: 'Kółko, szczypanie albo dwuklik przybliża; przeciągnij, aby przesunąć.',
+    },
     results: 'Wyniki',
     resultsLabel: 'Wyniki partii {title}',
     played: 'Zapisana {date}',
