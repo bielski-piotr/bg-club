@@ -6,6 +6,7 @@ import type {
   ScorePadEditorStatus,
   ScorePadFile,
   ScorePadTemplate,
+  ScorePadZoomAction,
 } from '@bg-club/score-pad';
 import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import { t } from '../i18n';
@@ -51,6 +52,8 @@ export interface ScorePadEditorHandle {
   rotatePhoto(dir: 1 | -1): void;
   /** Cofa ostatnią zmianę obszaru. */
   undoArea(): void;
+  /** Powiększenie podglądu w krokach 2–4. */
+  zoom(by: ScorePadZoomAction): void;
   /** Zmienia mapowanie pól w kroku 3 (EDT-11). */
   editMapping(action: ScorePadEditorMappingAction): void;
   /** Zmienia kategorie i regułę miejsc w kroku 4 (EDT-13, EDT-2…EDT-4). */
@@ -122,6 +125,7 @@ export function ScorePadEditorView({
       setArea: (patch) => elementRef.current?.setArea(patch),
       rotatePhoto: (dir) => elementRef.current?.rotatePhoto(dir),
       undoArea: () => elementRef.current?.undoArea(),
+      zoom: (by) => elementRef.current?.zoom(by),
       editMapping: (action) => elementRef.current?.editMapping(action),
       editCategories: (action) => elementRef.current?.editCategories(action),
     };

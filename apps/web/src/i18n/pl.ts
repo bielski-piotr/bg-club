@@ -1365,6 +1365,8 @@ export const pl = {
     /** Kreator edytora notesu (PRD §5.5.2, EDT-9, DS §18, zadanie [016]). */
     wizard: {
       steps: ['Zdjęcie', 'Obszar kartki', 'Mapowanie pól', 'Kategorie', 'Test i zapis'],
+      /** Powiększenie podglądu w krokach 2–4 (pływający pasek sceny). */
+      zoom: { in: 'Przybliż (+)', out: 'Oddal (−)' },
       stepsLabel: 'Kroki edytora notesu',
       stepOf: 'Krok {n} z {total}',
       stepDone: '{name} (ukończony)',
@@ -1418,6 +1420,7 @@ export const pl = {
         rotateLeft: 'Obróć w lewo',
         rotateRight: 'Obróć w prawo',
         undo: 'Cofnij (Ctrl+Z)',
+        fit: 'Pokaż całe zdjęcie (0)',
         name: 'Nazwa notesu',
         nameRequired: 'Wpisz nazwę notesu.',
         spine: 'Kolor grzbietu',
@@ -1436,14 +1439,11 @@ export const pl = {
           'Granatowy',
         ],
         mode: 'Obszar kartki',
-        modes: { full: 'Całe zdjęcie', auto: 'Wykryj automatycznie', manual: 'Ręcznie' },
+        modes: { full: 'Całe zdjęcie', manual: 'Ręcznie' },
         hints: {
-          full: 'Obszar to całe zdjęcie, np. dla skanu albo zdjęcia już przyciętej kartki.',
-          shape: 'Wykryto kształt kartki: {points}. Przeciągnij punkt, żeby poprawić wynik.',
-          sheet: 'Wykryto kartkę. Przeciągnij narożnik albo dodaj punkt, jeśli kartka ma wycięcia.',
-          missing: 'Nie udało się wykryć kartki. Ustaw punkty ręcznie albo wybierz całe zdjęcie.',
+          full: 'Obszar to całe zdjęcie, np. dla skanu albo zdjęcia już przyciętej kartki. Przeciągnij narożnik na róg kartki, żeby zaznaczyć ją ręcznie.',
           manual:
-            'Przeciągnij punkt (pokaże się lupa). Kliknij lub dotknij krawędzi, żeby dodać punkt; dwuklik albo przytrzymanie punktu go usuwa.',
+            'Obszar: {points}. Przeciągnij punkt (pokaże się lupa). Kliknij lub dotknij krawędzi, żeby dodać punkt; dwuklik albo przytrzymanie punktu go usuwa. Powiększ zdjęcie, żeby trafić dokładnie w krawędź kartki.',
         },
         points: { one: '{n} punkt', few: '{n} punkty', many: '{n} punktów' },
         smoothing: 'Wygładź krawędzie',
@@ -1463,13 +1463,13 @@ export const pl = {
         undo: 'Cofnij (Ctrl+Z)',
         fit: 'Dopasuj widok',
         mode: 'Sposób mapowania',
-        modes: { rects: 'Prostokąty ręczne', table: 'Wykryj tabelę' },
+        modes: { rects: 'Prostokąty ręczne', table: 'Tabela' },
         hints: {
           rects:
             'Narysuj prostokąt pola na kartce. Po każdym polu edytor przechodzi do następnej kategorii tego samego miejsca.',
           table:
-            'Przeciągnij linię albo jej uchwyt, żeby ją poprawić. Kliknij znacznik miejsca nad tabelą, żeby je pominąć.',
-          zoom: 'Powiększ kartkę dwoma palcami albo Ctrl i kółkiem myszy.',
+            'Przeciągnij linie tabeli na linie kartki: ustaw liczbę miejsc i kategorii, a potem dopasuj każdą linię albo jej uchwyt. Kliknij znacznik miejsca nad tabelą, żeby je pominąć.',
+          zoom: 'Powiększ kartkę przyciskami lupy, dwoma palcami albo Ctrl i kółkiem myszy. Powiększoną kartkę przesuwa kółko myszy.',
         },
         playersIn: 'Gracze są w',
         playersAxis: { cols: 'Kolumnach', rows: 'Wierszach' },
@@ -1479,10 +1479,6 @@ export const pl = {
         labels: { cols: 'Kolumny opisu', rows: 'Wiersze opisu' },
         labelsHint: 'Kolumny z nazwami kategorii przed miejscami graczy.',
         labelsHintRows: 'Wiersze z nazwami kategorii przed miejscami graczy.',
-        redetect: 'Wykryj tabelę ponownie',
-        notDetected:
-          'Nie znaleziono tabeli na kartce. Ustaw linie ręcznie albo narysuj prostokąty.',
-        detected: 'Wykryto tabelę. Sprawdź linie i popraw je w razie potrzeby.',
         seat: 'Miejsce gracza',
         seatOption: 'Miejsce {n}',
         addSeat: 'Dodaj miejsce',
@@ -1509,7 +1505,7 @@ export const pl = {
         fit: 'Dopasuj widok',
         tabsLabel: 'Ustawienia kategorii',
         tabs: { lines: 'Kategorie', ranking: 'Wygrana i remisy' },
-        hint: 'Kliknij pole na kartce, żeby wybrać jego kategorię.',
+        hint: 'Kliknij pole na kartce, żeby wybrać jego kategorię. Małe pola łatwiej trafić po powiększeniu kartki.',
         category: 'Kategoria',
         categoryOf: 'Kategoria {n} z {total}',
         previous: 'Poprzednia kategoria',

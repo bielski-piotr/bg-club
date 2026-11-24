@@ -37,11 +37,7 @@ export function formatCm(value: number): string {
 }
 
 /** Podpowiedź pod wyborem sposobu wyznaczenia obszaru (szablon z `{points}`). */
-export function areaHint(settings: Pick<ScorePadEditorArea, 'mode' | 'detected'>): string {
+export function areaHint(settings: Pick<ScorePadEditorArea, 'mode'>): string {
   const hints = t.scorepads.wizard.area.hints;
-  if (settings.mode === 'full') return hints.full;
-  if (settings.mode === 'manual') return hints.manual;
-  if (settings.detected === 'shape') return hints.shape;
-  if (settings.detected === 'missing') return hints.missing;
-  return hints.sheet;
+  return settings.mode === 'full' ? hints.full : hints.manual;
 }

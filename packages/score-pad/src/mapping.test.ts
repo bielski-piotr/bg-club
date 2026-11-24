@@ -3,30 +3,17 @@ import type { PadTemplate } from './core/templates';
 import { playerCount, validateTemplate } from './core/templates';
 import type { FieldsHost } from './editor/fields';
 import { FieldsStep } from './editor/fields';
-import type * as Photo from './editor/photo';
-import type { LineScan } from './editor/photo';
 
 /*
  * Krok 3 edytora „Mapowanie pól” (EDT-11, EDT-6, EDT-8), zadanie [018]: prostokąty ręczne
- * z przechodzeniem po kategoriach i powielaniem dla kolejnych miejsc, wykryta tabela z poprawą
- * linii i osią graczy, wykluczające się tryby i cofanie. jsdom nie ma płótna, więc wykrywanie
- * linii tabeli zwraca przygotowany wynik.
+ * z przechodzeniem po kategoriach i powielaniem dla kolejnych miejsc, tabela ustawiana ręcznie
+ * (bez wykrywania na zdjęciu) z poprawą linii i osią graczy, wykluczające się tryby i cofanie.
  */
 
-const scan = vi.hoisted(() => ({ result: null as LineScan | null }));
-
-vi.mock('./editor/photo', async (original) => ({
-  ...(await original<typeof Photo>()),
-  detectLines: () =>
-    scan.result ? structuredClone(scan.result) : { xs: [], ys: [], openRows: [], openCols: [] },
-}));
-
-/** Tabela 1 kolumna opisu + 4 kolumny graczy, 6 wierszy. */
-const TABLE: LineScan = {
+/** Linie tabeli dopasowane do kartki: 1 kolumna opisu + 4 kolumny graczy, 6 wierszy. */
+const TABLE = {
   xs: [0.05, 0.35, 0.5, 0.65, 0.8, 0.95],
   ys: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
-  openRows: [],
-  openCols: [],
 };
 
 const W = 1000;
@@ -99,18 +86,31 @@ function drag(
 }
 
 beforeEach(() => {
-  scan.result = null;
   Element.prototype.scrollIntoView ??= () => undefined;
 });
+
+/** Pierwsze wejście w krok i przejście na prostokąty (tabela startowa bez zmian: bez pytania). */
+function enterRects(t: ReturnType<typeof setup>) {
+  t.step.enter();
+  t.step.apply({ type: 'mode', mode: 'rects' });
+}
+
+/** Pierwsze wejście w krok i linie tabeli przesunięte ręcznie na linie kartki. */
+function enterTable(t: ReturnType<typeof setup>) {
+  t.step.enter();
+  t.step.draft.grid.x = [...TABLE.xs];
+  t.step.draft.grid.y = [...TABLE.ys];
+  t.step.renderAll();
+}
 
 afterEach(() => {
   document.body.innerHTML = '';
 });
 
 describe('prostokąty ręczne', () => {
-  it('kartka bez tabeli zaczyna od prostokątów; każde pole przechodzi do następnej kategorii', () => {
+  it('prostokąty od zera; każde pole przechodzi do następnej kategorii', () => {
     const t = setup();
-    t.step.enter();
+    enterRects(t);
     expect(t.step.state()).toMatchObject({
       mode: 'rects',
       seats: 1,
@@ -145,7 +145,7 @@ describe('prostokąty ręczne', () => {
 
   it('powiela pola dla następnego miejsca, uczy się przesunięcia i działa dla ponad 8 miejsc', () => {
     const t = setup();
-    t.step.enter();
+    enterRects(t);
     draw(t, 0.02, 0.1, 0.06, 0.04);
     draw(t, 0.02, 0.2, 0.06, 0.04);
     expect(t.step.state().canDuplicate).toBe(true);
@@ -185,7 +185,7 @@ describe('prostokąty ręczne', () => {
 
   it('pola drugiego miejsca rysowane ręcznie idą po brakujących kategoriach', () => {
     const t = setup();
-    t.step.enter();
+    enterRects(t);
     for (const y of [0.1, 0.2, 0.3]) draw(t, 0.1, y);
     t.step.apply({ type: 'seats', delta: 1 });
     expect(t.step.state()).toMatchObject({
@@ -212,7 +212,7 @@ describe('prostokąty ręczne', () => {
 
   it('usuwanie pól, kategorii i miejsc z numeracją kategorii', () => {
     const t = setup();
-    t.step.enter();
+    enterRects(t);
     for (const y of [0.1, 0.2, 0.3]) draw(t, 0.1, y);
     t.step.apply({ type: 'duplicate' });
     t.step.apply({ type: 'category', category: 1 });
@@ -231,7 +231,7 @@ describe('prostokąty ręczne', () => {
 
   it('kategoria bez pól blokuje przejście dalej', () => {
     const t = setup();
-    t.step.enter();
+    enterRects(t);
     draw(t, 0.1, 0.1);
     draw(t, 0.1, 0.2);
     const second = t.step.draft.fields[1] as { id: string };
@@ -244,8 +244,9 @@ describe('prostokąty ręczne', () => {
 
   it('cofanie (Ctrl+Z) i przerwane przeciąganie (drugi palec, Esc)', () => {
     const t = setup();
-    t.step.enter();
-    expect(t.step.state().canUndo).toBe(false);
+    enterRects(t);
+    // zmiana trybu z tabeli startowej też się cofa
+    expect(t.step.state().canUndo).toBe(true);
     draw(t, 0.1, 0.1);
     draw(t, 0.1, 0.2);
     expect(t.step.undo()).toBe(true);
@@ -263,13 +264,14 @@ describe('prostokąty ręczne', () => {
     expect(t.step.dragging).toBe(false);
     expect(t.step.undo()).toBe(true);
     expect(t.step.draft.fields).toHaveLength(0);
+    expect(t.step.undo()).toBe(true);
+    expect(t.step.state().mode).toBe('table');
     expect(t.step.undo()).toBe(false);
   });
 });
 
-describe('wykryta tabela', () => {
-  it('kartka z tabelą zaczyna od tabeli: miejsca w kolumnach, kategorie w wierszach', () => {
-    scan.result = TABLE;
+describe('tabela ustawiana ręcznie', () => {
+  it('pierwsze wejście w krok: tabela startowa, miejsca w kolumnach, kategorie w wierszach', () => {
     const t = setup();
     t.step.enter();
     expect(t.step.state()).toMatchObject({
@@ -278,9 +280,19 @@ describe('wykryta tabela', () => {
       seats: 4,
       categories: 6,
       labels: 1,
-      hasContent: true,
+      // tabela startowa bez zmian: zmiana trybu nie musi pytać
+      hasContent: false,
       problem: null,
     });
+    expect(t.step.draft.lines.map((l) => l.kind)).toEqual([
+      'names',
+      'input',
+      'input',
+      'input',
+      'input',
+      'input',
+    ]);
+    enterTable(t);
     // gracze w wierszach: te same linie, zamienione role
     t.step.apply({ type: 'players', players: 'rows' });
     expect(t.step.state()).toMatchObject({ players: 'rows', seats: 5, categories: 5 });
@@ -289,9 +301,8 @@ describe('wykryta tabela', () => {
   });
 
   it('poprawa linii, miejsc, kategorii i kolumn opisu', () => {
-    scan.result = TABLE;
     const t = setup();
-    t.step.enter();
+    enterTable(t);
     t.step.apply({ type: 'seats', delta: 1 });
     t.step.apply({ type: 'categories', delta: 1 });
     t.step.apply({ type: 'labels', delta: 1 });
@@ -322,34 +333,27 @@ describe('wykryta tabela', () => {
   });
 
   it('ponad osiem miejsc w tabeli', () => {
-    scan.result = TABLE;
     const t = setup();
-    t.step.enter();
+    enterTable(t);
     for (let i = 0; i < 7; i++) t.step.apply({ type: 'seats', delta: 1 });
     expect(t.step.state().seats).toBe(11);
     const tpl = validateTemplate({ v: 2, id: 'x', size: { w: 10, h: 14 }, ...t.step.output() });
     expect(tpl && playerCount(tpl)).toBe(11);
   });
 
-  it('wykryj ponownie: nieudane wykrycie zostawia tabelę i nic nie dodaje do cofania', () => {
-    scan.result = TABLE;
+  it('samodzielny edytor nie ma wykrywania tabeli na zdjęciu', () => {
     const t = setup();
     t.step.enter();
-    scan.result = null;
-    t.step.apply({ type: 'detect' });
-    expect(t.step.state()).toMatchObject({ detected: false, categories: 6, canUndo: false });
-    scan.result = TABLE;
-    t.step.apply({ type: 'detect' });
-    expect(t.step.state()).toMatchObject({ detected: true, categories: 6, canUndo: true });
+    const toolbar = (t.step as unknown as { h: FieldsHost }).h.toolbar;
+    expect(toolbar.querySelector('[data-a="detect"]')).toBeNull();
+    expect(toolbar.querySelector('[data-a="even"]')).not.toBeNull();
   });
 });
 
 describe('tryby się wykluczają', () => {
   it('zmiana trybu usuwa pola i kategorie; cofnięcie je przywraca', () => {
-    scan.result = TABLE;
     const t = setup();
     t.step.enter();
-    scan.result = null;
     t.step.setMode('table');
     expect(t.step.state().mode).toBe('table');
     t.step.apply({ type: 'mode', mode: 'rects' });
@@ -361,9 +365,9 @@ describe('tryby się wykluczają', () => {
     });
     draw(t, 0.1, 0.1);
     expect(t.step.state().hasContent).toBe(true);
-    // tabela bez wykrytych linii: domyślna tabela do poprawienia
+    // tabela: startowa, do dopasowania liniami
     t.step.apply({ type: 'mode', mode: 'table' });
-    expect(t.step.state()).toMatchObject({ mode: 'table', detected: false, seats: 4 });
+    expect(t.step.state()).toMatchObject({ mode: 'table', seats: 4, categories: 6 });
     expect(t.step.draft.fields).toHaveLength(0);
     expect(t.step.output().players).toBeUndefined();
     t.step.undo();
@@ -373,7 +377,7 @@ describe('tryby się wykluczają', () => {
 
   it('samodzielny edytor pyta przed zmianą trybu; anulowanie niczego nie zmienia', () => {
     const t = setup();
-    t.step.enter();
+    enterRects(t);
     draw(t, 0.1, 0.1);
     t.confirm.mockReturnValueOnce(false);
     (t.step.draft.fields[0] as { x: number }).x = 0.1;
@@ -443,7 +447,7 @@ describe('wczytany notes', () => {
 describe('poprawki z code review', () => {
   it('wybór miejsca w panelu zdejmuje zaznaczenie kopii zamiast je przenosić', () => {
     const t = setup();
-    t.step.enter();
+    enterRects(t);
     draw(t, 0.05, 0.1);
     t.step.apply({ type: 'duplicate' });
     expect(t.step.state().selected).toBe(1);
@@ -452,11 +456,10 @@ describe('poprawki z code review', () => {
     expect(t.step.draft.fields.map((f) => f.p).sort()).toEqual([0, 1]);
   });
 
-  it('tabela domyślna bez zmian (nieudane wykrycie) nie wymaga potwierdzenia przy powrocie', () => {
+  it('tabela startowa bez zmian nie wymaga potwierdzenia przy zmianie trybu', () => {
     const t = setup();
     t.step.enter();
-    t.step.setMode('table');
-    expect(t.step.state()).toMatchObject({ detected: false, hasContent: false });
+    expect(t.step.state()).toMatchObject({ mode: 'table', hasContent: false });
     t.step.apply({ type: 'seats', delta: 1 });
     expect(t.step.state().hasContent).toBe(true);
   });
@@ -481,9 +484,8 @@ describe('poprawki z code review', () => {
   });
 
   it('stan tabeli: wiersze kategorii i najwięcej kolumn opisu', () => {
-    scan.result = TABLE;
     const t = setup();
-    t.step.enter();
+    enterTable(t);
     expect(t.step.state()).toMatchObject({ rows: 6, labels: 1, maxLabels: 4 });
     for (let i = 0; i < 6; i++) t.step.apply({ type: 'labels', delta: 1 });
     expect(t.step.state()).toMatchObject({ labels: 4, seats: 1 });

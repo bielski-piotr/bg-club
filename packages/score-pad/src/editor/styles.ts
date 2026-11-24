@@ -267,6 +267,7 @@ export const EDITOR_CSS = String.raw`
 .spe-svg .spe-gl .knob { fill: #fff; stroke: var(--accent-vivid); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .spe-svg .spe-gl:hover .knob, .spe-svg .spe-gl.on .knob { fill: var(--accent-vivid); }
 .spe-svg.spe-zoomed { overflow: hidden; }
+.spe[data-step="2"] .spe-svg.spe-zoomed [data-bg] { cursor: grab; }
 .spe-svg .spe-gl.x { cursor: ew-resize; }
 .spe-svg .spe-gl.y { cursor: ns-resize; }
 .spe-svg .spe-ghost-line { stroke: var(--accent-vivid); stroke-opacity: .3; stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }

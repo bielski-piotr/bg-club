@@ -67,18 +67,27 @@ async function samplePhoto(page: Page, kind: Sample, width = 1600, height = 1200
 }
 
 const editorEl = (page: Page) => page.locator('score-pad-editor');
+const isMobile = (page: Page) => (page.viewportSize()?.width ?? 0) < 768;
 
 interface AreaSettings {
   name: string;
   tape: string;
-  mode: 'full' | 'auto' | 'manual';
+  mode: 'full' | 'manual';
   points: number;
   smoothing: boolean;
   strength: number;
   size: { w: number; h: number };
   binding: 'top' | 'left';
   canUndo: boolean;
-  detected: 'shape' | 'sheet' | 'missing' | null;
+}
+
+/** Powiększenie podglądu ze stanu edytora. */
+async function zoomLevel(page: Page) {
+  return editorEl(page).evaluate((el) => {
+    const status = (el as unknown as { status(): { zoom: { level: number } } | null }).status();
+    if (!status) throw new Error('edytor niegotowy');
+    return status.zoom.level;
+  });
 }
 
 /** Ustawienia kroku 2 ze stanu edytora. */
@@ -139,22 +148,23 @@ async function center(locator: Locator) {
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 }
 
-test('zaokrąglone rogi: wykryty nieregularny obszar, wygładzanie i panel kroku', async ({
+test('nowe zdjęcie: obszar to całe zdjęcie (bez wykrywania), panel kroku i powiększenie', async ({
   page,
 }) => {
   const dialog = await openArea(page, 'rounded');
   const s = await settings(page);
-  expect(s.mode).toBe('auto');
-  expect(s.detected).toBe('shape');
-  expect(s.points).toBeGreaterThan(4);
-  await expect(dialog.getByText(/Wykryto kształt kartki/)).toBeVisible();
-  // Proporcje kartki 700×900 z wykrytych narożników.
-  expect(s.size.w / s.size.h).toBeCloseTo(700 / 900, 1);
+  // Kartkę zaznacza się ręcznie: na start obszar to całe zdjęcie.
+  expect(s.mode).toBe('full');
+  expect(s.points).toBe(4);
+  await expect(dialog.getByText(/Przeciągnij narożnik na róg kartki/)).toBeVisible();
+  await expect(dialog.getByRole('radio', { name: /Wykryj/ })).toHaveCount(0);
+  // Proporcje kartki z proporcji zdjęcia 1600×1200.
+  expect(s.size.w / s.size.h).toBeCloseTo(1600 / 1200, 1);
 
   // Panel (DS §18): nazwa, kolor grzbietu, tryb obszaru, wygładzanie, rozmiar, grzbiet.
   await expect(dialog.getByRole('textbox', { name: 'Nazwa notesu' })).toHaveValue('Mój notes');
   await expect(dialog.getByRole('radio', { name: 'Granatowy' })).toBeChecked();
-  await expect(dialog.getByRole('radio', { name: 'Wykryj automatycznie' })).toBeChecked();
+  await expect(dialog.getByRole('radio', { name: 'Całe zdjęcie' })).toBeChecked();
   await expect(dialog.getByRole('radio', { name: 'U góry' })).toBeChecked();
   await dialog.getByRole('switch', { name: 'Wygładź krawędzie' }).click();
   await expect(dialog.getByRole('slider', { name: 'Siła' })).toBeVisible();
@@ -166,25 +176,53 @@ test('zaokrąglone rogi: wykryty nieregularny obszar, wygładzanie i panel kroku
   await expect.poll(async () => (await settings(page)).size.w).toBe(9.5);
   await noHorizontalOverflow(page);
 
-  // Kształt w zapisanym notesie: wygładzony obrys z zaokrąglonymi rogami.
-  await dialog.getByRole('button', { name: 'Dalej' }).click();
-  await expect(page.locator('score-pad-editor .spe.wizard')).toHaveAttribute('data-step', '3');
-  const outline = await editorEl(page).evaluate(
-    (el) =>
-      (
-        el as unknown as { editor: { shape(): { outline: [number, number][] } | undefined } }
-      ).editor.shape()?.outline,
-  );
-  expect(outline?.length).toBeGreaterThan(12);
-  // Róg (0, 0) jest odcięty łukiem.
-  expect(Math.min(...(outline ?? []).map(([u, v]) => Math.hypot(u, v)))).toBeGreaterThan(0.02);
+  // Powiększenie zdjęcia z paska sceny: punkty da się ustawić dokładniej.
+  const toolbar = dialog.getByRole('toolbar', { name: 'Narzędzia obszaru' });
+  await expect(toolbar.getByRole('button', { name: 'Oddal (−)' })).toBeDisabled();
+  await toolbar.getByRole('button', { name: 'Przybliż (+)' }).click();
+  await expect.poll(() => zoomLevel(page)).toBe(1.5);
+  await toolbar.getByRole('button', { name: 'Przybliż (+)' }).click();
+  await expect.poll(() => zoomLevel(page)).toBe(2.25);
+  // Przeciąganie tła (mysz) albo palca przesuwa powiększone zdjęcie, bez zmiany obszaru.
+  const viewX = () =>
+    editorEl(page).evaluate(
+      (el) => (el as unknown as { editor: { view: { x: number } | null } }).editor.view?.x ?? -1,
+    );
+  const x0 = await viewX();
+  const stage = await editorEl(page).locator('.spe-svg').boundingBox();
+  if (!stage) throw new Error('brak sceny');
+  const c = { x: stage.x + stage.width / 2, y: stage.y + stage.height / 3 };
+  if (isMobile(page)) {
+    // szczypanie dwoma palcami powiększa dalej
+    const cdp = await page.context().newCDPSession(page);
+    const pts = (d: number) => [
+      { x: c.x - d, y: c.y, id: 1 },
+      { x: c.x + d, y: c.y, id: 2 },
+    ];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pts(20) });
+    for (const d of [40, 60, 80])
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pts(d) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await cdp.detach();
+    await expect.poll(() => zoomLevel(page)).toBeGreaterThan(2.25);
+  } else {
+    await page.mouse.move(c.x, c.y);
+    await page.mouse.down();
+    await page.mouse.move(c.x + 60, c.y, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(viewX).toBeLessThan(x0);
+  }
+  expect((await settings(page)).points).toBe(4);
+  await toolbar.getByRole('button', { name: 'Pokaż całe zdjęcie (0)' }).click();
+  await expect.poll(() => zoomLevel(page)).toBe(1);
 });
 
-test('wycięcie: obszar z wycięciem i ręczna poprawka punktami z lupą', async ({ page }) => {
+test('ręczne zaznaczanie kartki: punkty z lupą, krawędzie, usuwanie i cofanie', async ({
+  page,
+}) => {
   const dialog = await openArea(page, 'notch');
   const s = await settings(page);
-  expect(s.detected).toBe('shape');
-  expect(s.points).toBeGreaterThanOrEqual(8);
+  expect(s.points).toBe(4);
 
   // Przeciąganie punktu pokazuje lupę i przełącza tryb na ręczny.
   const start = await center(handle(page, 0));
@@ -208,15 +246,15 @@ test('wycięcie: obszar z wycięciem i ręczna poprawka punktami z lupą', async
 
   // Kliknięcie krawędzi dodaje punkt, dwuklik punktu go usuwa, Ctrl+Z cofa.
   const before = (await settings(page)).points;
-  // najdłuższa krawędź (na krótkiej środek leży w strefie chwytu punktów)
+  // górna krawędź: na start obszar to całe zdjęcie, a dolną krawędź zasłania pasek sceny
   const dots = await Promise.all(Array.from({ length: before }, (_, i) => center(handle(page, i))));
   let edge = 0;
-  let longest = 0;
+  let top = Infinity;
   dots.forEach((p, i) => {
     const q = dots[(i + 1) % dots.length] as { x: number; y: number };
-    const d = Math.hypot(q.x - p.x, q.y - p.y);
-    if (d > longest) {
-      longest = d;
+    const y = (p.y + q.y) / 2;
+    if (y < top && Math.abs(q.x - p.x) > 80) {
+      top = y;
       edge = i;
     }
   });
@@ -244,18 +282,18 @@ test('wycięcie: obszar z wycięciem i ręczna poprawka punktami z lupą', async
   await page.keyboard.press('Control+z');
   await expect.poll(async () => (await settings(page)).points).toBe(before + 1);
 
-  // Całe zdjęcie i ponowne wykrycie.
+  // Całe zdjęcie przywraca cztery narożniki zdjęcia.
   await dialog.getByText('Całe zdjęcie', { exact: true }).click();
   await expect.poll(async () => (await settings(page)).points).toBe(4);
-  await dialog.getByText('Wykryj automatycznie', { exact: true }).click();
-  await expect.poll(async () => (await settings(page)).detected).toBe('shape');
+  await expect.poll(async () => (await settings(page)).mode).toBe('full');
   await noHorizontalOverflow(page);
 });
 
-test('zdjęcie perspektywiczne: cztery narożniki, prostowanie i obrót o 90°', async ({ page }) => {
+test('zdjęcie perspektywiczne: cztery narożniki, prostowanie całego zdjęcia i obrót o 90°', async ({
+  page,
+}) => {
   const dialog = await openArea(page, 'perspective');
   const s = await settings(page);
-  expect(s.detected).toBe('sheet');
   expect(s.points).toBe(4);
 
   // Obrót w prawo zamienia szerokość z wysokością (obszar obraca się razem ze zdjęciem).
@@ -273,9 +311,9 @@ test('zdjęcie perspektywiczne: cztery narożniki, prostowanie i obrót o 90°',
     const s = (el as unknown as { editor: { sheet: HTMLCanvasElement | null } }).editor.sheet;
     return s ? { w: s.width, h: s.height } : null;
   });
-  // Najdłuższy bok obszaru na zdjęciu 1600×1200: ok. 870 px (prawy bok).
-  expect(Math.max(sheet?.w ?? 0, sheet?.h ?? 0)).toBeGreaterThan(820);
-  expect(Math.max(sheet?.w ?? 0, sheet?.h ?? 0)).toBeLessThan(900);
+  // Obszar to całe zdjęcie 1600×1200: dłuższy bok kartki jak dłuższy bok zdjęcia.
+  expect(Math.max(sheet?.w ?? 0, sheet?.h ?? 0)).toBeGreaterThan(1500);
+  expect(Math.max(sheet?.w ?? 0, sheet?.h ?? 0)).toBeLessThanOrEqual(1600);
 });
 
 test('pełna jakość: dłuższy bok do 4096 px, jakość 0,92, małe zdjęcie bez powiększania', async ({
@@ -283,7 +321,7 @@ test('pełna jakość: dłuższy bok do 4096 px, jakość 0,92, małe zdjęcie b
 }) => {
   test.setTimeout(90_000);
   const dialog = await openArea(page, 'flat', [5200, 3900]);
-  await expect.poll(async () => (await settings(page)).mode).toBe('auto');
+  await expect.poll(async () => (await settings(page)).mode).toBe('full');
   // Skan bez tła: obszar to całe zdjęcie przeskalowane do 4096 px.
   const src = await editorEl(page).evaluate((el) => {
     const s = (el as unknown as { editor: { src: HTMLCanvasElement | null } }).editor.src;

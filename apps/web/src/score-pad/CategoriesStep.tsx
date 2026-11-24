@@ -7,6 +7,8 @@ import type {
   ScorePadEditorCategoryPatch,
   ScorePadLineKind,
   ScorePadRangeMode,
+  ScorePadEditorStatus,
+  ScorePadZoomAction,
   TiebreakRule,
 } from '@bg-club/score-pad';
 import { useId, useState } from 'react';
@@ -32,23 +34,29 @@ import {
   parseIntegers,
 } from './categories';
 import { useDraft } from './useDraft';
+import { ZoomButtons } from './ZoomButtons';
 
 const text = t.scorepads.wizard.categories;
 
 type Action = (action: ScorePadEditorCategoriesAction) => void;
 
-/** Pływający pasek sceny w kroku 4 (DS §18): dopasowanie widoku kartki. */
+/** Pływający pasek sceny w kroku 4 (DS §18): powiększenie i dopasowanie widoku kartki. */
 export function CategoriesToolbar({
   zoomed,
+  zoom,
   disabled,
   onAction,
+  onZoom,
 }: {
   readonly zoomed: boolean;
+  readonly zoom: ScorePadEditorStatus['zoom'];
   readonly disabled: boolean;
   readonly onAction: Action;
+  readonly onZoom: (by: ScorePadZoomAction) => void;
 }) {
   return (
     <div className="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
+      <ZoomButtons zoom={zoom} disabled={disabled} onZoom={onZoom} />
       <IconButton
         icon="target"
         label={text.fit}

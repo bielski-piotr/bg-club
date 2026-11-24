@@ -192,7 +192,7 @@ export interface ScorePadChangeDetail {
 export type ScorePadLineKind = ScorePadLine['kind'];
 
 /** Sposób wyznaczenia obszaru kartki (EDT-10). */
-export type ScorePadAreaMode = 'full' | 'auto' | 'manual';
+export type ScorePadAreaMode = 'full' | 'manual';
 
 /** Ustawienia kroku 2 „Obszar kartki” (EDT-10) w stanie edytora. */
 export interface ScorePadEditorArea {
@@ -210,8 +210,6 @@ export interface ScorePadEditorArea {
   readonly binding: 'top' | 'left';
   /** Jest zmiana obszaru do cofnięcia. */
   readonly canUndo: boolean;
-  /** Wynik ostatniego wykrywania: nieregularny kształt, kartka, nic albo brak wykrywania. */
-  readonly detected: 'shape' | 'sheet' | 'missing' | null;
 }
 
 /** Zmiana ustawień kroku 2 (`setArea`). */
@@ -225,7 +223,7 @@ export interface ScorePadEditorAreaPatch {
   readonly binding?: 'top' | 'left';
 }
 
-/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo wykryta tabela. */
+/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo tabela ustawiana ręcznie. */
 export type ScorePadMappingMode = 'rects' | 'table';
 
 /** Stan kroku 3 „Mapowanie pól” (EDT-11, EDT-6). */
@@ -255,8 +253,6 @@ export interface ScorePadEditorMapping {
   readonly canUndo: boolean;
   /** Zmiana sposobu mapowania usunie pola lub kategorie (trzeba zapytać). */
   readonly hasContent: boolean;
-  /** Wynik ostatniego wykrywania tabeli na prośbę (null: nie było). */
-  readonly detected: boolean | null;
   /** Powód, dla którego mapowanie nie jest jeszcze gotowe, albo null. */
   readonly problem: string | null;
   /** Widok kartki jest powiększony. */
@@ -272,7 +268,6 @@ export type ScorePadEditorMappingAction =
   | { readonly type: 'seats'; readonly delta: 1 | -1 }
   | { readonly type: 'categories'; readonly delta: 1 | -1 }
   | { readonly type: 'labels'; readonly delta: 1 | -1 }
-  | { readonly type: 'detect' }
   | { readonly type: 'duplicate' }
   | { readonly type: 'delete' }
   | { readonly type: 'removeCategory' }
@@ -379,7 +374,12 @@ export interface ScorePadEditorStatus {
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
   readonly openFailed: boolean;
+  /** Powiększenie podglądu w krokach 2–4: `level` 1 = cały obraz, najwyżej `max`. */
+  readonly zoom: { readonly level: number; readonly max: number };
 }
+
+/** Zmiana powiększenia podglądu (`zoom`): przybliż, oddal albo pokaż cały obraz. */
+export type ScorePadZoomAction = 'in' | 'out' | 'fit';
 
 /** Zdarzenia `<score-pad-editor>`. */
 export interface ScorePadEditorEventMap {
@@ -463,6 +463,8 @@ export interface ScorePadEditorElement extends HTMLElement {
   rotatePhoto(dir: 1 | -1): void;
   /** Cofa ostatnią zmianę obszaru. */
   undoArea(): void;
+  /** Powiększenie podglądu w krokach 2–4. */
+  zoom(by: ScorePadZoomAction): void;
   /** Zmienia mapowanie pól (krok 3, EDT-11); zmiana sposobu kasuje pola bez pytania. */
   editMapping(action: ScorePadEditorMappingAction): void;
   /** Zmienia kategorie i regułę miejsc (krok 4, EDT-13, EDT-2…EDT-4). */

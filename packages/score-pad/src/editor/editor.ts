@@ -11,6 +11,7 @@ import {
   encodeSheet,
   flattenPaper,
   fullQuad,
+  looksCropped,
   quadAspect,
   releasePixels,
   rotate,
@@ -19,7 +20,7 @@ import {
 } from './photo';
 import type { AreaMode } from './area';
 import {
-  MAX_DETECTED_POINTS,
+  MAX_EDIT_POINTS,
   MAX_SMOOTHING,
   MIN_AREA_POINTS,
   areaCorners,
@@ -37,7 +38,6 @@ import { validateTemplate } from '../core/templates';
 import type { PadConfig } from '../core/settings';
 import type { ShapePt, SheetShape } from '../core/shape';
 import { clamp, el, esc, uid } from '../core/util';
-import { detectArea } from './shape-tools';
 import {
   FieldsStep,
   type CategoriesAction,
@@ -111,7 +111,7 @@ export interface EditorArea {
   readonly name: string;
   /** Kolor grzbietu (`#rrggbb`). */
   readonly tape: string;
-  /** Całe zdjęcie, wykrycie automatyczne albo punkty ustawione ręcznie. */
+  /** Całe zdjęcie albo punkty ustawione ręcznie. */
   readonly mode: AreaMode;
   /** Liczba punktów obszaru. */
   readonly points: number;
@@ -124,8 +124,6 @@ export interface EditorArea {
   readonly binding: 'top' | 'left';
   /** Jest zmiana obszaru do cofnięcia (Ctrl+Z). */
   readonly canUndo: boolean;
-  /** Wynik ostatniego wykrywania: nieregularny kształt, kartka, nic albo brak wykrywania. */
-  readonly detected: 'shape' | 'sheet' | 'missing' | null;
 }
 
 /** Zmiana ustawień kroku 2 z panelu kreatora. */
@@ -146,7 +144,6 @@ interface AreaSnapshot {
   mode: AreaMode;
   smoothing: boolean;
   strength: number;
-  detected: EditorArea['detected'];
   fixed: boolean;
   size: { w: number; h: number };
   sizeManual: boolean;
@@ -183,7 +180,12 @@ export interface EditorStatus {
   readonly dirty: boolean;
   /** Nie udało się wczytać zdjęcia notesu otwartego do edycji. */
   readonly openFailed: boolean;
+  /** Powiększenie podglądu w krokach 2–4: `level` 1 = całe zdjęcie lub cała kartka, do `max`. */
+  readonly zoom: { readonly level: number; readonly max: number };
 }
+
+/** Zmiana powiększenia podglądu: bliżej, dalej albo cały obraz. */
+export type ZoomAction = 'in' | 'out' | 'fit';
 
 const STEPS: { n: Step; title: string; sub: string }[] = [
   { n: 1, title: 'Zdjęcie', sub: 'Wczytanie zdjęcia notesu' },
@@ -230,12 +232,11 @@ export class Editor {
 
   // obszar kartki (EDT-10): wielokąt na zdjęciu; z niego narożniki (`quad`) i kształt
   private area: Pt[] = fullArea(1, 1);
-  /** Otwory w kartce (np. dziurki) z wykrycia albo z wczytanego notesu, w pikselach zdjęcia. */
+  /** Otwory w kartce (np. dziurki) z wczytanego notesu, w pikselach zdjęcia. */
   private holes: Pt[][] = [];
-  private mode: AreaMode = 'auto';
+  private mode: AreaMode = 'full';
   private smoothing = false;
   private strength = 4;
-  private detected: EditorArea['detected'] = null;
   /** Kartka wczytana z notesu jest już wyprostowana: narożniki to całe zdjęcie. */
   private fixedCorners = false;
   /** Kształt wczytanego notesu i to, czy obszar od tamtej pory się nie zmienił. */
@@ -267,11 +268,16 @@ export class Editor {
   private sheetKey = '';
   readonly fields: FieldsStep;
   private raf = 0;
-  /** Widok kartki w kroku 3 (powiększenie), null = cała kartka. */
+  /**
+   * Widok podglądu (powiększenie) w krokach 2–4, we współrzędnych zdjęcia (krok 2) albo kartki
+   * (kroki 3 i 4); null = cały obraz.
+   */
   private view: { x: number; y: number; w: number; h: number } | null = null;
-  /** Palce na scenie kroku 3 (szczypanie powiększa, dwa palce przesuwają widok). */
+  /** Palce na scenie (szczypanie powiększa, dwa palce przesuwają widok). */
   private touches = new Map<number, { x: number; y: number }>();
   private pinch: { d: number; x: number; y: number } | null = null;
+  /** Przesuwanie powiększonego zdjęcia w kroku 2 (przeciąganie tła). */
+  private pan: { x: number; y: number; pointer: number } | null = null;
 
   constructor(
     mount: ShadowRoot | HTMLElement,
@@ -355,6 +361,8 @@ export class Editor {
       // W kreatorze zmianę trybu potwierdza popup aplikacji (DS §18), tu systemowe pytanie.
       confirm: (m) => typeof window.confirm !== 'function' || window.confirm(m),
       wizard: !!opts.wizard,
+      zoomTools: () => this.zoomTools(),
+      bindZoomTools: (tb) => this.bindZoomTools(tb),
     });
     mount.appendChild(this.root);
     this.bind();
@@ -468,7 +476,7 @@ export class Editor {
         this.cancelDrag();
         return;
       }
-      if (this.step === 4 && this.pinch) {
+      if ((this.step === 2 || this.step === 4) && (this.pinch || this.pan)) {
         e.preventDefault();
         this.endPinch();
         return;
@@ -498,7 +506,7 @@ export class Editor {
       if (!e.shiftKey) this.editMapping({ type: 'undo' });
       return;
     }
-    if (this.step >= 3 && !e.ctrlKey && !e.metaKey && !e.altKey && this.zoomKey(e)) {
+    if (this.step >= 2 && !e.ctrlKey && !e.metaKey && !e.altKey && this.zoomKey(e)) {
       e.preventDefault();
       return;
     }
@@ -568,6 +576,7 @@ export class Editor {
       categories: { ...this.fields.categoriesState(this.step < 3), zoomed: !!this.view },
       dirty: this.dirty,
       openFailed: this.openFailed,
+      zoom: { level: this.zoomLevel(), max: MAX_ZOOM },
     };
   }
 
@@ -618,6 +627,9 @@ export class Editor {
     clearTimeout(this.press);
     this.touches.clear();
     this.pinch = null;
+    this.pan = null;
+    // krok 2 pokazuje zdjęcie, kroki 3 i 4 wyprostowaną kartkę: widok nie przechodzi między nimi
+    if (prev < 3 !== s < 3) this.view = null;
     this.exported = false;
     this.root.dataset.step = String(s);
     if (prev !== s) {
@@ -767,7 +779,7 @@ export class Editor {
       // zachowuje dokładny kształt (`pristine`).
       const diag = Math.hypot(c.width, c.height);
       this.area = t.shape
-        ? limitPoints(toPhotoRing(t.shape.outline, this.quad), MAX_DETECTED_POINTS, diag)
+        ? limitPoints(toPhotoRing(t.shape.outline, this.quad), MAX_EDIT_POINTS, diag)
         : fullArea(c.width, c.height);
       this.holes = (t.shape?.holes ?? []).map((r) => toPhotoRing(r, this.quad));
       this.loadedShape = t.shape ? (JSON.parse(JSON.stringify(t.shape)) as SheetShape) : undefined;
@@ -775,8 +787,8 @@ export class Editor {
       if (this.area.length < MIN_AREA_POINTS) this.area = fullArea(c.width, c.height);
       this.mode = t.shape ? 'manual' : 'full';
       this.smoothing = false;
-      this.detected = null;
       this.pdrag = null;
+      this.view = null;
       this.sundo = [];
       this.fields.load(t);
       this.editId = t.id;
@@ -802,17 +814,19 @@ export class Editor {
   /** Zdjęcie wczytanego notesu i stan kadru, przy którym jest aktualne. */
   private loadedImage: { url: string; key: string } | null = null;
 
-  /** Nowe zdjęcie: obszar wykryty automatycznie (EDT-10), do poprawy punktami. */
+  /**
+   * Nowe zdjęcie: obszar to całe zdjęcie (EDT-10); kartkę wyznacza się ręcznie, przeciągając
+   * narożniki i dodając punkty.
+   */
   private setSource(c: HTMLCanvasElement): void {
     this.src = c;
     this.srcId++;
-    const r = detectArea(c);
     // skan (przycięta kartka) ma już równe światło
-    this.flatten = !r.cropped;
-    this.area = r.area;
-    this.holes = r.holes;
-    this.mode = 'auto';
-    this.detected = r.found;
+    this.flatten = !looksCropped(c);
+    this.area = fullArea(c.width, c.height);
+    this.holes = [];
+    this.mode = 'full';
+    this.view = null;
     this.smoothing = false;
     this.fixedCorners = false;
     this.pristine = false;
@@ -878,7 +892,6 @@ export class Editor {
       mode: this.mode,
       smoothing: this.smoothing,
       strength: this.strength,
-      detected: this.detected,
       fixed: this.fixedCorners,
       size: { ...this.size },
       sizeManual: this.sizeManual,
@@ -912,7 +925,6 @@ export class Editor {
     this.mode = s.mode;
     this.smoothing = s.smoothing;
     this.strength = s.strength;
-    this.detected = s.detected;
     this.fixedCorners = s.fixed;
     this.size = { ...s.size };
     this.sizeManual = s.sizeManual;
@@ -933,7 +945,6 @@ export class Editor {
       size: { ...this.size },
       binding: this.binding,
       canUndo: this.sundo.length > 0,
-      detected: this.detected,
     };
   }
 
@@ -981,25 +992,15 @@ export class Editor {
     }
   }
 
-  /** Tryb obszaru: całe zdjęcie, ponowne wykrycie albo ręczna edycja bieżących punktów. */
+  /** Tryb obszaru: całe zdjęcie albo ręczna edycja bieżących punktów. */
   private setMode(mode: AreaMode): void {
     const src = this.src;
-    if (!src) return;
+    if (!src || (mode !== 'full' && mode !== 'manual')) return;
     this.pushUndo();
     this.pdrag = null;
     if (mode === 'full') {
       this.area = fullArea(src.width, src.height);
       this.holes = [];
-      this.detected = null;
-    } else if (mode === 'auto') {
-      const r = detectArea(src);
-      this.area = r.area;
-      this.holes = r.holes;
-      this.detected = r.found;
-      this.fixedCorners = false;
-      this.sizeManual = false;
-      if (r.found === 'missing')
-        this.toast('Nie widzę wyraźnej kartki — ustaw punkty obszaru ręcznie.');
     }
     this.mode = mode;
   }
@@ -1026,6 +1027,7 @@ export class Editor {
     this.srcId++;
     this.size = { w: this.size.h, h: this.size.w };
     this.pdrag = null;
+    this.view = null;
     this.refreshSrcUrl();
     this.areaChanged();
   }
@@ -1067,7 +1069,6 @@ export class Editor {
       <span class="spe-tb-sep"></span>
       <div class="spe-tb-group spe-seg" role="radiogroup" aria-label="Obszar kartki">
         ${mode('full', 'full', 'Całe zdjęcie')}
-        ${mode('auto', 'detect', 'Wykryj')}
         ${mode('manual', 'rect', 'Ręcznie')}
       </div>
       <span class="spe-tb-sep"></span>
@@ -1088,10 +1089,13 @@ export class Editor {
         <button type="button" class="spe-tb-btn" data-a="smooth" aria-pressed="${this.smoothing}" title="Wygładź krawędzie">${icon('smooth')}</button>
         <label class="spe-range" title="Siła wygładzania"><span>Siła</span><input type="range" min="0" max="${MAX_SMOOTHING}" step="1" data-smooth value="${this.strength}" ${this.smoothing ? '' : 'disabled'}><output>${this.strength}</output></label>
         <button type="button" class="spe-tb-btn" data-a="undo" title="Cofnij (Ctrl+Z)" ${this.sundo.length ? '' : 'disabled'}>${icon('undo')}</button>
-      </div>`;
+      </div>
+      <span class="spe-tb-sep"></span>
+      ${this.zoomTools()}`;
     tb.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
       b.addEventListener('click', () => this.action(b.dataset.a as string)),
     );
+    this.bindZoomTools(tb);
     tb.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) =>
       b.addEventListener('click', () => this.setArea({ mode: b.dataset.mode as AreaMode })),
     );
@@ -1196,7 +1200,7 @@ export class Editor {
   private draw(): void {
     const svg = this.svg;
     svg.classList.toggle('spe-c-draw', this.step === 3 && this.fields.mode === 'rects');
-    svg.classList.toggle('spe-zoomed', this.step >= 3 && !!this.view);
+    svg.classList.toggle('spe-zoomed', this.step >= 2 && !!this.view);
     if (this.step !== 2 || !this.pdrag?.moved) this.loupe.style.display = 'none';
     if (this.step === 1 || !this.src) {
       this.baseImg.style.display = 'none';
@@ -1232,7 +1236,8 @@ export class Editor {
   private drawShape(): void {
     const src = this.src as HTMLCanvasElement;
     const { width: w, height: h } = src;
-    this.svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const v = this.view;
+    this.svg.setAttribute('viewBox', v ? `${v.x} ${v.y} ${v.w} ${v.h}` : `0 0 ${w} ${h}`);
     const k = this.scale(w);
     const P = this.persp();
     const q = this.quad;
@@ -1302,8 +1307,10 @@ export class Editor {
     const R = (this.svg.clientWidth && this.svg.clientWidth < 520 ? 36 : 44) * k;
     const Z = 3;
     const off = R + 40 * k;
-    const lx = clamp(p.x + this.loupeSide.x * off, R, w - R);
-    const ly = clamp(p.y + this.loupeSide.y * off, R, h - R);
+    // lupa zostaje w widocznej części zdjęcia (także w powiększeniu)
+    const v = this.view ?? { x: 0, y: 0, w, h };
+    const lx = clamp(p.x + this.loupeSide.x * off, v.x + R, v.x + v.w - R);
+    const ly = clamp(p.y + this.loupeSide.y * off, v.y + R, v.y + v.h - R);
     const set = (sel: string, attrs: Record<string, string | number>): void => {
       const e = L.querySelector(sel) as SVGElement;
       for (const a in attrs) e.setAttribute(a, String(attrs[a]));
@@ -1363,12 +1370,30 @@ export class Editor {
     const t = e.target as Element;
     const ph = t.closest('[data-p]') as SVGElement | null;
     if (this.step !== 2 || !ph) this.svg.focus({ preventScroll: true });
+    if (e.pointerType === 'touch' && this.step >= 2 && this.zoomTarget()) {
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.touches.size >= 2) {
+        // drugi palec: zamiast przeciągania punktu albo rysowania powiększenie i przesuwanie widoku
+        if (this.step === 2) {
+          this.cancelDrag();
+          this.pan = null;
+        } else if (this.fields.dragging) this.fields.cancel();
+        const [a, b] = [...this.touches.values()];
+        this.pinch = {
+          d: Math.hypot(a.x - b.x, a.y - b.y),
+          x: (a.x + b.x) / 2,
+          y: (a.y + b.y) / 2,
+        };
+        this.capture(e);
+        return;
+      }
+    }
+    if (this.pinch) return;
     if (this.step >= 3) {
       if (this.sheet) this.sheetDown(e);
       return;
     }
-    // drugi palec nie przejmuje przeciąganego punktu
-    if (this.step !== 2 || !this.src || this.pdrag) return;
+    if (this.step !== 2 || !this.src || this.pdrag || this.pan) return;
     if (ph) {
       const i = Number(ph.dataset.p);
       // Dwuklik (mysz, pióro) usuwa punkt. Wykrywamy go sami: nakładka jest przebudowywana po
@@ -1399,12 +1424,39 @@ export class Editor {
       this.mode = 'manual';
       this.startDrag(e, i + 1, true, snap);
       this.updateCorners();
+      return;
+    }
+    // powiększone zdjęcie: przeciąganie tła przesuwa widok
+    if (this.view) {
+      this.pan = { x: e.clientX, y: e.clientY, pointer: e.pointerId };
+      this.capture(e);
     }
   }
 
   private onMove(e: PointerEvent): void {
+    if (e.pointerType === 'touch' && this.touches.has(e.pointerId))
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pin = this.pinch;
+    if (pin) {
+      const [a, b] = [...this.touches.values()];
+      if (!a || !b) return;
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const x = (a.x + b.x) / 2;
+      const y = (a.y + b.y) / 2;
+      this.panBy(x - pin.x, y - pin.y);
+      if (pin.d > 0 && d > 0) this.zoomAt(x, y, d / pin.d);
+      this.pinch = { d, x, y };
+      return;
+    }
     if (this.step >= 3) {
-      this.sheetMove(e);
+      if (this.step === 3) this.fields.move(e);
+      return;
+    }
+    const pan = this.pan;
+    if (pan) {
+      if (e.pointerId !== pan.pointer) return;
+      this.panBy(e.clientX - pan.x, e.clientY - pan.y);
+      this.pan = { ...pan, x: e.clientX, y: e.clientY };
       return;
     }
     const d = this.pdrag;
@@ -1426,8 +1478,18 @@ export class Editor {
   }
 
   private onUp(e: PointerEvent): void {
+    this.touches.delete(e.pointerId);
+    if (this.pinch) {
+      // palec, który został po szczypaniu, niczego nie rysuje ani nie przesuwa
+      if (!this.touches.size) this.pinch = null;
+      return;
+    }
     if (this.step >= 3) {
       this.sheetUp(e);
+      return;
+    }
+    if (this.pan) {
+      if (e.pointerId === this.pan.pointer) this.pan = null;
       return;
     }
     const d = this.pdrag;
@@ -1521,10 +1583,56 @@ export class Editor {
     this.notify();
   }
 
-  /** Widok kartki: cała kartka albo powiększony fragment (współrzędne kartki). */
+  // ─────────────────────────────────────────────── powiększenie podglądu (kroki 2–4)
+
+  /** Obraz, który się powiększa: zdjęcie w kroku 2, wyprostowana kartka w krokach 3 i 4. */
+  private zoomTarget(): HTMLCanvasElement | null {
+    if (this.step === 2) return this.src;
+    return this.step >= 3 ? this.sheet : null;
+  }
+
+  /** Bieżące powiększenie (1 = cały obraz). */
+  private zoomLevel(): number {
+    const target = this.zoomTarget();
+    if (!target || !this.view) return 1;
+    return Math.round((target.width / this.view.w) * 100) / 100;
+  }
+
+  /** Przybliża, oddala albo pokazuje cały obraz (przyciski paska narzędzi, kreator). */
+  zoom(by: ZoomAction): void {
+    if (!this.zoomTarget() || this.busy) return;
+    if (by === 'fit') {
+      this.view = null;
+      this.render();
+      return;
+    }
+    const r = this.svg.getBoundingClientRect();
+    this.zoomAt(
+      r.left + r.width / 2,
+      r.top + r.height / 2,
+      by === 'in' ? ZOOM_STEP : 1 / ZOOM_STEP,
+    );
+  }
+
+  /** Przyciski powiększenia w pasku narzędzi samodzielnego edytora. */
+  zoomTools(): string {
+    return `<div class="spe-tb-group" role="group" aria-label="Powiększenie">
+        <button type="button" class="spe-tb-btn" data-zoom="out" title="Oddal (−)" aria-label="Oddal">${icon('zoomOut')}</button>
+        <button type="button" class="spe-tb-btn" data-zoom="in" title="Przybliż (+)" aria-label="Przybliż">${icon('zoomIn')}</button>
+        <button type="button" class="spe-tb-btn" data-zoom="fit" title="Pokaż całość (0)" aria-label="Pokaż całość">${icon('fit')}</button>
+      </div>`;
+  }
+
+  bindZoomTools(tb: HTMLElement): void {
+    tb.querySelectorAll<HTMLButtonElement>('[data-zoom]').forEach((b) =>
+      b.addEventListener('click', () => this.zoom(b.dataset.zoom as ZoomAction)),
+    );
+  }
+
+  /** Widok: cały obraz albo powiększony fragment (współrzędne zdjęcia albo kartki). */
   private viewBox(): { x: number; y: number; w: number; h: number } {
-    const sheet = this.sheet as HTMLCanvasElement;
-    return this.view ?? { x: 0, y: 0, w: sheet.width, h: sheet.height };
+    const target = this.zoomTarget() as HTMLCanvasElement;
+    return this.view ?? { x: 0, y: 0, w: target.width, h: target.height };
   }
 
   /** Punkt ekranu → punkt kartki dla widoku `v` (viewBox z preserveAspectRatio „meet”). */
@@ -1536,12 +1644,12 @@ export class Editor {
     return { x: v.x + (cx - r.left - ox) / k, y: v.y + (cy - r.top - oy) / k };
   }
 
-  /** Ustawia widok w granicach kartki (od całej kartki do ośmiokrotnego powiększenia). */
+  /** Ustawia widok w granicach obrazu (od całego obrazu do ośmiokrotnego powiększenia). */
   private setView(v: { x: number; y: number; w: number; h: number }): void {
-    const sheet = this.sheet;
-    if (!sheet) return;
-    const W = sheet.width;
-    const H = sheet.height;
+    const target = this.zoomTarget();
+    if (!target) return;
+    const W = target.width;
+    const H = target.height;
     const w = clamp(v.w, W / MAX_ZOOM, W);
     const h = (w * H) / W;
     if (w >= W - 0.5) {
@@ -1570,7 +1678,7 @@ export class Editor {
   }
 
   private onWheel(e: WheelEvent): void {
-    if (this.step < 3 || !this.sheet) return;
+    if (this.step < 2 || !this.zoomTarget()) return;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       this.zoomAt(e.clientX, e.clientY, Math.exp(-clamp(e.deltaY, -60, 60) * 0.01));
@@ -1580,67 +1688,22 @@ export class Editor {
     }
   }
 
-  /** Klawiatura w kroku 3: + i - powiększają, 0 dopasowuje widok. */
+  /** Klawiatura w krokach 2–4: + i - powiększają, 0 pokazuje cały obraz. */
   private zoomKey(e: KeyboardEvent): boolean {
-    if (!this.sheet) return false;
-    const r = this.svg.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    if (e.key === '+' || e.key === '=') this.zoomAt(cx, cy, 1.25);
-    else if (e.key === '-' || e.key === '_') this.zoomAt(cx, cy, 0.8);
-    else if (e.key === '0') {
-      this.view = null;
-      this.render();
-    } else return false;
+    if (!this.zoomTarget()) return false;
+    if (e.key === '+' || e.key === '=') this.zoom('in');
+    else if (e.key === '-' || e.key === '_') this.zoom('out');
+    else if (e.key === '0') this.zoom('fit');
+    else return false;
     return true;
   }
 
   private sheetDown(e: PointerEvent): void {
-    if (e.pointerType === 'touch') {
-      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (this.touches.size >= 2) {
-        // drugi palec: zamiast rysowania powiększenie i przesuwanie widoku
-        if (this.fields.dragging) this.fields.cancel();
-        const [a, b] = [...this.touches.values()];
-        this.pinch = {
-          d: Math.hypot(a.x - b.x, a.y - b.y),
-          x: (a.x + b.x) / 2,
-          y: (a.y + b.y) / 2,
-        };
-        this.capture(e);
-        return;
-      }
-    }
-    if (this.pinch) return;
     if (this.step === 4) this.fields.pick(e);
     else this.fields.down(e);
   }
 
-  private sheetMove(e: PointerEvent): void {
-    if (e.pointerType === 'touch' && this.touches.has(e.pointerId))
-      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const pin = this.pinch;
-    if (pin) {
-      const [a, b] = [...this.touches.values()];
-      if (!a || !b) return;
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      const x = (a.x + b.x) / 2;
-      const y = (a.y + b.y) / 2;
-      this.panBy(x - pin.x, y - pin.y);
-      if (pin.d > 0 && d > 0) this.zoomAt(x, y, d / pin.d);
-      this.pinch = { d, x, y };
-      return;
-    }
-    if (this.step === 3) this.fields.move(e);
-  }
-
   private sheetUp(e: PointerEvent): void {
-    this.touches.delete(e.pointerId);
-    if (this.pinch) {
-      // palec, który został po szczypaniu, niczego nie rysuje
-      if (!this.touches.size) this.pinch = null;
-      return;
-    }
     if (this.step === 4) return;
     if (e.type === 'pointercancel') {
       if (this.fields.dragging) this.fields.cancel();
@@ -1651,6 +1714,7 @@ export class Editor {
 
   private endPinch(): void {
     this.pinch = null;
+    this.pan = null;
     this.touches.clear();
   }
 
@@ -1754,8 +1818,10 @@ export class Editor {
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
 
-/** Największe powiększenie kartki w kroku 3. */
+/** Największe powiększenie podglądu (kroki 2–4). */
 const MAX_ZOOM = 8;
+/** Krok powiększenia przyciskiem albo klawiszem + / −. */
+const ZOOM_STEP = 1.5;
 
 /** Dotyk jako główny wskaźnik (telefon, tablet). */
 const coarsePointer = (): boolean =>
@@ -1774,6 +1840,7 @@ function sameStatus(a: EditorStatus, b: EditorStatus): boolean {
     a.seats === b.seats &&
     a.dirty === b.dirty &&
     a.openFailed === b.openFailed &&
+    a.zoom.level === b.zoom.level &&
     sameArea(a.settings, b.settings) &&
     sameMapping(a.mapping, b.mapping) &&
     (a.categories === b.categories ||
@@ -1798,8 +1865,7 @@ function sameArea(a: EditorArea, b: EditorArea): boolean {
     a.size.w === b.size.w &&
     a.size.h === b.size.h &&
     a.binding === b.binding &&
-    a.canUndo === b.canUndo &&
-    a.detected === b.detected
+    a.canUndo === b.canUndo
   );
 }
 

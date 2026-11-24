@@ -2,23 +2,30 @@ import type {
   ScorePadEditorMapping,
   ScorePadEditorMappingAction,
   ScorePadMappingMode,
+  ScorePadEditorStatus,
+  ScorePadZoomAction,
 } from '@bg-club/score-pad';
 import { format, plural, t } from '../i18n';
 import { Banner, Button, IconButton, SegmentedControl, Stepper } from '../ui';
 import { cx } from '../ui/cx';
 import { fewerSeatsMessage } from './messages';
+import { ZoomButtons } from './ZoomButtons';
 
 const text = t.scorepads.wizard.mapping;
 
-/** Pływający pasek sceny w kroku 3 (DS §18): cofnij i dopasuj widok. */
+/** Pływający pasek sceny w kroku 3 (DS §18): cofnij, powiększenie i dopasuj widok. */
 export function MappingToolbar({
   mapping,
+  zoom,
   disabled,
   onAction,
+  onZoom,
 }: {
   readonly mapping: ScorePadEditorMapping;
+  readonly zoom: ScorePadEditorStatus['zoom'];
   readonly disabled: boolean;
   readonly onAction: (action: ScorePadEditorMappingAction) => void;
+  readonly onZoom: (by: ScorePadZoomAction) => void;
 }) {
   return (
     <div className="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
@@ -29,6 +36,7 @@ export function MappingToolbar({
         disabled={disabled || !mapping.canUndo}
         onClick={() => onAction({ type: 'undo' })}
       />
+      <ZoomButtons zoom={zoom} disabled={disabled} onZoom={onZoom} />
       <IconButton
         icon="target"
         label={text.fit}
@@ -102,7 +110,7 @@ export function MappingPanel({
   );
 }
 
-/** Tryb tabeli: oś graczy, liczba miejsc, kategorii i kolumn opisu, ponowne wykrycie. */
+/** Tryb tabeli: oś graczy, liczba miejsc, kategorii i kolumn opisu. */
 function TableTools({
   mapping,
   onAction,
@@ -117,7 +125,6 @@ function TableTools({
   };
   return (
     <>
-      {mapping.detected === false ? <Banner variant="warning">{text.notDetected}</Banner> : null}
       <SegmentedControl
         legend={text.playersIn}
         hideLegend={false}
@@ -150,14 +157,6 @@ function TableTools({
         hint={mapping.players === 'cols' ? text.labelsHint : text.labelsHintRows}
         onChange={(next) => steps('labels', next, mapping.labels)}
       />
-      <Button
-        variant="secondary"
-        icon="refresh"
-        className="wizard-panel__action"
-        onClick={() => onAction({ type: 'detect' })}
-      >
-        {text.redetect}
-      </Button>
     </>
   );
 }

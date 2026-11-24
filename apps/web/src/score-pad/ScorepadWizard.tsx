@@ -4,6 +4,7 @@ import type {
   ScorePadEditorStatus,
   ScorePadMappingMode,
   ScorePadTemplate,
+  ScorePadZoomAction,
 } from '@bg-club/score-pad';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
@@ -286,6 +287,7 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
   const editMapping = (action: ScorePadEditorMappingAction) => editor.current?.editMapping(action);
   const editCategories = (action: ScorePadEditorCategoriesAction) =>
     editor.current?.editCategories(action);
+  const zoom = (by: ScorePadZoomAction) => editor.current?.zoom(by);
   const changeMapping = (mode: ScorePadMappingMode) => {
     if (!status || mode === status.mapping.mode) return;
     // EDT-11: tryby się wykluczają; z polami lub kategoriami najpierw pytamy.
@@ -407,18 +409,28 @@ export function ScorepadWizard({ game, scorepadId, pad, template }: ScorepadWiza
                 <AreaToolbar
                   canUndo={status.settings.canUndo}
                   disabled={busy}
+                  zoom={status.zoom}
                   onRotate={(dir) => editor.current?.rotatePhoto(dir)}
                   onUndo={() => editor.current?.undoArea()}
+                  onZoom={zoom}
                 />
               ) : null}
               {step === 3 && status?.photo && status.step === 3 ? (
-                <MappingToolbar mapping={status.mapping} disabled={busy} onAction={editMapping} />
+                <MappingToolbar
+                  mapping={status.mapping}
+                  zoom={status.zoom}
+                  disabled={busy}
+                  onAction={editMapping}
+                  onZoom={zoom}
+                />
               ) : null}
               {step === 4 && status?.photo && status.step === 4 ? (
                 <CategoriesToolbar
                   zoomed={status.categories.zoomed}
+                  zoom={status.zoom}
                   disabled={busy}
                   onAction={editCategories}
+                  onZoom={zoom}
                 />
               ) : null}
             </div>
