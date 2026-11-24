@@ -206,7 +206,9 @@ test('pełna ścieżka nowego notesu: zdjęcie → obszar → pola → kategorie
   expect(mock.scorepadSaves).toEqual([]);
   expect(mock.scorepadUploads).toEqual([]);
 
-  await dialog.getByRole('button', { name: 'Widok z góry' }).click();
+  // Przyciski widoku są w samym notesie (shadow DOM): widok pod kątem i z powrotem.
+  await dialog.getByRole('button', { name: 'Widok pod kątem' }).click();
+  await dialog.getByRole('button', { name: 'Widok pod kątem' }).click();
   await noHorizontalOverflow(page);
   expect(await axe(page)).toEqual([]);
 

@@ -172,13 +172,20 @@ test.describe('na komputerze', () => {
     // 10 miejsc: Tab przez kategorie gracza 9 do gracza 10
     for (let i = 0; i < 4; i++) await page.keyboard.press('Tab');
     await expectAt(page, 'birds', 9);
-    const e = (await entry(page)) as EntryDebug;
     const frame = await pad.locator('.sp').boundingBox();
     if (!frame) throw new Error('Brak notesu');
-    expect(e.box.x).toBeGreaterThanOrEqual(frame.x);
-    expect(e.box.y).toBeGreaterThanOrEqual(frame.y);
-    expect(e.box.x + e.box.w).toBeLessThanOrEqual(frame.x + frame.width);
-    expect(e.box.y + e.box.h).toBeLessThanOrEqual(frame.y + frame.height);
+    // kamera dojeżdża do pola płynnie
+    await expect
+      .poll(async () => {
+        const { box } = (await entry(page)) as EntryDebug;
+        return (
+          box.x >= frame.x &&
+          box.y >= frame.y &&
+          box.x + box.w <= frame.x + frame.width &&
+          box.y + box.h <= frame.y + frame.height
+        );
+      })
+      .toBe(true);
   });
 });
 

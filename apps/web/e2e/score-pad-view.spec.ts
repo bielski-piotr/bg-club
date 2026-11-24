@@ -1,14 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Notes 3D: obrót, zoom, widok z góry i tekstura (zadanie [020], PAD-10…PAD-12, PAD-16).
+ * Notes 3D: zoom, widoki kamery, oderwanie przyciskiem i tekstura (PAD-11, PAD-12, PAD-16).
  * Notes z galerii /design-system; stan kamery czytamy z `pad.debug()`.
  */
 
 interface PadDebug {
   view: 'home' | 'free';
-  seesTop: boolean;
+  angled: boolean;
+  moving: boolean;
   zoom: number;
+  game: number;
   texture: [number, number] | null;
   pixelRatio: number;
 }
@@ -38,66 +40,73 @@ function padState(page: Page) {
 test.describe('na komputerze', () => {
   test.skip(({ isMobile }) => isMobile, 'mysz i kółko');
 
-  test('obrót prawym przyciskiem, zoom kółkiem względem kursora i powrót klawiszem 0', async ({
-    page,
-  }) => {
+  test('zoom kółkiem względem kursora, bez obrotu myszą, i reset widoku', async ({ page }) => {
     // Na CI (WebGL programowy) 12 kroków zoomu kółkiem i animacja powrotu przekraczają 30 s,
     // jak scenariusz z zoomem w score-pad-entry.spec.ts.
     test.slow();
     const { pad, box } = await openPad(page);
-    const home = pad.getByRole('button', { name: 'Widok z góry' });
-    await expect(home).toBeDisabled();
-    expect(await padState(page)).toMatchObject({ view: 'home', seesTop: true, zoom: 1 });
+    const reset = pad.getByRole('button', { name: 'Resetuj widok' });
+    await expect(reset).toBeDisabled();
+    expect(await padState(page)).toMatchObject({ view: 'home', angled: false, zoom: 1 });
 
-    // Prawy przycisk obraca notes w każdym miejscu (PAD-10).
+    // Przeciąganie prawym albo lewym przyciskiem poza kartką nie zmienia kamery.
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
-    await page.mouse.move(cx, cy);
-    await page.mouse.down({ button: 'right' });
-    await page.mouse.move(cx + 120, cy + 40, { steps: 6 });
-    await page.mouse.up({ button: 'right' });
-    expect(await padState(page)).toMatchObject({ view: 'free', seesTop: true });
-    await expect(home).toBeEnabled();
+    for (const button of ['right', 'left'] as const) {
+      await page.mouse.move(box.x + 8, box.y + box.height - 8);
+      await page.mouse.down({ button });
+      await page.mouse.move(box.x + 160, box.y + box.height - 120, { steps: 6 });
+      await page.mouse.up({ button });
+    }
+    expect(await padState(page)).toMatchObject({ view: 'home', zoom: 1 });
 
     // Kółko bez Ctrl przybliża co najmniej 6× (PAD-11).
+    await page.mouse.move(cx, cy);
     for (let i = 0; i < 12; i++) await page.mouse.wheel(0, -300);
     await expect.poll(async () => (await padState(page)).zoom).toBeGreaterThanOrEqual(6);
+    await expect(reset).toBeEnabled();
 
-    // Klawisz 0 płynnie wraca do widoku z góry (PAD-12).
+    // Przycisk „Resetuj widok” płynnie wraca do widoku domyślnego (PAD-12).
+    await reset.click();
+    await expect.poll(async () => (await padState(page)).view).toBe('home');
+    await expect(reset).toBeDisabled();
+
+    // Klawisz 0 robi to samo (kursor wraca nad notes znad przycisku).
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(async () => (await padState(page)).view).toBe('free');
     await pad.locator('.stage canvas').focus();
     await page.keyboard.press('0');
     await expect.poll(async () => (await padState(page)).view).toBe('home');
-    await expect(home).toBeDisabled();
   });
 
-  test('od tyłu notesu nie da się wpisywać; przycisk „Widok z góry” wraca do kartki', async ({
-    page,
-  }) => {
-    const { pad, box } = await openPad(page);
-    // Lewy przycisk poza notesem (róg stołu) też obraca: pół obrotu w pionie pokazuje tekturę.
-    const x = box.x + 8;
-    const y = box.y + box.height - 8;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    const half = Math.max(240, Math.min(box.width, box.height));
-    for (let i = 1; i <= 10; i++) await page.mouse.move(x, y - (half * i) / 10);
-    await page.mouse.up();
-    expect(await padState(page)).toMatchObject({ view: 'free', seesTop: false });
-
-    // Kliknięcie w środek nie otwiera wpisywania.
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await expect(pad.locator('.picker')).toBeHidden();
-
-    await pad.getByRole('button', { name: 'Widok z góry' }).click();
+  test('widok z góry i pod kątem przełącza przycisk i klawisz V', async ({ page }) => {
+    const { pad } = await openPad(page);
+    const angle = pad.getByRole('button', { name: 'Widok pod kątem' });
+    await expect(angle).toHaveAttribute('aria-pressed', 'false');
+    await angle.click();
+    await expect(angle).toHaveAttribute('aria-pressed', 'true');
+    await expect
+      .poll(async () => await padState(page))
+      .toMatchObject({ view: 'home', angled: true, moving: false });
+    await pad.locator('.stage canvas').focus();
+    await page.keyboard.press('v');
+    await expect(angle).toHaveAttribute('aria-pressed', 'false');
     await expect.poll(async () => (await padState(page)).view).toBe('home');
-    expect((await padState(page)).seesTop).toBe(true);
+  });
+
+  test('przycisk w notesie odrywa kartkę', async ({ page }) => {
+    const { pad } = await openPad(page);
+    const before = (await padState(page)).game;
+    await pad.getByRole('button', { name: 'Oderwij wierzchnią kartkę' }).click();
+    await expect.poll(async () => (await padState(page)).game).not.toBe(before);
   });
 });
 
 test.describe('na telefonie', () => {
   test.skip(({ isMobile }) => !isMobile, 'gesty dwoma palcami');
 
-  test('dwa palce obracają i przybliżają notes, bez zoomu strony', async ({ page }) => {
+  test('szczypanie przybliża i przesuwa widok, bez zoomu strony', async ({ page }) => {
     const { box } = await openPad(page);
     const cdp = await page.context().newCDPSession(page);
     const cx = box.x + box.width / 2;
@@ -127,18 +136,20 @@ test.describe('na telefonie', () => {
     expect(zoomed.view).toBe('free');
     expect(zoomed.zoom).toBeGreaterThan(2);
 
-    // Przesunięcie dwoma palcami w pionie obraca pod spód notesu.
+    // Przesunięcie dwoma palcami przesuwa widok, bez zmiany przybliżenia.
     await touch('touchStart', [
-      { x: cx - 40, y: cy + 150 },
-      { x: cx + 40, y: cy + 150 },
+      { x: cx - 40, y: cy + 60 },
+      { x: cx + 40, y: cy + 60 },
     ]);
-    for (let i = 1; i <= 15; i++)
+    for (let i = 1; i <= 6; i++)
       await touch('touchMove', [
-        { x: cx - 40, y: cy + 150 - i * 25 },
-        { x: cx + 40, y: cy + 150 - i * 25 },
+        { x: cx - 40, y: cy + 60 - i * 15 },
+        { x: cx + 40, y: cy + 60 - i * 15 },
       ]);
     await touch('touchEnd', []);
-    expect((await padState(page)).seesTop).toBe(false);
+    const panned = await padState(page);
+    expect(panned.view).toBe('free');
+    expect(panned.zoom).toBeCloseTo(zoomed.zoom, 1);
 
     // Strona nie została powiększona przez przeglądarkę (NFR-4).
     expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
