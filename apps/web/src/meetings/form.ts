@@ -1,4 +1,4 @@
-import { DATE_OPTIONS_MAX, duplicateDateOptions, type DateOptionValue } from './dateOptions';
+import { duplicateDateOptions, type DateOptionValue } from './dateOptions';
 import { DEFAULT_TIME, isPast, localDateTime, todayIn } from './datetime';
 import type { Meeting } from './meetings';
 
@@ -16,6 +16,8 @@ export interface MeetingFormValues {
   readonly participants: readonly string[];
   /** Prowadzący spośród uczestników innych niż admin; `null` = prowadzi admin (§2). */
   readonly hostId: string | null;
+  /** Głosowanie na termin otwarte: uczestnicy proponują terminy i na nie głosują. */
+  readonly dateVoting: boolean;
   /** Proponowane terminy do głosowania (opinia uczestników; termin ustala administrator). */
   readonly dateOptions: readonly DateOptionValue[];
 }
@@ -25,8 +27,8 @@ export interface MeetingFormErrors {
   readonly date?: 'required' | 'past' | undefined;
   readonly time?: 'required' | undefined;
   readonly participants?: 'required' | undefined;
-  /** Propozycje bez daty albo godziny, powtórzone albo ponad limit. */
-  readonly dateOptions?: 'incomplete' | 'duplicate' | 'tooMany' | undefined;
+  /** Propozycje bez daty albo godziny albo powtórzone. */
+  readonly dateOptions?: 'incomplete' | 'duplicate' | undefined;
 }
 
 /**
@@ -45,6 +47,7 @@ export function emptyMeetingForm(
     time: DEFAULT_TIME,
     participants: [adminId],
     hostId: null,
+    dateVoting: false,
     dateOptions: [],
   };
 }
@@ -61,6 +64,7 @@ export function meetingFormFrom(
     time: local.time,
     participants: meeting.participants,
     hostId: meeting.host_id,
+    dateVoting: meeting.date_voting_open,
     dateOptions,
   };
 }
@@ -68,7 +72,6 @@ export function meetingFormFrom(
 function dateOptionsError(options: readonly DateOptionValue[]): MeetingFormErrors['dateOptions'] {
   if (options.some((option) => option.date === '' || option.time === '')) return 'incomplete';
   if (duplicateDateOptions(options).size > 0) return 'duplicate';
-  if (options.length > DATE_OPTIONS_MAX) return 'tooMany';
   return undefined;
 }
 

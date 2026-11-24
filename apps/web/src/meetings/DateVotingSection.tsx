@@ -1,32 +1,42 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { format, t } from '../i18n';
 import { QueryStatus } from '../popups/QueryStatus';
 import { avatarPerson, type Profile } from '../profile/profiles';
-import { AvatarStack, Badge, Button, Icon, Tray, useToast } from '../ui';
+import { AvatarStack, Badge, Button, Icon, Select, TextField, Tray, useToast } from '../ui';
 import { cx } from '../ui/cx';
 import {
   castDateVote,
   DateVotingError,
   leadingDateOptions,
   meetingDateOptionsKey,
+  proposeMeetingDate,
   useDateDecision,
   useMeetingDateOptions,
   withdrawDateVote,
   type DateOption,
 } from './dateVoting';
-import { formatMeetingDate, longMeetingDate } from './datetime';
+import {
+  DEFAULT_TIME,
+  formatMeetingDate,
+  localDateTime,
+  longMeetingDate,
+  TIME_SLOTS,
+  todayIn,
+} from './datetime';
 import { meetingsKey, type Meeting } from './meetings';
 import { votesLabel } from './voting';
 
 const text = t.meetings.dateVoting;
 
 /**
- * Głosowanie na termin (zaplanowane spotkanie z propozycjami): terminy od najwcześniejszego
- * z głosującymi, przełącznik głosu dla uczestników przy otwartym głosowaniu, a dla
- * administratora „Wybierz” (termin spotkania, zamyka głosowanie) i ponowne otwarcie.
- * Głosy są opinią: termin spotkania nie musi być tym z największą liczbą głosów.
+ * Głosowanie na termin (zaplanowane spotkanie z włączonym głosowaniem albo propozycjami):
+ * terminy od najwcześniejszego z głosującymi, przełącznik głosu i „Zaproponuj termin” dla
+ * uczestników przy otwartym głosowaniu (bez limitu propozycji), a dla administratora „Wybierz”
+ * (termin spotkania, zamyka głosowanie) i ponowne otwarcie. Głosy są opinią: termin spotkania
+ * nie musi być tym z największą liczbą głosów.
  */
 export function DateVotingSection({
   meeting,
@@ -44,10 +54,11 @@ export function DateVotingSection({
   const decision = useDateDecision(client);
   const isAdmin = me.role === 'admin';
   const canVote = meeting.date_voting_open && meeting.participants.includes(me.id);
+  const canPropose = meeting.date_voting_open && (canVote || isAdmin);
   const headingId = `${meeting.id}-date-voting`;
 
-  // Bez propozycji sekcji nie ma (termin podał administrator).
-  if (options.data?.length === 0) return null;
+  // Bez głosowania i bez propozycji sekcji nie ma (termin podał administrator).
+  if (!meeting.date_voting_open && options.data?.length === 0) return null;
   if (!options.data && !options.isError) return null;
   const leading = leadingDateOptions(options.data ?? []);
   return (
@@ -64,6 +75,8 @@ export function DateVotingSection({
       </p>
       {!options.data ? (
         <QueryStatus isError={options.isError} onRetry={() => void options.refetch()} />
+      ) : options.data.length === 0 ? (
+        <p className="meeting-form__state">{text.empty}</p>
       ) : (
         <Tray label={text.listLabel} className="vote-list">
           {options.data.map((option) => (
@@ -95,6 +108,7 @@ export function DateVotingSection({
           ))}
         </Tray>
       )}
+      {canPropose ? <ProposeDate meeting={meeting} timeZone={timeZone} /> : null}
       {isAdmin ? (
         <div className="date-voting__admin">
           {meeting.date_voting_open ? (
@@ -113,6 +127,73 @@ export function DateVotingSection({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** „Zaproponuj termin”: data i godzina w strefie klubu; proponujący od razu na nią głosuje. */
+function ProposeDate({
+  meeting,
+  timeZone,
+}: {
+  readonly meeting: Meeting;
+  readonly timeZone: string;
+}) {
+  const { client } = useAuth();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const today = todayIn(timeZone);
+  const [value, setValue] = useState(() => ({
+    date: localDateTime(meeting.starts_at, timeZone).date,
+    time: localDateTime(meeting.starts_at, timeZone).time || DEFAULT_TIME,
+  }));
+  const propose = useMutation({
+    mutationFn: () => proposeMeetingDate(client, meeting.id, value),
+    onSuccess: () => toast.show(text.proposed, 'success'),
+    onError: (error) =>
+      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error'),
+    onSettled: (_, error) =>
+      queryClient.invalidateQueries({
+        queryKey: error ? meetingsKey : meetingDateOptionsKey(meeting.id),
+      }),
+  });
+  const slots = TIME_SLOTS.includes(value.time) ? TIME_SLOTS : [...TIME_SLOTS, value.time].sort();
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (value.date === '' || value.time === '' || propose.isPending) return;
+    propose.mutate();
+  };
+  return (
+    <form className="date-propose" aria-label={text.proposeLegend} onSubmit={submit}>
+      <TextField
+        label={text.proposeDate}
+        type="date"
+        value={value.date}
+        min={today}
+        required
+        onChange={(event) => {
+          const date = event.target.value;
+          setValue((current) => ({ ...current, date }));
+        }}
+      />
+      <Select
+        label={text.proposeTime}
+        options={slots.map((slot) => ({ value: slot, label: slot }))}
+        value={value.time}
+        leadingIcon="clock"
+        onChange={(time) => setValue((current) => ({ ...current, time }))}
+      />
+      <Button
+        type="submit"
+        size="sm"
+        variant="secondary"
+        icon="plus"
+        className="date-propose__submit"
+        loading={propose.isPending}
+        disabled={value.date === ''}
+      >
+        {text.propose}
+      </Button>
+    </form>
   );
 }
 

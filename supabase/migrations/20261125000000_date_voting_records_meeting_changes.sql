@@ -1,21 +1,22 @@
 -- Spotkania: głosowanie na termin, rekordy w partiach i zmiany w rankingu punktów.
 --
--- 1. Głosowanie na termin. Administrator proponuje terminy spotkania (`meeting_date_options`,
---    data i godzina w strefie klubu jak termin spotkania, NFR-10), a uczestnicy głosują na
---    dowolnie wiele z nich (`meeting_date_votes`, jawne jak głosy na gry). Głosowanie jest
---    tylko opinią: termin spotkania (`meetings.starts_at`) ustala administrator, wybierając
---    propozycję (`decide_meeting_date`) albo wpisując dowolny termin w formularzu. Zasady:
---    - propozycje zapisuje `save_meeting` (nowy parametr `date_options`: tablica
---      `{"date": "RRRR-MM-DD", "time": "GG:MM"}`, NULL = bez zmiany), tylko w zaplanowanym
---      spotkaniu, najwyżej 10, bez powtórzeń. Propozycja, która zostaje, zachowuje głosy;
---      usunięta kasuje swoje głosy. Zmiana listy otwiera głosowanie na termin (pusta zamyka);
+-- 1. Głosowanie na termin. Administrator włącza je w formularzu spotkania (`save_meeting`,
+--    parametr `date_voting`), a uczestnicy proponują terminy (`propose_meeting_date`, data
+--    i godzina w strefie klubu, NFR-10, bez limitu) i głosują na dowolnie wiele z nich
+--    (`meeting_date_votes`, jawne jak głosy na gry). Głosowanie jest tylko opinią: termin
+--    spotkania ustala administrator, wybierając propozycję (`decide_meeting_date`) albo wpisując
+--    dowolny termin w formularzu. Zasady:
+--    - ten sam termin raz na spotkanie. Uczestnik dodaje propozycję przy otwartym głosowaniu na
+--      termin (nie w przeszłości) i od razu na nią głosuje. Administrator może też zapisać listę
+--      propozycji w formularzu (`date_options`: tablica `{"date", "time"}`, NULL = bez zmiany);
+--      propozycja, która zostaje, zachowuje głosy, usunięta kasuje swoje;
 --    - głosowanie na termin (`meetings.date_voting_open`) jest niezależne od głosowania na gry
 --      i możliwe tylko w zaplanowanym spotkaniu; rozpoczęcie spotkania je zamyka;
 --    - `decide_meeting_date(meeting_id, option_id)` ustawia termin spotkania z propozycji
---      i zamyka głosowanie na termin; `reopen_date_voting(meeting_id)` otwiera je ponownie.
---      Obie tylko dla administratora, tylko w zaplanowanym spotkaniu;
+--      i zamyka głosowanie; `reopen_date_voting(meeting_id)`
+--      otwiera je ponownie. Obie tylko dla administratora, tylko w zaplanowanym spotkaniu;
 --    - głos dodaje i usuwa sam uczestnik (RLS), tylko przy otwartym głosowaniu na termin;
---      usunięcie uczestnika kasuje jego głosy.
+--      usunięcie uczestnika kasuje jego głosy i jego propozycje.
 --
 -- 2. `meeting_play_records(meeting_id)`: wyniki zapisanych partii spotkania, które były
 --    rekordem w chwili rozegrania. Wartość to kategoria decydująca (`ranking_value`), kierunek
@@ -23,8 +24,9 @@
 --    ostatniej zapisanej partii gry). Partie wcześniejsze to te przed nią w kolejności
 --    §5.6.6 (spotkanie `starts_at`, `id`, partia `saved_at`, `id`).
 --    - `club_record`: najlepsza wartość partii i lepsza od każdej wcześniejszej w tej grze;
---    - `personal_record`: lepsza od każdej wcześniejszej wartości gracza w tej grze.
---    Pierwsza partia gry (albo pierwsza gracza) nie jest rekordem: nie ma z czym porównać.
+--      pierwsza partia gry ustanawia rekord klubu (najlepsza wartość tej partii);
+--    - `personal_record`: lepsza od każdej wcześniejszej wartości gracza w tej grze (pierwsza
+--      partia gracza w grze nie jest rekordem osobistym: nie ma z czym porównać).
 --    `play_record_preview(play_id, results)` liczy to samo dla partii w toku przed zapisem
 --    (podsumowanie oderwanej karteczki, PAD-5): porównuje z zapisanymi partiami gry
 --    w kierunku wersji notesu tej partii.
@@ -50,13 +52,16 @@ create table public.meeting_date_options (
   id uuid primary key default gen_random_uuid(),
   meeting_id uuid not null references public.meetings (id) on delete cascade,
   starts_at timestamptz not null,
+  created_by uuid not null references public.profiles (id),
   created_at timestamptz not null default now(),
   constraint meeting_date_options_unique unique (meeting_id, starts_at),
   constraint meeting_date_options_id_meeting_key unique (id, meeting_id)
 );
 
+create index meeting_date_options_created_by_idx on public.meeting_date_options (created_by);
+
 comment on table public.meeting_date_options is
-  'Proponowane terminy spotkania (głosowanie na termin); zapisuje je save_meeting.';
+  'Proponowane terminy spotkania (głosowanie na termin); dodają je uczestnicy i administrator.';
 
 create table public.meeting_date_votes (
   option_id uuid not null,
@@ -162,9 +167,30 @@ create trigger meetings_close_date_voting
 
 revoke execute on function public.meetings_close_date_voting() from public, anon, authenticated;
 
--- save_meeting z propozycjami terminów. Dotychczasowa funkcja zostaje jako rdzeń w `private`
--- (zapis spotkania, uczestników i prowadzącego), a nowa dopisuje propozycje w tej samej
--- transakcji.
+-- Usunięcie uczestnika kasuje jego propozycje (jak jego głosy). Propozycje administratora,
+-- który nie jest uczestnikiem, zostają.
+create function public.meeting_participants_drop_date_options()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.meeting_date_options o
+   where o.meeting_id = old.meeting_id and o.created_by = old.profile_id;
+  return old;
+end;
+$$;
+
+create trigger meeting_participants_drop_date_options
+  after delete on public.meeting_participants
+  for each row execute function public.meeting_participants_drop_date_options();
+
+revoke execute on function public.meeting_participants_drop_date_options() from public, anon, authenticated;
+
+-- save_meeting z głosowaniem na termin. Dotychczasowa funkcja zostaje jako rdzeń w `private`
+-- (zapis spotkania, uczestników i prowadzącego), a nowa dopisuje głosowanie na termin w tej
+-- samej transakcji.
 -- Nazwa zostaje (`save_meeting.<parametr>` w ciele funkcji odwołuje się do jej nazwy).
 alter function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean) set schema private;
 -- Woła ją tylko `public.save_meeting` (security definer), więc sama nie potrzebuje praw właściciela.
@@ -180,7 +206,8 @@ create function public.save_meeting(
   participant_ids uuid[],
   host_id uuid,
   is_new boolean default true,
-  date_options jsonb default null
+  date_options jsonb default null,
+  date_voting boolean default null
 )
 returns public.meetings
 language plpgsql
@@ -189,7 +216,7 @@ set search_path = ''
 as $$
 declare
   saved public.meetings;
-  club_timezone text;
+  club_timezone text := private.club_timezone();
   wanted timestamptz[];
   current_options timestamptz[];
 begin
@@ -199,57 +226,112 @@ begin
     save_meeting.meeting_id, save_meeting.title, save_meeting.local_date, save_meeting.local_time,
     save_meeting.participant_ids, save_meeting.host_id, save_meeting.is_new);
 
-  if save_meeting.date_options is null then
-    return saved;
-  end if;
-  if jsonb_typeof(save_meeting.date_options) <> 'array' then
-    raise exception 'date_options must be an array'
-      using errcode = '22023', hint = 'meeting_date_options_invalid';
-  end if;
-
-  select c.timezone into club_timezone from public.club c where c.id = 1;
-  select coalesce(array_agg(distinct private.meeting_local_start(
-           (o ->> 'date')::date, (o ->> 'time')::time, club_timezone)), '{}')
-    into wanted
-    from jsonb_array_elements(save_meeting.date_options) o;
-  if cardinality(wanted) > 10 then
-    raise exception 'at most 10 date options'
-      using errcode = '23514', constraint = 'meeting_date_options_limit',
-            hint = 'meeting_date_options_limit';
-  end if;
-
-  select coalesce(array_agg(o.starts_at), '{}') into current_options
-    from public.meeting_date_options o where o.meeting_id = saved.id;
-  -- Ta sama lista (np. edycja innych pól): nic się nie zmienia, także stan głosowania.
-  if wanted @> current_options and current_options @> wanted then
-    return saved;
-  end if;
-  if saved.status <> 'planned' then
-    raise exception 'meeting % has started; date options are locked', saved.id
-      using errcode = '23514', constraint = 'meetings_schedule_locked', hint = 'meetings_schedule_locked';
+  if save_meeting.date_options is not null then
+    if jsonb_typeof(save_meeting.date_options) <> 'array' then
+      raise exception 'date_options must be an array'
+        using errcode = '22023', hint = 'meeting_date_options_invalid';
+    end if;
+    select coalesce(array_agg(distinct private.meeting_local_start(
+             (o ->> 'date')::date, (o ->> 'time')::time, club_timezone)), '{}')
+      into wanted
+      from jsonb_array_elements(save_meeting.date_options) o;
+    select coalesce(array_agg(o.starts_at), '{}') into current_options
+      from public.meeting_date_options o where o.meeting_id = saved.id;
+    -- Ta sama lista (np. edycja innych pól) niczego nie zmienia.
+    if not (wanted @> current_options and current_options @> wanted) then
+      if saved.status <> 'planned' then
+        raise exception 'meeting % has started; date options are locked', saved.id
+          using errcode = '23514', constraint = 'meetings_schedule_locked', hint = 'meetings_schedule_locked';
+      end if;
+      delete from public.meeting_date_options o
+       where o.meeting_id = saved.id and not (o.starts_at = any (wanted));
+      insert into public.meeting_date_options (meeting_id, starts_at, created_by)
+      select saved.id, w, auth.uid() from unnest(wanted) w
+      on conflict on constraint meeting_date_options_unique do nothing;
+    end if;
   end if;
 
-  delete from public.meeting_date_options o
-   where o.meeting_id = saved.id and not (o.starts_at = any (wanted));
-  insert into public.meeting_date_options (meeting_id, starts_at)
-  select saved.id, w from unnest(wanted) w
-  on conflict on constraint meeting_date_options_unique do nothing;
-
-  update public.meetings m
-     set date_voting_open = cardinality(wanted) > 0
-   where m.id = saved.id
-  returning * into saved;
+  if save_meeting.date_voting is not null and save_meeting.date_voting is distinct from saved.date_voting_open then
+    if saved.status <> 'planned' then
+      raise exception 'meeting % has started; date voting is locked', saved.id
+        using errcode = '23514', constraint = 'meetings_schedule_locked', hint = 'meetings_schedule_locked';
+    end if;
+    update public.meetings m
+       set date_voting_open = save_meeting.date_voting
+     where m.id = saved.id
+    returning * into saved;
+  end if;
   return saved;
 end;
 $$;
 
-comment on function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean, jsonb) is
-  'Planuje spotkanie (is_new) albo zapisuje zmiany: tytuł, termin w strefie klubu (NULL = bez zmiany), uczestnicy, prowadzący i proponowane terminy do głosowania (NULL = bez zmiany; zmiana otwiera głosowanie na termin). Tylko admin.';
+comment on function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean, jsonb, boolean) is
+  'Planuje spotkanie (is_new) albo zapisuje zmiany: tytuł, termin w strefie klubu (NULL = bez zmiany), uczestnicy, prowadzący, proponowane terminy (NULL = bez zmiany) i głosowanie na termin (NULL = bez zmiany). Tylko admin.';
 
-revoke execute on function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean, jsonb)
+revoke execute on function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean, jsonb, boolean)
   from public, anon;
-grant execute on function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean, jsonb)
+grant execute on function public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean, jsonb, boolean)
   to authenticated;
+
+-- Propozycja terminu od uczestnika (albo administratora) z głosem proponującego.
+create function public.propose_meeting_date(meeting_id uuid, local_date date, local_time time)
+returns public.meeting_date_options
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_meeting public.meetings;
+  participant boolean;
+  starts timestamptz;
+  option public.meeting_date_options;
+begin
+  perform private.require_active_member();
+
+  select m.* into current_meeting from public.meetings m
+   where m.id = propose_meeting_date.meeting_id for share;
+  if not found then
+    raise exception 'meeting % does not exist', propose_meeting_date.meeting_id
+      using errcode = 'P0002', hint = 'meetings_not_found';
+  end if;
+  participant := exists (
+    select 1 from public.meeting_participants mp
+     where mp.meeting_id = current_meeting.id and mp.profile_id = auth.uid()
+  );
+  if not participant and not private.is_admin() then
+    raise exception 'only participants propose dates'
+      using errcode = '42501', hint = 'meeting_date_not_participant';
+  end if;
+  if not current_meeting.date_voting_open then
+    raise exception 'date voting is closed in meeting %', current_meeting.id
+      using errcode = '23514', constraint = 'meeting_date_votes_voting_open',
+            hint = 'meeting_date_voting_closed';
+  end if;
+  starts := private.meeting_local_start(
+    propose_meeting_date.local_date, propose_meeting_date.local_time, private.club_timezone());
+  if starts < now() then
+    raise exception 'proposed date % is in the past', starts
+      using errcode = '23514', constraint = 'meeting_date_options_future', hint = 'meeting_date_option_past';
+  end if;
+
+  insert into public.meeting_date_options (meeting_id, starts_at, created_by)
+  values (current_meeting.id, starts, auth.uid())
+  on conflict on constraint meeting_date_options_unique do nothing;
+  select o.* into option from public.meeting_date_options o
+   where o.meeting_id = current_meeting.id and o.starts_at = starts;
+
+  -- Proponujący głosuje na swój termin (administrator spoza uczestników nie głosuje).
+  if participant then
+    insert into public.meeting_date_votes (option_id, meeting_id, profile_id)
+    values (option.id, current_meeting.id, auth.uid())
+    on conflict do nothing;
+  end if;
+  return option;
+end;
+$$;
+
+comment on function public.propose_meeting_date(uuid, date, time) is
+  'Dodaje proponowany termin spotkania (data i godzina w strefie klubu; uczestnik albo admin, przy otwartym głosowaniu na termin, nie w przeszłości) z głosem proponującego; ten sam termin się nie powtarza.';
 
 create function public.decide_meeting_date(meeting_id uuid, option_id uuid)
 returns public.meetings
@@ -291,7 +373,7 @@ end;
 $$;
 
 comment on function public.decide_meeting_date(uuid, uuid) is
-  'Ustala termin zaplanowanego spotkania z proponowanego terminu i zamyka głosowanie na termin. Głosy są tylko opinią. Tylko admin.';
+  'Ustala termin zaplanowanego spotkania z propozycji i zamyka głosowanie na termin. Głosy są tylko opinią. Tylko admin.';
 
 create function public.reopen_date_voting(meeting_id uuid)
 returns public.meetings
@@ -315,10 +397,6 @@ begin
     raise exception 'meeting % has started; date voting cannot be reopened', current_meeting.id
       using errcode = '23514', constraint = 'meetings_reopen_planned', hint = 'meetings_reopen_planned';
   end if;
-  if not exists (select 1 from public.meeting_date_options o where o.meeting_id = current_meeting.id) then
-    raise exception 'meeting % has no date options', current_meeting.id
-      using errcode = '23514', constraint = 'meeting_date_options_required', hint = 'meeting_date_options_required';
-  end if;
 
   update public.meetings m
      set date_voting_open = true
@@ -329,12 +407,18 @@ end;
 $$;
 
 comment on function public.reopen_date_voting(uuid) is
-  'Otwiera ponownie głosowanie na termin w zaplanowanym spotkaniu z propozycjami. Tylko admin.';
+  'Otwiera ponownie głosowanie na termin w zaplanowanym spotkaniu. Tylko admin.';
 
-revoke execute on function public.decide_meeting_date(uuid, uuid), public.reopen_date_voting(uuid)
-  from public, anon;
-grant execute on function public.decide_meeting_date(uuid, uuid), public.reopen_date_voting(uuid)
-  to authenticated;
+revoke execute on function
+  public.propose_meeting_date(uuid, date, time),
+  public.decide_meeting_date(uuid, uuid),
+  public.reopen_date_voting(uuid)
+from public, anon;
+grant execute on function
+  public.propose_meeting_date(uuid, date, time),
+  public.decide_meeting_date(uuid, uuid),
+  public.reopen_date_voting(uuid)
+to authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 2. Rekordy w partiach
@@ -387,7 +471,7 @@ as $$
   ),
   marked as (
     select t.play_id, t.profile_id, t.value,
-           coalesce(t.score = t.play_best and t.score > club.best, false) as club_record,
+           coalesce(t.score = t.play_best and t.score > club.best, t.score = t.play_best) as club_record,
            coalesce(t.score > mine.best, false) as personal_record
       from target t
       cross join lateral (
@@ -454,8 +538,8 @@ as $$
   ),
   marked as (
     select s.profile_id, s.value,
-           coalesce(s.score = max(s.score) over ()
-                    and s.score > (select max(pv.score) from previous pv), false) as club_record,
+           s.score = max(s.score) over ()
+             and coalesce(s.score > (select max(pv.score) from previous pv), true) as club_record,
            coalesce(s.score > (select max(pv.score) from previous pv where pv.profile_id = s.profile_id),
                     false) as personal_record
       from scored s

@@ -393,6 +393,8 @@ export interface MeetingSave {
   readonly is_new: boolean;
   /** Proponowane terminy; brak = lista bez zmian. */
   readonly date_options?: readonly { readonly date: string; readonly time: string }[];
+  /** Głosowanie na termin; brak = bez zmian. */
+  readonly date_voting?: boolean;
 }
 
 /** Data i godzina w strefie `timeZone` → chwila ISO (jak `save_meeting` w bazie). */
@@ -574,6 +576,12 @@ export interface SupabaseMock {
   readonly playerRecordsCalls: ({ readonly profileId: string } & MockFilterCall)[];
   /** Wywołania `meeting_leaderboard_changes` (filtr gier podsumowania). */
   readonly summaryCalls: { readonly meetingId: string; readonly games: string[] | null }[];
+  /** Propozycje `propose_meeting_date`. */
+  readonly dateProposals: {
+    readonly meeting_id: string;
+    readonly local_date: string;
+    readonly local_time: string;
+  }[];
   /** Decyzje `decide_meeting_date`. */
   readonly dateDecisions: { readonly meetingId: string; readonly optionId: string }[];
 }
@@ -649,6 +657,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     playerRecordsCalls: [],
     summaryCalls: [],
     dateDecisions: [],
+    dateProposals: [],
   };
   await page.route(`${SUPABASE_URL}/**`, async (route, request) => {
     const url = new URL(request.url());
@@ -902,8 +911,8 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         mock.options.dateVotes = (mock.options.dateVotes ?? []).filter((v) =>
           (mock.options.dateOptions ?? []).some((o) => o.id === v.option_id),
         );
-        saved = { ...saved, date_voting_open: wanted.length > 0 };
       }
+      if (body.date_voting !== undefined) saved = { ...saved, date_voting_open: body.date_voting };
       mock.options.meetings = existing
         ? (mock.options.meetings ?? []).map((row) => (row.id === saved.id ? saved : row))
         : [...(mock.options.meetings ?? []), saved];
@@ -1016,6 +1025,49 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         mock.options.dateVotes = votes.filter((v) => !hit(v));
         return route.fulfill({ json: removed.map((v) => ({ option_id: v.option_id })) });
       }
+    }
+    if (url.pathname === '/rest/v1/rpc/propose_meeting_date' && request.method() === 'POST') {
+      const body = request.postDataJSON() as {
+        meeting_id: string;
+        local_date: string;
+        local_time: string;
+      };
+      mock.dateProposals.push(body);
+      const target = meetingById(body.meeting_id);
+      if (!target?.date_voting_open) {
+        return route.fulfill({
+          status: 400,
+          json: { code: '23514', hint: 'meeting_date_voting_closed', message: 'closed' },
+        });
+      }
+      const me = mock.options.profile?.id ?? ADA.id;
+      const at = zonedToIso(
+        body.local_date,
+        body.local_time,
+        mock.options.club?.timezone ?? 'Europe/Warsaw',
+      );
+      let option = (mock.options.dateOptions ?? []).find(
+        (o) => o.meeting_id === target.id && new Date(o.starts_at).toISOString() === at,
+      );
+      if (!option) {
+        option = {
+          id: `00000000-0000-4000-9000-${String(dateOptionSeq++).padStart(12, '0')}`,
+          meeting_id: target.id,
+          starts_at: at,
+        };
+        mock.options.dateOptions = [...(mock.options.dateOptions ?? []), option];
+      }
+      const optionId = option.id;
+      if (
+        target.participants.includes(me) &&
+        !(mock.options.dateVotes ?? []).some((v) => v.option_id === optionId && v.profile_id === me)
+      ) {
+        mock.options.dateVotes = [
+          ...(mock.options.dateVotes ?? []),
+          { option_id: optionId, meeting_id: target.id, profile_id: me },
+        ];
+      }
+      return route.fulfill({ json: option });
     }
     if (url.pathname === '/rest/v1/rpc/decide_meeting_date' && request.method() === 'POST') {
       const { meeting_id, option_id } = request.postDataJSON() as {

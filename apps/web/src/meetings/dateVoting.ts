@@ -8,10 +8,11 @@ import type { DateOptionValue } from './dateOptions';
 import { meetingsKey } from './meetings';
 
 /*
- * Głosowanie na termin spotkania (migracja 20261125000000). Administrator proponuje terminy
- * w formularzu spotkania (`save_meeting` z `date_options`), uczestnicy głosują na dowolnie wiele
- * z nich (`meeting_date_votes`, RLS), a termin ustala administrator (`decide_meeting_date`)
- * albo wpisuje dowolny inny w formularzu. Głosy są tylko opinią.
+ * Głosowanie na termin spotkania (migracja 20261125000000). Administrator włącza je
+ * w formularzu spotkania (`save_meeting` z `date_voting`, opcjonalnie własne propozycje
+ * `date_options`), uczestnicy proponują terminy (`propose_meeting_date`, bez limitu) i głosują
+ * na dowolnie wiele z nich (`meeting_date_votes`, RLS), a termin ustala administrator
+ * (`decide_meeting_date`) albo wpisuje dowolny inny w formularzu. Głosy są tylko opinią.
  */
 
 /** Zapisana propozycja z głosującymi (w kolejności oddania głosu). */
@@ -81,6 +82,8 @@ export type DateVotingFailure =
   | 'notPlanned'
   | 'optionGone'
   | 'noOptions'
+  | 'past'
+  | 'localTime'
   | 'gone'
   | 'forbidden'
   | 'save';
@@ -104,6 +107,9 @@ const HINTS: Readonly<Record<string, DateVotingFailure>> = {
   meetings_reopen_planned: 'notPlanned',
   meeting_date_option_not_found: 'optionGone',
   meeting_date_options_required: 'noOptions',
+  meeting_date_option_past: 'past',
+  meeting_date_not_participant: 'notParticipant',
+  meetings_local_time_exists: 'localTime',
   meetings_not_found: 'gone',
 };
 
@@ -156,6 +162,23 @@ export async function withdrawDateVote(
   if (meeting.error) throw new DateVotingError('save');
   if (!meeting.data) throw new DateVotingError('gone');
   if (!meeting.data.date_voting_open) throw new DateVotingError('closed');
+}
+
+/**
+ * Propozycja terminu od uczestnika (albo administratora) z jego głosem. Ten sam termin drugi
+ * raz to sukces (baza go nie powiela). Data i godzina w strefie klubu (NFR-10).
+ */
+export async function proposeMeetingDate(
+  client: SupabaseClient,
+  meetingId: string,
+  value: { readonly date: string; readonly time: string },
+): Promise<void> {
+  const { error } = await client.rpc('propose_meeting_date', {
+    meeting_id: meetingId,
+    local_date: value.date,
+    local_time: value.time,
+  });
+  if (error) throw new DateVotingError(dateVotingFailure(error));
 }
 
 /** Ustala termin spotkania z propozycji i zamyka głosowanie na termin. Tylko administrator. */

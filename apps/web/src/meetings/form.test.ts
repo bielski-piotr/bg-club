@@ -20,6 +20,7 @@ const valid: MeetingFormValues = {
   time: '18:00',
   participants: [ADA, 'b2'],
   hostId: 'b2',
+  dateVoting: false,
   dateOptions: [],
 };
 
@@ -31,6 +32,7 @@ describe('formularz spotkania (PLAN-1)', () => {
       time: '18:00',
       participants: [ADA],
       hostId: null,
+      dateVoting: false,
       dateOptions: [],
     });
     expect(emptyMeetingForm(WARSAW, ADA, '2026-12-24', NOW).date).toBe('2026-12-24');
@@ -55,6 +57,7 @@ describe('formularz spotkania (PLAN-1)', () => {
       time: '19:30',
       participants: [ADA],
       hostId: null,
+      dateVoting: false,
       dateOptions: [],
     });
   });

@@ -118,6 +118,7 @@ describe('RPC spotkań', () => {
         time: '18:00',
         participants: ['a1'],
         hostId: null,
+        dateVoting: false,
         dateOptions: [],
       },
       original: null,
@@ -140,6 +141,7 @@ describe('RPC spotkań', () => {
       time: '18:00',
       participants: ['a1'],
       hostId: null,
+      dateVoting: false,
       dateOptions: [],
     };
     const fake = fakeClient({});
@@ -156,6 +158,23 @@ describe('RPC spotkań', () => {
     expect(fake.rpc).toHaveBeenLastCalledWith(
       'save_meeting',
       expect.objectContaining({ local_date: '2026-11-28', local_time: '19:00', is_new: false }),
+    );
+    // Głosowanie na termin i propozycje idą tylko po zmianie.
+    await saveMeeting(fake.client, {
+      id: 'm1',
+      values: {
+        ...original,
+        dateVoting: true,
+        dateOptions: [{ date: '2026-11-29', time: '17:30' }],
+      },
+      original,
+    });
+    expect(fake.rpc).toHaveBeenLastCalledWith(
+      'save_meeting',
+      expect.objectContaining({
+        date_voting: true,
+        date_options: [{ date: '2026-11-29', time: '17:30' }],
+      }),
     );
     const gone = fakeClient({ error: { code: 'P0002', hint: 'meetings_not_found', message: 'x' } });
     await expect(

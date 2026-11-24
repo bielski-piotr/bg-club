@@ -135,7 +135,6 @@ export type MeetingFailure =
   | 'drafts'
   | 'deleteInProgress'
   | 'hasPlays'
-  | 'dateOptionsLimit'
   | 'save';
 
 export class MeetingError extends Error {
@@ -170,7 +169,6 @@ const HINTS: Readonly<Record<string, MeetingFailure>> = {
   meetings_reopen_finished: 'notFinished',
   meetings_no_drafts_when_finished: 'drafts',
   meetings_delete_in_progress: 'deleteInProgress',
-  meeting_date_options_limit: 'dateOptionsLimit',
 };
 
 /** Błąd PostgREST → powód z polskim komunikatem. */
@@ -210,8 +208,8 @@ export interface MeetingDraft {
 /**
  * Planuje spotkanie albo zapisuje zmiany (PLAN-1…PLAN-4) w jednej transakcji: tytuł, termin
  * (data i godzina w strefie klubu, zamienia je baza), uczestnicy, prowadzący i proponowane
- * terminy do głosowania. Nowe spotkanie ma otwarte głosowanie (PLAN-2). Propozycje idą tylko
- * po zmianie listy (zmiana otwiera głosowanie na termin, niezmieniona zostawia jego stan).
+ * terminy do głosowania. Nowe spotkanie ma otwarte głosowanie (PLAN-2). Propozycje i stan
+ * głosowania na termin idą tylko po zmianie (niezmienione zostają, jak są w bazie).
  */
 export async function saveMeeting(client: SupabaseClient, draft: MeetingDraft): Promise<void> {
   const { values, original } = draft;
@@ -228,6 +226,9 @@ export async function saveMeeting(client: SupabaseClient, draft: MeetingDraft): 
     ...(sameDateOptions(original?.dateOptions ?? [], values.dateOptions)
       ? {}
       : { date_options: values.dateOptions }),
+    ...(values.dateVoting === (original?.dateVoting ?? false)
+      ? {}
+      : { date_voting: values.dateVoting }),
   });
   if (error) throw new MeetingError(meetingFailure(error));
 }

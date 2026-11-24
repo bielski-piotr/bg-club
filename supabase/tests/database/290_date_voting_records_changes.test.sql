@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(35);
+select plan(41);
 
 insert into public.club (name, timezone) values ('Klub Testowy', 'Europe/Warsaw');
 
@@ -31,12 +31,12 @@ select lives_ok(
              '00000000-0000-4000-a000-000000000012']::uuid[],
        null, true,
        '[{"date": "2030-12-05", "time": "18:00"}, {"date": "2030-12-06", "time": "17:30"},
-         {"date": "2030-12-06", "time": "17:30"}]'::jsonb) $$,
-  'admin planuje spotkanie z proponowanymi terminami (powtórzenia się łączą)');
+         {"date": "2030-12-06", "time": "17:30"}]'::jsonb, true) $$,
+  'admin planuje spotkanie z głosowaniem na termin i propozycjami (powtórzenia się łączą)');
 select is((select count(*)::int from public.meeting_date_options
             where meeting_id = '00000000-0000-4000-c000-000000000101'), 2, 'dwie propozycje terminu');
 select is((select date_voting_open from public.meetings where id = '00000000-0000-4000-c000-000000000101'),
-  true, 'propozycje otwierają głosowanie na termin');
+  true, 'admin otworzył głosowanie na termin');
 select is(
   (select array_agg(to_char(starts_at at time zone 'Europe/Warsaw', 'YYYY-MM-DD HH24:MI') order by starts_at)
      from public.meeting_date_options where meeting_id = '00000000-0000-4000-c000-000000000101'),
@@ -61,7 +61,28 @@ select throws_ok(
   $$ select public.decide_meeting_date('00000000-0000-4000-c000-000000000101', (select id from opt where n = 1)) $$,
   '42501', null, 'gracz nie ustala terminu');
 
+select lives_ok(
+  $$ select public.propose_meeting_date('00000000-0000-4000-c000-000000000101', '2030-12-10', '19:00') $$,
+  'uczestnik proponuje własny termin');
+select lives_ok(
+  $$ select public.propose_meeting_date('00000000-0000-4000-c000-000000000101', '2030-12-10', '19:00') $$,
+  'ten sam termin drugi raz: bez duplikatu');
+select is(
+  (select count(*)::int || ' ' || bool_and(o.created_by = '00000000-0000-4000-a000-000000000011')
+          || ' ' || (select count(*) from public.meeting_date_votes v where v.option_id = o.id)
+     from public.meeting_date_options o
+    where o.meeting_id = '00000000-0000-4000-c000-000000000101'
+      and o.starts_at = '2030-12-10 19:00+01'
+    group by o.id),
+  '1 true 1', 'propozycja uczestnika z jego głosem, bez duplikatu');
+select throws_ok(
+  $$ select public.propose_meeting_date('00000000-0000-4000-c000-000000000101', '2020-01-10', '19:00') $$,
+  '23514', null, 'termin w przeszłości: odrzucony');
+
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000015", "role": "authenticated"}';
+select throws_ok(
+  $$ select public.propose_meeting_date('00000000-0000-4000-c000-000000000101', '2030-12-11', '19:00') $$,
+  '42501', null, 'gracz spoza spotkania nie proponuje terminu');
 select throws_ok(
   $$ insert into public.meeting_date_votes (option_id, meeting_id, profile_id)
      select id, '00000000-0000-4000-c000-000000000101', '00000000-0000-4000-a000-000000000015' from opt where n = 1 $$,
@@ -85,21 +106,27 @@ select lives_ok(
        array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000011',
              '00000000-0000-4000-a000-000000000012']::uuid[],
        null, false,
-       '[{"date": "2030-12-06", "time": "17:30"}, {"date": "2030-12-07", "time": "16:00"}]'::jsonb) $$,
+       '[{"date": "2030-12-06", "time": "17:30"}, {"date": "2030-12-07", "time": "16:00"},
+         {"date": "2030-12-10", "time": "19:00"}]'::jsonb) $$,
   'admin zmienia listę propozycji');
 select is(
   (select array_agg(to_char(o.starts_at at time zone 'Europe/Warsaw', 'MM-DD') || ':' ||
                     (select count(*) from public.meeting_date_votes v where v.option_id = o.id) order by o.starts_at)
      from public.meeting_date_options o where o.meeting_id = '00000000-0000-4000-c000-000000000101'),
-  array['12-06:1', '12-07:0'],
+  array['12-06:1', '12-07:0', '12-10:1'],
   'pozostała propozycja zachowuje głosy, usunięta kasuje swoje, nowa jest bez głosów');
-select throws_ok(
+select lives_ok(
   $$ select public.save_meeting(
-       '00000000-0000-4000-c000-000000000101', 'Grudniowe granie', null, null,
-       array['00000000-0000-4000-a000-000000000001']::uuid[], null, false,
-       (select jsonb_agg(jsonb_build_object('date', '2030-12-' || lpad(d::text, 2, '0'), 'time', '18:00'))
-          from generate_series(1, 11) d)) $$,
-  '23514', null, 'więcej niż 10 propozycji: odrzucone');
+       '00000000-0000-4000-c000-000000000101', 'Grudniowe granie (zmiana)', null, null,
+       array['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000011',
+             '00000000-0000-4000-a000-000000000012']::uuid[], null, false,
+       (select jsonb_agg(jsonb_build_object('date', '2031-01-' || lpad(d::text, 2, '0'), 'time', '18:00'))
+          from generate_series(1, 12) d)
+       || '[{"date": "2030-12-06", "time": "17:30"}, {"date": "2030-12-07", "time": "16:00"},
+            {"date": "2030-12-10", "time": "19:00"}]'::jsonb) $$,
+  'propozycji może być więcej niż 10 (bez limitu)');
+select is((select count(*)::int from public.meeting_date_options
+            where meeting_id = '00000000-0000-4000-c000-000000000101'), 15, '15 propozycji');
 
 select lives_ok(
   $$ select public.decide_meeting_date('00000000-0000-4000-c000-000000000101', (select id from opt where n = 2)) $$,
@@ -251,9 +278,10 @@ select ok(not has_function_privilege('anon', 'public.meeting_leaderboard_changes
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-4000-a000-000000000012", "role": "authenticated"}';
 
-select is(public.test_records(1), '{}'::text[], 'pierwsze partie gry nie są rekordem (nie ma z czym porównać)');
-select is(public.test_records(2), array['2 Lucyna 35 -O', '2 Mateusz 40 K-'],
-  'm2: Mateusz bije rekord klubu (pierwsza partia gracza to nie rekord osobisty), Lucyna poprawia rekord osobisty; wyrównanie (Łukasz 30) to nie rekord');
+select is(public.test_records(1), array['1 Łukasz 30 K-'],
+  'pierwsza partia gry: najlepszy wynik to rekord klubu, ale nie osobisty (nie ma z czym porównać)');
+select is(public.test_records(2), array['2 Lucyna 35 -O', '2 Mateusz 40 K-', '3 Łukasz 40 K-'],
+  'm2: Mateusz bije rekord klubu, Lucyna poprawia osobisty, wyrównanie (Łukasz 30) to nie rekord; pierwsza partia Golfa to rekord klubu');
 select is(public.test_records(3), array['4 Mateusz 39 KO'],
   'm3: „mniej = lepiej”: 39 bije rekord klubu i osobisty; szkic się nie liczy');
 

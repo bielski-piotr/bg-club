@@ -148,8 +148,46 @@ test('gracz spoza spotkania widzi głosy bez przełącznika i bez wyboru terminu
   );
 });
 
-test('spotkanie bez propozycji nie ma sekcji „Termin”', async ({ page }) => {
-  await openApp(page, `/?p=meeting/${MEETING.id}`, { dateOptions: [], dateVotes: [] });
+test('uczestnik proponuje własny termin i od razu na niego głosuje (bez limitu)', async ({
+  page,
+}) => {
+  const mock = await openApp(page, `/?p=meeting/${MEETING.id}`, {
+    profile: { ...ADA, role: 'player' },
+    dateOptions: [],
+    dateVotes: [],
+  });
+  await expect(dialog(page).getByText('Nikt jeszcze nie zaproponował terminu.')).toBeVisible();
+  const propose = dialog(page).getByRole('form', { name: 'Zaproponuj termin' });
+  await propose.getByLabel('Data').fill('2026-11-29');
+  await propose.getByRole('button', { name: 'Zaproponuj' }).click();
+  await expect(page.getByText('Termin zaproponowany')).toBeVisible();
+  await propose.getByLabel('Data').fill('2026-11-30');
+  await propose.getByRole('button', { name: 'Zaproponuj' }).click();
+  await expect(options(page)).toHaveCount(2);
+  await expect(options(page).nth(0)).toContainText('niedziela, 29 lis 2026 · 18:00');
+  await expect(options(page).nth(0)).toContainText('1 głos');
+  await expect(
+    dialog(page).getByRole('button', {
+      name: 'Cofnij głos na termin niedziela, 29 lis 2026 · 18:00',
+    }),
+  ).toBeVisible();
+  expect(mock.dateProposals).toEqual([
+    { meeting_id: MEETING.id, local_date: '2026-11-29', local_time: '18:00' },
+    { meeting_id: MEETING.id, local_date: '2026-11-30', local_time: '18:00' },
+  ]);
+  // Gracz nie ustala terminu.
+  await expect(dialog(page).getByRole('button', { name: /^Ustal termin spotkania/ })).toHaveCount(
+    0,
+  );
+  await check(page);
+});
+
+test('spotkanie bez głosowania na termin nie ma sekcji „Termin”', async ({ page }) => {
+  await openApp(page, `/?p=meeting/${MEETING.id}`, {
+    meetings: [{ ...MEETING, date_voting_open: false }],
+    dateOptions: [],
+    dateVotes: [],
+  });
   await expect(dialog(page).getByRole('heading', { name: 'Głosowanie' })).toBeVisible();
   await expect(dialog(page).getByRole('heading', { name: 'Termin' })).toHaveCount(0);
 });
@@ -157,6 +195,7 @@ test('spotkanie bez propozycji nie ma sekcji „Termin”', async ({ page }) => 
 test('formularz: admin dodaje, zmienia i usuwa propozycje terminu', async ({ page }) => {
   const mock = await openApp(page, `/?p=meeting/${MEETING.id}&p=meeting/${MEETING.id}/edit`);
   const form = page.getByRole('dialog', { name: 'Edytuj spotkanie' });
+  await expect(form.getByRole('checkbox', { name: 'Głosowanie na termin' })).toBeChecked();
   const rows = form.getByRole('list', { name: 'Proponowane terminy' }).locator(':scope > li');
   await expect(rows).toHaveCount(2);
   await expect(form.getByLabel('Data propozycji 2')).toHaveValue('2026-11-29');
@@ -182,6 +221,23 @@ test('formularz: admin dodaje, zmienia i usuwa propozycje terminu', async ({ pag
   await expect(options(page).nth(1)).toContainText('Brak głosów');
 });
 
+test('formularz: admin włącza głosowanie na termin', async ({ page }) => {
+  const mock = await openApp(page, `/?p=meeting/${MEETING.id}&p=meeting/${MEETING.id}/edit`, {
+    meetings: [{ ...MEETING, date_voting_open: false }],
+    dateOptions: [],
+    dateVotes: [],
+  });
+  const form = page.getByRole('dialog', { name: 'Edytuj spotkanie' });
+  await expect(form.getByRole('button', { name: 'Dodaj propozycję terminu' })).toHaveCount(0);
+  await form.getByText('Głosowanie na termin', { exact: true }).last().click();
+  await expect(form.getByRole('button', { name: 'Dodaj propozycję terminu' })).toBeVisible();
+  await form.getByRole('button', { name: 'Zapisz' }).click();
+  await expect(form).toHaveCount(0);
+  expect(mock.meetingSaves.at(-1)).toMatchObject({ date_voting: true });
+  expect(mock.meetingSaves.at(-1)).not.toHaveProperty('date_options');
+  await expect(dialog(page).getByRole('form', { name: 'Zaproponuj termin' })).toBeVisible();
+});
+
 test('formularz bez zmian propozycji nie wysyła listy', async ({ page }) => {
   const mock = await openApp(page, `/?p=meeting/${MEETING.id}/edit`);
   const form = page.getByRole('dialog', { name: 'Edytuj spotkanie' });
@@ -189,4 +245,5 @@ test('formularz bez zmian propozycji nie wysyła listy', async ({ page }) => {
   await form.getByRole('button', { name: 'Zapisz' }).click();
   await expect(form).toHaveCount(0);
   expect(mock.meetingSaves.at(-1)).not.toHaveProperty('date_options');
+  expect(mock.meetingSaves.at(-1)).not.toHaveProperty('date_voting');
 });

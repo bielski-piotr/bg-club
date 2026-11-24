@@ -8,9 +8,6 @@ export interface DateOptionValue {
   readonly time: string;
 }
 
-/** Najwięcej propozycji w spotkaniu (`meeting_date_options_limit`). */
-export const DATE_OPTIONS_MAX = 10;
-
 const optionKey = (option: DateOptionValue) => `${option.date} ${option.time}`;
 
 /** Czy dwie listy propozycji to ten sam zestaw terminów (kolejność i powtórzenia bez znaczenia). */

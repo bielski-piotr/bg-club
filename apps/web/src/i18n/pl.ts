@@ -1097,7 +1097,7 @@ export const pl = {
       title: 'Termin',
       listLabel: 'Proponowane terminy',
       intro:
-        'Zagłosuj na terminy, które Ci pasują. Głosy są podpowiedzią: termin spotkania ustala administrator.',
+        'Zagłosuj na terminy, które Ci pasują, albo zaproponuj własny. Głosy są podpowiedzią: termin spotkania ustala administrator.',
       introClosed: 'Głosowanie na termin jest zamknięte. Termin spotkania ustala administrator.',
       notParticipant: 'Głosują tylko uczestnicy spotkania. Głosy pozostałych widzisz na liście.',
       chosen: 'Termin spotkania',
@@ -1107,6 +1107,12 @@ export const pl = {
       voteOn: 'Zagłosuj na termin {date}',
       voteOff: 'Cofnij głos na termin {date}',
       choose: 'Wybierz',
+      proposeLegend: 'Zaproponuj termin',
+      proposeDate: 'Data',
+      proposeTime: 'Godzina',
+      propose: 'Zaproponuj',
+      proposed: 'Termin zaproponowany',
+      empty: 'Nikt jeszcze nie zaproponował terminu.',
       chooseLabel: 'Ustal termin spotkania: {date}',
       adminNote:
         'Wybierz termin spotkania. Nie musi to być termin z największą liczbą głosów. Wybór zamknie głosowanie na termin.',
@@ -1119,6 +1125,8 @@ export const pl = {
         notPlanned: 'Spotkanie już się rozpoczęło, więc terminu nie można zmienić.',
         optionGone: 'Tego terminu nie ma już na liście. Odśwież widok.',
         noOptions: 'Spotkanie nie ma proponowanych terminów.',
+        past: 'Ten termin już minął. Wybierz późniejszy.',
+        localTime: 'Tej godziny nie ma w tym dniu w strefie klubu (zmiana czasu). Wybierz inną.',
         gone: 'Tego spotkania już nie ma. Mogło zostać usunięte.',
         forbidden:
           'Nie możesz teraz głosować na ten termin albo tę operację może wykonać tylko administrator.',
@@ -1159,9 +1167,11 @@ export const pl = {
       hostHint:
         'Domyślnie prowadzi administrator. Gdy go nie będzie, wskaż uczestnika, który rozpocznie i zakończy spotkanie.',
       votingNote: 'Po zapisaniu głosowanie na gry otworzy się od razu.',
+      dateVotingLabel: 'Głosowanie na termin',
+      dateVotingHint:
+        'Uczestnicy proponują terminy i głosują, które im pasują. Termin spotkania i tak ustalasz Ty (powyżej albo wybierając propozycję w spotkaniu).',
       dateOptionsLegend: 'Proponowane terminy',
-      dateOptionsHint:
-        'Opcjonalnie: uczestnicy zagłosują, które terminy im pasują. Termin spotkania i tak ustalasz Ty (powyżej albo wybierając propozycję w spotkaniu).',
+      dateOptionsHint: 'Opcjonalnie dodaj własne propozycje; uczestnicy mogą dodawać kolejne.',
       dateOptionDate: 'Data propozycji {n}',
       dateOptionTime: 'Godzina propozycji {n}',
       addDateOption: 'Dodaj propozycję terminu',
@@ -1185,7 +1195,6 @@ export const pl = {
         participantsRequired: 'Wybierz co najmniej jednego uczestnika.',
         dateOptionsIncomplete: 'Uzupełnij datę i godzinę każdej propozycji albo usuń pustą.',
         dateOptionsDuplicate: 'Ten sam termin jest na liście dwa razy.',
-        dateOptionsTooMany: 'Możesz zaproponować najwyżej {max} terminów.',
         invalid: 'Popraw zaznaczone pola.',
       },
     },
@@ -1220,7 +1229,6 @@ export const pl = {
       drafts: 'Najpierw zapisz albo porzuć partie w toku.',
       deleteInProgress: 'Trwającego spotkania nie można usunąć. Najpierw je zakończ.',
       hasPlays: 'Spotkanie ma zapisane partie. Najpierw je usuń.',
-      dateOptionsLimit: 'Możesz zaproponować najwyżej 10 terminów.',
       save: 'Nie udało się zapisać spotkania. Sprawdź połączenie i spróbuj ponownie.',
     },
     toasts: {

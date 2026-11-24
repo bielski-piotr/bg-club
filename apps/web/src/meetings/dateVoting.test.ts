@@ -14,6 +14,7 @@ const base = {
   time: '18:00',
   participants: ['a1'],
   hostId: null,
+  dateVoting: false,
   dateOptions: [],
 };
 
@@ -76,6 +77,10 @@ describe('głosowanie na termin', () => {
     expect(dateVotingFailure({ code: '23514', hint: 'meeting_date_voting_closed' })).toBe('closed');
     expect(dateVotingFailure({ code: '23514', hint: 'meetings_schedule_locked' })).toBe(
       'notPlanned',
+    );
+    expect(dateVotingFailure({ code: '23514', hint: 'meeting_date_option_past' })).toBe('past');
+    expect(dateVotingFailure({ code: '42501', hint: 'meeting_date_not_participant' })).toBe(
+      'notParticipant',
     );
     expect(dateVotingFailure({ code: '42501' })).toBe('forbidden');
     expect(dateVotingFailure({ code: '23503' })).toBe('notParticipant');

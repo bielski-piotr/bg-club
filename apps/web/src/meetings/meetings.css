@@ -397,6 +397,29 @@
   margin-left: auto;
 }
 
+.date-propose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.date-propose__submit {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 480px) {
+  .date-propose {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .date-propose__submit {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
 .date-voting__admin {
   display: flex;
   flex-direction: column;

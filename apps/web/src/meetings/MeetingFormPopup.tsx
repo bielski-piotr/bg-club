@@ -21,7 +21,7 @@ import {
   Tray,
   useToast,
 } from '../ui';
-import { DATE_OPTIONS_MAX, duplicateDateOptions, type DateOptionValue } from './dateOptions';
+import { duplicateDateOptions, type DateOptionValue } from './dateOptions';
 import { dateOptionValues, useMeetingDateOptions } from './dateVoting';
 import { TIME_SLOTS, todayIn } from './datetime';
 import {
@@ -371,17 +371,17 @@ function MeetingForm({ me, meeting, timeZone, members, locked, dateOptions, date
 
         {inProgress ? null : (
           <DateOptionsField
+            enabled={values.dateVoting}
             values={values.dateOptions}
             minDate={creating ? todayIn(timeZone) : undefined}
             error={
               showErrors && errors.dateOptions
                 ? errors.dateOptions === 'incomplete'
                   ? form.errors.dateOptionsIncomplete
-                  : errors.dateOptions === 'duplicate'
-                    ? form.errors.dateOptionsDuplicate
-                    : format(form.errors.dateOptionsTooMany, { max: DATE_OPTIONS_MAX })
+                  : form.errors.dateOptionsDuplicate
                 : undefined
             }
+            onToggle={(dateVoting) => setValues((current) => ({ ...current, dateVoting }))}
             onAdd={() => setValues((current) => addDateOption(current))}
             onChange={(index, change) =>
               setValues((current) => updateDateOption(current, index, change))
@@ -397,10 +397,13 @@ function MeetingForm({ me, meeting, timeZone, members, locked, dateOptions, date
 }
 
 /**
- * Proponowane terminy do głosowania: wiersze z datą i godziną (jak termin spotkania) i usunięciem.
+ * Głosowanie na termin: przełącznik (uczestnicy proponują terminy i głosują) i własne propozycje
+ * administratora, wiersze z datą i godziną (jak termin spotkania) i usunięciem, bez limitu.
  * Termin spotkania zostaje polem powyżej; propozycje są tylko pytaniem do uczestników.
  */
 function DateOptionsField({
+  enabled,
+  onToggle,
   values,
   minDate,
   error,
@@ -408,6 +411,8 @@ function DateOptionsField({
   onChange,
   onRemove,
 }: {
+  readonly enabled: boolean;
+  readonly onToggle: (enabled: boolean) => void;
   readonly values: readonly DateOptionValue[];
   readonly minDate: string | undefined;
   readonly error: string | undefined;
@@ -418,8 +423,17 @@ function DateOptionsField({
   const duplicates = duplicateDateOptions(values);
   return (
     <fieldset className="meeting-form__group">
-      <legend className="meeting-form__label">{form.dateOptionsLegend}</legend>
-      <p className="meeting-form__hint date-options__hint">{form.dateOptionsHint}</p>
+      <legend className="meeting-form__label">{form.dateVotingLabel}</legend>
+      <Checkbox
+        className="row meeting-member"
+        checked={enabled}
+        onCheckedChange={onToggle}
+        label={<span className="meeting-member__name">{form.dateVotingLabel}</span>}
+      />
+      <p className="meeting-form__hint date-options__hint">{form.dateVotingHint}</p>
+      {enabled || values.length > 0 ? (
+        <p className="meeting-form__hint date-options__hint">{form.dateOptionsHint}</p>
+      ) : null}
       {values.length > 0 ? (
         <ol className="date-options" aria-label={form.dateOptionsLegend}>
           {values.map((option, index) => {
@@ -456,7 +470,7 @@ function DateOptionsField({
           })}
         </ol>
       ) : null}
-      {values.length < DATE_OPTIONS_MAX ? (
+      {enabled || values.length > 0 ? (
         <Button size="sm" variant="secondary" icon="plus" onClick={onAdd}>
           {form.addDateOption}
         </Button>
