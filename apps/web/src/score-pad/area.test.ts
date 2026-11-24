@@ -24,11 +24,10 @@ describe('obszar kartki w kreatorze', () => {
     expect(formatCm(10.5)).toBe('10,5');
   });
 
-  it('podpowiedź zależy od trybu i wyniku wykrywania', () => {
-    expect(areaHint({ mode: 'full', detected: 'shape' })).toMatch(/całe zdjęcie/);
-    expect(areaHint({ mode: 'manual', detected: null })).toMatch(/dwuklik/);
-    expect(areaHint({ mode: 'auto', detected: 'shape' })).toMatch(/kształt kartki: \{points\}/);
-    expect(areaHint({ mode: 'auto', detected: 'missing' })).toMatch(/Nie udało się/);
-    expect(areaHint({ mode: 'auto', detected: 'sheet' })).toMatch(/Wykryto kartkę/);
+  it('podpowiedź zależy od trybu (bez automatycznego wykrywania kartki)', () => {
+    expect(areaHint({ mode: 'full' })).toMatch(/całe zdjęcie/);
+    expect(areaHint({ mode: 'full' })).toMatch(/Przeciągnij narożnik/);
+    expect(areaHint({ mode: 'manual' })).toMatch(/dwuklik/);
+    expect(areaHint({ mode: 'manual' })).toMatch(/\{points\}/);
   });
 });

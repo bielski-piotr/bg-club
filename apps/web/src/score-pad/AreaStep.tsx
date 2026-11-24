@@ -1,26 +1,37 @@
-import type { ScorePadEditorArea, ScorePadEditorAreaPatch } from '@bg-club/score-pad';
+import type {
+  ScorePadEditorArea,
+  ScorePadEditorAreaPatch,
+  ScorePadEditorStatus,
+  ScorePadZoomAction,
+} from '@bg-club/score-pad';
 import type { KeyboardEvent } from 'react';
 import { format, plural, t } from '../i18n';
 import { ColorSwatches, IconButton, SegmentedControl, Slider, Switch, TextField } from '../ui';
 import { SCOREPAD_NAME_MAX } from './scorepads';
 import { SPINE_COLORS, areaHint, clampCm, formatCm, parseCm } from './area';
 import { useDraft } from './useDraft';
+import { ZoomButtons } from './ZoomButtons';
 
 const text = t.scorepads.wizard.area;
 
 /**
- * Pływający pasek sceny w kroku 2 (DS §18): obrót o 90° w lewo i w prawo oraz cofnij.
+ * Pływający pasek sceny w kroku 2 (DS §18): obrót o 90° w lewo i w prawo, cofnij oraz
+ * powiększenie zdjęcia (precyzyjne ustawianie punktów obszaru).
  */
 export function AreaToolbar({
   canUndo,
   disabled,
+  zoom,
   onRotate,
   onUndo,
+  onZoom,
 }: {
   readonly canUndo: boolean;
   readonly disabled: boolean;
+  readonly zoom: ScorePadEditorStatus['zoom'];
   readonly onRotate: (dir: 1 | -1) => void;
   readonly onUndo: () => void;
+  readonly onZoom: (by: ScorePadZoomAction) => void;
 }) {
   return (
     <div className="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
@@ -44,6 +55,14 @@ export function AreaToolbar({
         className="wizard-toolbar__btn"
         disabled={disabled || !canUndo}
         onClick={onUndo}
+      />
+      <ZoomButtons zoom={zoom} disabled={disabled} onZoom={onZoom} />
+      <IconButton
+        icon="target"
+        label={text.fit}
+        className="wizard-toolbar__btn"
+        disabled={disabled || zoom.level <= 1}
+        onClick={() => onZoom('fit')}
       />
     </div>
   );
@@ -128,7 +147,7 @@ export function AreaPanel({
         <SegmentedControl
           legend={text.mode}
           hideLegend={false}
-          options={(['full', 'auto', 'manual'] as const).map((mode) => ({
+          options={(['full', 'manual'] as const).map((mode) => ({
             value: mode,
             label: text.modes[mode],
           }))}

@@ -10,6 +10,7 @@ import {
   type EditorMappingAction,
   type EditorStatus,
   type Step,
+  type ZoomAction,
 } from './editor';
 import { EDITOR_CSS } from './styles';
 
@@ -124,6 +125,11 @@ export class ScorePadEditorElement extends HTMLElement {
   /** Cofa ostatnią zmianę obszaru (jak Ctrl+Z na scenie). */
   undoArea(): void {
     this.editor?.undoArea();
+  }
+
+  /** Powiększenie podglądu w krokach 2–4: przybliż, oddal albo pokaż cały obraz. */
+  zoom(by: ZoomAction): void {
+    this.editor?.zoom(by);
   }
 
   /**

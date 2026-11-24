@@ -4,7 +4,8 @@ import { mockGame, mockSupabase, session, storeSession } from './support/supabas
 
 /**
  * Krok 3 kreatora „Mapowanie pól” (EDT-11, EDT-6, EDT-8), zadanie [018]. Próbki to skany
- * kartki (cała kartka w kadrze): z tabelą 1 + 4 kolumny × 6 wierszy albo pusta. Na telefonie
+ * kartki (cała kartka w kadrze): z tabelą 1 + 4 kolumny × 6 wierszy albo pusta. Edytor nie
+ * wykrywa tabeli: krok zaczyna od tabeli startowej, którą dopasowuje się ręcznie. Na telefonie
  * prostokąty rysuje dotyk (CDP), na desktopie mysz. Każdy test przechodzi na 360 px
  * i na desktopie, w obu motywach.
  */
@@ -149,7 +150,9 @@ test('prostokąty ręczne: kolejne kategorie, powielanie dla ponad 8 miejsc, EDT
   test.setTimeout(60_000);
   const dialog = await openMapping(page, false);
   const next = dialog.getByRole('button', { name: 'Dalej' });
-  // Kartka bez tabeli zaczyna od prostokątów ręcznych.
+  // Krok zaczyna od tabeli startowej; bez zmian w niej przejście na prostokąty nie pyta.
+  await expect(dialog.getByRole('radio', { name: 'Tabela' })).toBeChecked();
+  await dialog.getByText('Prostokąty ręczne', { exact: true }).click();
   await expect(dialog.getByRole('radio', { name: 'Prostokąty ręczne' })).toBeChecked();
   await expect(dialog.locator('.wizard-hint--problem')).toHaveText(
     'Narysuj na kartce pole pierwszej kategorii.',
@@ -215,8 +218,16 @@ test('prostokąty ręczne: kolejne kategorie, powielanie dla ponad 8 miejsc, EDT
 
 test('powiększenie kartki i dopasowanie widoku', async ({ page }) => {
   const dialog = await openMapping(page, false);
+  await dialog.getByText('Prostokąty ręczne', { exact: true }).click();
+  await expect(dialog.getByRole('radio', { name: 'Prostokąty ręczne' })).toBeChecked();
   const fit = dialog.getByRole('button', { name: 'Dopasuj widok' });
   await expect(fit).toBeDisabled();
+  // Przyciski lupy na pasku sceny.
+  const toolbar = dialog.getByRole('toolbar', { name: 'Narzędzia mapowania' });
+  await toolbar.getByRole('button', { name: 'Przybliż (+)' }).click();
+  await expect.poll(async () => (await mapping(page)).zoomed).toBe(true);
+  await toolbar.getByRole('button', { name: 'Oddal (−)' }).click();
+  await expect.poll(async () => (await mapping(page)).zoomed).toBe(false);
   const b = await sheetBox(page);
   const c = at(b, 0.5, 0.5);
   if (isMobile(page)) {
@@ -245,11 +256,11 @@ test('powiększenie kartki i dopasowanie widoku', async ({ page }) => {
   await expect.poll(async () => (await mapping(page)).zoomed).toBe(false);
 });
 
-test('wykryta tabela: poprawa linii, oś graczy i zmiana trybu z potwierdzeniem', async ({
+test('tabela ustawiana ręcznie: poprawa linii, oś graczy i zmiana trybu z potwierdzeniem', async ({
   page,
 }) => {
   const dialog = await openMapping(page, true);
-  await expect(dialog.getByRole('radio', { name: 'Wykryj tabelę' })).toBeChecked();
+  await expect(dialog.getByRole('radio', { name: 'Tabela' })).toBeChecked();
   const m = await mapping(page);
   expect(m).toMatchObject({ mode: 'table', players: 'cols', seats: 4, categories: 6 });
   await expect(tiles(dialog)).toHaveText(['4', '6']);
@@ -290,7 +301,7 @@ test('wykryta tabela: poprawa linii, oś graczy i zmiana trybu z potwierdzeniem'
   await expect(confirm).toBeVisible();
   await confirm.getByRole('button', { name: 'Anuluj' }).click();
   await expect(confirm).toHaveCount(0);
-  await expect(dialog.getByRole('radio', { name: 'Wykryj tabelę' })).toBeChecked();
+  await expect(dialog.getByRole('radio', { name: 'Tabela' })).toBeChecked();
   expect(await mapping(page)).toMatchObject({ mode: 'table', seats: 4, categories: 6 });
 
   await dialog.getByText('Prostokąty ręczne', { exact: true }).click();

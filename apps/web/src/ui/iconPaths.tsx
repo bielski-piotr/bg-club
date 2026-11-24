@@ -12,6 +12,19 @@ export const glyphs = {
   x: <path d="M4 4L12 12M12 4L4 12" />,
   plus: <path d="M8 3V13M3 8H13" />,
   minus: <path d="M3 8H13" />,
+  /** Przybliż i oddal podgląd (lupa z plusem i minusem). */
+  'zoom-in': (
+    <>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.5 10.5L14 14M7 5V9M5 7H9" />
+    </>
+  ),
+  'zoom-out': (
+    <>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.5 10.5L14 14M5 7H9" />
+    </>
+  ),
   check: <path d="M3.5 8.5L6.5 11.5L12.5 4.5" />,
   search: (
     <>

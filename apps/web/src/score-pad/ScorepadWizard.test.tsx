@@ -6,6 +6,7 @@ import type {
   ScorePadEditorMappingAction,
   ScorePadEditorStatus,
   ScorePadTemplate,
+  ScorePadZoomAction,
 } from '@bg-club/score-pad';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -70,14 +71,13 @@ const EMPTY: ScorePadEditorStatus = {
   settings: {
     name: 'Mój notes',
     tape: '#161a2b',
-    mode: 'auto',
+    mode: 'full',
     points: 4,
     smoothing: false,
     strength: 4,
     size: { w: 10.5, h: 14.8 },
     binding: 'top',
     canUndo: false,
-    detected: 'sheet',
   },
   mapping: {
     mode: 'rects',
@@ -93,7 +93,6 @@ const EMPTY: ScorePadEditorStatus = {
     canDuplicate: false,
     canUndo: false,
     hasContent: false,
-    detected: null,
     problem: 'Narysuj na kartce pole pierwszej kategorii.',
     zoomed: false,
   },
@@ -108,6 +107,7 @@ const EMPTY: ScorePadEditorStatus = {
   },
   dirty: false,
   openFailed: false,
+  zoom: { level: 1, max: 8 },
 };
 
 /** Kategoria kroku 4 (EDT-13) w stanie edytora. */
@@ -170,6 +170,7 @@ const fake = vi.hoisted(() => ({
   setArea: vi.fn(),
   rotatePhoto: vi.fn(),
   undoArea: vi.fn(),
+  zoom: vi.fn(),
   editMapping: vi.fn(),
   editCategories: vi.fn(),
   loadPhoto: vi.fn(),
@@ -279,6 +280,7 @@ vi.mock('./ScorePadEditorView', () => ({
       },
       rotatePhoto: (dir: 1 | -1) => fake.rotatePhoto(dir),
       undoArea: () => fake.undoArea(),
+      zoom: (by: ScorePadZoomAction) => fake.zoom(by),
       editMapping: (action: ScorePadEditorMappingAction) => {
         fake.editMapping(action);
         const current = (fake.status as ScorePadEditorStatus).mapping;
@@ -329,6 +331,7 @@ beforeEach(() => {
   fake.setArea.mockClear();
   fake.rotatePhoto.mockClear();
   fake.undoArea.mockClear();
+  fake.zoom.mockClear();
   fake.editMapping.mockClear();
   fake.editCategories.mockClear();
   save.mockReset();
@@ -712,7 +715,7 @@ describe('kreator edytora notesu', () => {
     fireEvent.click(next());
     const name = within(dialog).getByRole('textbox', { name: 'Nazwa notesu' });
     expect(name).toHaveValue('Mój notes');
-    expect(within(dialog).getByText(/Wykryto kartkę/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Przeciągnij narożnik na róg kartki/)).toBeInTheDocument();
 
     // Nazwa jest wymagana: bez niej „Dalej” jest wyłączone.
     fireEvent.change(name, { target: { value: '  ' } });
@@ -769,6 +772,27 @@ describe('kreator edytora notesu', () => {
     expect(fake.undoArea).toHaveBeenCalledTimes(2);
     fireEvent.keyDown(name, { key: 'z', ctrlKey: true });
     expect(fake.undoArea).toHaveBeenCalledTimes(2);
+
+    // Powiększenie zdjęcia: bez powiększenia nie ma czego oddalać ani dopasowywać.
+    expect(toolbar.getByRole('button', { name: 'Oddal (−)' })).toBeDisabled();
+    expect(toolbar.getByRole('button', { name: 'Pokaż całe zdjęcie (0)' })).toBeDisabled();
+    fireEvent.click(toolbar.getByRole('button', { name: 'Przybliż (+)' }));
+    expect(fake.zoom).toHaveBeenLastCalledWith('in');
+    update({ zoom: { level: 8, max: 8 } });
+    expect(toolbar.getByRole('button', { name: 'Przybliż (+)' })).toBeDisabled();
+    fireEvent.click(toolbar.getByRole('button', { name: 'Oddal (−)' }));
+    expect(fake.zoom).toHaveBeenLastCalledWith('out');
+    fireEvent.click(toolbar.getByRole('button', { name: 'Pokaż całe zdjęcie (0)' }));
+    expect(fake.zoom).toHaveBeenLastCalledWith('fit');
+  });
+
+  it('krok 2: bez automatycznego wykrywania kartki', async () => {
+    const dialog = renderWizard();
+    await choosePhoto(dialog);
+    fireEvent.click(next());
+    expect(within(dialog).getByRole('radio', { name: 'Całe zdjęcie' })).toBeChecked();
+    expect(within(dialog).getByRole('radio', { name: 'Ręcznie' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('radio', { name: /Wykryj/ })).toBeNull();
   });
 
   it('krok 2: kolor grzbietu spoza palety jest pierwszą próbką', async () => {
@@ -799,6 +823,8 @@ describe('kreator edytora notesu', () => {
     const toolbar = within(dialog).getByRole('toolbar', { name: 'Narzędzia mapowania' });
     expect(within(toolbar).getByRole('button', { name: 'Cofnij (Ctrl+Z)' })).toBeDisabled();
     expect(within(toolbar).getByRole('button', { name: 'Dopasuj widok' })).toBeDisabled();
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'Przybliż (+)' }));
+    expect(fake.zoom).toHaveBeenLastCalledWith('in');
     // EDT-6: mniej miejsc niż max. graczy gry (5).
     expect(
       within(dialog).getByText(
@@ -865,11 +891,11 @@ describe('kreator edytora notesu', () => {
     await choosePhoto(dialog);
     fireEvent.click(next());
     fireEvent.click(next());
-    await within(dialog).findByRole('radio', { name: 'Wykryj tabelę' });
+    await within(dialog).findByRole('radio', { name: 'Tabela' });
     update({
       mapping: { ...EMPTY.mapping, categories: 2, hasContent: true, problem: null },
     });
-    const table = within(dialog).getByRole('radio', { name: 'Wykryj tabelę' });
+    const table = within(dialog).getByRole('radio', { name: 'Tabela' });
     fireEvent.click(table);
     const confirm = screen.getByRole('dialog', { name: 'Zmienić sposób mapowania?' });
     expect(within(confirm).getByText(/pola i kategorie zostaną usunięte/)).toBeInTheDocument();
@@ -878,7 +904,7 @@ describe('kreator edytora notesu', () => {
     expect(fake.editMapping).not.toHaveBeenCalled();
     expect(within(dialog).getByRole('radio', { name: 'Prostokąty ręczne' })).toBeChecked();
 
-    fireEvent.click(within(dialog).getByRole('radio', { name: 'Wykryj tabelę' }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Tabela' }));
     fireEvent.click(
       within(screen.getByRole('dialog', { name: 'Zmienić sposób mapowania?' })).getByRole(
         'button',
@@ -886,19 +912,19 @@ describe('kreator edytora notesu', () => {
       ),
     );
     expect(fake.editMapping).toHaveBeenCalledWith({ type: 'mode', mode: 'table' });
-    expect(within(dialog).getByRole('radio', { name: 'Wykryj tabelę' })).toBeChecked();
+    expect(within(dialog).getByRole('radio', { name: 'Tabela' })).toBeChecked();
     // Bez pól zmiana nie pyta.
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Prostokąty ręczne' }));
     expect(screen.queryByRole('dialog', { name: 'Zmienić sposób mapowania?' })).toBeNull();
     expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'mode', mode: 'rects' });
   });
 
-  it('krok 3: narzędzia tabeli (gracze w kolumnach lub wierszach, liczby, ponowne wykrycie)', async () => {
+  it('krok 3: narzędzia tabeli (gracze w kolumnach lub wierszach, liczby, bez wykrywania)', async () => {
     const dialog = renderWizard();
     await choosePhoto(dialog);
     fireEvent.click(next());
     fireEvent.click(next());
-    await within(dialog).findByRole('radio', { name: 'Wykryj tabelę' });
+    await within(dialog).findByRole('radio', { name: 'Tabela' });
     update({
       seats: 6,
       lines: Array.from({ length: 7 }, (_, i) => ({ label: `K${i}`, kind: 'input' as const })),
@@ -909,11 +935,11 @@ describe('kreator edytora notesu', () => {
         categories: 7,
         rows: 7,
         hasContent: true,
-        detected: false,
         problem: null,
       },
     });
-    expect(within(dialog).getByText(/Nie znaleziono tabeli na kartce/)).toBeVisible();
+    // Tabelę i nazwy kategorii dopasowuje się ręcznie: bez wykrywania tabeli na zdjęciu.
+    expect(within(dialog).queryByRole('button', { name: /Wykryj/ })).toBeNull();
     // 6 miejsc ≥ 5 graczy gry: bez ostrzeżenia EDT-6.
     expect(within(dialog).queryByText(/można używać tylko w partiach/)).toBeNull();
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Wierszach' }));
@@ -932,8 +958,6 @@ describe('kreator edytora notesu', () => {
       key: 'ArrowUp',
     });
     expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'labels', delta: 1 });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Wykryj tabelę ponownie' }));
-    expect(fake.editMapping).toHaveBeenLastCalledWith({ type: 'detect' });
   });
 
   /** Kreator w kroku 4 z kategoriami z kroku 3. */

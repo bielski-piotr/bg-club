@@ -27,14 +27,13 @@ const EMPTY: ScorePadEditorStatus = {
   settings: {
     name: 'Mój notes',
     tape: '#161a2b',
-    mode: 'auto',
+    mode: 'full',
     points: 4,
     smoothing: false,
     strength: 4,
     size: { w: 10.5, h: 14.8 },
     binding: 'top',
     canUndo: false,
-    detected: 'sheet',
   },
   mapping: {
     mode: 'rects',
@@ -50,7 +49,6 @@ const EMPTY: ScorePadEditorStatus = {
     canDuplicate: false,
     canUndo: false,
     hasContent: false,
-    detected: null,
     problem: 'Narysuj na kartce pole pierwszej kategorii.',
     zoomed: false,
   },
@@ -65,6 +63,7 @@ const EMPTY: ScorePadEditorStatus = {
   },
   dirty: false,
   openFailed: false,
+  zoom: { level: 1, max: 8 },
 };
 const PHOTO = { ...EMPTY, photo: true, photoUrl: 'data:image/jpeg;base64,x', area: true };
 const READY: ScorePadEditorStatus = {

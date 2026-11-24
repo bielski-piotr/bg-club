@@ -101,14 +101,13 @@ describe('edytor w trybie kreatora', () => {
     expect(editor.status().settings).toEqual({
       name: 'Mój notes',
       tape: '#161a2b',
-      mode: 'auto',
+      mode: 'full',
       points: 4,
       smoothing: false,
       strength: 4,
       size: { w: 10.5, h: 14.8 },
       binding: 'top',
       canUndo: false,
-      detected: null,
     });
     editor.setArea({ name: 'Turniejowy', tape: '#3A9D6E', binding: 'left', size: { w: 100 } });
     editor.setArea({ tape: 'red', size: { h: 1 } });
@@ -125,7 +124,7 @@ describe('edytor w trybie kreatora', () => {
     editor.undoArea();
     editor.rotatePhoto(1);
     expect(editor.status()).toMatchObject({ photo: false, area: false });
-    expect(editor.status().settings.mode).toBe('auto');
+    expect(editor.status().settings.mode).toBe('full');
     await frame();
     expect(onChange.mock.lastCall?.[0]).toMatchObject({ settings: { name: 'Turniejowy' } });
   });

@@ -1,4 +1,4 @@
-// Krok 3 edytora: mapowanie pól (EDT-11) — prostokąty ręczne albo wykryta tabela — i kategorie.
+// Krok 3 edytora: mapowanie pól (EDT-11) — prostokąty ręczne albo tabela ustawiana ręcznie — i kategorie.
 //
 // Tryby się wykluczają: notes ma albo tabelę (wiersze i kolumny, gracze w kolumnach lub
 // wierszach), albo same prostokąty ręczne (pola kategorii dla kolejnych miejsc graczy). Zmiana
@@ -20,10 +20,9 @@ import {
 import { clamp, esc, uid } from '../core/util';
 import type { SheetShape } from '../core/shape';
 import { shapeSvgPath } from '../core/shape';
-import { detectLines } from './photo';
 import { icon } from './icons';
 
-/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo wykryta tabela. */
+/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo tabela z liniami ustawianymi ręcznie. */
 export type MappingMode = 'rects' | 'table';
 
 export interface Draft {
@@ -67,8 +66,6 @@ export interface MappingState {
   readonly canUndo: boolean;
   /** Są pola lub kategorie, które przepadną przy zmianie trybu (pytanie o potwierdzenie). */
   readonly hasContent: boolean;
-  /** Wynik ostatniego wykrywania tabeli na prośbę (null: nie było). */
-  readonly detected: boolean | null;
   /** Powód, dla którego mapowanie nie jest jeszcze gotowe, albo null. */
   readonly problem: string | null;
 }
@@ -85,8 +82,6 @@ export type MappingAction =
   | { readonly type: 'categories'; readonly delta: 1 | -1 }
   /** Tabela: kolumny (wiersze) opisu. */
   | { readonly type: 'labels'; readonly delta: 1 | -1 }
-  /** Tabela: wykrywa tabelę na kartce ponownie. */
-  | { readonly type: 'detect' }
   /** Prostokąty: powiela pola bieżącego miejsca dla następnego. */
   | { readonly type: 'duplicate' }
   /** Prostokąty: usuwa zaznaczone pola. */
@@ -183,6 +178,9 @@ export interface FieldsHost {
   confirm?(msg: string): boolean;
   /** Tryb kreatora: pasek i panel kroku prowadzi aplikacja. */
   readonly wizard?: boolean;
+  /** Przyciski powiększenia podglądu do paska narzędzi i ich obsługa. */
+  zoomTools?(): string;
+  bindZoomTools?(tb: HTMLElement): void;
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -197,7 +195,6 @@ interface Snapshot {
   mode: MappingMode;
   sel: number;
   activeP: number;
-  detected: boolean | null;
 }
 
 /**
@@ -231,7 +228,7 @@ const PLAYER_COLORS = [
 ];
 const GAP = 0.008;
 const UNDO_LIMIT = 60;
-/** Tabela, gdy wykrywanie na prośbę nic nie znalazło: do poprawienia liniami. */
+/** Tabela startowa: do dopasowania liniami na kartce. */
 const FALLBACK_TABLE = { lines: 6, players: 4, labels: 1 };
 const FALLBACK_FRAME = { x0: 0.06, y0: 0.06, x1: 0.94, y1: 0.62 };
 /** Automatyczna nazwa kategorii (EDT-11): numer zmienia się razem z kolejnością. */
@@ -251,7 +248,7 @@ export function freshDraft(): Draft {
 export class FieldsStep {
   draft: Draft = freshDraft();
   mode: MappingMode = 'table';
-  /** Czy krok był już otwarty (wykrywanie tabeli tylko za pierwszym razem). */
+  /** Czy krok był już otwarty (tabela startowa tylko za pierwszym razem). */
   ready = false;
   /** Aktywna kategoria (indeks; w prostokątach `lines.length` = nowa kategoria). */
   private sel = 0;
@@ -273,9 +270,7 @@ export class FieldsStep {
   private undoStack: Snapshot[] = [];
   private undoKind = '';
   private undoAt = 0;
-  /** Wynik ostatniego wykrywania tabeli na prośbę (zmiana trybu, „Wykryj tabelę ponownie”). */
-  private detected: boolean | null = null;
-  /** Tabela domyślna po nieudanym wykryciu, jeszcze bez zmian: nie ma czego tracić. */
+  /** Tabela startowa jeszcze bez zmian: nie ma czego tracić. */
   private untouchedFallback = false;
   /**
    * Krok 4 kreatora (EDT-13): kartka pokazuje kategorie (numery, wybór, reguła miejsc) zamiast
@@ -305,7 +300,6 @@ export class FieldsStep {
     this.dupOffset = null;
     this.lastDup = [];
     this.undoStack = [];
-    this.detected = null;
     this.catView = 'lines';
     this.catCache = null;
   }
@@ -426,85 +420,32 @@ export class FieldsStep {
     }
   }
 
-  /**
-   * Wykrywa linie tabeli na zdjęciu. `auto` (pierwsze wejście w krok): tylko wyraźna tabela na
-   * całej kartce, kategorie od nowa. `sheet` (prośba użytkownika): cała kartka, kategorie zostają,
-   * o ile ich liczba się zgadza. `frame`: tylko w obrębie bieżącej ramki tabeli. Zwraca, czy się
-   * udało.
-   */
-  autoLines(scope: 'auto' | 'sheet' | 'frame'): boolean {
-    const sheet = this.h.sheet;
-    if (!sheet) return false;
-    const g = this.draft.grid;
-    const whole = scope !== 'frame';
-    const fr = whole ? { x0: 0.01, y0: 0.01, x1: 0.99, y1: 0.99 } : this.frame();
-    const pad = whole ? 0 : 0.015;
-    const res = detectLines(sheet, {
-      x0: Math.max(0, fr.x0 - pad),
-      y0: Math.max(0, fr.y0 - pad),
-      x1: Math.min(1, fr.x1 + pad),
-      y1: Math.min(1, fr.y1 + pad),
-    });
-    if (res.xs.length < 3 || res.ys.length < 3) return false;
-    const cols = g.players === 'cols';
-    const catAx = cols ? res.ys : res.xs;
-    const plAx = cols ? res.xs : res.ys;
-    const openCat = cols ? res.openRows : res.openCols;
-    const openPl = cols ? res.openCols : res.openRows;
-    // ścieżki opisu: pierwsze, wyraźnie inne niż (równe) kolumny graczy
-    const widths = plAx.slice(1).map((v, i) => v - plAx[i]);
-    const tail = widths.slice(Math.floor(widths.length / 2)).sort((a, b) => a - b);
-    const med = tail[tail.length >> 1] || 1;
-    let labels = 0;
-    while (labels < Math.min(2, widths.length - 1) && Math.abs(widths[labels] - med) / med > 0.35)
-      labels++;
-    if (scope === 'auto') {
-      // samo, bez prośby: tylko wyraźna tabela (zbliżone wiersze, spora część kartki) — plansza bez tabeli zostaje pusta
-      const hs = catAx
-        .slice(1)
-        .map((v, i) => v - catAx[i])
-        .sort((a, b) => a - b);
-      const med = hs[hs.length >> 1] || 1;
-      const area = (plAx[plAx.length - 1] - plAx[0]) * (catAx[catAx.length - 1] - catAx[0]);
-      if (
-        hs.length < 2 ||
-        hs[hs.length - 1] > med * 3.2 ||
-        area < 0.2 ||
-        plAx.length - 1 - labels < 1
-      )
-        return false;
-    }
-    const old = this.catAxis().length - 1;
-    if (scope === 'auto') {
-      this.draft.lines = this.draft.lines.slice(old);
-      this.setRowCount(0, catAx.length - 1);
-    } else this.setRowCount(this.draft.lines.length ? old : 0, catAx.length - 1);
-    for (const i of openCat)
-      if (this.draft.lines[i] && this.draft.lines[i].kind === 'input')
-        this.draft.lines[i].kind = 'skip';
-    g.labels = labels;
-    g.blank = openPl.filter((k) => k >= labels && k < plAx.length - 1);
-    if (cols) {
-      g.y = catAx;
-      g.x = plAx;
-    } else {
-      g.x = catAx;
-      g.y = plAx;
-    }
-    if (!this.players()) g.blank = [];
-    this.renumber();
-    return true;
-  }
-
-  /** Pierwsze wejście w krok: tabela, jeśli jest na kartce, a bez niej prostokąty ręczne. */
+  /** Pierwsze wejście w krok: tabela startowa, którą dopasowuje się liniami do kartki. */
   enter(): void {
     if (!this.ready) {
       this.ready = true;
-      this.mode = 'table';
-      if (!this.autoLines('auto')) this.startRects();
+      this.startTable();
     }
     this.activeP = clamp(this.activeP, 0, Math.max(0, this.players() - 1));
     this.renderAll();
+  }
+
+  /** Tabela od zera: równo rozłożone linie do przeciągnięcia na kartce, kategorie od nowa. */
+  private startTable(): void {
+    this.mode = 'table';
+    this.draft.lines = [];
+    this.draft.fields = [];
+    delete this.draft.ranking;
+    this.sel = 0;
+    this.activeP = 0;
+    this.draft.grid.blank = [];
+    this.resetGrid(
+      FALLBACK_TABLE.lines,
+      FALLBACK_TABLE.players,
+      FALLBACK_TABLE.labels,
+      FALLBACK_FRAME,
+    );
+    this.untouchedFallback = true;
   }
 
   /** Prostokąty od zera: jedno miejsce, bez kategorii i pól. */
@@ -544,7 +485,6 @@ export class FieldsStep {
     this.dupOffset = null;
     this.lastDup = [];
     this.undoStack = [];
-    this.detected = null;
     this.catView = 'lines';
     this.catCache = null;
   }
@@ -561,7 +501,6 @@ export class FieldsStep {
       mode: this.mode,
       sel: this.sel,
       activeP: this.activeP,
-      detected: this.detected,
     };
   }
 
@@ -585,7 +524,6 @@ export class FieldsStep {
     this.mode = s.mode;
     this.sel = s.sel;
     this.activeP = s.activeP;
-    this.detected = s.detected;
     this.untouchedFallback = false;
     this.fsel.clear();
     this.fdrag = null;
@@ -624,28 +562,8 @@ export class FieldsStep {
     this.dupOffset = null;
     this.lastDup = [];
     this.open.clear();
-    if (m === 'rects') {
-      this.startRects();
-      this.detected = null;
-    } else {
-      this.mode = 'table';
-      this.draft.lines = [];
-      this.draft.fields = [];
-      delete this.draft.ranking;
-      this.sel = 0;
-      this.activeP = 0;
-      this.draft.grid.blank = [];
-      this.detected = this.autoLines('sheet');
-      if (!this.detected) {
-        this.resetGrid(
-          FALLBACK_TABLE.lines,
-          FALLBACK_TABLE.players,
-          FALLBACK_TABLE.labels,
-          FALLBACK_FRAME,
-        );
-        this.untouchedFallback = true;
-      }
-    }
+    if (m === 'rects') this.startRects();
+    else this.startTable();
     this.renderAll();
   }
 
@@ -676,15 +594,6 @@ export class FieldsStep {
           else this.removeTrack();
         } else if (a.delta > 0) this.addSeat();
         else this.removeSeat();
-        return;
-      case 'detect':
-        if (!table) return;
-        {
-          const snap = this.snapshot();
-          this.detected = this.autoLines('sheet');
-          if (this.detected) this.pushUndo(snap);
-        }
-        this.renderAll();
         return;
       case 'seat':
         if (table) return;
@@ -728,7 +637,6 @@ export class FieldsStep {
       canDuplicate: !table && this.duplicateSource().length > 0,
       canUndo: this.canUndo,
       hasContent: this.hasContent(),
-      detected: table ? this.detected : null,
       problem: this.mappingProblem(),
     };
   }
@@ -1110,7 +1018,6 @@ export class FieldsStep {
             <button type="button" role="radio" data-pl="cols" aria-checked="${cols}" title="Gracze w kolumnach">${icon('cols')}</button>
             <button type="button" role="radio" data-pl="rows" aria-checked="${!cols}" title="Gracze w wierszach">${icon('rows')}</button>
           </div>
-          <button type="button" class="spe-tb-btn" data-a="detect" title="Wykryj linie tabeli na zdjęciu">${icon('scanTable')}<span>Wykryj</span></button>
           <button type="button" class="spe-tb-btn" data-a="even" title="Rozłóż linie równo">${icon('even')}</button>
         </div>
         <span class="spe-tb-sep"></span>
@@ -1139,7 +1046,9 @@ export class FieldsStep {
           ${undo}
         </div>`;
     }
-    tb.innerHTML = `<div class="spe-tb-group">${tabs}</div><span class="spe-tb-sep"></span>${tools}`;
+    const zoom = this.h.zoomTools ? `<span class="spe-tb-sep"></span>${this.h.zoomTools()}` : '';
+    tb.innerHTML = `<div class="spe-tb-group">${tabs}</div><span class="spe-tb-sep"></span>${tools}${zoom}`;
+    this.h.bindZoomTools?.(tb);
     tb.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) =>
       b.addEventListener('click', () => this.askMode(b.dataset.mode as MappingMode)),
     );
@@ -1161,14 +1070,7 @@ export class FieldsStep {
     tb.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) =>
       b.addEventListener('click', () => {
         const a = b.dataset.a;
-        if (a === 'detect') {
-          const snap = this.snapshot();
-          if (this.autoLines('frame')) this.pushUndo(snap);
-          else {
-            this.h.toast('Nie znalazłem linii tabeli — ustaw je ręcznie.', 'err');
-          }
-          this.renderAll();
-        } else if (a === 'even') {
+        if (a === 'even') {
           this.pushUndo();
           const tr = this.plAxis().length - 1;
           const keep = g.blank;

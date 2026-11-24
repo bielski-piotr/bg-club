@@ -5,13 +5,13 @@
 import type { ShapePt, SheetShape } from '../core/shape';
 import { Persp, type Pt, type Quad } from './photo';
 
-/** Sposób wyznaczenia obszaru: całe zdjęcie, wykrycie automatyczne albo punkty ustawione ręcznie. */
-export type AreaMode = 'full' | 'auto' | 'manual';
+/** Sposób wyznaczenia obszaru: całe zdjęcie albo punkty ustawione ręcznie. */
+export type AreaMode = 'full' | 'manual';
 
 /** Najmniej punktów obszaru (trójkąt). */
 export const MIN_AREA_POINTS = 3;
-/** Najwięcej punktów po wykryciu automatycznym (więcej uchwytów tylko przeszkadza). */
-export const MAX_DETECTED_POINTS = 48;
+/** Najwięcej punktów obszaru z kształtu wczytanego notesu (więcej uchwytów tylko przeszkadza). */
+export const MAX_EDIT_POINTS = 48;
 /** Największa siła wygładzania krawędzi. */
 export const MAX_SMOOTHING = 10;
 /**

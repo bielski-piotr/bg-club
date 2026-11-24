@@ -2,8 +2,6 @@
 // oraz wtyczka notesu (tryb debugowania, opcjonalnie edytor w nakładce). Kolejność skryptów nie ma znaczenia.
 
 import type { ScorePadPlugin } from '../core/plugins';
-import { detectLines, looksCropped } from './photo';
-import { detectArea } from './shape-tools';
 import { editorPlugin } from './plugin';
 import { ScorePadEditorElement, mountEditor } from './element';
 
@@ -23,6 +21,4 @@ w.ScorePadEditor = {
   version: '2.4.0',
   /** Montuje edytor w dowolnym elemencie strony. */
   mount: mountEditor,
-  /** Narzędzia do diagnostyki wykrywania tabeli i obszaru kartki na zdjęciu. */
-  tools: { detectLines, looksCropped, detectArea },
 };
