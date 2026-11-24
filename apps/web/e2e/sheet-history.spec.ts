@@ -19,7 +19,7 @@ import {
  * kartki z pismem (WebP do ok. 150 KB), który trafia do bucketu `sheets` i do partii po zapisie;
  * anulowane podsumowanie usuwa plik, a przerwany upload nie blokuje zapisu wyników. Karta partii
  * w spotkaniu i galeria gry pokazują obraz, karteczka otwiera powiększenie z wynikami, linkiem do
- * spotkania i podglądem 3D tylko do odczytu, także po usunięciu gry i notesu. API Supabase jest
+ * spotkania i powiększaniem obrazu karteczki, także po usunięciu gry i notesu. API Supabase jest
  * atrapą; reguły bazy (ścieżki, pierwszy obraz, sprzątanie, polityki) sprawdza test SQL 180.
  * Każdy test przechodzi na 360 px i na desktopie, w obu motywach.
  */
@@ -252,9 +252,7 @@ test('przerwany upload obrazu: partia i tak zapisana, bez obrazu i bez dołącze
   await expect(meeting.locator('.meeting-sheets .play-sheet__band')).toBeVisible();
 });
 
-test('karteczka z historii: powiększenie, wyniki, link do spotkania i 3D tylko do odczytu', async ({
-  page,
-}) => {
+test('karteczka z historii: powiększenie, wyniki i link do spotkania', async ({ page }) => {
   test.slow();
   const mock = await openHistory(page, `/?p=meeting/${FINISHED.id}`, {
     meetingRecords: () => [
@@ -298,33 +296,23 @@ test('karteczka z historii: powiększenie, wyniki, link do spotkania i 3D tylko 
   await expect(sheet.getByText('Notes: Azul podstawowy')).toBeVisible();
   await check(page);
 
-  // Ponowny render w 3D z zapisanych wpisów: notes bez odrywania i bez zmian wpisów.
-  await sheet.getByRole('button', { name: 'Pokaż w 3D' }).click();
-  await expect(page.locator('score-pad').locator('.sp.ready')).toBeVisible({ timeout: 15_000 });
-  await expect(sheet.getByText('Podgląd tylko do odczytu')).toBeVisible();
-  const state = await page.evaluate(() => {
-    type El = HTMLElement & {
-      pad: {
-        tear(): void;
-        exportConfig(o: { sheet: boolean }): { sheet: { cells: Record<string, unknown[]> } };
-      };
-      options: { readOnly?: boolean; tear?: boolean };
-    };
-    const element = document.querySelector<El>('score-pad');
-    if (!element) throw new Error('Brak notesu');
-    let tears = 0;
-    element.addEventListener('scorepad:tear', () => (tears += 1));
-    element.pad.tear();
-    return {
-      readOnly: element.options.readOnly,
-      tears,
-      cells: element.pad.exportConfig({ sheet: true }).sheet.cells,
-    };
-  });
-  expect(state.readOnly).toBe(true);
-  expect(state.tears).toBe(0);
-  expect(state.cells.a?.slice(0, 2)).toEqual([20, 11]);
-  await sheet.getByRole('button', { name: 'Pokaż obraz' }).click();
+  // Bez podglądu 3D; obraz karteczki da się przybliżyć, przesunąć i wrócić do całości.
+  await expect(sheet.getByRole('button', { name: 'Pokaż w 3D' })).toHaveCount(0);
+  const zoom = sheet.getByRole('group', { name: 'Powiększenie karteczki' });
+  await expect(sheet.getByText('100%')).toBeVisible();
+  await sheet.getByRole('button', { name: 'Przybliż' }).click();
+  await expect(sheet.getByText('150%')).toBeVisible();
+  const box = await zoom.boundingBox();
+  if (!box) throw new Error('Brak kadru karteczki');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect(sheet.getByText('150%')).toHaveCount(0);
+  await zoom.press('0');
+  await expect(sheet.getByText('100%')).toBeVisible();
+  await zoom.dblclick();
+  await expect(sheet.getByText('250%')).toBeVisible();
+  await sheet.getByRole('button', { name: 'Pokaż całą karteczkę' }).click();
+  await expect(sheet.getByText('100%')).toBeVisible();
   await expect(page.locator('score-pad')).toHaveCount(0);
 
   // Link do spotkania otwiera jego popup.
@@ -332,11 +320,11 @@ test('karteczka z historii: powiększenie, wyniki, link do spotkania i 3D tylko 
   await expect(page.getByRole('dialog', { name: 'Listopadowe granie' })).toBeVisible();
   expect(mock.calls.some((call) => call.includes('/storage/v1/object/sign/sheets/'))).toBe(true);
 
-  // Karteczka bez obrazu: wyjaśnienie i podgląd 3D.
+  // Karteczka bez obrazu: wyjaśnienie, bez podglądu 3D.
   await page.goto(`/?p=sheet/${savedPlay(2).id}`);
   const fallback = page.getByRole('dialog', { name: 'Azul' });
   await expect(fallback.getByText('Obraz tej karteczki nie został zapisany.')).toBeVisible();
-  await expect(fallback.getByRole('button', { name: 'Pokaż w 3D' })).toBeVisible();
+  await expect(fallback.getByRole('button', { name: 'Pokaż w 3D' })).toHaveCount(0);
   await check(page);
 });
 

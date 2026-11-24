@@ -1,6 +1,4 @@
-import type { ScorePadFile } from '@bg-club/score-pad';
-import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useGameTitles } from '../games/games';
@@ -14,9 +12,8 @@ import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { useAllProfiles } from '../profile/profiles';
-import { ScorePadView } from '../score-pad/ScorePadView';
-import { loadVersionTemplate, versionTemplateKey } from '../score-pad/scorepads';
-import { Banner, Button, Icon } from '../ui';
+import { Button, Icon } from '../ui';
+import { SheetZoom } from './SheetZoom';
 import { useSavedSheet, useSheetImageUrl, type SavedSheet } from './sheets';
 import './sheets.css';
 
@@ -24,10 +21,9 @@ const text = t.sheets;
 
 /**
  * Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”): obraz
- * oderwanej karteczki w powiększeniu, czas partii (początek, koniec, czas trwania), wyniki
- * graczy z rekordami klubu i osobistymi ustanowionymi w tej partii i link do spotkania.
- * „Pokaż w 3D” rysuje karteczkę od nowa z zapisanych wpisów i wersji szablonu z chwili
- * rozpoczęcia partii, w notesie tylko do odczytu. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
+ * oderwanej karteczki z powiększaniem (kółko, szczypanie, przyciski), czas partii (początek,
+ * koniec, czas trwania), wyniki graczy z rekordami klubu i osobistymi ustanowionymi w tej partii
+ * i link do spotkania. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
  */
 export function SheetPopup({
   id,
@@ -84,30 +80,13 @@ function SheetView({
 }) {
   const { client } = useAuth();
   const { open } = usePopups();
-  const [view3d, setView3d] = useState(false);
   const records = useMeetingRecords(client, sheet.meeting.id).data?.get(sheet.id);
   const expansions = useGameTitles(client, sheet.expansion_ids);
   const date = formatMeetingDate(sheet.saved_at, timeZone);
   return (
     <div className="sheet-view">
       <div className="sheet-view__main">
-        {view3d ? (
-          <SheetPad sheet={sheet} />
-        ) : (
-          <SheetImage sheet={sheet} label={format(text.image, { title: sheet.game.title, date })} />
-        )}
-        <div className="sheet-view__toggle">
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={view3d ? undefined : 'pad'}
-            aria-pressed={view3d}
-            onClick={() => setView3d((value) => !value)}
-          >
-            {view3d ? text.showImage : text.show3d}
-          </Button>
-          {view3d ? <p className="sheet-view__hint">{text.readOnly}</p> : null}
-        </div>
+        <SheetImage sheet={sheet} label={format(text.image, { title: sheet.game.title, date })} />
       </div>
       <div className="sheet-view__side">
         <p className="sheet-view__meta">
@@ -183,7 +162,7 @@ function SheetView({
   );
 }
 
-/** Powiększony obraz karteczki; bez obrazu (przerwany upload) kartka zastępcza z wyjaśnieniem. */
+/** Obraz karteczki z powiększaniem; bez obrazu (przerwany upload) kartka zastępcza z wyjaśnieniem. */
 function SheetImage({ sheet, label }: { readonly sheet: SavedSheet; readonly label: string }) {
   const signed = useSheetImageUrl(sheet.sheet_image_path);
   const url = signed.data;
@@ -196,74 +175,9 @@ function SheetImage({ sheet, label }: { readonly sheet: SavedSheet; readonly lab
     return (
       <div className="sheet-view__stage sheet-view__stage--empty">
         <SheetThumbnail gameId={sheet.game.id} className="sheet-view__placeholder" />
-        <p className="sheet-view__hint">{sheet.sheet ? text.noImage : text.noSheet}</p>
+        <p className="sheet-view__hint">{text.noImage}</p>
       </div>
     );
   }
-  return (
-    <div className="sheet-view__stage">
-      <img className="sheet-view__img" src={url} alt={label} onError={() => setFailed(url)} />
-    </div>
-  );
-}
-
-/** Karteczka narysowana od nowa w notesie 3D tylko do odczytu (PAD-6). */
-function SheetPad({ sheet }: { readonly sheet: SavedSheet }) {
-  const { client } = useAuth();
-  const template = useQuery({
-    queryKey: versionTemplateKey(sheet.scorepad_version_id),
-    staleTime: Infinity,
-    // Zdjęcie szablonu ma kilka MB: po zamknięciu podglądu nie trzymamy go w pamięci.
-    gcTime: 0,
-    enabled: sheet.sheet !== null,
-    queryFn: () =>
-      loadVersionTemplate(
-        client,
-        sheet.scorepad_version_id,
-        sheet.scorepad_name || sheet.game.title,
-      ),
-  });
-  const config = useMemo<ScorePadFile | null>(
-    () =>
-      template.data && sheet.sheet
-        ? {
-            format: 'score-pad',
-            version: 2,
-            template: template.data,
-            active: template.data.id,
-            sheet: sheet.sheet,
-          }
-        : null,
-    [template.data, sheet.sheet],
-  );
-  if (!sheet.sheet) {
-    return (
-      <div className="sheet-view__stage sheet-view__stage--empty">
-        <p className="sheet-view__hint">{text.noSheet}</p>
-      </div>
-    );
-  }
-  if (template.isError) {
-    return (
-      <div className="sheet-view__stage sheet-view__stage--empty">
-        <Banner variant="error">{text.padError}</Banner>
-        <Button size="sm" variant="secondary" onClick={() => void template.refetch()}>
-          {text.retry}
-        </Button>
-      </div>
-    );
-  }
-  return config ? (
-    <ScorePadView
-      config={config}
-      controls={false}
-      help={false}
-      tear={false}
-      summary={false}
-      readOnly
-      className="sheet-view__pad"
-    />
-  ) : (
-    <div className="sheet-view__stage sheet-view__stage--loading" aria-busy="true" />
-  );
+  return <SheetZoom key={url} src={url} alt={label} onError={() => setFailed(url)} />;
 }
