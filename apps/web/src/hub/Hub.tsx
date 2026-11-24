@@ -16,8 +16,10 @@ import { usePopups } from '../popups/popupContext';
 import { PopupHost } from '../popups/PopupHost';
 import type { PopupRoute } from '../popups/routes';
 import type { Profile } from '../profile/profiles';
+import { importOrReload } from '../pwa/staleChunk';
 import { Banner, Button, Spinner } from '../ui';
 import { AppHeader } from './AppHeader';
+import { PopupErrorBoundary } from './PopupErrorBoundary';
 import { useClub } from './club';
 import { useMasonry } from './useMasonry';
 import {
@@ -33,7 +35,9 @@ import './Hub.css';
 // widok Klubu nie czeka na nie przy starcie (NFR-2). Fragment jest pobierany zaraz po
 // wyświetleniu huba (`usePrefetchPopups`), więc otwarcie popupu zwykle nie czeka na sieć.
 const loadHubPopup = () => import('./HubPopup');
-const HubPopup = lazy(() => loadHubPopup().then((m) => ({ default: m.HubPopup })));
+// Po wdrożeniu karta ze starym pakietem nie znajdzie fragmentu: przeładowujemy ją raz
+// (src/pwa/staleChunk.ts), a gdy to nie pomoże, granica błędu pokazuje komunikat.
+const HubPopup = lazy(importOrReload(() => loadHubPopup().then((m) => ({ default: m.HubPopup }))));
 
 const MAIN_ID = 'hub-main';
 
@@ -154,10 +158,12 @@ function Widgets({ me }: { readonly me: Profile }) {
 function LazyHubPopup({ route, me }: { readonly route: PopupRoute; readonly me: OwnProfile }) {
   const suspendedRef = useRef(false);
   return (
-    <Suspense fallback={<PopupLoading suspendedRef={suspendedRef} />}>
-      <HubPopup route={route} me={me} />
-      <FocusWhenLoaded suspendedRef={suspendedRef} />
-    </Suspense>
+    <PopupErrorBoundary>
+      <Suspense fallback={<PopupLoading suspendedRef={suspendedRef} />}>
+        <HubPopup route={route} me={me} />
+        <FocusWhenLoaded suspendedRef={suspendedRef} />
+      </Suspense>
+    </PopupErrorBoundary>
   );
 }
 

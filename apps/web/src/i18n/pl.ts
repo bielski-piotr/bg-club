@@ -45,6 +45,9 @@ export const pl = {
   hub: {
     widgetsLabel: 'Widżety klubu',
     popupLoading: 'Wczytywanie…',
+    popupError:
+      'Nie udało się otworzyć okna. Aplikacja mogła zostać zaktualizowana — odśwież stronę.',
+    reload: 'Odśwież',
     loadError: 'Nie udało się wczytać danych. Sprawdź połączenie i spróbuj ponownie.',
     retry: 'Spróbuj ponownie',
     meeting: {

@@ -185,7 +185,7 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
       placement_points: [10, 6, 4, 2.5, 3],
       cover_path: mock.uploads[0],
       cover_source_path: mock.uploads[1],
-      cover_crop: { zoom: 1, x: expect.any(Number) as number, y: 0 },
+      cover_crop: { zoom: 1, x: expect.any(Number) as unknown as number, y: 0 },
       base_game_id: null,
     },
   });
