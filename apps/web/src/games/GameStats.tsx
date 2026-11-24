@@ -173,6 +173,13 @@ function RecordBlock({
                     >
                       {format(text.recordHolder, { name, date })}
                     </PopupLink>
+                    {holder.expansions && holder.expansions.length > 0 ? (
+                      <span className="game-record__expansions">
+                        {format(text.recordExpansions, {
+                          titles: holder.expansions.map((expansion) => expansion.title).join(', '),
+                        })}
+                      </span>
+                    ) : null}
                   </li>
                 );
               })}

@@ -11,9 +11,14 @@ import { normalizeSearch } from '../ui';
  * wyłączone z wyjaśnieniem, zanim ktoś je wybierze.
  */
 
-/** Kroki kreatora w kolejności pigułek („Gra”, „Notes”, „Gracze”). */
-export type NewPlayStep = 'game' | 'scorepad' | 'players';
+/** Kroki kreatora w kolejności pigułek („Gra”, „Dodatki”, „Notes”, „Gracze”). */
+export type NewPlayStep = 'game' | 'expansions' | 'scorepad' | 'players';
 export const NEW_PLAY_STEPS: readonly NewPlayStep[] = ['game', 'scorepad', 'players'];
+
+/** Kroki dla wybranej gry: „Dodatki” tylko, gdy gra ma aktywne dodatki. */
+export function newPlaySteps(hasExpansions: boolean): readonly NewPlayStep[] {
+  return hasExpansions ? ['game', 'expansions', 'scorepad', 'players'] : NEW_PLAY_STEPS;
+}
 
 /** Dozwolona liczba graczy partii (włącznie). */
 export interface PlayerBounds {
@@ -22,6 +27,42 @@ export interface PlayerBounds {
 }
 
 type GameRange = Pick<Game, 'min_players' | 'max_players'>;
+
+/**
+ * Liczba graczy partii gry z dodatkami: najmniejsze min i największe max spośród gry
+ * i wybranych dodatków (dodatek może rozszerzać liczbę graczy).
+ */
+export function combinedRange(game: GameRange, expansions: readonly GameRange[]): GameRange {
+  return {
+    min_players: Math.min(game.min_players, ...expansions.map((e) => e.min_players)),
+    max_players: Math.max(game.max_players, ...expansions.map((e) => e.max_players)),
+  };
+}
+
+type ScoringCandidate = Pick<Game, 'id' | 'title' | 'max_players' | 'complexity'>;
+
+/**
+ * Tytuł, którego punktację stosuje partia (jak `private.play_scoring_game`): najwyższe
+ * skomplikowanie spośród gry i wybranych dodatków, które mieszczą wszystkich graczy; przy remisie
+ * gra podstawowa. Gdy żaden nie mieści graczy, tytuł z największą liczbą graczy.
+ */
+export function scoringTitle<T extends ScoringCandidate>(
+  game: T,
+  expansions: readonly T[],
+  players: number,
+): T {
+  const all = [game, ...expansions];
+  const fitting = all.filter((title) => title.max_players >= players);
+  const pool = fitting.length > 0 ? fitting : all;
+  const key = (title: T) => (fitting.length > 0 ? (title.complexity ?? 0) : title.max_players);
+  return pool.reduce((best, title) => {
+    const diff = key(title) - key(best);
+    if (diff > 0) return title;
+    if (diff < 0 || best === game) return best;
+    if (title === game) return title;
+    return title.title.localeCompare(best.title, 'pl') < 0 ? title : best;
+  });
+}
 
 /** Najmniej graczy partii: zawsze co najmniej 2, także gdy gra ma min = 1 (PAD-3, Q2). */
 export function minPlayers(game: GameRange): number {
@@ -234,6 +275,7 @@ export type StartPlayFailure =
   | 'duplicate'
   | 'count'
   | 'participant'
+  | 'expansionGone'
   | 'save';
 
 export class StartPlayError extends Error {
@@ -258,6 +300,7 @@ const HINTS: Readonly<Record<string, StartPlayFailure>> = {
   plays_players_count: 'count',
   plays_teams_unavailable: 'count',
   plays_player_participant: 'participant',
+  plays_expansion_unavailable: 'expansionGone',
 };
 
 /** Błąd PostgREST → powód z polskim komunikatem (HINT z migracji [027]). */
@@ -274,6 +317,8 @@ export interface NewPlay {
   readonly meetingId: string;
   readonly scorepadId: string;
   readonly seats: Seats;
+  /** Dodatki gry zaznaczone przez prowadzącego (wyniki i tak trafiają do gry podstawowej). */
+  readonly expansionIds?: readonly string[] | undefined;
 }
 
 /**
@@ -297,6 +342,9 @@ export async function startPlay(client: SupabaseClient, play: NewPlay): Promise<
     meeting_id: play.meetingId,
     scorepad_id: play.scorepadId,
     ...startPlayArgs(play.seats),
+    ...(play.expansionIds && play.expansionIds.length > 0
+      ? { expansion_ids: [...play.expansionIds].sort() }
+      : {}),
   });
   if (error) throw new StartPlayError(startPlayFailure(error));
 }

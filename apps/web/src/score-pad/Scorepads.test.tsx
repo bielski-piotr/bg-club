@@ -34,8 +34,13 @@ const GAME: Game = {
   min_players: 2,
   max_players: 5,
   placement_points: [10, 6, 4, 2, 1],
+  complexity: null,
   created_at: '2026-10-01T12:00:00Z',
   last_played_at: null,
+  base_game_id: null,
+  cover_source_path: null,
+  cover_crop: null,
+  play_count: null,
 };
 
 function pad(n: number, name: string, seats: number, version: number): Scorepad {

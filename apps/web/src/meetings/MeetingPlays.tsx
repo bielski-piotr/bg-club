@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import { GameCover } from '../games/GameCover';
+import { useGameTitles } from '../games/games';
 import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { QueryStatus } from '../popups/QueryStatus';
@@ -49,6 +50,20 @@ export function MeetingPlaysSection({
   const profiles = useAllProfiles(client);
   const split = plays.data ? splitPlays(plays.data) : null;
   const records = useMeetingRecords(client, meeting.id, (split?.saved.length ?? 0) > 0);
+  // Dodatki partii (także usunięte później z kolekcji) po tytułach.
+  const expansionTitles = useGameTitles(
+    client,
+    (plays.data ?? []).flatMap((play) => play.expansion_ids ?? []),
+  );
+  const expansionsOf = (play: MeetingPlay) => {
+    const ids = play.expansion_ids ?? [];
+    if (ids.length === 0) return undefined;
+    const names = ids
+      .map((id) => expansionTitles.data?.get(id))
+      .filter((name): name is string => name !== undefined)
+      .sort((a, b) => a.localeCompare(b, 'pl'));
+    return names.length > 0 ? format(text.withExpansions, { titles: names.join(', ') }) : undefined;
+  };
   const headingId = `${meeting.id}-plays`;
   return (
     <section className="meeting-view__section" aria-labelledby={headingId}>
@@ -82,6 +97,7 @@ export function MeetingPlaysSection({
                 <li key={play.id}>
                   <LivePlayCard
                     play={play}
+                    expansions={expansionsOf(play)}
                     timeZone={timeZone}
                     profiles={profiles.data}
                     canRun={runner && meeting.status === 'in_progress'}
@@ -96,6 +112,7 @@ export function MeetingPlaysSection({
                 <li key={play.id}>
                   <PlaySheet
                     play={play}
+                    expansions={expansionsOf(play)}
                     index={index}
                     timeZone={timeZone}
                     records={records.data?.get(play.id)}
@@ -235,12 +252,15 @@ export function PlayResultRows({
 /** Zapisana partia jako karteczka z notesu: gra, numer i godzina zapisu, znacznik rekordu. */
 function PlaySheet({
   play,
+  expansions,
   index,
   timeZone,
   records,
   onOpen,
 }: {
   readonly play: MeetingPlay;
+  /** „z dodatkami: …” albo brak (partia bez dodatków). */
+  readonly expansions?: string | undefined;
   readonly index: number;
   readonly timeZone: string;
   readonly records: PlayRecords | undefined;
@@ -255,6 +275,7 @@ function PlaySheet({
       className="sheet-gallery__item"
       aria-label={
         format(text.sheetLabel, { n: index + 1, title, time }) +
+        (expansions ? ` ${expansions}` : '') +
         (record ? `. ${record === 'club' ? text.clubRecordLabel : text.personalRecordLabel}` : '')
       }
       onClick={onOpen}
@@ -273,6 +294,7 @@ function PlaySheet({
       </span>
       <span className="sheet-gallery__caption meeting-sheets__caption" aria-hidden="true">
         <span className="meeting-sheets__title">{title}</span>
+        {expansions ? <span className="meeting-sheets__expansions">{expansions}</span> : null}
         <span>{format(text.sheetCaption, { n: index + 1, time })}</span>
       </span>
     </button>
@@ -285,11 +307,13 @@ function PlaySheet({
  */
 function LivePlayCard({
   play,
+  expansions,
   timeZone,
   profiles,
   canRun,
 }: {
   readonly play: MeetingPlay;
+  readonly expansions?: string | undefined;
   readonly timeZone: string;
   readonly profiles: ReadonlyMap<string, Profile>;
   readonly canRun: boolean;
@@ -312,6 +336,7 @@ function LivePlayCard({
         />
         <span className="play-card__text">
           <span className="play-card__title">{play.game.title}</span>
+          {expansions ? <span className="play-card__expansions">{expansions}</span> : null}
           <span className="play-card__live">
             {format(text.liveSince, { time: localDateTime(play.started_at, timeZone).time })}
           </span>

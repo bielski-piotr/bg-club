@@ -3,11 +3,13 @@ import {
   AVATAR_INPUT_MAX_BYTES,
   checkAvatarFile,
   clampCrop,
+  fromStoredCrop,
   imageBox,
   INITIAL_CROP,
   MAX_ZOOM,
   panCrop,
   sourceRect,
+  toStoredCrop,
   zoomCrop,
 } from './crop';
 
@@ -90,5 +92,20 @@ describe('kadrowanie awatara (USR-3)', () => {
     expect(checkAvatarFile({ type: 'image/gif', size: 1000 })).toBe('type');
     expect(checkAvatarFile({ type: 'image/heic', size: 1000 })).toBe('type');
     expect(checkAvatarFile({ type: 'image/jpeg', size: AVATAR_INPUT_MAX_BYTES + 1 })).toBe('size');
+  });
+});
+
+describe('kadr zapisany w bazie (okładka gry)', () => {
+  it('zapisuje przesunięcie jako ułamek boku kadru i odtwarza je w innym kadrze', () => {
+    const state = { zoom: 2, x: 70, y: -35 };
+    const stored = toStoredCrop(state, VIEW);
+    expect(stored).toEqual({ zoom: 2, x: 0.25, y: -0.125 });
+    expect(fromStoredCrop(stored, LANDSCAPE, VIEW)).toEqual(state);
+    expect(fromStoredCrop(stored, LANDSCAPE, 140)).toEqual({ zoom: 2, x: 35, y: -17.5 });
+  });
+
+  it('niepoprawny albo pusty kadr daje kadr startowy dopasowany do obrazu', () => {
+    expect(fromStoredCrop(null, LANDSCAPE, VIEW)).toEqual(INITIAL_CROP);
+    expect(fromStoredCrop({ zoom: 'x', x: 9 }, LANDSCAPE, VIEW)).toEqual({ zoom: 1, x: 70, y: 0 });
   });
 });

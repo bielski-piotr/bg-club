@@ -81,11 +81,13 @@ select throws_like(
   '%scorepads_current_version_fkey%',
   'aktualna wersja musi należeć do tego samego notesu'
 );
-select throws_like(
+-- Notes można przenieść do innej gry (partie zachowują swoją grę i wersję); tu wraca od razu.
+select lives_ok(
   $$ update public.scorepads set game_id = '00000000-0000-4000-b000-000000000002'
+      where id = '00000000-0000-4000-d000-000000000001';
+     update public.scorepads set game_id = '00000000-0000-4000-b000-000000000001'
       where id = '00000000-0000-4000-d000-000000000001' $$,
-  '%game_id is immutable%',
-  'notesu nie da się przenieść do innej gry'
+  'notes da się przenieść do innej gry i z powrotem'
 );
 select throws_like(
   $$ insert into public.scorepad_versions (scorepad_id, template, player_slots)

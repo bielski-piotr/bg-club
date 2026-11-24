@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { GameCover } from '../games/GameCover';
-import { gamesKey, useGameSearch, type Game } from '../games/games';
+import { gamesKey, useAllExpansions, useGameSearch, type Game } from '../games/games';
 import { format, plural, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
@@ -19,19 +19,21 @@ import { meetingsKey, useMeeting, type Meeting } from './meetings';
 import {
   assignSeat,
   boundsLabel,
+  combinedRange,
   emptySeats,
   firstFreeSeat,
   fittingScorepads,
   gameReason,
   gameSubtitle,
   groupGames,
-  NEW_PLAY_STEPS,
+  newPlaySteps,
   playerBounds,
   scorepadReason,
   scorepadsByGame,
   scorepadSlots,
   scorepadSubtitle,
   scorepadTeams,
+  scoringTitle,
   seatOf,
   seatedPlayers,
   seatsProblem,
@@ -69,11 +71,13 @@ export function NewPlayPopup({
   const published = usePublishedGames(client, meetingId);
   const pads = useActiveScorepads(client);
   const profiles = useAllProfiles(client);
-  const queries = [meeting, games, published, pads, profiles] as const;
+  const expansions = useAllExpansions(client);
+  const queries = [meeting, games, published, pads, profiles, expansions] as const;
 
   if (
     !meeting.isSuccess ||
     !games.isSuccess ||
+    !expansions.isSuccess ||
     !published.isSuccess ||
     !pads.isSuccess ||
     !profiles.isSuccess
@@ -106,6 +110,7 @@ export function NewPlayPopup({
     <Wizard
       meeting={current}
       games={games.data}
+      expansions={expansions.data}
       publishedIds={published.data.map((game) => game.id)}
       pads={pads.data}
       profiles={profiles.data}
@@ -116,12 +121,14 @@ export function NewPlayPopup({
 interface WizardProps {
   readonly meeting: Meeting;
   readonly games: readonly Game[];
+  /** Aktywne dodatki wszystkich gier: wybór dodatków partii i ich notesy. */
+  readonly expansions: readonly Game[];
   readonly publishedIds: readonly string[];
   readonly pads: readonly Scorepad[];
   readonly profiles: ReadonlyMap<string, Profile>;
 }
 
-function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
+function Wizard({ meeting, games, expansions, publishedIds, pads, profiles }: WizardProps) {
   const { client } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -134,6 +141,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
   const [gameId, setGameId] = useState<string | null>(null);
   const [scorepadId, setScorepadId] = useState<string | null>(null);
   const [seats, setSeats] = useState<Seats>([]);
+  const [expansionIds, setExpansionIds] = useState<readonly string[]>([]);
 
   // Gracze: aktywni uczestnicy (usunięty z klubu zostaje w historii, ale nie zagra, MEM-5).
   const participants = meeting.participants
@@ -141,13 +149,22 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
     .filter((person): person is Profile => person !== undefined && person.deleted_at === null)
     .sort(compareProfiles);
   const byGame = scorepadsByGame(pads);
+  const expansionsOf = (baseId: string) => expansions.filter((e) => e.base_game_id === baseId);
+  // Notesy gry i jej dodatków (notes dodatku tylko w partii z tym dodatkiem).
+  const padsOf = (titles: readonly Game[]) => titles.flatMap((title) => byGame.get(title.id) ?? []);
+  const titles = new Map([...games, ...expansions].map((title) => [title.id, title.title]));
   const game = games.find((candidate) => candidate.id === gameId) ?? null;
-  const gamePads = game ? (byGame.get(game.id) ?? []) : [];
+  const gameExpansions = game ? expansionsOf(game.id) : [];
+  const chosen = gameExpansions.filter((expansion) => expansionIds.includes(expansion.id));
+  const range = game ? combinedRange(game, chosen) : null;
+  const gamePads = game ? padsOf([game, ...chosen]) : [];
   const pad = gamePads.find((candidate) => candidate.id === scorepadId) ?? null;
-  const bounds = game && pad ? playerBounds(game, scorepadSlots(pad), scorepadTeams(pad)) : null;
+  const bounds = range && pad ? playerBounds(range, scorepadSlots(pad), scorepadTeams(pad)) : null;
+  const steps = newPlaySteps(gameExpansions.length > 0);
+  const hasExpansions = gameExpansions.length > 0;
   // Jeden notes gry, który pasuje: krok „Notes” jest pomijany (RUN-2: „gdy gra ma ich kilka”).
   const singlePad =
-    game && gamePads.length === 1 && fittingScorepads(game, gamePads).length === 1
+    range && gamePads.length === 1 && fittingScorepads(range, gamePads).length === 1
       ? gamePads[0]
       : undefined;
 
@@ -159,6 +176,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
         meetingId: meeting.id,
         scorepadId: pad.id,
         seats,
+        expansionIds: chosen.map((expansion) => expansion.id),
       });
     },
     onSuccess: () => {
@@ -188,6 +206,19 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
     setGameId(id);
     setScorepadId(null);
     setSeats([]);
+    setExpansionIds([]);
+    changed();
+  };
+  const toggleExpansion = (id: string) => {
+    const next = expansionIds.includes(id)
+      ? expansionIds.filter((current) => current !== id)
+      : [...expansionIds, id];
+    setExpansionIds(next);
+    // Notes odznaczonego dodatku nie pasuje już do partii: wybór notesu od nowa.
+    if (pad && pad.game_id !== gameId && !next.includes(pad.game_id)) {
+      setScorepadId(null);
+      setSeats([]);
+    }
     changed();
   };
   const chooseScorepad = (next: Scorepad) => {
@@ -197,29 +228,48 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
     changed();
   };
 
-  const gameReady = game !== null && gameReason(game, gamePads, participants.length) === null;
-  const padReady = game !== null && pad !== null && scorepadReason(game, pad) === null;
+  // Gra jest do wyboru, gdy pasuje z którymkolwiek zestawem dodatków (dodatek może mieć notes
+  // albo rozszerzać liczbę graczy); dokładny zakres liczy się po wyborze dodatków.
+  const fullRange = (candidate: Game) => {
+    const all = expansionsOf(candidate.id);
+    return { range: combinedRange(candidate, all), pads: padsOf([candidate, ...all]) };
+  };
+  const gameReasonOf = (candidate: Game) => {
+    const full = fullRange(candidate);
+    return gameReason(full.range, full.pads, participants.length);
+  };
+  const gameReady = game !== null && gameReasonOf(game) === null;
+  const padReady = range !== null && pad !== null && scorepadReason(range, pad) === null;
   const done: Record<NewPlayStep, boolean> = {
     game: gameReady && step !== 'game',
+    expansions: gameReady && (step === 'scorepad' || step === 'players'),
     scorepad: padReady && step === 'players',
     players: false,
   };
 
+  const afterExpansions = () => {
+    if (singlePad) {
+      chooseScorepad(singlePad);
+      setStep('players');
+    } else {
+      setStep('scorepad');
+    }
+  };
   const next = () => {
     if (step === 'game' && gameReady) {
-      if (singlePad) {
-        chooseScorepad(singlePad);
-        setStep('players');
-      } else {
-        setStep('scorepad');
-      }
+      if (hasExpansions) setStep('expansions');
+      else afterExpansions();
+    } else if (step === 'expansions') {
+      afterExpansions();
     } else if (step === 'scorepad' && padReady) {
       setStep('players');
     }
   };
+  const beforeScorepad: NewPlayStep = hasExpansions ? 'expansions' : 'game';
   const previous = () => {
-    if (step === 'players') setStep(singlePad ? 'game' : 'scorepad');
-    else if (step === 'scorepad') setStep('game');
+    if (step === 'players') setStep(singlePad ? beforeScorepad : 'scorepad');
+    else if (step === 'scorepad') setStep(beforeScorepad);
+    else if (step === 'expansions') setStep('game');
   };
 
   const problem = bounds ? seatsProblem(seats, bounds) : 'tooFew';
@@ -245,7 +295,10 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
               {text.start}
             </Button>
           ) : (
-            <Button disabled={step === 'game' ? !gameReady : !padReady} onClick={next}>
+            <Button
+              disabled={step === 'game' ? !gameReady : step === 'scorepad' ? !padReady : false}
+              onClick={next}
+            >
               {text.next}
             </Button>
           )}
@@ -254,6 +307,7 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
     >
       <div className="meeting-view new-play">
         <StepPills
+          steps={steps}
           step={step}
           done={done}
           skipped={singlePad ? 'scorepad' : null}
@@ -264,18 +318,34 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
           <GameStep
             games={games}
             publishedIds={publishedIds}
-            byGame={byGame}
-            participants={participants.length}
+            padsFor={(candidate) => fullRange(candidate).pads}
+            reasonFor={gameReasonOf}
             value={gameId}
             onChange={chooseGame}
           />
         ) : null}
-        {step === 'scorepad' && game ? (
-          <ScorepadStep game={game} pads={gamePads} value={scorepadId} onChange={chooseScorepad} />
+        {step === 'expansions' && game ? (
+          <ExpansionsStep
+            game={game}
+            expansions={gameExpansions}
+            value={expansionIds}
+            onToggle={toggleExpansion}
+          />
+        ) : null}
+        {step === 'scorepad' && game && range ? (
+          <ScorepadStep
+            game={game}
+            range={range}
+            pads={gamePads}
+            titles={titles}
+            value={scorepadId}
+            onChange={chooseScorepad}
+          />
         ) : null}
         {step === 'players' && game && pad && bounds ? (
           <PlayersStep
             game={game}
+            expansions={chosen}
             pad={pad}
             bounds={bounds}
             participants={participants}
@@ -298,11 +368,13 @@ function Wizard({ meeting, games, publishedIds, pads, profiles }: WizardProps) {
  * Pominięty krok (jedyny pasujący notes) jest ukończony, ale bez powrotu.
  */
 function StepPills({
+  steps,
   step,
   done,
   skipped,
   onBack,
 }: {
+  readonly steps: readonly NewPlayStep[];
   readonly step: NewPlayStep;
   readonly done: Readonly<Record<NewPlayStep, boolean>>;
   readonly skipped: NewPlayStep | null;
@@ -310,7 +382,7 @@ function StepPills({
 }) {
   return (
     <ol className="step-pills" aria-label={text.stepsLabel}>
-      {NEW_PLAY_STEPS.map((id, index) => {
+      {steps.map((id, index) => {
         const name = text.steps[id];
         const n = index + 1;
         if (id === step) {
@@ -411,15 +483,17 @@ function PickRow({
 function GameStep({
   games,
   publishedIds,
-  byGame,
-  participants,
+  padsFor,
+  reasonFor,
   value,
   onChange,
 }: {
   readonly games: readonly Game[];
   readonly publishedIds: readonly string[];
-  readonly byGame: ReadonlyMap<string, readonly Scorepad[]>;
-  readonly participants: number;
+  /** Notesy gry i jej dodatków. */
+  readonly padsFor: (game: Game) => readonly Scorepad[];
+  /** Powód wyłączenia gry (z dodatkami); `null` = można wybrać. */
+  readonly reasonFor: (game: Game) => string | null;
   readonly value: string | null;
   readonly onChange: (id: string) => void;
 }) {
@@ -430,14 +504,14 @@ function GameStep({
   const searching = query.trim() !== '';
   const count = groups.published.length + groups.others.length;
   const row = (game: Game) => {
-    const pads = byGame.get(game.id) ?? [];
+    const pads = padsFor(game);
     return (
       <PickRow
         key={game.id}
         name={name}
         value={game.id}
         checked={value === game.id}
-        reason={gameReason(game, pads, participants)}
+        reason={reasonFor(game)}
         onSelect={() => onChange(game.id)}
         thumb={
           <GameCover id={game.id} title={game.title} coverPath={game.cover_path} size="thumb" />
@@ -493,14 +567,89 @@ function GameStep({
   );
 }
 
+/**
+ * Dodatki partii (pola wyboru): prowadzący zaznacza dodatki użyte w partii albo żaden. Dodatek
+ * nie ma własnego rankingu: wyniki trafiają do gry podstawowej.
+ */
+function ExpansionsStep({
+  game,
+  expansions,
+  value,
+  onToggle,
+}: {
+  readonly game: Game;
+  readonly expansions: readonly Game[];
+  readonly value: readonly string[];
+  readonly onToggle: (id: string) => void;
+}) {
+  const label = format(text.expansionsLabel, { title: game.title });
+  return (
+    <>
+      <p className="meeting-form__state">{format(text.expansionsIntro, { title: game.title })}</p>
+      <fieldset className="new-play__group">
+        <legend className="sr-only">{label}</legend>
+        <Tray label={label}>
+          {expansions.map((expansion) => {
+            const players = boundsLabel({
+              min: expansion.min_players,
+              max: expansion.max_players,
+            });
+            return (
+              <li key={expansion.id} className="tray__item">
+                <label className="choice row pick-row row--64">
+                  <input
+                    type="checkbox"
+                    className="choice__input"
+                    value={expansion.id}
+                    checked={value.includes(expansion.id)}
+                    onChange={() => onToggle(expansion.id)}
+                  />
+                  <span className="checkbox" aria-hidden="true">
+                    <Icon name="check" size={14} />
+                  </span>
+                  <span className="pick-row__thumb">
+                    <GameCover
+                      id={expansion.id}
+                      title={expansion.title}
+                      coverPath={expansion.cover_path}
+                      size="thumb"
+                    />
+                  </span>
+                  <span className="pick-row__body">
+                    <span className="pick-row__name">{expansion.title}</span>
+                    <span className="pick-row__sub">
+                      {expansion.complexity !== null
+                        ? format(text.expansionSub, {
+                            players,
+                            complexity: String(expansion.complexity).replace('.', ','),
+                          })
+                        : format(text.expansionSubNoComplexity, { players })}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </Tray>
+      </fieldset>
+    </>
+  );
+}
+
 function ScorepadStep({
   game,
+  range,
   pads,
+  titles,
   value,
   onChange,
 }: {
   readonly game: Game;
+  /** Liczba graczy gry z wybranymi dodatkami. */
+  readonly range: Pick<Game, 'min_players' | 'max_players'>;
   readonly pads: readonly Scorepad[];
+  /** Tytuły gier i dodatków: przy notesie dodatku jego tytuł. */
+  readonly titles: ReadonlyMap<string, string>;
   readonly value: string | null;
   readonly onChange: (pad: Scorepad) => void;
 }) {
@@ -518,10 +667,14 @@ function ScorepadStep({
               name={name}
               value={pad.id}
               checked={value === pad.id}
-              reason={scorepadReason(game, pad)}
+              reason={scorepadReason(range, pad)}
               onSelect={() => onChange(pad)}
               thumb={<SheetThumbnail gameId={game.id} small />}
-              title={pad.name}
+              title={
+                pad.game_id === game.id
+                  ? pad.name
+                  : format(text.scorepadOf, { pad: pad.name, title: titles.get(pad.game_id) ?? '' })
+              }
               sub={scorepadSubtitle(pad)}
               tall
             />
@@ -534,6 +687,7 @@ function ScorepadStep({
 
 function PlayersStep({
   game,
+  expansions,
   pad,
   bounds,
   participants,
@@ -542,6 +696,8 @@ function PlayersStep({
   disabled,
 }: {
   readonly game: Game;
+  /** Wybrane dodatki partii. */
+  readonly expansions: readonly Game[];
   readonly pad: Scorepad;
   readonly bounds: PlayerBounds;
   readonly participants: readonly Profile[];
@@ -562,11 +718,24 @@ function PlayersStep({
     <section className="new-play__section" aria-labelledby={headingId}>
       <p className="meeting-form__state">
         {format(text.seatsIntro, {
-          title: game.title,
+          title:
+            expansions.length > 0
+              ? format(text.withExpansions, {
+                  title: game.title,
+                  expansions: expansions.map((expansion) => expansion.title).join(', '),
+                })
+              : game.title,
           notes: pad.name,
           range: boundsLabel(bounds),
         })}
       </p>
+      {expansions.length > 0 ? (
+        <p className="meeting-form__hint" aria-live="polite">
+          {format(text.scoring, {
+            title: scoringTitle(game, expansions, Math.max(seated.length, bounds.min)).title,
+          })}
+        </p>
+      ) : null}
       <div className="meeting-view__head-row">
         <h3 id={headingId} className="meeting-view__head">
           {text.seatsTitle}

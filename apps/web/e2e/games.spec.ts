@@ -134,13 +134,22 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
   await expect(form.getByText('Wpisz punkty.')).toHaveCount(4);
   expect(mock.gameWrites).toEqual([]);
 
-  // Okładka 2400×1200 zmniejszona w przeglądarce do 800×400 WebP (GAME-6).
+  // Okładka 2400×1200: oryginał zmniejszony do 1600 px, potem kadr w kształcie okładki z widoku
+  // gry i kwadrat do 800 px WebP (GAME-6).
   await form.locator('input[type="file"]').setInputFiles({
     name: 'okladka.png',
     mimeType: 'image/png',
     buffer: png(2400, 1200),
   });
+  const crop = page.getByRole('dialog', { name: 'Kadrowanie okładki' });
+  await expect(crop.locator('.cropper__mask--cover')).toBeVisible();
+  const stage = crop.getByRole('group', { name: /Kadr zdjęcia/ });
+  await stage.focus();
+  await page.keyboard.press('ArrowRight');
+  expect(await axe(page)).toEqual([]);
+  await crop.getByRole('button', { name: 'Gotowe' }).click();
   await expect(form.getByRole('button', { name: 'Zmień okładkę' })).toBeVisible();
+  await expect(form.getByRole('button', { name: 'Zmień kadr' })).toBeVisible();
 
   await form.getByLabel('Tytuł').fill('Kolejka Górska');
   // Max 4 → 5: dochodzi pole 5. miejsca (GAME-5); bez górnego limitu (GAME-4).
@@ -162,8 +171,9 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
   await form.getByRole('button', { name: 'Zapisz' }).click();
 
   await expect(page.getByText('Dodano grę Kolejka Górska')).toBeVisible();
-  expect(mock.uploads).toHaveLength(1);
+  expect(mock.uploads).toHaveLength(2);
   expect(mock.uploads[0]).toMatch(/^games\/[0-9a-f-]{36}-[0-9a-f-]{36}\.webp$/);
+  expect(mock.uploads[1]).toMatch(/^games\/[0-9a-f-]{36}-source-[0-9a-f-]{36}\.webp$/);
   expect(mock.gameWrites).toHaveLength(1);
   expect(mock.gameWrites[0]).toMatchObject({
     method: 'POST',
@@ -174,6 +184,9 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
       complexity: 3,
       placement_points: [10, 6, 4, 2.5, 3],
       cover_path: mock.uploads[0],
+      cover_source_path: mock.uploads[1],
+      cover_crop: { zoom: 1, x: expect.any(Number) as number, y: 0 },
+      base_game_id: null,
     },
   });
   await expect(form).toBeHidden();
@@ -237,4 +250,67 @@ test('admin edytuje i usuwa grę z popupu (GAME-3, GAME-8)', async ({ page }) =>
   await expect(dialog.locator('.game-tile__title')).toHaveText(['Łąka i Pszczoły 2']);
   // Usunięcie miękkie: okładka zostaje w Storage dla historii.
   expect(mock.removed).toEqual([]);
+});
+
+test('dodatki: tylko w widoku gry, z menu kolekcji i z widoku gry (bez kolekcji)', async ({
+  page,
+}) => {
+  const EXPANSION = mockGame(5, 'Żółwie: Turbo', {
+    base_game_id: ZOLWIE.id,
+    max_players: 6,
+    placement_points: [12, 9, 7, 5, 3, 1],
+    complexity: 2.5,
+    play_count: 3,
+  });
+  const mock = await openApp(page, { games: [ZOLWIE, LAKA, EXPANSION] }, '/?p=games');
+  const collection = page.getByRole('dialog', { name: 'Kolekcja' });
+  // Dodatku nie ma w kolekcji.
+  await expect(collection.locator('.game-tile__title')).toHaveText([
+    'Łąka i Pszczoły',
+    'Żółwie Wyścigi',
+  ]);
+
+  // Menu gry w kolekcji: „Dodaj dodatek”.
+  await collection.getByRole('button', { name: 'Akcje gry Żółwie Wyścigi' }).click();
+  await page.getByRole('menuitem', { name: 'Dodaj dodatek' }).click();
+  const form = page.getByRole('dialog', { name: 'Dodaj dodatek' });
+  await expect(form.getByText('Dodatek do gry Żółwie Wyścigi.', { exact: false })).toBeVisible();
+  expect(await search(page)).toBe(`?p=games&p=game/${ZOLWIE.id}/expansions/new`);
+  expect(await axe(page)).toEqual([]);
+  await form.getByLabel('Tytuł').fill('Żółwie: Pułapki');
+  await form.getByLabel('Skomplikowanie').fill('3');
+  await form.getByRole('button', { name: 'Zapisz' }).click();
+  await expect(page.getByText('Dodano dodatek Żółwie: Pułapki')).toBeVisible();
+  expect(mock.gameWrites.at(-1)).toMatchObject({
+    method: 'POST',
+    body: { title: 'Żółwie: Pułapki', complexity: 3, base_game_id: ZOLWIE.id },
+  });
+  await expect(collection.locator('.game-tile__title')).toHaveText([
+    'Łąka i Pszczoły',
+    'Żółwie Wyścigi',
+  ]);
+
+  // Widok gry: sekcja „Dodatki” z liczbą partii dodatku i akcje w nagłówku.
+  await collection.getByRole('button', { name: 'Szczegóły gry Żółwie Wyścigi' }).click();
+  const details = page.getByRole('dialog', { name: 'Żółwie Wyścigi' });
+  const list = details.getByRole('list', { name: 'Dodatki gry Żółwie Wyścigi' });
+  await expect(list.locator('.row__title')).toHaveText(['Żółwie: Pułapki', 'Żółwie: Turbo']);
+  await expect(list.getByText('2–6 graczy · 3 partie')).toBeVisible();
+  await expect(details.getByRole('button', { name: 'Dodaj dodatek' })).toBeVisible();
+  expect(await horizontalOverflow(page)).toBe(0);
+  expect(await axe(page)).toEqual([]);
+
+  // Widok dodatku: gra podstawowa i liczba partii, bez statystyk i galerii.
+  await list.getByRole('button', { name: /Żółwie: Turbo/ }).click();
+  const expansion = page.getByRole('dialog', { name: 'Żółwie: Turbo' });
+  await expect(
+    expansion.getByRole('link', { name: 'Dodatek do gry Żółwie Wyścigi' }),
+  ).toBeVisible();
+  await expect(expansion.getByText('Rozegrane partie: 3')).toBeVisible();
+  await expect(expansion.getByText('Statystyki')).toHaveCount(0);
+  await expansion.getByRole('button', { name: 'Akcje gry Żółwie: Turbo' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Notesy' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Dodaj dodatek' })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Usuń' }).click();
+  await expect(page.getByRole('dialog', { name: 'Usunąć dodatek?' })).toBeVisible();
 });

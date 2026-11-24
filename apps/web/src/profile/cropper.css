@@ -1,0 +1,54 @@
+/* Kadrowanie zdjęcia: awatar (okrąg) i okładka gry (zaokrąglony kwadrat). */
+.cropper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.cropper__stage {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--r-tray);
+  background: var(--c-tint);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.cropper__stage--dragging {
+  cursor: grabbing;
+}
+
+.cropper__stage:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.cropper__image {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+}
+
+/* Poza okręgiem przyciemnienie; okrąg pokazuje, jak awatar będzie wyglądał. */
+.cropper__mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 999px rgb(22 26 43 / 55%),
+    inset 0 0 0 2px rgb(255 255 255 / 85%);
+  pointer-events: none;
+}
+
+.cropper__zoom {
+  width: 100%;
+  max-width: 320px;
+}
+
+/* Okładka gry: kwadrat z zaokrągleniem jak duża okładka w szczegółach gry (18 / 148 px). */
+.cropper__mask--cover {
+  border-radius: 12%;
+}

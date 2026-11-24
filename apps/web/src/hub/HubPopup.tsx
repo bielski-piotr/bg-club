@@ -2,7 +2,7 @@ import { ClubPopup } from '../club/ClubPopup';
 import { CollectionPopup } from '../games/CollectionPopup';
 import { DeleteGameDialog } from '../games/DeleteGameDialog';
 import { GameDetailsPopup } from '../games/GameDetailsPopup';
-import { AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
+import { AddExpansionPopup, AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
 import { AddMemberPopup } from '../members/AddMemberPopup';
 import { DeleteMemberDialog } from '../members/DeleteMemberDialog';
 import { MembersPopup } from '../members/MembersPopup';
@@ -30,7 +30,11 @@ import { PasswordPopup } from '../profile/PasswordPopup';
 import { ProfilePopup } from '../profile/ProfilePopup';
 import { SettingsPopup } from '../profile/SettingsPopup';
 import { SheetPopup } from '../sheets/SheetPopup';
-import { DeleteScorepadDialog, RenameScorepadDialog } from '../score-pad/ScorepadDialogs';
+import {
+  DeleteScorepadDialog,
+  MoveScorepadPopup,
+  RenameScorepadDialog,
+} from '../score-pad/ScorepadDialogs';
 import { AddScorepadPopup, EditScorepadPopup } from '../score-pad/ScorepadEditorPopup';
 import { ScorepadsPopup } from '../score-pad/ScorepadsPopup';
 
@@ -68,12 +72,15 @@ export function HubPopup({ route, me }: HubPopupProps) {
     case 'games':
       return <CollectionPopup isAdmin={me.role === 'admin'} />;
     case 'game':
-      return <GameDetailsPopup id={route.id} />;
+      return <GameDetailsPopup id={route.id} isAdmin={me.role === 'admin'} />;
     case 'sheet':
       return <SheetPopup id={route.id} isAdmin={me.role === 'admin'} />;
     case 'add-game':
       // Gry dodaje, edytuje i usuwa tylko administrator (GAME-3); bazę chroni RLS.
       return me.role === 'admin' ? <AddGamePopup /> : <InvalidPopup />;
+    case 'add-expansion':
+      // Dodatki dodaje tylko administrator (jak gry); bazę chroni RLS.
+      return me.role === 'admin' ? <AddExpansionPopup baseId={route.baseId} /> : <InvalidPopup />;
     case 'edit-game':
       return me.role === 'admin' ? <EditGamePopup id={route.id} /> : <InvalidPopup />;
     case 'delete-game':
@@ -87,6 +94,8 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return me.role === 'admin' ? <EditScorepadPopup id={route.id} /> : <InvalidPopup />;
     case 'rename-scorepad':
       return me.role === 'admin' ? <RenameScorepadDialog id={route.id} /> : <InvalidPopup />;
+    case 'move-scorepad':
+      return me.role === 'admin' ? <MoveScorepadPopup id={route.id} /> : <InvalidPopup />;
     case 'delete-scorepad':
       return me.role === 'admin' ? <DeleteScorepadDialog id={route.id} /> : <InvalidPopup />;
     case 'meeting':

@@ -40,6 +40,10 @@ const GAME: Game = {
   placement_points: [10, 6, 4, 2, 1],
   created_at: '2026-10-01T12:00:00Z',
   last_played_at: null,
+  base_game_id: null,
+  cover_source_path: null,
+  cover_crop: null,
+  play_count: null,
 };
 
 const TEMPLATE: ScorePadTemplate = {

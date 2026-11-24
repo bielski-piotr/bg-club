@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
-import type { ScaledImage } from '../club/image';
 import { COVERS_BUCKET } from '../hub/club';
 import { isUuid } from '../popups/routes';
+import type { CroppedCover } from './cover';
 import { gameRow, type GameFormValues } from './form';
 
 /**
@@ -21,12 +21,21 @@ export interface Game {
   /** Skomplikowanie 1…5; `null` tylko w grach dodanych przed wprowadzeniem pola. */
   readonly complexity: number | null;
   readonly created_at: string;
-  /** `saved_at` ostatniej zapisanej partii; `null` = jeszcze nie grana. */
+  /** `saved_at` ostatniej zapisanej partii (dodatku: partii z nim); `null` = jeszcze nie grana. */
   readonly last_played_at: string | null;
+  /** Gra podstawowa dodatku; `null` = gra podstawowa (tylko te są w kolekcji i głosowaniu). */
+  readonly base_game_id: string | null;
+  /** Oryginał okładki w buckecie `covers` (ponowne kadrowanie); `null` = kadruje się okładkę. */
+  readonly cover_source_path: string | null;
+  /** Kadr okładki z oryginału (`StoredCrop`); `null` = bez zapisanego kadru. */
+  readonly cover_crop: unknown;
+  /** Dodatek: liczba zapisanych partii z nim; gra podstawowa: `null`. */
+  readonly play_count: number | null;
 }
 
 export const GAME_COLUMNS =
-  'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at, last_played_at';
+  'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at, last_played_at, ' +
+  'base_game_id, cover_source_path, cover_crop, play_count';
 
 /** Ile gier pokazuje widżet (GAME-1: domyślnie 5). */
 export const COLLECTION_WIDGET_SIZE = 5;
@@ -36,6 +45,7 @@ export const gamesKey = ['games'] as const;
 export const collectionWidgetKey = [...gamesKey, 'widget'] as const;
 export const gameSearchKey = (query: string) => [...gamesKey, 'search', query] as const;
 export const gameKey = (id: string) => [...gamesKey, 'byId', id] as const;
+export const expansionsKey = (baseId: string) => [...gamesKey, 'expansions', baseId] as const;
 
 export interface CollectionWidgetData {
   readonly games: readonly Game[];
@@ -54,6 +64,7 @@ export function collectionWidgetQuery(client: SupabaseClient) {
       const { data, error, count } = await client
         .from('game_collection')
         .select(GAME_COLUMNS, { count: 'exact' })
+        .is('base_game_id', null)
         .order('last_played_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .order('id')
@@ -107,11 +118,71 @@ export function useGame(client: SupabaseClient, id: string) {
   });
 }
 
+/**
+ * Aktywne dodatki gry (widok gry podstawowej): alfabetycznie. Dodatków nie ma w kolekcji,
+ * filtrach ani głosowaniu.
+ */
+export function useExpansions(client: SupabaseClient, baseId: string, enabled = true) {
+  return useQuery({
+    queryKey: expansionsKey(baseId),
+    enabled,
+    queryFn: async (): Promise<Game[]> => {
+      if (!isUuid(baseId)) return [];
+      const { data, error } = await client
+        .from('game_collection')
+        .select(GAME_COLUMNS)
+        .eq('base_game_id', baseId)
+        .order('title_search')
+        .order('id')
+        .returns<Game[]>();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/** Wszystkie aktywne dodatki (kreator partii i przenoszenie notesu), alfabetycznie. */
+export function useAllExpansions(client: SupabaseClient, enabled = true) {
+  return useQuery({
+    queryKey: [...gamesKey, 'expansions', 'all'] as const,
+    enabled,
+    queryFn: async (): Promise<Game[]> => {
+      const { data, error } = await client
+        .from('game_collection')
+        .select(GAME_COLUMNS)
+        .not('base_game_id', 'is', null)
+        .order('title_search')
+        .order('id')
+        .returns<Game[]>();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/** Tytuły gier i dodatków (także usuniętych) po id: dodatki partii w historii spotkań. */
+export function useGameTitles(client: SupabaseClient, ids: readonly string[]) {
+  const sorted = [...new Set(ids)].filter(isUuid).sort();
+  return useQuery({
+    queryKey: [...gamesKey, 'titles', sorted.join(',')] as const,
+    enabled: sorted.length > 0,
+    queryFn: async (): Promise<ReadonlyMap<string, string>> => {
+      const { data, error } = await client
+        .from('games')
+        .select('id, title')
+        .in('id', sorted)
+        .returns<{ id: string; title: string }[]>();
+      if (error) throw error;
+      return new Map(data.map((row) => [row.id, row.title]));
+    },
+  });
+}
+
 /** Co zrobić z okładką przy zapisie formularza. */
 export type CoverChange =
   | { readonly kind: 'keep' }
   | { readonly kind: 'remove' }
-  | { readonly kind: 'new'; readonly image: ScaledImage };
+  | ({ readonly kind: 'new' } & CroppedCover);
 
 /** Powód nieudanego zapisu lub usunięcia (komunikaty w `t.games.form.errors`). */
 export type GameSaveFailure = 'forbidden' | 'upload' | 'save' | 'gone';
@@ -126,6 +197,20 @@ export class GameSaveError extends Error {
 /** Nazwa pliku okładki: zawsze nowa, więc podpisany URL starej nie pokaże nowego obrazu. */
 export function newCoverPath(gameId: string, extension: string): string {
   return `games/${gameId}-${crypto.randomUUID()}.${extension}`;
+}
+
+/** Nazwa pliku oryginału okładki (do ponownego kadrowania). */
+export function newCoverSourcePath(gameId: string, extension: string): string {
+  return `games/${gameId}-source-${crypto.randomUUID()}.${extension}`;
+}
+
+/** Pliki poprzedniej okładki, których nowa nie używa (do usunięcia po zapisie). */
+export function unusedCoverFiles(
+  previous: readonly (string | null)[],
+  next: readonly (string | null)[],
+): string[] {
+  const kept = new Set(next.filter((path): path is string => path !== null));
+  return [...new Set(previous.filter((path): path is string => path !== null && !kept.has(path)))];
 }
 
 interface PostgrestLikeError {
@@ -147,43 +232,59 @@ export interface GameDraft {
   readonly id: string;
   readonly values: GameFormValues;
   readonly cover: CoverChange;
+  /** Nowy dodatek: gra podstawowa (przy edycji ignorowane: `base_game_id` jest niezmienne). */
+  readonly baseGameId?: string | null | undefined;
 }
 
 const SAVED_COLUMNS =
   'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at';
 
 /**
- * Dodaje grę (gdy `existing` = `null`) albo zapisuje zmiany (GAME-3). Nowa okładka trafia do
- * Storage przed zapisem wiersza; gdy zapis się nie uda, wysłany plik jest usuwany, a po udanym
- * zapisie usuwany jest poprzedni plik okładki. Zmiana punktacji dotyczy tylko kolejnych partii:
- * rozpoczęte mają snapshot w bazie (GAME-9).
+ * Dodaje grę albo dodatek (gdy `existing` = `null`) albo zapisuje zmiany (GAME-3). Nowa okładka
+ * (wynik kadru) i jej oryginał trafiają do Storage przed zapisem wiersza; gdy zapis się nie
+ * uda, wysłane pliki są usuwane, a po udanym zapisie usuwane są pliki poprzedniej okładki, których
+ * nowa nie używa (ponowne kadrowanie zostawia oryginał). Zmiana punktacji dotyczy tylko kolejnych
+ * partii: rozpoczęte mają snapshot w bazie (GAME-9).
  */
 export async function saveGame(
   client: SupabaseClient,
-  existing: Pick<Game, 'id' | 'cover_path'> | null,
+  existing: Pick<Game, 'id' | 'cover_path' | 'cover_source_path'> | null,
   draft: GameDraft,
 ): Promise<void> {
   const storage = client.storage.from(COVERS_BUCKET);
   const id = existing?.id ?? draft.id;
-  let uploaded: string | null = null;
-  if (draft.cover.kind === 'new') {
-    const { image } = draft.cover;
-    const path = newCoverPath(id, image.extension);
+  const uploaded: string[] = [];
+  const upload = async (path: string, image: { readonly blob: Blob }) => {
     const { error } = await storage.upload(path, image.blob, {
       contentType: image.blob.type,
       upsert: false,
     });
-    if (error) throw new GameSaveError('upload');
-    uploaded = path;
+    if (error) {
+      if (uploaded.length > 0) await storage.remove(uploaded).catch(() => undefined);
+      throw new GameSaveError('upload');
+    }
+    uploaded.push(path);
+    return path;
+  };
+
+  const cover = draft.cover;
+  let files: {
+    cover_path: string | null;
+    cover_source_path: string | null;
+    cover_crop: unknown;
+  } | null = null;
+  if (cover.kind === 'new') {
+    const coverPath = await upload(newCoverPath(id, cover.image.extension), cover.image);
+    const sourcePath =
+      cover.source.kind === 'upload'
+        ? await upload(newCoverSourcePath(id, cover.source.image.extension), cover.source.image)
+        : cover.source.path;
+    files = { cover_path: coverPath, cover_source_path: sourcePath, cover_crop: cover.crop };
+  } else if (cover.kind === 'remove') {
+    files = { cover_path: null, cover_source_path: null, cover_crop: null };
   }
 
-  const coverPath =
-    draft.cover.kind === 'keep'
-      ? (existing?.cover_path ?? null)
-      : draft.cover.kind === 'new'
-        ? uploaded
-        : null;
-  const row = { ...gameRow(draft.values), cover_path: coverPath };
+  const row = { ...gameRow(draft.values), ...(files ?? {}) };
   const result = existing
     ? await client
         .from('games')
@@ -194,19 +295,22 @@ export async function saveGame(
         .single()
     : await client
         .from('games')
-        .insert({ ...row, id })
+        .insert({ ...row, id, base_game_id: draft.baseGameId ?? null })
         .select(SAVED_COLUMNS)
         .single();
 
   if (result.error) {
-    if (uploaded) await storage.remove([uploaded]).catch(() => undefined);
+    if (uploaded.length > 0) await storage.remove(uploaded).catch(() => undefined);
     throw new GameSaveError(failureFor(result.error));
   }
 
-  const previous = existing?.cover_path ?? null;
-  if (previous && previous !== coverPath) {
-    // Stary plik jest już nieużywany; błąd usuwania nie psuje zapisu (zostaje sierotą).
-    await storage.remove([previous]).catch(() => undefined);
+  if (existing && files) {
+    // Stare pliki są już nieużywane; błąd usuwania nie psuje zapisu (zostają sierotami).
+    const unused = unusedCoverFiles(
+      [existing.cover_path, existing.cover_source_path],
+      [files.cover_path, files.cover_source_path],
+    );
+    if (unused.length > 0) await storage.remove(unused).catch(() => undefined);
   }
 }
 

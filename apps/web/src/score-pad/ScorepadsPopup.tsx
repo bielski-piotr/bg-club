@@ -246,6 +246,12 @@ function ScorepadRow({
                   icon: 'pad',
                   onSelect: () => open({ kind: 'rename-scorepad', id: pad.id }),
                 },
+                {
+                  id: 'move',
+                  label: text.move,
+                  icon: 'chevron-right',
+                  onSelect: () => open({ kind: 'move-scorepad', id: pad.id }),
+                },
                 { id: 'export', label: text.export, icon: 'download', onSelect: onExport },
                 {
                   id: 'delete',

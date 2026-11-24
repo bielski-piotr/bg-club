@@ -233,7 +233,11 @@ describe('adresy popupów (PRD §4)', () => {
     });
     expect(parseRoute(`scorepad/${PAD}/rename`)).toEqual({ kind: 'rename-scorepad', id: PAD });
     expect(parseRoute(`scorepad/${PAD}/delete`)).toEqual({ kind: 'delete-scorepad', id: PAD });
+    expect(parseRoute(`scorepad/${PAD}/move`)).toEqual({ kind: 'move-scorepad', id: PAD });
+    expect(parseRoute(`game/${ID}/expansions/new`)).toEqual({ kind: 'add-expansion', baseId: ID });
     for (const route of [
+      { kind: 'move-scorepad', id: PAD },
+      { kind: 'add-expansion', baseId: ID },
       { kind: 'scorepads', gameId: ID },
       { kind: 'add-scorepad', gameId: ID },
       { kind: 'edit-scorepad', id: PAD },

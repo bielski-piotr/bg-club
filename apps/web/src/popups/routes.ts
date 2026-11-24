@@ -47,6 +47,8 @@ export type PopupRoute =
   | { readonly kind: 'edit-game'; readonly id: string }
   /** Potwierdzenie „Usuń grę” (GAME-8, admin), adres `game/<uuid>/delete`. */
   | { readonly kind: 'delete-game'; readonly id: string }
+  /** Formularz „Dodaj dodatek” do gry podstawowej (admin), adres `game/<uuid>/expansions/new`. */
+  | { readonly kind: 'add-expansion'; readonly baseId: string }
   /** Notesy gry (GAME-7), adres `game/<uuid>/scorepads`. */
   | { readonly kind: 'scorepads'; readonly gameId: string }
   /** Edytor nowego notesu gry (GAME-7, EDT-1, admin), adres `game/<uuid>/scorepads/new`. */
@@ -55,6 +57,8 @@ export type PopupRoute =
   | { readonly kind: 'edit-scorepad'; readonly id: string }
   /** Zmiana nazwy notesu (GAME-7, admin), adres `scorepad/<uuid>/rename`. */
   | { readonly kind: 'rename-scorepad'; readonly id: string }
+  /** Przeniesienie notesu do innej gry albo dodatku (admin), adres `scorepad/<uuid>/move`. */
+  | { readonly kind: 'move-scorepad'; readonly id: string }
   /** Potwierdzenie „Usuń notes” (GAME-7, admin), adres `scorepad/<uuid>/delete`. */
   | { readonly kind: 'delete-scorepad'; readonly id: string }
   /**
@@ -161,11 +165,15 @@ export function parseRoute(raw: string): PopupRoute {
     if (args[1] === 'scorepads' && args[2] === 'new') {
       return { kind: 'add-scorepad', gameId: (args[0] ?? '').toLowerCase() };
     }
+    if (args[1] === 'expansions' && args[2] === 'new') {
+      return { kind: 'add-expansion', baseId: (args[0] ?? '').toLowerCase() };
+    }
   }
   if (kind === 'scorepad' && args.length === 2 && isUuid(args[0] ?? '')) {
     const id = (args[0] ?? '').toLowerCase();
     if (args[1] === 'edit') return { kind: 'edit-scorepad', id };
     if (args[1] === 'rename') return { kind: 'rename-scorepad', id };
+    if (args[1] === 'move') return { kind: 'move-scorepad', id };
     if (args[1] === 'delete') return { kind: 'delete-scorepad', id };
   }
   if (kind === 'meetings' && args[0] === 'new') {
@@ -253,10 +261,14 @@ export function serializeRoute(route: PopupRoute): string {
       return `game/${route.gameId}/scorepads`;
     case 'add-scorepad':
       return `game/${route.gameId}/scorepads/new`;
+    case 'add-expansion':
+      return `game/${route.baseId}/expansions/new`;
     case 'edit-scorepad':
       return `scorepad/${route.id}/edit`;
     case 'rename-scorepad':
       return `scorepad/${route.id}/rename`;
+    case 'move-scorepad':
+      return `scorepad/${route.id}/move`;
     case 'delete-scorepad':
       return `scorepad/${route.id}/delete`;
     case 'add-meeting':

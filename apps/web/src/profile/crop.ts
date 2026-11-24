@@ -163,3 +163,57 @@ export async function renderAvatar(
   if (blob.size > AVATAR_MAX_BYTES) throw new AvatarImageFailure('size');
   return { blob, extension: blob.type === 'image/webp' ? 'webp' : 'png' };
 }
+
+/**
+ * Kadr zapisany w bazie (okładka gry, `games.cover_crop`): przesunięcie jako ułamek boku kadru,
+ * więc nie zależy od wielkości kadru na ekranie.
+ */
+export interface StoredCrop {
+  readonly zoom: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Kadr ekranu (px kadru o boku `view`) → postać zapisywana w bazie. */
+export function toStoredCrop(state: CropState, view: number): StoredCrop {
+  const round = (value: number) => Math.round(value * 10000) / 10000 + 0;
+  return { zoom: round(state.zoom), x: round(state.x / view), y: round(state.y / view) };
+}
+
+/** Kadr z bazy (albo `null` / niepoprawny) → kadr ekranu, dopasowany do obrazu. */
+export function fromStoredCrop(stored: unknown, image: ImageSize, view: number): CropState {
+  const value = (stored ?? {}) as Partial<Record<keyof StoredCrop, unknown>>;
+  const number = (raw: unknown, fallback: number) =>
+    typeof raw === 'number' && Number.isFinite(raw) ? raw : fallback;
+  return clampCrop(
+    {
+      zoom: number(value.zoom, 1),
+      x: number(value.x, 0) * view,
+      y: number(value.y, 0) * view,
+    },
+    image,
+    view,
+  );
+}
+
+/**
+ * Rysuje wybrany kwadrat na płótnie o boku `side` (bez powiększania ponad rozdzielczość
+ * źródła: bok wyniku to najwyżej bok wycinka w pikselach obrazu).
+ */
+export function renderCropCanvas(
+  source: CanvasImageSource & ImageSize,
+  state: CropState,
+  view: number,
+  side: number,
+): HTMLCanvasElement {
+  const rect = sourceRect(state, source, view);
+  const out = Math.max(1, Math.round(Math.min(side, rect.side)));
+  const canvas = document.createElement('canvas');
+  canvas.width = out;
+  canvas.height = out;
+  const context = canvas.getContext('2d');
+  if (!context) throw new AvatarImageFailure('decode');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(source, rect.sx, rect.sy, rect.side, rect.side, 0, 0, out, out);
+  return canvas;
+}

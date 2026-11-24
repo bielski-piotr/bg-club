@@ -291,6 +291,7 @@ export interface PlayStart {
   readonly meeting_id: string;
   readonly scorepad_id: string;
   readonly player_ids: (string | null)[];
+  readonly expansion_ids?: string[];
 }
 
 export interface MockDateOption {
@@ -336,6 +337,8 @@ export interface MockPlay {
   readonly saved_payload?: string;
   /** Obraz oderwanej karteczki w buckecie `sheets` (PAD-6). */
   readonly sheet_image_path?: string | null;
+  /** Dodatki partii (`plays.expansion_ids`). */
+  readonly expansion_ids?: readonly string[];
   readonly play_results: readonly {
     readonly profile_id: string;
     readonly is_win: boolean | null;
@@ -456,6 +459,12 @@ export interface MockGame {
   readonly created_at: string;
   readonly last_played_at: string | null;
   readonly deleted_at: string | null;
+  /** Dodatek: gra podstawowa; `null` = gra podstawowa. */
+  readonly base_game_id?: string | null;
+  readonly cover_source_path?: string | null;
+  readonly cover_crop?: unknown;
+  /** Dodatek: liczba partii z nim. */
+  readonly play_count?: number | null;
 }
 
 /** Fikcyjna gra o numerze `n` (id wyprowadzone z numeru, data dodania: `n` października). */
@@ -471,6 +480,10 @@ export function mockGame(n: number, title: string, extra: Partial<MockGame> = {}
     created_at: `2026-10-${String(n).padStart(2, '0')}T12:00:00Z`,
     last_played_at: null,
     deleted_at: null,
+    base_game_id: null,
+    cover_source_path: null,
+    cover_crop: null,
+    play_count: null,
     ...extra,
   };
 }
@@ -1418,6 +1431,7 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
             started_by: ADA.id,
             sheet_image_path: play.sheet_image_path ?? null,
             game_id: gameId,
+            expansion_ids: play.expansion_ids ?? [],
             games: game ? { id: game.id, title: game.title, cover_path: game.cover_path } : null,
             play_results: play.play_results.map((r, index) => ({
               profile_id: r.profile_id,
@@ -1503,8 +1517,11 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
         status: 'draft',
         saved_at: null,
         started_at: new Date().toISOString(),
-        game_id: pad.game_id,
+        // Notes dodatku: partia należy do gry podstawowej.
+        game_id:
+          (mock.options.games ?? []).find((g) => g.id === pad.game_id)?.base_game_id ?? pad.game_id,
         scorepad_id: pad.id,
+        expansion_ids: body.expansion_ids ?? [],
         play_results: body.player_ids.flatMap((id, index) =>
           id ? [{ profile_id: id, is_win: null, seat: index + 1 }] : [],
         ),
@@ -1525,6 +1542,14 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       let rows = [...activeGames()].sort(byWidgetOrder);
       const id = url.searchParams.get('id');
       if (id?.startsWith('eq.')) rows = rows.filter((row) => row.id === id.slice(3));
+      const base = url.searchParams.get('base_game_id');
+      if (base === 'is.null') rows = rows.filter((row) => (row.base_game_id ?? null) === null);
+      else if (base === 'not.is.null')
+        rows = rows.filter((row) => (row.base_game_id ?? null) !== null);
+      else if (base?.startsWith('eq.'))
+        rows = rows.filter((row) => row.base_game_id === base.slice(3));
+      if (base && base !== 'is.null')
+        rows.sort((a, b) => searchText(a.title).localeCompare(searchText(b.title)));
       const total = rows.length;
       const limit = Number(url.searchParams.get('limit') ?? rows.length);
       rows = rows.slice(0, limit);
@@ -1650,12 +1675,20 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
       mock.gameSearches.push(query);
       const needle = searchText(query.trim());
       const rows = activeGames()
-        .filter((g) => searchText(g.title).includes(needle))
+        .filter((g) => (g.base_game_id ?? null) === null && searchText(g.title).includes(needle))
         .sort((a, b) => searchText(a.title).localeCompare(searchText(b.title)));
       return route.fulfill({ json: rows });
     }
     if (url.pathname === '/rest/v1/games') {
       const method = request.method();
+      // Tytuły gier i dodatków po id (dodatki partii w historii), także usuniętych.
+      if (method === 'GET') {
+        const ids = (url.searchParams.get('id') ?? '').replace(/^in\.\(|\)$/g, '').split(',');
+        const rows = (mock.options.games ?? [])
+          .filter((g) => ids.includes(g.id))
+          .map((g) => ({ id: g.id, title: g.title }));
+        return route.fulfill({ json: rows });
+      }
       if (method === 'POST' || method === 'PATCH') {
         const body = request.postDataJSON() as Record<string, unknown>;
         const id = url.searchParams.get('id')?.replace(/^eq\./, '') ?? null;
@@ -1698,6 +1731,13 @@ export async function mockSupabase(page: Page, options: MockOptions = {}): Promi
     if (url.pathname.startsWith(`${objectPrefix}covers/`) && request.method() === 'POST') {
       mock.uploads.push(decodeURIComponent(url.pathname.slice(`${objectPrefix}covers/`.length)));
       return route.fulfill({ json: { Key: url.pathname.slice(objectPrefix.length) } });
+    }
+    // Pobranie okładki albo oryginału do ponownego kadrowania.
+    if (
+      /^\/storage\/v1\/object\/(?:authenticated\/)?covers\//.test(url.pathname) &&
+      request.method() === 'GET'
+    ) {
+      return route.fulfill({ contentType: 'image/png', body: PIXEL_PNG });
     }
     if (url.pathname === `${objectPrefix}covers` && request.method() === 'DELETE') {
       const { prefixes } = request.postDataJSON() as { prefixes: string[] };
