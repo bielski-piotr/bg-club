@@ -7,15 +7,16 @@ import { QueryStatus } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { avatarPerson, fullName, useAllProfiles, type Profile } from '../profile/profiles';
-import { AvatarStack, Button, Icon, Menu, paletteColor, paletteIndex } from '../ui';
+import { AvatarStack, Button, Icon, paletteColor, paletteIndex } from '../ui';
 import { cx } from '../ui/cx';
 import { useSheetImageUrl } from '../sheets/sheets';
+import '../sheets/sheets.css';
 import { localDateTime } from './datetime';
-import { WinnersLine } from './MeetingParts';
+import { RecordBadge } from './MeetingParts';
 import type { Meeting } from './meetings';
+import { topRecord, useMeetingRecords, type PlayRecords } from './records';
 import {
   playsProgressLabel,
-  playSubtitle,
   sortedResults,
   splitPlays,
   useMeetingPlays,
@@ -25,36 +26,30 @@ import {
 const text = t.meetings.plays;
 
 /**
- * Partie trwającego i zakończonego spotkania (VIEW-3, DS §15 „Play card”, „Live play card”):
- * najpierw partie w toku, potem zapisane w kolejności rozegrania, z graczami, miejscami,
- * wynikami i punktami do rankingu.
- *
- * Miniatura zapisanej partii to obraz oderwanej karteczki (PAD-6); kliknięcie otwiera
- * karteczkę w powiększeniu z wynikami (`sheet/<uuid>`). `runner` (admin albo prowadzący)
- * dostaje przy partiach w toku „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą
- * tylko, że partia trwa (PAD-9). `admin` dostaje przy zapisanych partiach menu z „Usuń partię”
- * (VIEW-6, §5.6.5).
+ * Partie trwającego i zakończonego spotkania (VIEW-3): najpierw partie w toku (DS §15 „Live play
+ * card”), potem zapisane w kolejności rozegrania jako same karteczki z notesu (PAD-6), jak
+ * galeria gry. Kliknięcie otwiera karteczkę w powiększeniu z wynikami, czasem partii
+ * i rekordami (`sheet/<uuid>`; tam admin usuwa partię, VIEW-6). Karteczka z rekordem klubu
+ * albo osobistym ma znacznik. `runner` (admin albo prowadzący) dostaje przy partiach w toku
+ * „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą tylko, że partia trwa (PAD-9).
+ * Wyniki i zmiany w rankingu są w podsumowaniu spotkania.
  */
 export function MeetingPlaysSection({
   meeting,
   timeZone,
-  winners,
   runner = false,
-  admin = false,
 }: {
   readonly meeting: Meeting;
   readonly timeZone: string;
-  /** Zwycięzcy spotkania (MTG-3) nad listą partii; puste = bez wiersza. */
-  readonly winners?: readonly string[] | undefined;
   readonly runner?: boolean | undefined;
-  readonly admin?: boolean | undefined;
 }) {
   const { client } = useAuth();
   const { open } = usePopups();
   const plays = useMeetingPlays(client, meeting.id);
   const profiles = useAllProfiles(client);
-  const headingId = `${meeting.id}-plays`;
   const split = plays.data ? splitPlays(plays.data) : null;
+  const records = useMeetingRecords(client, meeting.id, (split?.saved.length ?? 0) > 0);
+  const headingId = `${meeting.id}-plays`;
   return (
     <section className="meeting-view__section" aria-labelledby={headingId}>
       <div className="meeting-view__head-row">
@@ -81,9 +76,6 @@ export function MeetingPlaysSection({
         </p>
       ) : (
         <>
-          {winners && winners.length > 0 ? (
-            <WinnersLine winners={winners} profiles={profiles.data} className="play-winners" />
-          ) : null}
           {split.drafts.length > 0 ? (
             <ul className="play-list" aria-label={text.liveLabel}>
               {split.drafts.map((play) => (
@@ -99,16 +91,15 @@ export function MeetingPlaysSection({
             </ul>
           ) : null}
           {split.saved.length > 0 ? (
-            <ol className="play-list" aria-label={text.savedLabel}>
+            <ol className="sheet-gallery meeting-sheets" aria-label={text.savedLabel}>
               {split.saved.map((play, index) => (
                 <li key={play.id}>
-                  <PlayCard
+                  <PlaySheet
                     play={play}
                     index={index}
                     timeZone={timeZone}
-                    profiles={profiles.data}
+                    records={records.data?.get(play.id)}
                     onOpen={() => open({ kind: 'sheet', id: play.id })}
-                    onDelete={admin ? () => open({ kind: 'delete-play', id: play.id }) : undefined}
                   />
                 </li>
               ))}
@@ -181,10 +172,13 @@ export function PlayResultRows({
   play,
   profiles,
   label,
+  records,
 }: {
   readonly play: Pick<MeetingPlay, 'results'>;
   readonly profiles: ReadonlyMap<string, Profile>;
   readonly label: string;
+  /** Rekordy ustanowione w partii (gracz → rodzaj) do oznaczenia przy wyniku. */
+  readonly records?: PlayRecords | undefined;
 }) {
   return (
     <ol className="play-results" aria-label={label}>
@@ -209,6 +203,9 @@ export function PlayResultRows({
             <span className="play-result__name">
               {person ? fullName(person) : text.unknownPlayer}
             </span>
+            {records?.get(result.profile_id) ? (
+              <RecordBadge kind={records.get(result.profile_id) ?? 'personal'} />
+            ) : null}
             <span className="play-result__score">
               <span aria-hidden="true">{result.ranking_value ?? ''}</span>
               {result.ranking_value !== null ? (
@@ -235,88 +232,50 @@ export function PlayResultRows({
   );
 }
 
-function PlayCard({
+/** Zapisana partia jako karteczka z notesu: gra, numer i godzina zapisu, znacznik rekordu. */
+function PlaySheet({
   play,
   index,
   timeZone,
-  profiles,
+  records,
   onOpen,
-  onDelete,
 }: {
   readonly play: MeetingPlay;
   readonly index: number;
   readonly timeZone: string;
-  readonly profiles: ReadonlyMap<string, Profile>;
+  readonly records: PlayRecords | undefined;
   readonly onOpen: () => void;
-  /** Admin: menu partii z „Usuń partię” zamiast strzałki (DS §15 „Play card”, VIEW-6). */
-  readonly onDelete?: (() => void) | undefined;
 }) {
   const title = play.game.title;
-  const head = (
-    <>
-      <SheetThumbnail gameId={play.game.id} imagePath={play.sheet_image_path} />
-      <span className="play-card__text">
-        <span className="play-card__title">{title}</span>
-        <span className="play-card__sub">{playSubtitle(play, index, timeZone)}</span>
-      </span>
-    </>
-  );
-  const menuLabel = format(text.menu, { title });
+  const time = localDateTime(play.saved_at ?? play.started_at, timeZone).time;
+  const record = topRecord(records);
   return (
-    <article className="play-card" aria-label={title}>
-      {onDelete ? (
-        <div className="play-card__row">
-          <button
-            type="button"
-            className="play-card__head play-card__head--button"
-            aria-label={format(text.sheet, { title })}
-            onClick={onOpen}
-          >
-            {head}
-          </button>
-          <Menu
-            label={menuLabel}
-            align="end"
-            items={[
-              { id: 'sheet', label: text.showSheet, icon: 'image', onSelect: onOpen },
-              {
-                id: 'delete',
-                label: text.delete,
-                icon: 'trash',
-                destructive: true,
-                onSelect: onDelete,
-              },
-            ]}
-            trigger={(props) => (
-              <button
-                type="button"
-                {...props}
-                className="icon-btn icon-btn--32"
-                aria-label={menuLabel}
-                title={menuLabel}
-              >
-                <Icon name="more" />
-              </button>
-            )}
-          />
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="play-card__head play-card__head--button"
-          aria-label={format(text.sheet, { title })}
-          onClick={onOpen}
-        >
-          {head}
-          <Icon name="chevron-right" className="play-card__chevron" />
-        </button>
-      )}
-      <PlayResultRows
-        play={play}
-        profiles={profiles}
-        label={format(text.resultsLabel, { title })}
-      />
-    </article>
+    <button
+      type="button"
+      className="sheet-gallery__item"
+      aria-label={
+        format(text.sheetLabel, { n: index + 1, title, time }) +
+        (record ? `. ${record === 'club' ? text.clubRecordLabel : text.personalRecordLabel}` : '')
+      }
+      onClick={onOpen}
+    >
+      <span className="sheet-gallery__frame" aria-hidden="true">
+        <SheetThumbnail
+          gameId={play.game.id}
+          imagePath={play.sheet_image_path}
+          className="sheet-gallery__sheet"
+        />
+        {record ? (
+          <span className={cx('meeting-sheets__record', `meeting-sheets__record--${record}`)}>
+            <Icon name="trophy" size={14} />
+          </span>
+        ) : null}
+      </span>
+      <span className="sheet-gallery__caption meeting-sheets__caption" aria-hidden="true">
+        <span className="meeting-sheets__title">{title}</span>
+        <span>{format(text.sheetCaption, { n: index + 1, time })}</span>
+      </span>
+    </button>
   );
 }
 

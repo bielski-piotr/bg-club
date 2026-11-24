@@ -167,7 +167,12 @@ test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów (
   page,
 }) => {
   test.slow();
-  const mock = await openApp(page, { plays: [draft()] });
+  const mock = await openApp(page, {
+    plays: [draft()],
+    recordPreview: () => [
+      { profile_id: BEA.id, value: 15, club_record: true, personal_record: true },
+    ],
+  });
   const pad = page.getByRole('dialog', { name: 'Azul' });
   await expect(pad.getByText('Gdy skończycie, oderwij karteczkę')).toBeVisible();
   await write(page, { a: [12, 7, null, null], b: [3, null, null, null] });
@@ -175,10 +180,14 @@ test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów (
   await tear(page);
   const summary = summaryDialog(page);
   await expect(summary).toBeVisible();
+  // Czas partii: początek, koniec (oderwanie karteczki) i czas trwania w strefie klubu.
+  await expect(summary.getByRole('definition')).toHaveText(['19:30', '20:00', '30 min']);
   const rows = summary.getByRole('list', { name: 'Wyniki partii Azul' }).getByRole('listitem');
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText('Bea Bobrowska');
   await expect(rows.nth(0)).toContainText('Wygrana');
+  await expect(rows.nth(0)).toContainText('Rekord klubu');
+  await expect(rows.nth(1)).not.toContainText('Rekord');
   await expect(rows.nth(0)).toContainText('15');
   // 2 graczy w grze do 4: liczą się ostatnie 2 miejsca punktacji 10/6/4/2.
   await expect(rows.nth(0)).toContainText('+4 pkt');
@@ -227,9 +236,12 @@ test('oderwanie: podsumowanie, powrót do kartki i zapis wyników bez punktów (
     ]);
   }
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
-  const results = meeting.getByRole('list', { name: 'Wyniki partii Azul' });
-  await expect(results.getByRole('listitem').first()).toContainText('Bea Bobrowska');
-  await expect(results.getByRole('listitem').first()).toContainText('+4');
+  // Zapisana partia to karteczka w spotkaniu.
+  await expect(
+    meeting
+      .getByRole('list', { name: 'Zapisane partie' })
+      .getByRole('button', { name: /^Karteczka partii 1: Azul/ }),
+  ).toBeVisible();
   expect(await localCopy(page)).toBeNull();
   await check(page);
 });
@@ -363,7 +375,7 @@ test('manual: podgrupa po kategorii, anulowanie, pozostały remis i odczyt karte
     [4, 3],
   ]);
   const meeting = page.getByRole('dialog', { name: 'Czwartkowe granie' });
-  await meeting.getByRole('button', { name: 'Karteczka partii Azul' }).click();
+  await meeting.getByRole('button', { name: /^Karteczka partii 1: Azul/ }).click();
   const sheet = page.getByRole('dialog', { name: 'Azul' });
   const savedRows = sheet.getByRole('list', { name: 'Wyniki partii Azul' }).getByRole('listitem');
   await expect(savedRows.nth(1)).toContainText('Cezary Cichy');

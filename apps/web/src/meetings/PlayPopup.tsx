@@ -583,6 +583,9 @@ function PlayPad({
       {torn ? (
         <PlaySummaryDialog
           title={play.game.title}
+          playId={play.id}
+          startedAt={play.started_at}
+          timeZone={timeZone}
           summary={torn.summary}
           profiles={profiles}
           saving={saveFinal.isPending || saveFinal.isSuccess}

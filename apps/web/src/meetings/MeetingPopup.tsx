@@ -33,13 +33,14 @@ import {
   useToast,
 } from '../ui';
 import { cx } from '../ui/cx';
+import { DateVotingSection } from './DateVotingSection';
 import { formatMeetingDate, longMeetingDate } from './datetime';
 import { MeetingPlaysSection } from './MeetingPlays';
 import { MeetingSummarySection } from './MeetingSummary';
 import { claimOrphanSweep, sweepOrphanSheetImages } from '../sheets/sheetImages';
 import { meetingsKey, useMeeting, type Meeting } from './meetings';
 import { menuItems } from './meetingMenu';
-import { isMeetingRunner } from './plays';
+import { gameWinners, isMeetingRunner, playedGames, useMeetingPlays } from './plays';
 import { useMeetingOverview, type MeetingOverview } from './overview';
 import {
   castVote,
@@ -187,19 +188,17 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
           <RunnerBox meeting={meeting} isAdmin={isAdmin} />
         ) : null}
 
+        {planned ? (
+          <DateVotingSection meeting={meeting} me={me} members={members} timeZone={timeZone} />
+        ) : null}
+
         {planned && meeting.voting_open ? (
           <VotingSection meeting={meeting} me={me} members={members} />
         ) : (
           <PlayingSection meeting={meeting} members={members} />
         )}
         {!planned ? (
-          <MeetingPlaysSection
-            meeting={meeting}
-            timeZone={timeZone}
-            winners={overview.data?.winners}
-            runner={runner}
-            admin={isAdmin}
-          />
+          <MeetingPlaysSection meeting={meeting} timeZone={timeZone} runner={runner} />
         ) : null}
         {!planned ? <MeetingSummarySection meetingId={meeting.id} /> : null}
 
@@ -503,7 +502,11 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
   );
 }
 
-/** Lista „Gramy w:” (VOTE-5) z liczbą głosów, które gra dostała. */
+/**
+ * Lista „Gramy w:” (VOTE-5) z liczbą głosów, które gra dostała. Przy grze z zapisaną partią
+ * jest chip zwycięzców tej gry na spotkaniu (awatary i imiona). Gry rozegrane spoza listy
+ * dochodzą na jej końcu (partię można rozpocząć w dowolnej grze kolekcji).
+ */
 function PlayingSection({
   meeting,
   members,
@@ -514,7 +517,18 @@ function PlayingSection({
   const { client } = useAuth();
   const games = usePublishedGames(client, meeting.id);
   const votes = useMeetingVotes(client, meeting.id);
+  const plays = useMeetingPlays(client, meeting.id, false, meeting.status !== 'planned');
+  const profiles = useAllProfiles(client);
   const headingId = `${meeting.id}-playing`;
+  const winners = gameWinners(plays.data ?? []);
+  const rows: PlayingRow[] = games.data
+    ? [
+        ...games.data.map((game) => ({ game, published: true })),
+        ...playedGames(plays.data ?? [])
+          .filter((game) => !games.data.some((g) => g.id === game.id))
+          .map((game) => ({ game, published: false })),
+      ]
+    : [];
   return (
     <section className="meeting-view__section" aria-labelledby={headingId}>
       <h3 id={headingId} className="meeting-view__head">
@@ -528,17 +542,21 @@ function PlayingSection({
             void votes.refetch();
           }}
         />
-      ) : games.data.length === 0 ? (
+      ) : rows.length === 0 ? (
         <p className="meeting-form__state">{text.playingEmpty}</p>
       ) : (
         <Tray label={text.playingLabel}>
-          {games.data.map((game) => (
+          {rows.map((row) => (
             <PlayingItem
-              key={game.id}
-              game={game}
+              key={row.game.id}
+              row={row}
               votes={votes.data}
               members={members}
               participants={meeting.participants.length}
+              winners={(winners.get(row.game.id) ?? []).flatMap((id) => {
+                const person = profiles.data?.get(id);
+                return person ? [person] : [];
+              })}
             />
           ))}
         </Tray>
@@ -547,20 +565,33 @@ function PlayingSection({
   );
 }
 
+interface PlayingRow {
+  readonly game: Pick<PublishedGame, 'id' | 'title' | 'cover_path'> &
+    Partial<Pick<PublishedGame, 'min_players' | 'max_players'>>;
+  /** Na opublikowanej liście (z głosami); `false` = rozegrana spoza listy. */
+  readonly published: boolean;
+}
+
 function PlayingItem({
-  game,
+  row,
   votes,
   members,
   participants,
+  winners,
 }: {
-  readonly game: PublishedGame;
+  readonly row: PlayingRow;
   readonly votes: readonly Vote[];
   readonly members: readonly Profile[];
   readonly participants: number;
+  readonly winners: readonly Profile[];
 }) {
+  const { game } = row;
   const voterIds = votes.filter((vote) => vote.game_id === game.id).map((v) => v.profile_id);
   const voters = voterPeople(voterIds, members);
-  const fits = fitsPlayers(game, participants);
+  const fits =
+    game.min_players === undefined || game.max_players === undefined
+      ? true
+      : fitsPlayers({ min_players: game.min_players, max_players: game.max_players }, participants);
   return (
     <li className="tray__item">
       <div className="row row--64 vote-row">
@@ -574,12 +605,42 @@ function PlayingItem({
                 size={20}
               />
             ) : null}
-            <span>{votesLabel(voterIds.length)}</span>
-            {!fits ? <Badge tone="warning">{mismatchLabel(game)}</Badge> : null}
+            {row.published ? <span>{votesLabel(voterIds.length)}</span> : null}
+            {!fits && game.min_players !== undefined && game.max_players !== undefined ? (
+              <Badge tone="warning">
+                {mismatchLabel({ min_players: game.min_players, max_players: game.max_players })}
+              </Badge>
+            ) : null}
           </span>
         </span>
+        {winners.length > 0 ? <WinnerChip title={game.title} winners={winners} /> : null}
       </div>
     </li>
+  );
+}
+
+/** Chip zwycięzców gry na spotkaniu: puchar, awatary i imiona (wspólne 1. miejsce: wszyscy). */
+function WinnerChip({
+  title,
+  winners,
+}: {
+  readonly title: string;
+  readonly winners: readonly Profile[];
+}) {
+  const names = winners.map((person) => person.first_name).join(', ');
+  return (
+    <span className="winner-chip" title={format(t.meetings.plays.winnersLabel, { title, names })}>
+      <Icon name="trophy" size={14} className="winner-chip__icon" />
+      <span className="winner-chip__stack" aria-hidden="true">
+        {winners.slice(0, 3).map((person) => (
+          <ProfileAvatar key={person.id} profile={person} size={20} ring="white" decorative />
+        ))}
+      </span>
+      <span className="winner-chip__names" aria-hidden="true">
+        {names}
+      </span>
+      <span className="sr-only">{format(t.meetings.plays.winnersLabel, { title, names })}</span>
+    </span>
   );
 }
 

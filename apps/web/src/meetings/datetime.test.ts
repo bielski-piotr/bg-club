@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dateTile,
+  durationLabel,
   formatMeetingDate,
   isPast,
   localDateTime,
@@ -57,5 +58,15 @@ describe('daty spotkań w strefie klubu (NFR-10)', () => {
     expect(dateTile('2026-11-28T17:00:00Z', WARSAW)).toEqual({ month: 'LIS', day: '28' });
     expect(dateTile('2026-11-28T23:30:00Z', WARSAW)).toEqual({ month: 'LIS', day: '29' });
     expect(longMeetingDate('2026-11-28T17:00:00Z', WARSAW)).toBe('sobota, 28 listopada 2026 18:00');
+  });
+
+  it('czas trwania partii w godzinach i minutach', () => {
+    const forms = { hours: '{h} godz.', minutes: '{m} min' };
+    expect(durationLabel('2026-11-28T18:00:00Z', '2026-11-28T18:45:20Z', forms)).toBe('45 min');
+    expect(durationLabel('2026-11-28T18:00:00Z', '2026-11-28T19:05:00Z', forms)).toBe(
+      '1 godz. 5 min',
+    );
+    expect(durationLabel('2026-11-28T18:00:00Z', '2026-11-28T20:00:00Z', forms)).toBe('2 godz.');
+    expect(durationLabel('2026-11-28T18:00:00Z', '2026-11-28T17:00:00Z', forms)).toBe('0 min');
   });
 });

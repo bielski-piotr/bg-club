@@ -118,6 +118,7 @@ describe('RPC spotkań', () => {
         time: '18:00',
         participants: ['a1'],
         hostId: null,
+        dateOptions: [],
       },
       original: null,
     });
@@ -139,6 +140,7 @@ describe('RPC spotkań', () => {
       time: '18:00',
       participants: ['a1'],
       hostId: null,
+      dateOptions: [],
     };
     const fake = fakeClient({});
     await saveMeeting(fake.client, {

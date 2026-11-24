@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import { isUuid } from '../popups/routes';
+import { sameDateOptions } from './dateOptions';
 import type { MeetingFormValues } from './form';
 
 /** Status spotkania (§5.8): zaplanowane → w trakcie → zakończone. */
@@ -15,6 +16,8 @@ export interface Meeting {
   readonly status: MeetingStatus;
   /** Głosowanie otwarte; możliwe tylko w zaplanowanym (PLAN-2, RUN-1). */
   readonly voting_open: boolean;
+  /** Głosowanie na proponowane terminy otwarte; tylko w zaplanowanym. */
+  readonly date_voting_open: boolean;
   /** Prowadzący spośród uczestników; `null` = prowadzi admin (§2). */
   readonly host_id: string | null;
   readonly started_at: string | null;
@@ -28,7 +31,7 @@ export interface MeetingRow extends Omit<Meeting, 'participants'> {
 }
 
 export const MEETING_COLUMNS =
-  'id, title, starts_at, status, voting_open, host_id, started_at, finished_at, ' +
+  'id, title, starts_at, status, voting_open, date_voting_open, host_id, started_at, finished_at, ' +
   'meeting_participants!meeting_participants_meeting_id_fkey(profile_id)';
 
 export function fromRow(row: MeetingRow): Meeting {
@@ -132,6 +135,7 @@ export type MeetingFailure =
   | 'drafts'
   | 'deleteInProgress'
   | 'hasPlays'
+  | 'dateOptionsLimit'
   | 'save';
 
 export class MeetingError extends Error {
@@ -166,6 +170,7 @@ const HINTS: Readonly<Record<string, MeetingFailure>> = {
   meetings_reopen_finished: 'notFinished',
   meetings_no_drafts_when_finished: 'drafts',
   meetings_delete_in_progress: 'deleteInProgress',
+  meeting_date_options_limit: 'dateOptionsLimit',
 };
 
 /** Błąd PostgREST → powód z polskim komunikatem. */
@@ -204,8 +209,9 @@ export interface MeetingDraft {
 
 /**
  * Planuje spotkanie albo zapisuje zmiany (PLAN-1…PLAN-4) w jednej transakcji: tytuł, termin
- * (data i godzina w strefie klubu, zamienia je baza), uczestnicy i prowadzący. Nowe spotkanie
- * ma otwarte głosowanie (PLAN-2).
+ * (data i godzina w strefie klubu, zamienia je baza), uczestnicy, prowadzący i proponowane
+ * terminy do głosowania. Nowe spotkanie ma otwarte głosowanie (PLAN-2). Propozycje idą tylko
+ * po zmianie listy (zmiana otwiera głosowanie na termin, niezmieniona zostawia jego stan).
  */
 export async function saveMeeting(client: SupabaseClient, draft: MeetingDraft): Promise<void> {
   const { values, original } = draft;
@@ -219,6 +225,9 @@ export async function saveMeeting(client: SupabaseClient, draft: MeetingDraft): 
     participant_ids: values.participants,
     host_id: values.hostId,
     is_new: original === null,
+    ...(sameDateOptions(original?.dateOptions ?? [], values.dateOptions)
+      ? {}
+      : { date_options: values.dateOptions }),
   });
   if (error) throw new MeetingError(meetingFailure(error));
 }

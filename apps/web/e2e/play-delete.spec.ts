@@ -98,22 +98,28 @@ const savedCards = (page: Page) =>
   meetingDialog(page).getByRole('list', { name: 'Zapisane partie' }).locator(':scope > li');
 const deleteDialog = (page: Page) => page.getByRole('dialog', { name: 'Usunąć partię?' });
 
+/** Usunięcie z karteczki: partie spotkania to same karteczki, akcje są w ich powiększeniu. */
 async function openDeleteFromCard(page: Page, title: string) {
-  await meetingDialog(page)
-    .getByRole('button', { name: `Akcje partii ${title}` })
-    .click();
-  await page.getByRole('menuitem', { name: 'Usuń partię' }).click();
+  const sheet = page.getByRole('dialog', { name: title });
+  if (!(await sheet.isVisible())) {
+    await meetingDialog(page)
+      .getByRole('button', { name: new RegExp(`^Karteczka partii \\d+: ${title},`) })
+      .click();
+  }
+  await sheet.getByRole('button', { name: 'Usuń partię' }).click();
   await expect(deleteDialog(page)).toBeVisible();
 }
 
-test('admin usuwa partię z menu karty: potwierdzenie, obraz ze Storage, odświeżone widoki', async ({
+test('admin usuwa partię z karteczki spotkania: potwierdzenie, obraz ze Storage, odświeżone widoki', async ({
   page,
 }) => {
   const mock = await openApp(page, `/?p=meeting/${FINISHED.id}`);
   await expect(savedCards(page)).toHaveCount(2);
   await expect(meetingDialog(page).getByText('2 rozegrane')).toBeVisible();
-  // Zakończonego spotkania z partiami nie usuwa się (PLAN-5): admin nie ma akcji spotkania.
-  await expect(meetingDialog(page).getByRole('button', { name: 'Akcje spotkania' })).toHaveCount(0);
+  // Zakończonego spotkania z partiami nie usuwa się (PLAN-5): w menu tylko otwarcie (RUN-5).
+  await meetingDialog(page).getByRole('button', { name: 'Akcje spotkania' }).click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Otwórz spotkanie ponownie']);
+  await page.keyboard.press('Escape');
 
   await openDeleteFromCard(page, 'Azul');
   const dialog = deleteDialog(page);
@@ -165,8 +171,6 @@ test('błąd Storage: partia zostaje usunięta, obraz można usunąć ponownie',
   const dialog = deleteDialog(page);
   await dialog.getByRole('button', { name: 'Usuń partię' }).click();
   await expect(dialog.getByText(/nie udało się usunąć obrazu karteczki/)).toBeVisible();
-  // Wynik nie wraca: partia już zniknęła z listy pod dialogiem.
-  await expect(savedCards(page)).toHaveCount(1);
   expect(mock.sheetRemoved).toEqual([]);
   await check(page);
 
@@ -174,6 +178,8 @@ test('błąd Storage: partia zostaje usunięta, obraz można usunąć ponownie',
   await expect(dialog).toHaveCount(0);
   expect(mock.sheetRemoved).toEqual([imagePath(1)]);
   expect(mock.playDeletes).toEqual([playId(1)]);
+  // Wynik nie wraca: partia zniknęła z karteczek spotkania.
+  await expect(savedCards(page)).toHaveCount(1);
 });
 
 test('admin usuwa partię z karteczki: zamyka dialog i karteczkę', async ({ page }) => {
@@ -197,7 +203,9 @@ test('gracz nie usuwa partii: bez menu, bez przycisku, link do potwierdzenia nie
   await expect(savedCards(page)).toHaveCount(2);
   await expect(meetingDialog(page).getByRole('button', { name: /^Akcje partii/ })).toHaveCount(0);
   await expect(
-    savedCards(page).nth(0).getByRole('button', { name: 'Karteczka partii Azul' }),
+    savedCards(page)
+      .nth(0)
+      .getByRole('button', { name: /^Karteczka partii 1: Azul,/ }),
   ).toBeVisible();
 
   await page.goto(`/?p=sheet/${playId(1)}`);

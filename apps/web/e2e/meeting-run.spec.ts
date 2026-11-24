@@ -138,7 +138,10 @@ test('RUN-5: admin potwierdza otwarcie, anulowanie zachowuje historię, kolejne 
     await expect(confirm).toHaveCount(0);
     await expect(meeting.getByText('Trwa', { exact: true })).toBeVisible();
     await expect(meeting.getByRole('button', { name: 'Nowa partia' })).toBeVisible();
-    await expect(meeting.getByRole('list', { name: 'Zapisane partie' })).toContainText('57');
+    // Zapisana partia zostaje (karteczka z grą); wynik 57 widać w podsumowaniu partii.
+    await expect(meeting.getByRole('list', { name: 'Zapisane partie' })).toContainText(
+      'Żółwie Wyścigi',
+    );
     await meeting.getByRole('button', { name: 'Zakończ spotkanie' }).click();
     await page
       .getByRole('dialog', { name: 'Zakończyć spotkanie?' })
@@ -272,13 +275,12 @@ test('prowadzący: partie w toku blokują koniec, potem kończy spotkanie (VIEW-
   await expect(live.getByText('Azul')).toBeVisible();
   await expect(live.getByText('Trwa partia · od 20:55')).toBeVisible();
   const saved = dialog.getByRole('list', { name: 'Zapisane partie' });
-  await expect(saved.getByText('Partia 1 · 19:10 · 3 graczy')).toBeVisible();
-  const results = saved.getByRole('list', { name: 'Wyniki partii Żółwie Wyścigi' });
-  await expect(results.getByRole('listitem')).toHaveText([
-    /1\..*Ada Adminowska.*57.*\+4/,
-    /2\..*Bea Bobrowska.*41.*\+2/,
-    /3\..*Cezary Cichy.*12.*\+0/,
-  ]);
+  // Zapisana partia to sama karteczka z notesu (wyniki są w podsumowaniu partii).
+  await expect(saved.getByText('Partia 1 · 19:10')).toBeVisible();
+  await expect(
+    saved.getByRole('button', { name: 'Karteczka partii 1: Żółwie Wyścigi, zapisana o 19:10' }),
+  ).toBeVisible();
+  await expect(saved.getByRole('list', { name: 'Wyniki partii Żółwie Wyścigi' })).toHaveCount(0);
   await settled(page);
   expect(await horizontalOverflow(page)).toBe(0);
   expect(await axe(page)).toEqual([]);

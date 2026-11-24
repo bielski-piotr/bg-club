@@ -6,7 +6,9 @@ import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { useClub } from '../hub/club';
 import { format, t } from '../i18n';
 import { formatMeetingDate } from '../meetings/datetime';
+import { PlayTimes } from '../meetings/MeetingParts';
 import { PlayResultRows, SheetThumbnail } from '../meetings/MeetingPlays';
+import { useMeetingRecords } from '../meetings/records';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
@@ -21,9 +23,10 @@ const text = t.sheets;
 
 /**
  * Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”): obraz
- * oderwanej karteczki w powiększeniu, wyniki graczy i link do spotkania. „Pokaż w 3D” rysuje
- * karteczkę od nowa z zapisanych wpisów i wersji szablonu z chwili rozpoczęcia partii, w notesie
- * tylko do odczytu. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
+ * oderwanej karteczki w powiększeniu, czas partii (początek, koniec, czas trwania), wyniki
+ * graczy z rekordami klubu i osobistymi ustanowionymi w tej partii i link do spotkania.
+ * „Pokaż w 3D” rysuje karteczkę od nowa z zapisanych wpisów i wersji szablonu z chwili
+ * rozpoczęcia partii, w notesie tylko do odczytu. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
  */
 export function SheetPopup({
   id,
@@ -78,8 +81,10 @@ function SheetView({
   readonly timeZone: string;
   readonly isAdmin: boolean;
 }) {
+  const { client } = useAuth();
   const { open } = usePopups();
   const [view3d, setView3d] = useState(false);
+  const records = useMeetingRecords(client, sheet.meeting.id).data?.get(sheet.id);
   const date = formatMeetingDate(sheet.saved_at, timeZone);
   return (
     <div className="sheet-view">
@@ -112,6 +117,12 @@ function SheetView({
             </>
           ) : null}
         </p>
+        <PlayTimes
+          startedAt={sheet.started_at}
+          endedAt={sheet.saved_at}
+          timeZone={timeZone}
+          labels={text}
+        />
         <section className="meeting-view__section" aria-labelledby={`${sheet.id}-results`}>
           <h3 id={`${sheet.id}-results`} className="meeting-view__head">
             {text.results}
@@ -120,6 +131,7 @@ function SheetView({
             play={sheet}
             profiles={profiles}
             label={format(text.resultsLabel, { title: sheet.game.title })}
+            records={records}
           />
         </section>
         <button

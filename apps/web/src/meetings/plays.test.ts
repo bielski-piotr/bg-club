@@ -5,7 +5,9 @@ import type { MeetingOverview } from './overview';
 import {
   countdownLabel,
   fromPlayRow,
+  gameWinners,
   isMeetingRunner,
+  playedGames,
   playsProgressLabel,
   playSubtitle,
   sortedResults,
@@ -25,6 +27,7 @@ function meeting(extra: Partial<Meeting> = {}): Meeting {
     starts_at: '2026-11-28T17:00:00Z',
     status: 'planned',
     voting_open: true,
+    date_voting_open: false,
     host_id: 'host',
     started_at: null,
     finished_at: null,
@@ -157,5 +160,44 @@ describe('menu spotkania zależne od roli (DS §15 „Meeting menus”, PLAN-4, 
     expect(ids(meeting(), HOST)).toEqual([]);
     expect(ids(meeting({ status: 'in_progress', voting_open: false }), HOST)).toEqual(['finish']);
     expect(ids(meeting({ status: 'finished', voting_open: false }), HOST)).toEqual([]);
+  });
+});
+
+describe('zwycięzcy gier spotkania', () => {
+  it('zbiera zwycięzców zapisanych partii według gry, bez szkiców i powtórzeń', () => {
+    const play = (
+      id: string,
+      game: string,
+      status: 'saved' | 'draft',
+      savedAt: string | null,
+      winners: string[],
+    ): MeetingPlay => ({
+      id,
+      status,
+      started_at: '2026-11-28T17:00:00Z',
+      saved_at: savedAt,
+      started_by: 'admin',
+      sheet_image_path: null,
+      game: { id: game, title: game, cover_path: null },
+      results: winners.map((p, i) => ({
+        profile_id: p,
+        seat: i + 1,
+        ranking_value: 1,
+        place: 1,
+        points: 10,
+        is_win: true,
+      })),
+    });
+    const plays = [
+      play('p2', 'azul', 'saved', '2026-11-28T19:00:00Z', ['b']),
+      play('p1', 'azul', 'saved', '2026-11-28T18:00:00Z', ['a', 'b']),
+      play('p3', 'wingspan', 'saved', '2026-11-28T20:00:00Z', ['c']),
+      play('p4', 'golf', 'draft', null, ['d']),
+    ];
+    const winners = gameWinners(plays);
+    expect(winners.get('azul')).toEqual(['a', 'b']);
+    expect(winners.get('wingspan')).toEqual(['c']);
+    expect(winners.has('golf')).toBe(false);
+    expect(playedGames(plays).map((g) => g.id)).toEqual(['azul', 'wingspan']);
   });
 });

@@ -87,3 +87,22 @@ export function longMeetingDate(at: string, timeZone: string): string {
     timeStyle: 'short',
   }).format(new Date(at));
 }
+
+/**
+ * Czas trwania partii między dwiema chwilami: „45 min”, „1 godz. 5 min”, „2 godz.”. Zaokrągla
+ * do pełnych minut; ujemny (np. przesunięty zegar) daje 0 min.
+ */
+export function durationLabel(
+  from: string | Date,
+  to: string | Date,
+  forms: { readonly hours: string; readonly minutes: string },
+): string {
+  const ms = new Date(to).getTime() - new Date(from).getTime();
+  const minutes = Math.max(0, Math.round(ms / 60_000));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const hours = forms.hours.replace('{h}', String(h));
+  const mins = forms.minutes.replace('{m}', String(m));
+  if (h === 0) return mins;
+  return m === 0 ? hours : `${hours} ${mins}`;
+}

@@ -1,3 +1,4 @@
+import { DATE_OPTIONS_MAX, duplicateDateOptions, type DateOptionValue } from './dateOptions';
 import { DEFAULT_TIME, isPast, localDateTime, todayIn } from './datetime';
 import type { Meeting } from './meetings';
 
@@ -15,6 +16,8 @@ export interface MeetingFormValues {
   readonly participants: readonly string[];
   /** Prowadzący spośród uczestników innych niż admin; `null` = prowadzi admin (§2). */
   readonly hostId: string | null;
+  /** Proponowane terminy do głosowania (opinia uczestników; termin ustala administrator). */
+  readonly dateOptions: readonly DateOptionValue[];
 }
 
 export interface MeetingFormErrors {
@@ -22,6 +25,8 @@ export interface MeetingFormErrors {
   readonly date?: 'required' | 'past' | undefined;
   readonly time?: 'required' | undefined;
   readonly participants?: 'required' | undefined;
+  /** Propozycje bez daty albo godziny, powtórzone albo ponad limit. */
+  readonly dateOptions?: 'incomplete' | 'duplicate' | 'tooMany' | undefined;
 }
 
 /**
@@ -40,10 +45,15 @@ export function emptyMeetingForm(
     time: DEFAULT_TIME,
     participants: [adminId],
     hostId: null,
+    dateOptions: [],
   };
 }
 
-export function meetingFormFrom(meeting: Meeting, timeZone: string): MeetingFormValues {
+export function meetingFormFrom(
+  meeting: Meeting,
+  timeZone: string,
+  dateOptions: readonly DateOptionValue[] = [],
+): MeetingFormValues {
   const local = localDateTime(meeting.starts_at, timeZone);
   return {
     title: meeting.title,
@@ -51,7 +61,15 @@ export function meetingFormFrom(meeting: Meeting, timeZone: string): MeetingForm
     time: local.time,
     participants: meeting.participants,
     hostId: meeting.host_id,
+    dateOptions,
   };
+}
+
+function dateOptionsError(options: readonly DateOptionValue[]): MeetingFormErrors['dateOptions'] {
+  if (options.some((option) => option.date === '' || option.time === '')) return 'incomplete';
+  if (duplicateDateOptions(options).size > 0) return 'duplicate';
+  if (options.length > DATE_OPTIONS_MAX) return 'tooMany';
+  return undefined;
 }
 
 interface ValidateOptions {
@@ -76,6 +94,7 @@ export function validateMeetingForm(
           : undefined,
     time: values.time === '' ? 'required' : undefined,
     participants: values.participants.length === 0 ? 'required' : undefined,
+    dateOptions: dateOptionsError(values.dateOptions),
   };
 }
 
@@ -115,4 +134,30 @@ export function setAllParticipants(
     participants,
     hostId: values.hostId && participants.includes(values.hostId) ? values.hostId : null,
   };
+}
+
+/** Nowa propozycja terminu: dzień i godzina ostatniej (albo terminu spotkania). */
+export function addDateOption(values: MeetingFormValues): MeetingFormValues {
+  const last = values.dateOptions.at(-1) ?? {
+    date: values.date,
+    time: values.time || DEFAULT_TIME,
+  };
+  return { ...values, dateOptions: [...values.dateOptions, { date: last.date, time: last.time }] };
+}
+
+export function updateDateOption(
+  values: MeetingFormValues,
+  index: number,
+  change: Partial<DateOptionValue>,
+): MeetingFormValues {
+  return {
+    ...values,
+    dateOptions: values.dateOptions.map((option, i) =>
+      i === index ? { ...option, ...change } : option,
+    ),
+  };
+}
+
+export function removeDateOption(values: MeetingFormValues, index: number): MeetingFormValues {
+  return { ...values, dateOptions: values.dateOptions.filter((_, i) => i !== index) };
 }

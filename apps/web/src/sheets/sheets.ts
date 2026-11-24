@@ -25,6 +25,8 @@ export function useSheetImageUrl(path: string | null | undefined) {
 /** Zapisana karteczka partii: powiększenie, wyniki, spotkanie i podgląd 3D. */
 export interface SavedSheet {
   readonly id: string;
+  /** Początek partii (rozpoczęcie w kreatorze) i jej koniec (oderwanie karteczki). */
+  readonly started_at: string;
   readonly saved_at: string;
   /** Wpisy kartki (format `sheet` pliku notesu). */
   readonly sheet: ScorePadSheet | null;
@@ -41,6 +43,7 @@ export interface SavedSheet {
 interface SheetRow {
   readonly id: string;
   readonly status: 'draft' | 'saved';
+  readonly started_at: string;
   readonly saved_at: string | null;
   readonly sheet: unknown;
   readonly sheet_image_path: string | null;
@@ -54,7 +57,7 @@ interface SheetRow {
 }
 
 const SHEET_COLUMNS =
-  'id, status, saved_at, sheet, sheet_image_path, scorepad_version_id, game_id, meeting_id, ' +
+  'id, status, started_at, saved_at, sheet, sheet_image_path, scorepad_version_id, game_id, meeting_id, ' +
   'games(id, title, cover_path), meetings!plays_meeting_id_fkey(id, title, starts_at), ' +
   'scorepad_versions(scorepads!scorepad_versions_scorepad_id_fkey(name)), ' +
   'play_results!play_results_play_id_meeting_id_fkey(profile_id, seat, ranking_value, place, points, is_win)';
@@ -70,6 +73,7 @@ export function fromSheetRow(row: SheetRow): SavedSheet | null {
   if (row.status !== 'saved' || !row.saved_at) return null;
   return {
     id: row.id,
+    started_at: row.started_at,
     saved_at: row.saved_at,
     sheet: isSheetData(row.sheet) ? row.sheet : null,
     sheet_image_path: row.sheet_image_path,

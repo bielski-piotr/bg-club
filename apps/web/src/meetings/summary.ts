@@ -1,78 +1,112 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
-import { format, plural, t } from '../i18n';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { format, t } from '../i18n';
+import { normalizeGames } from '../leaderboard/filters';
 import { isUuid } from '../popups/routes';
 import { meetingsKey } from './meetings';
+import type { MeetingPlay } from './plays';
 
 /**
- * Podsumowanie leaderboardowe spotkania (PRD VIEW-4, DS §15 „Meeting summary row”) z funkcji SQL
- * `meeting_summary(meeting_id)` (migracja `20261113001800_game_stats.sql`). Baza liczy punkty,
- * wygrane i serie z zapisanych partii (szkice się nie liczą); tu tylko teksty wiersza.
+ * Podsumowanie spotkania: zmiany w klasyfikacji punktów z funkcji SQL
+ * `meeting_leaderboard_changes(meeting_id, game_ids)` (migracja `20261125000000`). Baza liczy
+ * punkty zdobyte na spotkaniu i miejsca przed spotkaniem i po nim (jak ranking punktów, także
+ * z filtrem gier); tu tylko teksty i lista gier spotkania do filtra.
  */
 
-/** Wkład jednej gry spotkania w wynik gracza. */
+/** Wkład jednej gry spotkania w punkty gracza. */
 export interface SummaryGame {
   readonly game_id: string;
   readonly title: string;
   /** Gra usunięta z kolekcji zostaje w historii z oznaczeniem (GAME-8). */
   readonly deleted: boolean;
   readonly points: number;
-  readonly wins: number;
 }
 
 export interface SummaryEntry {
-  readonly place: number;
   readonly profile_id: string;
   readonly deleted: boolean;
+  /** Punkty zdobyte na spotkaniu (w wybranych grach). */
   readonly points: number;
-  readonly wins: number;
   /** Gry w kolejności pierwszej partii gry w spotkaniu (§5.6.6). */
   readonly games: readonly SummaryGame[];
-  /** Seria zwycięstw przed spotkaniem i po nim (cała historia, §5.6.4). */
-  readonly streak_before: number;
-  readonly streak_after: number;
+  /** Suma i miejsce w klasyfikacji punktów przed spotkaniem; `null` = bez wcześniejszych partii. */
+  readonly total_before: number | null;
+  readonly place_before: number | null;
+  /** Suma i miejsce po spotkaniu (z partiami do tego spotkania włącznie). */
+  readonly total_after: number;
+  readonly place_after: number;
 }
 
 /** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają podsumowanie (§5.6.5). */
-export const meetingSummaryKey = (id: string) => [...meetingsKey, 'summary', id] as const;
+export const meetingSummaryKey = (id: string, games: readonly string[] = []) =>
+  [...meetingsKey, 'summary', id, normalizeGames(games).join(',')] as const;
 
-export function useMeetingSummary(client: SupabaseClient, meetingId: string) {
+export function useMeetingSummary(
+  client: SupabaseClient,
+  meetingId: string,
+  games: readonly string[] = [],
+) {
   return useQuery({
-    queryKey: meetingSummaryKey(meetingId),
+    queryKey: meetingSummaryKey(meetingId, games),
+    // Zmiana filtra zostawia poprzednią tabelę do czasu nowych danych (bez migania).
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<readonly SummaryEntry[]> => {
       if (!isUuid(meetingId)) return [];
-      const { data, error } = await client.rpc('meeting_summary', { meeting_id: meetingId });
+      const { data, error } = await client.rpc('meeting_leaderboard_changes', {
+        meeting_id: meetingId,
+        game_ids: games.length > 0 ? normalizeGames(games) : null,
+      });
       if (error) throw error;
       return (data ?? []) as SummaryEntry[];
     },
   });
 }
 
-const text = t.meetings.summary;
-
-export type StreakChange = 'up' | 'broken' | 'unchanged';
-
-/**
- * Zmiana serii na spotkaniu (§5.6.4): wygrana przedłuża serię, brak wygranej przerywa serię
- * > 0, a seria 0 bez wygranej zostaje bez zmian.
- */
-export function streakChange(
-  entry: Pick<SummaryEntry, 'streak_before' | 'streak_after'>,
-): StreakChange {
-  if (entry.streak_after > entry.streak_before) return 'up';
-  if (entry.streak_after < entry.streak_before) return 'broken';
-  return 'unchanged';
+/** Gry zapisanych partii spotkania do filtra, w kolejności pierwszej partii (§5.6.6). */
+export function meetingGames(
+  saved: readonly Pick<MeetingPlay, 'game'>[],
+): { readonly id: string; readonly title: string }[] {
+  const seen = new Map<string, string>();
+  for (const play of saved) {
+    if (!seen.has(play.game.id)) seen.set(play.game.id, play.game.title);
+  }
+  return [...seen].map(([id, title]) => ({ id, title }));
 }
 
-/** „+1 → seria 4”, „seria przerwana”, „seria bez zmian” (VIEW-4). */
-export function streakLabel(entry: Pick<SummaryEntry, 'streak_before' | 'streak_after'>): string {
-  switch (streakChange(entry)) {
+const text = t.meetings.summary;
+
+export type PlaceChange =
+  | { readonly kind: 'new' }
+  | { readonly kind: 'same' }
+  | { readonly kind: 'up' | 'down'; readonly by: number };
+
+/** Zmiana miejsca w klasyfikacji: awans, spadek, bez zmian albo nowy gracz w rankingu. */
+export function placeChange(
+  entry: Pick<SummaryEntry, 'place_before' | 'place_after'>,
+): PlaceChange {
+  if (entry.place_before === null) return { kind: 'new' };
+  const by = entry.place_before - entry.place_after;
+  if (by === 0) return { kind: 'same' };
+  return by > 0 ? { kind: 'up', by } : { kind: 'down', by: -by };
+}
+
+/** „▲ 2”, „▼ 1”, „–”, „nowy” (tekst widoczny) i opis dla czytnika ekranu. */
+export function placeChangeLabel(change: PlaceChange): { short: string; long: string } {
+  switch (change.kind) {
+    case 'new':
+      return { short: text.placeNew, long: text.placeNewLabel };
+    case 'same':
+      return { short: '–', long: text.placeSameLabel };
     case 'up':
-      return format(text.streakUp, { n: entry.streak_after });
-    case 'broken':
-      return text.streakBroken;
-    default:
-      return text.streakSame;
+      return {
+        short: format(text.placeUp, { n: change.by }),
+        long: format(text.placeUpLabel, { n: change.by }),
+      };
+    case 'down':
+      return {
+        short: format(text.placeDown, { n: change.by }),
+        long: format(text.placeDownLabel, { n: change.by }),
+      };
   }
 }
 
@@ -80,23 +114,9 @@ function gameTitle(game: SummaryGame): string {
   return game.deleted ? format(text.deletedGame, { title: game.title }) : game.title;
 }
 
-/** Rozbicie punktów na gry: „Wingspan +8, Azul +4” (VIEW-4). */
+/** Rozbicie punktów na gry: „Wingspan +8, Azul +4”. */
 export function pointsBreakdown(games: readonly SummaryGame[]): string {
   return games
     .map((game) => format(text.gamePoints, { title: gameTitle(game), n: game.points }))
     .join(', ');
-}
-
-/** „1 wygrana · Azul”, „3 wygrane · Azul ×2, Wingspan”; `null` bez wygranych (VIEW-4). */
-export function winsLabel(entry: Pick<SummaryEntry, 'wins' | 'games'>): string | null {
-  if (entry.wins === 0) return null;
-  const games = entry.games
-    .filter((game) => game.wins > 0)
-    .map((game) =>
-      game.wins > 1
-        ? format(text.repeated, { title: gameTitle(game), n: game.wins })
-        : gameTitle(game),
-    )
-    .join(', ');
-  return format(text.winsGames, { wins: plural(entry.wins, text.wins), games });
 }
