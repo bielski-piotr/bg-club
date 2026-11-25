@@ -10,6 +10,6 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "@testing-library/jest-dom/vitest"]
   },
-  "include": ["src"],
+  "include": ["src", "solid-files.d.ts"],
   "exclude": ["src/pwa/plugin.ts", "src/pwa/plugin.test.ts"]
 }

@@ -1,9 +1,11 @@
 import { fileURLToPath } from 'node:url';
+import solid from '@solidjs/vite-plugin';
 import react from '@vitejs/plugin-react';
 import { loadEnv, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { isSecretKey } from './src/config/secretKey';
 import { pwaPlugin } from './src/pwa/plugin';
+import { SOLID_FILE } from './solid-files.js';
 
 /**
  * Połączenie z Supabase (DNS, TLS) zestawiane równolegle z pobieraniem pakietu (NFR-2). Bez
@@ -45,7 +47,10 @@ export default defineConfig(({ mode }) => {
   return {
     // Service worker powłoki (NFR-3): `dist/sw.js` z listą plików tego buildu.
     plugins: [
-      react(),
+      // Migracja na Solid 2.0 (docs/solidjs-2-migration.md): katalogi z `solid-files.js` kompiluje
+      // Solid, resztę React. Zbiory plików są rozłączne.
+      solid({ include: SOLID_FILE }),
+      react({ exclude: SOLID_FILE }),
       pwaPlugin(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url))),
       preconnectPlugin(env.VITE_SUPABASE_URL),
     ],

@@ -2,8 +2,10 @@ import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import solid from 'eslint-plugin-solid/configs/v2';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import { SOLID_GLOBS } from './apps/web/solid-files.js';
 
 export default tseslint.config(
   {
@@ -32,12 +34,15 @@ export default tseslint.config(
   },
   {
     files: ['apps/web/src/**/*.{ts,tsx}'],
+    // Kod Solid 2.0 (docs/solidjs-2-migration.md) sprawdza `eslint-plugin-solid` niżej.
+    ignores: [...SOLID_GLOBS],
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['error', { allowConstantExport: true }],
     },
   },
+  { files: [...SOLID_GLOBS], ...solid },
   {
     // Szablon service workera (NFR-3): kontekst workera, nie okna.
     files: ['apps/web/src/pwa/sw.js'],
