@@ -134,22 +134,29 @@ test('admin dodaje grę z okładką i punktacją (GAME-3…GAME-6)', async ({ pa
   await expect(form.getByText('Wpisz punkty.')).toHaveCount(4);
   expect(mock.gameWrites).toEqual([]);
 
-  // Okładka 2400×1200: oryginał zmniejszony do 1600 px, potem kadr w kształcie okładki z widoku
-  // gry i kwadrat do 800 px WebP (GAME-6).
-  await form.locator('input[type="file"]').setInputFiles({
+  // Okładka 2400×1200 w edytorze okładki (kafelek z ołówkiem): oryginał zmniejszony do 1600 px,
+  // potem kadr w kształcie okładki z widoku gry i kwadrat do 800 px WebP (GAME-6).
+  await form.getByRole('button', { name: 'Dodaj okładkę' }).click();
+  const crop = page.getByRole('dialog', { name: 'Okładka gry' });
+  await expect(crop.getByText('Brak okładki')).toBeVisible();
+  await expect(crop.getByRole('button', { name: 'Usuń okładkę' })).toHaveCount(0);
+  await crop.locator('input[type="file"]').setInputFiles({
     name: 'okladka.png',
     mimeType: 'image/png',
     buffer: png(2400, 1200),
   });
-  const crop = page.getByRole('dialog', { name: 'Kadrowanie okładki' });
   await expect(crop.locator('.cropper__mask--cover')).toBeVisible();
+  await expect(crop.getByRole('button', { name: 'Usuń okładkę' })).toBeVisible();
+  // Podgląd jest większy niż kadr: obraz widać także poza maską, a oddalić można poniżej 100%.
+  const zoom = crop.getByRole('slider', { name: 'Powiększenie' });
+  await expect(zoom).toHaveAttribute('min', '50');
   const stage = crop.getByRole('group', { name: /Kadr zdjęcia/ });
   await stage.focus();
   await page.keyboard.press('ArrowRight');
   expect(await axe(page)).toEqual([]);
   await crop.getByRole('button', { name: 'Gotowe' }).click();
-  await expect(form.getByRole('button', { name: 'Zmień okładkę' })).toBeVisible();
-  await expect(form.getByRole('button', { name: 'Zmień kadr' })).toBeVisible();
+  await expect(form.getByRole('button', { name: 'Edytuj okładkę' })).toBeVisible();
+  await expect(form.getByText('Nowa okładka zapisze się razem z grą.')).toBeVisible();
 
   await form.getByLabel('Tytuł').fill('Kolejka Górska');
   // Max 4 → 5: dochodzi pole 5. miejsca (GAME-5); bez górnego limitu (GAME-4).
@@ -250,6 +257,37 @@ test('admin edytuje i usuwa grę z popupu (GAME-3, GAME-8)', async ({ page }) =>
   await expect(dialog.locator('.game-tile__title')).toHaveText(['Łąka i Pszczoły 2']);
   // Usunięcie miękkie: okładka zostaje w Storage dla historii.
   expect(mock.removed).toEqual([]);
+});
+
+test('edytor okładki: zapisana okładka wczytuje się do kadru, a usunięcie czeka na zapis (GAME-6)', async ({
+  page,
+}) => {
+  const mock = await openApp(page, { games: [KOLEJKA] }, `/?p=game/${KOLEJKA.id}/edit`);
+  const form = page.getByRole('dialog', { name: 'Edytuj grę' });
+  await form.getByRole('button', { name: 'Edytuj okładkę' }).click();
+  const editor = page.getByRole('dialog', { name: 'Okładka gry' });
+  // Okładka sprzed kadrowania (bez oryginału) wczytuje się sama do kadru.
+  await expect(editor.locator('.cropper__mask--cover')).toBeVisible();
+  expect(await horizontalOverflow(page)).toBe(0);
+  expect(await axe(page)).toEqual([]);
+
+  // Bez zmian „Gotowe” niczego nie zmienia.
+  await editor.getByRole('button', { name: 'Gotowe' }).click();
+  await expect(form.getByText('Bez okładki pokazujemy monogram tytułu.')).toBeVisible();
+
+  await form.getByRole('button', { name: 'Edytuj okładkę' }).click();
+  await editor.getByRole('button', { name: 'Usuń okładkę' }).click();
+  await expect(editor.getByText('Brak okładki')).toBeVisible();
+  await editor.getByRole('button', { name: 'Gotowe' }).click();
+  await expect(form.getByText('Okładka zostanie usunięta po zapisaniu gry.')).toBeVisible();
+  await expect(form.getByRole('button', { name: 'Dodaj okładkę' })).toBeVisible();
+  await form.getByRole('button', { name: 'Zapisz' }).click();
+  await expect(page.getByText('Zapisano zmiany w grze Kolejka')).toBeVisible();
+  expect(mock.gameWrites.at(-1)).toMatchObject({
+    method: 'PATCH',
+    id: KOLEJKA.id,
+    body: { cover_path: null, cover_source_path: null, cover_crop: null },
+  });
 });
 
 test('dodatki: tylko w widoku gry, z menu kolekcji i z widoku gry (bez kolekcji)', async ({
