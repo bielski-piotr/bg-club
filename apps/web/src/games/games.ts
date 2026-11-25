@@ -31,11 +31,16 @@ export interface Game {
   readonly cover_crop: unknown;
   /** Dodatek: liczba zapisanych partii z nim; gra podstawowa: `null`. */
   readonly play_count: number | null;
+  /**
+   * Dostępność: niedostępna gra jest w kolekcji (wyszarzona) i w filtrach, ale nie da się jej
+   * wybrać w głosowaniu, publikacji ani w partii (niedostępnego dodatku też nie).
+   */
+  readonly available: boolean;
 }
 
 export const GAME_COLUMNS =
   'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at, last_played_at, ' +
-  'base_game_id, cover_source_path, cover_crop, play_count';
+  'base_game_id, cover_source_path, cover_crop, play_count, available';
 
 /** Ile gier pokazuje widżet (GAME-1: domyślnie 5). */
 export const COLLECTION_WIDGET_SIZE = 5;

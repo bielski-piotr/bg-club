@@ -43,6 +43,7 @@ function game(n: number, title: string, min = 2, max = 4): Game {
     cover_source_path: null,
     cover_crop: null,
     play_count: null,
+    available: true,
   };
 }
 

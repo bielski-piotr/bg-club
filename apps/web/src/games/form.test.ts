@@ -23,6 +23,7 @@ const valid: GameFormValues = {
   maxPlayers: 4,
   complexity: '2,5',
   points: ['10', '6', '4', '2'],
+  available: true,
 };
 
 describe('formularz gry: liczba graczy (GAME-4)', () => {
@@ -126,8 +127,10 @@ describe('formularz gry: wiersz games', () => {
       min_players: 2,
       max_players: 4,
       complexity: 2.5,
+      available: true,
       placement_points: [10, 6, 4, 2],
     });
+    expect(gameRow({ ...valid, available: false }).available).toBe(false);
     expect(gameRow({ ...valid, points: ['10,5', '6', '4', '0,25'] }).placement_points).toEqual([
       10.5, 6, 4, 0.25,
     ]);
@@ -140,6 +143,7 @@ describe('formularz gry: wiersz games', () => {
       maxPlayers: 4,
       complexity: '',
       points: ['', '', '', ''],
+      available: true,
     });
     expect(
       gameFormFrom({
@@ -148,6 +152,7 @@ describe('formularz gry: wiersz games', () => {
         max_players: 2,
         complexity: 1.75,
         placement_points: [3.5, 0],
+        available: false,
       }),
     ).toEqual({
       title: 'Łąka',
@@ -155,6 +160,7 @@ describe('formularz gry: wiersz games', () => {
       maxPlayers: 2,
       complexity: '1,75',
       points: ['3,5', '0'],
+      available: false,
     });
     // Gra sprzed wprowadzenia skomplikowania: puste pole do uzupełnienia.
     expect(

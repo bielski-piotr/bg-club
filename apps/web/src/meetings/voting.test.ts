@@ -33,6 +33,7 @@ function game(id: string, title: string, min = 2, max = 4): Game {
     cover_source_path: null,
     cover_crop: null,
     play_count: null,
+    available: true,
   };
 }
 
@@ -71,6 +72,19 @@ describe('lista głosowania (VOTE-3, VOTE-4)', () => {
     expect(byId.get('g4')).toMatchObject({ voters: ['bartek'], mine: false });
     // Niepasująca gra jest oznaczona, ale zostaje na liście (można na nią głosować).
     expect(byId.get('g3')).toMatchObject({ fits: false, mine: true });
+  });
+
+  it('niedostępne gry są na końcu listy, z głosami, ale oznaczone', () => {
+    const games = GAMES.map((g) => (g.id === 'g3' ? { ...g, available: false } : g));
+    const rows = voteRows(games, VOTES, { me: 'ania', participants: 3 });
+    expect(rows.map((row) => [row.game.id, row.available])).toEqual([
+      ['g1', true],
+      ['g4', true],
+      ['g2', true],
+      ['g3', false],
+    ]);
+    // Oddany wcześniej głos zostaje (można go cofnąć).
+    expect(rows[3]).toMatchObject({ voters: ['ania', 'bartek'], mine: true });
   });
 
   it('wyszukuje bez wielkości liter i polskich znaków', () => {
@@ -119,6 +133,7 @@ describe('błędy głosowania (migracje [003], [024])', () => {
       [{ code: '23514', hint: 'meeting_games_required', message: 'x' }, 'noGames'],
       [{ code: '23514', hint: 'meeting_games_game_active', message: 'x' }, 'gameDeleted'],
       [{ code: '23514', hint: 'meeting_games_planned', message: 'x' }, 'notPlanned'],
+      [{ code: '23514', hint: 'games_unavailable', message: 'x' }, 'gameUnavailable'],
       [{ code: '23514', hint: 'meetings_reopen_planned', message: 'x' }, 'notPlanned'],
       [{ code: 'P0002', hint: 'meetings_not_found', message: 'x' }, 'gone'],
       [{ code: '42501', message: 'administrator required' }, 'forbidden'],

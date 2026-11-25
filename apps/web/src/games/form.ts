@@ -24,6 +24,8 @@ export interface GameFormValues {
   readonly complexity: string;
   /** Długość = `maxPlayers`: pole dla każdego miejsca 1…max (GAME-5). */
   readonly points: readonly string[];
+  /** Dostępna (do wyboru w głosowaniu i partii) albo niedostępna. */
+  readonly available: boolean;
 }
 
 export type PointsError = 'required' | 'invalid' | 'tooLarge';
@@ -53,7 +55,14 @@ function parseDecimal(text: string): number | 'required' | 'invalid' {
 
 /** Nowa gra: 2–4 graczy, bez skomplikowania i z pustymi polami punktów (GAME-5). */
 export function emptyGameForm(): GameFormValues {
-  return { title: '', minPlayers: 2, maxPlayers: 4, complexity: '', points: ['', '', '', ''] };
+  return {
+    title: '',
+    minPlayers: 2,
+    maxPlayers: 4,
+    complexity: '',
+    points: ['', '', '', ''],
+    available: true,
+  };
 }
 
 /** Wartości formularza z zapisanej gry. */
@@ -63,6 +72,7 @@ export function gameFormFrom(game: {
   readonly max_players: number;
   readonly complexity?: number | null | undefined;
   readonly placement_points: readonly number[];
+  readonly available?: boolean | undefined;
 }): GameFormValues {
   return {
     title: game.title,
@@ -70,6 +80,7 @@ export function gameFormFrom(game: {
     maxPlayers: game.max_players,
     complexity: game.complexity == null ? '' : formatDecimal(game.complexity),
     points: resizePoints(game.placement_points.map(formatDecimal), game.max_players),
+    available: game.available ?? true,
   };
 }
 
@@ -184,6 +195,7 @@ export function gameRow(values: GameFormValues) {
     min_players: values.minPlayers,
     max_players: values.maxPlayers,
     complexity,
+    available: values.available,
     placement_points: values.points.map((text) => {
       const value = parsePoints(text);
       if (typeof value !== 'number') throw new Error(`invalid points: ${text}`);

@@ -12,6 +12,12 @@
   user-select: none;
 }
 
+/* Niedostępna gra: wyszarzona okładka (kolekcja, głosowanie, wybór gry partii). */
+.game-cover--unavailable {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
 .game-cover--image {
   background: var(--c-tint);
 }
@@ -225,6 +231,11 @@
   font-size: 13px;
   line-height: 16px;
   font-weight: 500;
+  color: var(--c-muted);
+}
+
+/* Niedostępna gra w kolekcji: wyszarzona okładka i tytuł (podgląd nadal się otwiera). */
+.game-tile--unavailable .game-tile__title {
   color: var(--c-muted);
 }
 

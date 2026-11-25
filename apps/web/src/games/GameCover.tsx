@@ -19,13 +19,23 @@ interface GameCoverProps {
    */
   readonly size: 'thumb' | 'form' | 'large';
   readonly className?: string | undefined;
+  /** Niedostępna gra: okładka wyszarzona (kolekcja, wybór w głosowaniu i partii). */
+  readonly unavailable?: boolean | undefined;
 }
 
 /**
  * Okładka gry (GAME-6, DS §14): wgrany obraz albo kafelek w kolorze palety z białym
  * monogramem tytułu. Dekoracyjna: tytuł jest zawsze obok w tekście.
  */
-export function GameCover({ id, title, coverPath, src, size, className }: GameCoverProps) {
+export function GameCover({
+  id,
+  title,
+  coverPath,
+  src,
+  size,
+  className,
+  unavailable = false,
+}: GameCoverProps) {
   const { client } = useAuth();
   const saved = useCoverUrl(client, src === undefined ? coverPath : null);
   const url = src ?? saved.data;
@@ -39,6 +49,7 @@ export function GameCover({ id, title, coverPath, src, size, className }: GameCo
         'game-cover',
         `game-cover--${size}`,
         showImage && 'game-cover--image',
+        unavailable && 'game-cover--unavailable',
         className,
       )}
       style={{ background: showImage ? undefined : paletteColor(paletteIndex(id)) }}

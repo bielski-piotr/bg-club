@@ -95,8 +95,11 @@ function PublishForm({ meeting, me, games, votes, published }: FormProps) {
   const { back } = usePopups();
   const mounted = useMounted();
   // Po zamknięciu głosowania formularz zaczyna od obecnej listy (ponowna publikacja ją zastąpi).
+  // Niedostępnych gier nie da się opublikować: odpadają z obecnej listy.
   const [selected, setSelected] = useState<readonly string[]>(() =>
-    published.map((game) => game.id),
+    published
+      .map((game) => game.id)
+      .filter((gameId) => games.some((game) => game.id === gameId && game.available)),
   );
   const [query, setQuery] = useState('');
   // Kolejność listy „Gramy w:” jak na liście głosowania (najwięcej głosów pierwsze).
@@ -109,7 +112,10 @@ function PublishForm({ meeting, me, games, votes, published }: FormProps) {
     normalized === ''
       ? allRows
       : allRows.filter((row) => normalizeSearch(row.game.title).includes(normalized));
-  const ordered = allRows.map((row) => row.game.id).filter((gameId) => selected.includes(gameId));
+  const ordered = allRows
+    .filter((row) => row.available)
+    .map((row) => row.game.id)
+    .filter((gameId) => selected.includes(gameId));
 
   const publish = useMutation({
     mutationFn: () => publishGames(client, meeting.id, ordered),
@@ -165,7 +171,8 @@ function PublishForm({ meeting, me, games, votes, published }: FormProps) {
               <li key={row.game.id} className="tray__item">
                 <Checkbox
                   className="row row--64 publish-row"
-                  checked={selected.includes(row.game.id)}
+                  checked={row.available && selected.includes(row.game.id)}
+                  disabled={!row.available}
                   onCheckedChange={(checked) =>
                     setSelected((current) =>
                       checked
@@ -180,12 +187,15 @@ function PublishForm({ meeting, me, games, votes, published }: FormProps) {
                         title={row.game.title}
                         coverPath={row.game.cover_path}
                         size="thumb"
+                        unavailable={!row.available}
                       />
                       <span className="vote-row__body">
                         <span className="vote-row__name">{row.game.title}</span>
                         <span className="vote-row__meta">
                           <span>{votesLabel(row.voters.length)}</span>
-                          {!row.fits ? (
+                          {!row.available ? (
+                            <Badge tone="neutral">{voting.unavailable}</Badge>
+                          ) : !row.fits ? (
                             <Badge tone="warning">{mismatchLabel(row.game)}</Badge>
                           ) : null}
                         </span>

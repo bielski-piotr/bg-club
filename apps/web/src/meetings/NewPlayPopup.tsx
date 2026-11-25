@@ -150,18 +150,22 @@ function Wizard({ meeting, games, expansions, publishedIds, pads, profiles }: Wi
     .sort(compareProfiles);
   const byGame = scorepadsByGame(pads);
   const expansionsOf = (baseId: string) => expansions.filter((e) => e.base_game_id === baseId);
+  // Niedostępnych dodatków nie da się zaznaczyć: nie liczą się do graczy ani notesów partii.
+  const availableExpansionsOf = (baseId: string) => expansionsOf(baseId).filter((e) => e.available);
   // Notesy gry i jej dodatków (notes dodatku tylko w partii z tym dodatkiem).
   const padsOf = (titles: readonly Game[]) => titles.flatMap((title) => byGame.get(title.id) ?? []);
   const titles = new Map([...games, ...expansions].map((title) => [title.id, title.title]));
   const game = games.find((candidate) => candidate.id === gameId) ?? null;
   const gameExpansions = game ? expansionsOf(game.id) : [];
-  const chosen = gameExpansions.filter((expansion) => expansionIds.includes(expansion.id));
+  const chosen = gameExpansions.filter(
+    (expansion) => expansion.available && expansionIds.includes(expansion.id),
+  );
   const range = game ? combinedRange(game, chosen) : null;
   const gamePads = game ? padsOf([game, ...chosen]) : [];
   const pad = gamePads.find((candidate) => candidate.id === scorepadId) ?? null;
   const bounds = range && pad ? playerBounds(range, scorepadSlots(pad), scorepadTeams(pad)) : null;
-  const steps = newPlaySteps(gameExpansions.length > 0);
-  const hasExpansions = gameExpansions.length > 0;
+  const hasExpansions = gameExpansions.some((expansion) => expansion.available);
+  const steps = newPlaySteps(hasExpansions);
   // Jeden notes gry, który pasuje: krok „Notes” jest pomijany (RUN-2: „gdy gra ma ich kilka”).
   const singlePad =
     range && gamePads.length === 1 && fittingScorepads(range, gamePads).length === 1
@@ -231,10 +235,11 @@ function Wizard({ meeting, games, expansions, publishedIds, pads, profiles }: Wi
   // Gra jest do wyboru, gdy pasuje z którymkolwiek zestawem dodatków (dodatek może mieć notes
   // albo rozszerzać liczbę graczy); dokładny zakres liczy się po wyborze dodatków.
   const fullRange = (candidate: Game) => {
-    const all = expansionsOf(candidate.id);
+    const all = availableExpansionsOf(candidate.id);
     return { range: combinedRange(candidate, all), pads: padsOf([candidate, ...all]) };
   };
   const gameReasonOf = (candidate: Game) => {
+    if (!candidate.available) return t.meetings.newPlay.reasons.unavailable;
     const full = fullRange(candidate);
     return gameReason(full.range, full.pads, participants.length);
   };
@@ -514,7 +519,13 @@ function GameStep({
         reason={reasonFor(game)}
         onSelect={() => onChange(game.id)}
         thumb={
-          <GameCover id={game.id} title={game.title} coverPath={game.cover_path} size="thumb" />
+          <GameCover
+            id={game.id}
+            title={game.title}
+            coverPath={game.cover_path}
+            size="thumb"
+            unavailable={!game.available}
+          />
         }
         title={game.title}
         sub={gameSubtitle(game, pads)}
@@ -594,14 +605,21 @@ function ExpansionsStep({
               min: expansion.min_players,
               max: expansion.max_players,
             });
+            const disabled = !expansion.available;
             return (
               <li key={expansion.id} className="tray__item">
-                <label className="choice row pick-row row--64">
+                <label
+                  className={cx(
+                    'choice row pick-row row--64',
+                    disabled && 'choice--disabled pick-row--disabled',
+                  )}
+                >
                   <input
                     type="checkbox"
                     className="choice__input"
                     value={expansion.id}
-                    checked={value.includes(expansion.id)}
+                    checked={!disabled && value.includes(expansion.id)}
+                    disabled={disabled}
                     onChange={() => onToggle(expansion.id)}
                   />
                   <span className="checkbox" aria-hidden="true">
@@ -613,6 +631,7 @@ function ExpansionsStep({
                       title={expansion.title}
                       coverPath={expansion.cover_path}
                       size="thumb"
+                      unavailable={disabled}
                     />
                   </span>
                   <span className="pick-row__body">
@@ -625,6 +644,9 @@ function ExpansionsStep({
                           })
                         : format(text.expansionSubNoComplexity, { players })}
                     </span>
+                    {disabled ? (
+                      <span className="pick-row__reason">{text.reasons.expansionUnavailable}</span>
+                    ) : null}
                   </span>
                 </label>
               </li>

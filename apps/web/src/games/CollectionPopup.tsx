@@ -5,6 +5,7 @@ import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { Button, EmptyState, Icon, Menu, SearchField, ShowMore, useChunks } from '../ui';
+import { cx } from '../ui/cx';
 import { GameCover } from './GameCover';
 import { playersLabel } from './labels';
 import { useGameSearch, type Game } from './games';
@@ -126,15 +127,26 @@ function GameTile({
 }) {
   const { open } = usePopups();
   return (
-    <li className="game-tile" data-chunk-start={chunkStart}>
+    <li
+      className={cx('game-tile', !game.available && 'game-tile--unavailable')}
+      data-chunk-start={chunkStart}
+    >
       <div className="game-tile__cover">
         <button
           type="button"
           className="game-tile__open"
-          aria-label={format(text.details, { title: game.title })}
+          aria-label={format(game.available ? text.details : text.detailsUnavailable, {
+            title: game.title,
+          })}
           onClick={() => open({ kind: 'game', id: game.id })}
         >
-          <GameCover id={game.id} title={game.title} coverPath={game.cover_path} size="large" />
+          <GameCover
+            id={game.id}
+            title={game.title}
+            coverPath={game.cover_path}
+            size="large"
+            unavailable={!game.available}
+          />
         </button>
         {isAdmin ? (
           <Menu

@@ -45,6 +45,7 @@ const GAME: Game = {
   cover_source_path: null,
   cover_crop: null,
   play_count: null,
+  available: true,
 };
 
 const TEMPLATE: ScorePadTemplate = {
