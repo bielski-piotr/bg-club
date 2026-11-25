@@ -44,6 +44,11 @@ export default tseslint.config(
   },
   { files: [...SOLID_GLOBS], ...solid },
   {
+    // Testy Solid czytają sygnały imperatywnie po `flush()` (asercje), poza zakresem śledzenia.
+    files: ['apps/web/src/solid/**/*.test.tsx'],
+    rules: { 'solid/reactivity': 'off' },
+  },
+  {
     // Szablon service workera (NFR-3): kontekst workera, nie okna.
     files: ['apps/web/src/pwa/sw.js'],
     languageOptions: { globals: { ...globals.serviceworker } },

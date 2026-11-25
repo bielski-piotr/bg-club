@@ -129,19 +129,39 @@ Ustalenia na kolejne etapy:
   nie `getBy…` od razu po `fireEvent`. Zmiany z Reacta (propsy) są widoczne synchronicznie.
 - Toasty z Solid: komunikat tekstowy (`ToastApi` przyjmuje `ReactNode`, Solid nie wyrenderuje elementu Reacta).
 - **Bundle:** runtime Solid w początkowym pakiecie to **+22,7 KB gzip** (pomiar z tymczasową wyspą w hubie:
-  190,5 → 213,2 KB przy limicie 215 KB). Pierwszy widżet w Solid (etap 2) przekroczy limit. Do decyzji przed etapem 2:
-  tymczasowo podnieść `JS_LIMIT_KB` (np. do 240 z notatką i powrotem po etapie 8, gdy zniknie React ≈ 60 KB gzip)
-  albo najpierw migrować obszary bez widżetu (popupy są w leniwym fragmencie `HubPopup`).
+  190,5 → 213,2 KB przy limicie 215 KB). Decyzja: `JS_LIMIT_KB` tymczasowo 240 (`scripts/check-bundle.mjs`);
+  w etapie 8, po usunięciu Reacta, wraca do 215 albo niżej.
 
-### Etap 1 – wspólne UI w Solid
+### Etap 1 – wspólne UI w Solid ✅
 
-`ui/` (Button, Card, Icon, Badge, Avatar, Feedback/Banner/Skeleton/Spinner/EmptyState, Field, Select, Choice,
-Controls, Menu, Modal, Tabs, ShowMore, Toast-API) + `popups/` po stronie wyspy (`PopupLink`, `PopupModal`,
-`PopupDialog`, `QueryStatus`, `useLeaveGuard` → `createLeaveGuard`, `InvalidPopup`).
+Zrobione (`src/solid/ui/`, `src/solid/popups/`; nadal bez kodu Solid w buildzie):
 
-- Ten sam DOM i klasy CSS co wersja React – porównanie przez `ui/components.test.tsx` uruchomione dla obu wersji (te same asercje, dwa renderery) i `design-system.spec.ts`.
-- Szczególna uwaga: `Field`/`Select`/`Choice` (zasada draft signal), `Menu` (fokus, klawiatura, `onFlush` przy zamykaniu przed `onSelect`), `Modal` (`data-popup-level`, fokus, `inert`).
-- Wersje React zostają, dopóki mają konsumentów (usuwane w etapie 8).
+- `ui/`: Avatar, AvatarStack, Badge, StatusChip, MetaChip, Button, IconButton, TextLink, Card, Tray, ListRow, Checkbox,
+  RadioGroup, SegmentedControl, ChipGroup, ColorSwatches, Switch, Slider, Banner, EmptyState, Skeleton, FieldFrame,
+  TextField, PasswordField, SearchField, Stepper, Icon (ikony jako funkcje: w Solid JSX tworzy węzły od razu), Menu, Modal,
+  Dialog, Select, ShowMore, Spinner, Tabs, `createChunks`. Pliki bez JSX (`avatarUtils`, `search`, `fieldIds`, `focusable`)
+  i CSS są wspólne z Reactem. `Toast`/`ToastProvider` zostają w React do etapu 8: wyspy pokazują toasty przez `ToastContext`.
+- `popups/`: `PopupLink` (+ `isPlainClick`), `PopupModal`, `PopupDialog`, `QueryStatus`, `InvalidPopup`, `createLeaveGuard`,
+  `createMounted`; mostek przekazuje też `PopupGuardsContext`.
+- Różnice API względem `src/ui`: `class` zamiast `className` (tablica/obiekt); pola tekstowe `value` + `onInput`;
+  `readonly`, `tabindex`, `autocomplete` małymi literami; `Menu.trigger(props, open)` dostaje `open` jako akcesor, a `props`
+  z getterami (rozłożyć na przycisku); `Tabs` – funkcja treści; `Skeleton` – szerokość/wysokość jako liczba (px) albo tekst.
+- Testy: `src/solid/ui/parity.test.tsx` – ten sam znormalizowany DOM w React i Solid dla 23 zestawów (w tym otwarty `Select`
+  z wyszukiwarką i bez, otwarte `Menu`) i 41 ikon; `src/solid/ui/components.test.tsx` – przypadki z `src/ui/components.test.tsx`
+  i `chunks.test.tsx` plus sterowanie polami, `ref`, pułapka fokusu w `Modal`, zamknięcie `Menu` w trakcie `action` i bramka
+  `expectNoDiagnostics`; `src/bridge/solidPopups.test.tsx` – popupy Solid na stosie Reacta (←, ×, linki, ochrona wyjścia, fokus).
+
+Ustalenia:
+
+- Opcjonalne elementy z propsów (`action`, `footer`, `lead`…) rozwiązuje `createSlot` (`src/solid/ui/dom.ts`): każdy odczyt
+  `props.action` tworzy węzły od nowa, więc `<Show when={props.action}>{props.action}</Show>` zbudowałby je dwa razy.
+- Pola wyboru są sterowane propsem: po kliknięciu natywny stan wraca do propsa (`event.currentTarget.checked = props.checked`).
+- Atrybuty ARIA z wartością logiczną zapisujemy tekstem (`ariaBool`): Solid usuwa atrybut dla `false`.
+- `Menu` zamyka się przez `onFlush`, nie zwykłym zapisem: zapis z tej samej klatki co akcja z `onSelect` zostałby wstrzymany
+  razem z nią (sprawdzone testem). Zamknięcie ląduje w mikrozadaniu – w testach `await` przed asercją.
+- Efekty (nasłuchy klawiatury, fokus) startują po pierwszym flushu: test bez interakcji wywołuje `flush()` po renderze.
+- `Collection.test.tsx` („admin ustawia grę jako niedostępną…”) bywa niestabilny już przed migracją: na `55ec68b` trwa ≈ 5,0 s
+  przy limicie 5 s. Do naprawy osobno (poza migracją).
 
 ### Etap 2 – Członkowie (pilotaż)
 

@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/query-core';
 import { createContext } from 'solid-js';
 import type { AuthContextValue } from '../auth/authContext';
-import type { PopupApi, PopupLevel } from '../popups/popupContext';
+import type { PopupApi, PopupGuards, PopupLevel } from '../popups/popupContext';
 import type { ToastApi } from '../ui/toastContext';
 
 /*
@@ -17,6 +17,7 @@ export interface IslandHost {
   readonly auth?: AuthContextValue | undefined;
   readonly popups?: PopupApi | undefined;
   readonly popupLevel?: PopupLevel | undefined;
+  readonly popupGuards?: PopupGuards | undefined;
   readonly toast?: ToastApi | undefined;
 }
 
@@ -28,5 +29,7 @@ export const AuthContext = createContext<AuthContextValue>();
 export const PopupsContext = createContext<PopupApi>();
 /** Poziom popupu na stosie (`PopupHost`); `covered` jest reaktywny. */
 export const PopupLevelContext = createContext<PopupLevel>();
+/** Ochrony popupów przed zamknięciem (`PopupRouter`, `createLeaveGuard`). */
+export const PopupGuardsContext = createContext<PopupGuards>();
 /** Toasty (`ToastProvider`); w Solid komunikat jest tekstem. */
 export const ToastContext = createContext<ToastApi>();

@@ -2,7 +2,7 @@ import { QueryClientContext } from '@tanstack/react-query';
 import { useContext, useLayoutEffect, useRef } from 'react';
 import type { Component } from 'solid-js';
 import { AuthContext } from '../auth/authContext';
-import { PopupContext, PopupLevelContext } from '../popups/popupContext';
+import { PopupContext, PopupGuardsContext, PopupLevelContext } from '../popups/popupContext';
 import type { IslandHost } from '../solid/context';
 import { mountIsland, type Island } from '../solid/island';
 import { ToastContext } from '../ui/toastContext';
@@ -21,6 +21,7 @@ function useIslandHost(): IslandHost {
     auth: useContext(AuthContext) ?? undefined,
     popups: useContext(PopupContext) ?? undefined,
     popupLevel: useContext(PopupLevelContext) ?? undefined,
+    popupGuards: useContext(PopupGuardsContext) ?? undefined,
     toast: useContext(ToastContext) ?? undefined,
   };
 }

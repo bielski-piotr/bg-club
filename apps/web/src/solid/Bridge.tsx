@@ -2,6 +2,7 @@
 import type { JSX } from '@solidjs/web';
 import {
   AuthContext,
+  PopupGuardsContext,
   PopupLevelContext,
   PopupsContext,
   QueryClientContext,
@@ -25,9 +26,11 @@ export function Bridge(props: { readonly providers: IslandHost; readonly childre
       <AuthContext value={props.providers.auth as Provided<'auth'>}>
         <PopupsContext value={props.providers.popups as Provided<'popups'>}>
           <PopupLevelContext value={props.providers.popupLevel as Provided<'popupLevel'>}>
-            <ToastContext value={props.providers.toast as Provided<'toast'>}>
-              {props.children}
-            </ToastContext>
+            <PopupGuardsContext value={props.providers.popupGuards as Provided<'popupGuards'>}>
+              <ToastContext value={props.providers.toast as Provided<'toast'>}>
+                {props.children}
+              </ToastContext>
+            </PopupGuardsContext>
           </PopupLevelContext>
         </PopupsContext>
       </AuthContext>

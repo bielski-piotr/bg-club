@@ -8,8 +8,13 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const DIST = join(import.meta.dirname, '..', 'dist');
-/** Limit JS po gzip (KB). Pomiar [040]: ≈ 182 KB (przed podziałem 240 KB); zapas na rozwój bez cofnięcia podziału. */
-const JS_LIMIT_KB = 215;
+/**
+ * Limit JS po gzip (KB). Pomiar [040]: ≈ 182 KB (przed podziałem 240 KB); zapas na rozwój bez cofnięcia
+ * podziału. Tymczasowo 240 zamiast 215 na czas migracji na Solid 2.0 (docs/solidjs-2-migration.md):
+ * w początkowym pakiecie są oba runtime'y (Solid ≈ 23 KB). Po usunięciu Reacta (etap 8) wraca do 215
+ * albo niżej.
+ */
+const JS_LIMIT_KB = 240;
 /** Limit CSS po gzip (KB). Pomiar [040]: ≈ 15 KB. */
 const CSS_LIMIT_KB = 30;
 /** Moduły, które nie mogą trafić do początkowego pakietu (źródła z mapy). */

@@ -1,5 +1,8 @@
 /** @jsxImportSource @solidjs/web */
-import { createSignal, onSettled, useContext } from 'solid-js';
+import { createSignal, onSettled, Show, useContext } from 'solid-js';
+import { createLeaveGuard } from '../popups/leaveGuard';
+import { PopupLink } from '../popups/PopupLink';
+import { PopupModal } from '../popups/PopupModal';
 import { PopupLevelContext, PopupsContext } from '../context';
 import { createQuery } from '../query';
 
@@ -68,5 +71,32 @@ export function StackPopup(props: { readonly title: string }) {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Popup na `PopupModal` z linkiem dalej i ochroną wyjścia przy niezapisanych zmianach. */
+export function GuardedPopup(props: { readonly title: string }) {
+  const [dirty, setDirty] = createSignal(false);
+  const [pending, setPending] = createSignal<(() => void) | null>(null);
+  createLeaveGuard(() => (dirty() ? (leave) => setPending(() => leave) : null));
+  return (
+    <PopupModal title={props.title}>
+      <PopupLink to={{ kind: 'settings' }}>Ustawienia</PopupLink>
+      <label>
+        Zmiany{' '}
+        <input
+          type="checkbox"
+          checked={dirty()}
+          onChange={(e) => setDirty(e.currentTarget.checked)}
+        />
+      </label>
+      <Show when={pending()}>
+        {(leave) => (
+          <button type="button" onClick={() => leave()()}>
+            Odrzuć zmiany
+          </button>
+        )}
+      </Show>
+    </PopupModal>
   );
 }

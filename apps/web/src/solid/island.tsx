@@ -59,6 +59,7 @@ function hostState(host: IslandHost): IslandState['host'] {
     auth: copy(host.auth),
     popups: copy(host.popups),
     popupLevel: copy(host.popupLevel),
+    popupGuards: copy(host.popupGuards),
     toast: copy(host.toast),
   };
 }
@@ -89,6 +90,7 @@ function providersFor(initial: IslandHost, state: IslandState): IslandHost {
     auth: field('auth'),
     popups: field('popups'),
     popupLevel: field('popupLevel'),
+    popupGuards: field('popupGuards'),
     toast: field('toast'),
   };
 }
