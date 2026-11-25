@@ -1,10 +1,11 @@
-import { useSyncExternalStore } from 'react';
+/** @jsxImportSource @solidjs/web */
+import { createMemo, createSignal, For, onSettled, Show, type Accessor } from 'solid-js';
 import { format, formatNumber, plural, t } from '../i18n';
-import { ProfileAvatar } from '../react-shared/ProfileAvatar';
-import { ProfileLink } from '../react-shared/ProfileLink';
-import { fullName, type Profile } from '../react-shared/profiles';
-import { Badge, type AvatarSize } from '../ui';
-import { cx } from '../ui/cx';
+import { fullName, type Profile } from '../profile/profileQueries';
+import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
+import { ProfileLink } from '../solid/profile/ProfileLink';
+import { Badge, type AvatarSize } from '../solid/ui';
+import { ariaTrue } from '../solid/ui/dom';
 import {
   leaderboardLayout,
   widgetRows,
@@ -19,20 +20,17 @@ const WIDGET_TIED_AVATARS = 3;
 
 const DESKTOP = '(min-width: 768px)';
 
-function subscribe(onChange: () => void) {
-  if (typeof window.matchMedia !== 'function') return () => undefined;
-  const query = window.matchMedia(DESKTOP);
-  query.addEventListener('change', onChange);
-  return () => query.removeEventListener('change', onChange);
-}
-
 /** Szerokość od 768 px: większe awatary podium (DS §8: 104 i 80; na telefonie 80 i 64). */
-function useDesktop(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => typeof window.matchMedia === 'function' && window.matchMedia(DESKTOP).matches,
-    () => false,
-  );
+function createDesktop(): Accessor<boolean> {
+  const query = typeof window.matchMedia === 'function' ? window.matchMedia(DESKTOP) : undefined;
+  const [desktop, setDesktop] = createSignal(query?.matches ?? false);
+  onSettled(() => {
+    if (!query) return;
+    const onChange = () => setDesktop(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  });
+  return desktop;
 }
 
 /** Profil do awatara: hook z listy profili (kolor monogramu, USR-2), reszta z wiersza rankingu. */
@@ -46,13 +44,12 @@ function avatarProfile(entry: LeaderboardEntry, profiles: ReadonlyMap<string, Pr
   };
 }
 
-function Score({ kind, value }: { readonly kind: LeaderboardKind; readonly value: number }) {
+function Score(props: { readonly kind: LeaderboardKind; readonly value: number }) {
   // Formy jednostki nie zawierają `{n}`: liczba stoi osobno, większą czcionką (DS §6).
-  const unit = plural(value, t.leaderboard.units[kind]);
   return (
-    <span className="score leaderboard__score">
-      {formatNumber(value)}
-      <span className="score__unit">{unit}</span>
+    <span class="score leaderboard__score">
+      {formatNumber(props.value)}
+      <span class="score__unit">{plural(props.value, t.leaderboard.units[props.kind])}</span>
     </span>
   );
 }
@@ -72,194 +69,199 @@ interface BoardProps {
  * jednym stopniu (LB-6), usunięci są wyszarzeni na końcu listy (LB-7), bieżący użytkownik ma
  * wiersz akcentu i odznakę „Ty”. Każdy awatar prowadzi do profilu (PRD §4).
  */
-export function LeaderboardBoard({ entries, kind, meId, profiles, variant }: BoardProps) {
-  const { steps, rows } = leaderboardLayout(entries);
-  const desktop = useDesktop();
-  const { shown, own } =
-    variant === 'widget' ? widgetRows(rows, meId) : { shown: rows, own: undefined };
-  const listed = own ? [...shown, own] : shown;
+export function LeaderboardBoard(props: BoardProps) {
+  const desktop = createDesktop();
+  const layout = createMemo(() => {
+    const { steps, rows } = leaderboardLayout(props.entries);
+    const { shown, own } =
+      props.variant === 'widget' ? widgetRows(rows, props.meId) : { shown: rows, own: undefined };
+    return { steps, own, listed: own ? [...shown, own] : shown };
+  });
 
   return (
-    <div className={cx('leaderboard', `leaderboard--${variant}`)}>
-      {steps.length > 0 ? (
-        <ol className="podium" aria-label={t.leaderboard.podiumLabel}>
-          {steps.map((step, index) => (
-            <PodiumColumn
-              key={step.place}
-              step={step}
-              index={index}
-              kind={kind}
-              meId={meId}
-              profiles={profiles}
-              desktop={desktop}
-              limit={variant === 'widget' ? WIDGET_TIED_AVATARS : undefined}
-            />
-          ))}
+    <div class={['leaderboard', `leaderboard--${props.variant}`]}>
+      <Show when={layout().steps.length > 0}>
+        <ol class="podium" aria-label={t.leaderboard.podiumLabel}>
+          <For each={layout().steps} keyed={(step) => step.place}>
+            {(step, index) => (
+              <PodiumColumn
+                step={step()}
+                first={index() === 0}
+                kind={props.kind}
+                meId={props.meId}
+                profiles={props.profiles}
+                desktop={desktop()}
+                limit={props.variant === 'widget' ? WIDGET_TIED_AVATARS : undefined}
+              />
+            )}
+          </For>
         </ol>
-      ) : null}
-      {listed.length > 0 ? (
-        <ul className="tray leaderboard__list" aria-label={t.leaderboard.listLabel}>
-          {listed.map((entry) => (
-            <LeaderboardRow
-              key={entry.profile_id}
-              entry={entry}
-              kind={kind}
-              me={entry.profile_id === meId}
-              separated={entry === own}
-              profiles={profiles}
-            />
-          ))}
+      </Show>
+      <Show when={layout().listed.length > 0}>
+        <ul class="tray leaderboard__list" aria-label={t.leaderboard.listLabel}>
+          <For each={layout().listed} keyed={(entry) => entry.profile_id}>
+            {(entry) => (
+              <LeaderboardRow
+                entry={entry()}
+                kind={props.kind}
+                me={entry().profile_id === props.meId}
+                separated={entry() === layout().own}
+                profiles={props.profiles}
+              />
+            )}
+          </For>
         </ul>
-      ) : null}
+      </Show>
     </div>
   );
 }
 
-function PodiumColumn({
-  step,
-  index,
-  kind,
-  meId,
-  profiles,
-  desktop,
-  limit,
-}: {
+function PodiumColumn(props: {
   readonly step: PodiumStep;
-  readonly index: number;
+  readonly first: boolean;
   readonly kind: LeaderboardKind;
   readonly meId: string;
   readonly profiles: ReadonlyMap<string, Profile>;
   readonly desktop: boolean;
   readonly limit: number | undefined;
 }) {
-  const first = index === 0;
-  const tied = step.entries.length > 1;
-  // Pojedyncza osoba: DS §8 (104 i 80, na telefonie 80 i 64); remis: mniejsze, żeby się zmieściły.
-  const size: AvatarSize = tied
-    ? first && desktop
-      ? 56
-      : 40
-    : first
-      ? desktop
-        ? 104
-        : 80
-      : desktop
-        ? 80
-        : 64;
-  const visible = limit === undefined ? step.entries : step.entries.slice(0, limit);
-  const hidden = step.entries.slice(visible.length);
-  const value = step.entries[0]?.value ?? 0;
-  const mine = step.entries.some((entry) => entry.profile_id === meId);
-  const names = step.entries.map((entry) => entry.first_name);
-  const shownNames = visible.map((entry) => entry.first_name);
+  const view = createMemo(() => {
+    const entries = props.step.entries;
+    const tied = entries.length > 1;
+    // Pojedyncza osoba: DS §8 (104 i 80, na telefonie 80 i 64); remis: mniejsze, żeby się zmieściły.
+    const size: AvatarSize = tied
+      ? props.first && props.desktop
+        ? 56
+        : 40
+      : props.first
+        ? props.desktop
+          ? 104
+          : 80
+        : props.desktop
+          ? 80
+          : 64;
+    const visible = props.limit === undefined ? entries : entries.slice(0, props.limit);
+    const hidden = entries.slice(visible.length);
+    const names = entries.map((entry) => entry.first_name);
+    const shownNames = visible.map((entry) => entry.first_name);
+    return {
+      tied,
+      size,
+      visible,
+      hidden,
+      value: entries[0]?.value ?? 0,
+      mine: entries.some((entry) => entry.profile_id === props.meId),
+      fullNames: entries.map(fullName).join(', '),
+      caption:
+        hidden.length > 0
+          ? `${shownNames.join(', ')} ${format(t.leaderboard.more, { n: hidden.length })}`
+          : names.join(', '),
+    };
+  });
 
   return (
     <li
-      className={cx(
+      class={[
         'podium__step',
         // Stopień według miejsca, nie pozycji: przy remisie 1, 1, 3 trzeci stoi na 3. stopniu.
-        `podium__step--${step.place}`,
-        tied && 'podium__step--tied',
-        mine && 'podium__step--mine',
-      )}
+        `podium__step--${props.step.place}`,
+        { 'podium__step--tied': view().tied, 'podium__step--mine': view().mine },
+      ]}
     >
-      <span className="sr-only">
-        {format(t.leaderboard.place, { place: step.place })}
-        {tied ? `, ${plural(step.entries.length, t.leaderboard.tied)}` : null}:{' '}
-        {step.entries.map(fullName).join(', ')}
+      <span class="sr-only">
+        {format(t.leaderboard.place, { place: props.step.place })}
+        {view().tied ? `, ${plural(props.step.entries.length, t.leaderboard.tied)}` : null}:{' '}
+        {view().fullNames}
       </span>
-      <div className="podium__people">
-        {first ? (
-          <svg className="podium__crown" viewBox="0 0 36 26" aria-hidden="true">
+      <div class="podium__people">
+        <Show when={props.first}>
+          <svg class="podium__crown" viewBox="0 0 36 26" aria-hidden="true">
             <path d="M2 8L10 15L18 2L26 15L34 8L31 24H5L2 8Z" />
           </svg>
-        ) : null}
-        <ul className="podium__avatars">
-          {visible.map((entry) => (
-            <li key={entry.profile_id} className="podium__avatar">
-              <ProfileLink id={entry.profile_id} name={fullName(entry)}>
-                <ProfileAvatar
-                  profile={avatarProfile(entry, profiles)}
-                  size={size}
-                  ring="accent"
-                  decorative
-                />
-              </ProfileLink>
-            </li>
-          ))}
-          {hidden.length > 0 ? (
+        </Show>
+        <ul class="podium__avatars">
+          <For each={view().visible} keyed={(entry) => entry.profile_id}>
+            {(entry) => (
+              <li class="podium__avatar">
+                <ProfileLink id={entry().profile_id} name={fullName(entry())}>
+                  <ProfileAvatar
+                    profile={avatarProfile(entry(), props.profiles)}
+                    size={view().size}
+                    ring="accent"
+                    decorative
+                  />
+                </ProfileLink>
+              </li>
+            )}
+          </For>
+          <Show when={view().hidden.length > 0}>
             <li
-              className="podium__more tnum"
+              class="podium__more tnum"
               aria-label={format(t.leaderboard.moreLabel, {
-                names: hidden.map(fullName).join(', '),
+                names: view().hidden.map(fullName).join(', '),
               })}
             >
-              +{hidden.length}
+              +{view().hidden.length}
             </li>
-          ) : null}
+          </Show>
         </ul>
-        <span className="podium__badge tnum" aria-hidden="true">
-          {step.place}
+        <span class="podium__badge tnum" aria-hidden="true">
+          {props.step.place}
         </span>
       </div>
-      <div className="podium__block" aria-hidden="true">
-        <span className="podium__name" title={step.entries.map(fullName).join(', ')}>
-          {hidden.length > 0
-            ? `${shownNames.join(', ')} ${format(t.leaderboard.more, { n: hidden.length })}`
-            : names.join(', ')}
+      <div class="podium__block" aria-hidden="true">
+        <span class="podium__name" title={view().fullNames}>
+          {view().caption}
         </span>
-        {mine ? <Badge tone="accent">{t.ui.youBadge}</Badge> : null}
-        <span className="podium__value">
-          <Score kind={kind} value={value} />
+        <Show when={view().mine}>
+          <Badge tone="accent">{t.ui.youBadge}</Badge>
+        </Show>
+        <span class="podium__value">
+          <Score kind={props.kind} value={view().value} />
         </span>
       </div>
     </li>
   );
 }
 
-function LeaderboardRow({
-  entry,
-  kind,
-  me,
-  separated,
-  profiles,
-}: {
+function LeaderboardRow(props: {
   readonly entry: LeaderboardEntry;
   readonly kind: LeaderboardKind;
   readonly me: boolean;
   readonly separated: boolean;
   readonly profiles: ReadonlyMap<string, Profile>;
 }) {
-  const name = fullName(entry);
+  const name = () => fullName(props.entry);
   return (
-    <li className={cx('tray__item', separated && 'leaderboard__own')}>
+    <li class={['tray__item', { leaderboard__own: props.separated }]}>
       <div
-        className={cx(
+        class={[
           'row row--54 leaderboard__row',
-          me && 'row--highlighted',
-          entry.deleted && 'row--muted',
-        )}
+          { 'row--highlighted': props.me, 'row--muted': props.entry.deleted },
+        ]}
       >
-        <span className="rank" aria-hidden={entry.deleted || undefined}>
-          {entry.deleted ? '–' : entry.place}
+        <span class="rank" aria-hidden={ariaTrue(props.entry.deleted)}>
+          {props.entry.deleted ? '–' : props.entry.place}
         </span>
-        <ProfileLink id={entry.profile_id} name={name} className="leaderboard__avatar">
+        <ProfileLink id={props.entry.profile_id} name={name()} class="leaderboard__avatar">
           <ProfileAvatar
-            profile={avatarProfile(entry, profiles)}
+            profile={avatarProfile(props.entry, props.profiles)}
             size={36}
-            ring={me ? 'white' : undefined}
+            ring={props.me ? 'white' : undefined}
             decorative
           />
         </ProfileLink>
-        <span className="row__text">
-          <span className="row__title leaderboard__name">
-            <span className="leaderboard__name-text" title={name}>
-              {entry.deleted ? `${name} ${t.ui.removedSuffix}` : name}
+        <span class="row__text">
+          <span class="row__title leaderboard__name">
+            <span class="leaderboard__name-text" title={name()}>
+              {props.entry.deleted ? `${name()} ${t.ui.removedSuffix}` : name()}
             </span>
-            {me ? <Badge onAccent>{t.ui.youBadge}</Badge> : null}
+            <Show when={props.me}>
+              <Badge onAccent>{t.ui.youBadge}</Badge>
+            </Show>
           </span>
         </span>
-        <Score kind={kind} value={entry.value} />
+        <Score kind={props.kind} value={props.entry.value} />
       </div>
     </li>
   );

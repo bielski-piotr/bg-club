@@ -1,13 +1,24 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+/** @jsxImportSource @solidjs/web */
+import { fireEvent as fire, render, screen, within } from '@solidjs/testing-library';
+import { createSignal, flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import { DateRangeCalendar } from './DateRangeCalendar';
 import { pickDay, yearsPageStart } from './rangeCalendar';
 
 function renderCalendar(from: string | null = null, to: string | null = null) {
   const onChange = vi.fn();
-  render(<DateRangeCalendar from={from} to={to} today="2026-11-23" onChange={onChange} />);
+  render(() => <DateRangeCalendar from={from} to={to} today="2026-11-23" onChange={onChange} />);
+  flush();
   return onChange;
 }
+
+/** Kliknięcie i zastosowanie zmian Solid przed asercją. */
+const fireEvent = {
+  click: (element: HTMLElement) => {
+    fire.click(element);
+    flush();
+  },
+};
 
 const day = (label: RegExp) => screen.getByRole('button', { name: label });
 
@@ -43,6 +54,28 @@ describe('kalendarz zakresu dat', () => {
     // Siatka listopada 2026 kończy się w niedzielę 6 grudnia.
     fireEvent.click(day(/6 grudnia 2026/));
     expect(onChange).toHaveBeenLastCalledWith('2026-12-06', '2026-12-06');
+    expect(
+      screen.getByRole('button', { name: /Wybierz miesiąc \(Grudzień\)/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('sterowany zakres: wybór dnia z sąsiedniego miesiąca nie cofa widoku do początku zakresu', () => {
+    const [range, setRange] = createSignal<{ from: string | null; to: string | null }>({
+      from: null,
+      to: null,
+    });
+    render(() => (
+      <DateRangeCalendar
+        from={range().from}
+        to={range().to}
+        today="2026-11-23"
+        onChange={(from, to) => setRange({ from, to })}
+      />
+    ));
+    flush();
+    fireEvent.click(day(/10 listopada 2026/));
+    fireEvent.click(day(/6 grudnia 2026/));
+    expect(range()).toEqual({ from: '2026-11-10', to: '2026-12-06' });
     expect(
       screen.getByRole('button', { name: /Wybierz miesiąc \(Grudzień\)/ }),
     ).toBeInTheDocument();

@@ -223,12 +223,29 @@ Ustalenia (reguły na kolejne etapy):
   (sprawdza to `src/solid/island.test.tsx`).
 - Bundle: początkowy JS 230,9 KB gzip (limit 240).
 
-### Etap 4 – Ranking
+### Etap 4 – Ranking ✅
 
-- Widżet: `RankingWidget`.
-- Popupy: `leaderboard`, `leaderboard-ties` (`LeaderboardPopup`, `LeaderboardBoard`, `FilterBar`, `FilterPopover`, `GameFilter`, `DateRangeCalendar`, `BoardStatus`, `TiesPopup`).
-- Ryzyka: filtry w adresie/stanie (store zamiast kilku `useState`), podium (`fix(leaderboard)` – stałe wysokości), kalendarz zakresu.
-- Testy: `LeaderboardBoard.test.tsx`, `DateRangeCalendar.test.tsx`, `leaderboard.test.ts`; e2e `leaderboard.spec.ts`.
+Zrobione:
+
+- `src/leaderboard/` w Solid (`SOLID_DIRS`): `RankingWidget`, `LeaderboardPopup`, `LeaderboardBoard`, `TiesPopup`,
+  `BoardStatus`; `FilterBar`, `FilterPopover`, `GameFilter`, `DateRangeCalendar` przeniesione z `src/solid/leaderboard/`.
+  `Hub` i `HubPopup` montują obszar przez `SolidIsland`. Dane: `leaderboardQuery` (opcje bez frameworka) i
+  `createBoardData(kind, filters)`; tytuły gier filtrów: `gameTitles.ts` (`createGameTitles`).
+- `react-shared/FilterPopover.tsx`, `react-shared/GameFilter.tsx`: wersje React dla `MeetingSummary` (do etapu 6).
+  React `FilterBar` i `DateRangeCalendar` usunięte (przypadki w `shared-parity.test.tsx` też).
+- Testy: `LeaderboardBoard.test.tsx` i `DateRangeCalendar.test.tsx` na `renderSolid`/`render` Solid (te same asercje
+  - sterowany zakres), `leaderboard-area.test.tsx` (bramka bez diagnostyki).
+
+Ustalenia:
+
+- **Błąd z etapu 3 naprawiony:** `DateRangeCalendar` trzymał miesiąc w pochodnym sygnale z `props.from`, więc każdy wybór
+  dnia cofał widok do miesiąca początku zakresu (dzień z sąsiedniego miesiąca nie przełączał kalendarza – także w profilu).
+  Wartość startowa stanu lokalnego z propsa = `createSignal(untrack(() => …))`, nie `createSignal(() => …)`. Test jednostkowy
+  ze statycznymi propsami tego nie łapał; nowy przypadek steruje zakresem sygnałem.
+- Bundle: początkowy JS 232,7 KB gzip (limit 240).
+- **Nie dokończone:** pełny przebieg e2e po poprawce kalendarza przerwany; przed poprawką padał tylko
+  `leaderboard.spec.ts:171` (kalendarz, przyczyna wyżej) oraz `new-play.spec.ts:332` i `perf.spec.ts` (poza obszarem, do sprawdzenia).
+  Do powtórzenia: e2e leaderboard, player-stats, profile, hub, a11y-audit, smoke, meetings.
 
 ### Etap 5 – Kolekcja, gry, arkusze i notesy
 

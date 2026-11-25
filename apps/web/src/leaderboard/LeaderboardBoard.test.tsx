@@ -1,10 +1,14 @@
+/** @jsxImportSource @solidjs/web */
+import { screen, within } from '@solidjs/testing-library';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { AuthContext, type AuthContextValue } from '../auth/authContext';
-import { PopupRouter } from '../popups/PopupRouter';
-import type { Profile } from '../react-shared/profiles';
+import { QueryClient } from '@tanstack/query-core';
+import { flush } from 'solid-js';
+import { describe, expect, it, vi } from 'vitest';
+import type { AuthContextValue } from '../auth/authContext';
+import type { PopupApi } from '../popups/popupContext';
+import { stackSearch } from '../popups/routes';
+import type { Profile } from '../profile/profileQueries';
+import { renderSolid } from '../solid/testing';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import type { LeaderboardEntry } from './leaderboard';
 
@@ -56,21 +60,29 @@ function renderBoard(
     client: {} as SupabaseClient,
     state: { status: 'signedIn', session: { user: { id: meId } } },
   } as unknown as AuthContextValue;
-  return render(
-    <QueryClientProvider client={new QueryClient()}>
-      <AuthContext.Provider value={auth}>
-        <PopupRouter>
-          <LeaderboardBoard
-            entries={entries}
-            kind={kind}
-            meId={meId}
-            profiles={profilesOf(entries)}
-            variant={variant}
-          />
-        </PopupRouter>
-      </AuthContext.Provider>
-    </QueryClientProvider>,
+  const popups: PopupApi = {
+    stack: [],
+    open: vi.fn(),
+    back: vi.fn(),
+    backBy: vi.fn(),
+    replace: vi.fn(),
+    closeAll: vi.fn(),
+    hrefFor: (route) => `/${stackSearch('', [route])}`,
+  };
+  const result = renderSolid(
+    () => (
+      <LeaderboardBoard
+        entries={entries}
+        kind={kind}
+        meId={meId}
+        profiles={profilesOf(entries)}
+        variant={variant}
+      />
+    ),
+    { queryClient: new QueryClient(), auth, popups },
   );
+  flush();
+  return result;
 }
 
 const BOARD = [

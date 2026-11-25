@@ -1,9 +1,10 @@
-import { useId, useMemo, useState, type KeyboardEvent } from 'react';
+/** @jsxImportSource @solidjs/web */
+import { createMemo, createSignal, createUniqueId, For, Match, Switch } from 'solid-js';
 import type { Game } from '../games/games';
 import { t } from '../i18n';
-import { Icon } from '../ui';
 import { gameOptions, type GameOption } from './gameOptions';
-import { cx } from '../ui/cx';
+import { ariaBool } from '../solid/ui/dom';
+import { Icon } from '../solid/ui/Icon';
 import '../ui/Choice.css';
 
 export interface GameFilterPanelProps {
@@ -17,56 +18,55 @@ export interface GameFilterPanelProps {
  * Wyszukiwarka gier z autouzupełnianiem (combobox + lista wielokrotnego wyboru). Strzałki
  * przesuwają podświetlenie, Enter zaznacza albo odznacza grę; kliknięcie działa tak samo.
  */
-export function GameFilterPanel({ games, failed, selected, onChange }: GameFilterPanelProps) {
+export function GameFilterPanel(props: GameFilterPanelProps) {
   const text = t.leaderboard.filters;
-  const id = useId();
-  const [query, setQuery] = useState('');
-  const [active, setActive] = useState(0);
-  const options = useMemo(
-    () => gameOptions(games ?? [], selected, query),
-    [games, selected, query],
-  );
-  const chosen = new Set(selected);
+  const id = createUniqueId();
+  const [query, setQuery] = createSignal('');
+  const [active, setActive] = createSignal(0);
+  const options = createMemo(() => gameOptions(props.games ?? [], props.selected, query()));
+  const chosen = createMemo(() => new Set(props.selected));
   const optionId = (index: number) => `${id}-opt-${index}`;
 
   const toggle = (option: GameOption | undefined) => {
     if (!option) return;
-    onChange(
-      chosen.has(option.id) ? selected.filter((g) => g !== option.id) : [...selected, option.id],
+    props.onChange(
+      chosen().has(option.id)
+        ? props.selected.filter((g) => g !== option.id)
+        : [...props.selected, option.id],
     );
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       const delta = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((index) => Math.max(0, Math.min(options.length - 1, index + delta)));
+      setActive((index) => Math.max(0, Math.min(options().length - 1, index + delta)));
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      toggle(options[active]);
+      toggle(options()[active()]);
     }
   };
 
   return (
-    <div className="game-filter">
-      <div className="select__search">
-        <Icon name="search" className="select__search-icon" />
+    <div class="game-filter">
+      <div class="select__search">
+        <Icon name="search" class="select__search-icon" />
         <input
-          data-autofocus
+          data-autofocus="true"
           type="text"
           role="combobox"
-          className="select__search-control"
+          class="select__search-control"
           aria-label={text.gamesSearch}
           aria-expanded="true"
           aria-controls={`${id}-list`}
           aria-autocomplete="list"
-          aria-activedescendant={options[active] ? optionId(active) : undefined}
+          aria-activedescendant={options()[active()] ? optionId(active()) : undefined}
           placeholder={text.gamesSearch}
-          autoComplete="off"
-          spellCheck={false}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
+          autocomplete="off"
+          spellcheck="false"
+          value={query()}
+          onInput={(event) => {
+            setQuery(event.currentTarget.value);
             setActive(0);
           }}
           onKeyDown={onKeyDown}
@@ -77,48 +77,53 @@ export function GameFilterPanel({ games, failed, selected, onChange }: GameFilte
         role="listbox"
         aria-multiselectable="true"
         aria-label={text.games}
-        className="select__options game-filter__options"
+        class="select__options game-filter__options"
       >
-        {failed ? (
-          <li className="menu__empty" role="presentation">
-            {text.gamesError}
-          </li>
-        ) : options.length === 0 ? (
-          <li className="menu__empty" role="presentation">
-            {games ? text.gamesEmpty : text.gamesLoading}
-          </li>
-        ) : (
-          options.map((option, index) => {
-            const on = chosen.has(option.id);
-            return (
-              <li
-                key={option.id}
-                id={optionId(index)}
-                role="option"
-                aria-selected={on}
-                className={cx(
-                  'menu__item',
-                  on && 'menu__item--selected',
-                  index === active && 'menu__item--active',
-                )}
-                onPointerMove={() => setActive(index)}
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  setActive(index);
-                  toggle(option);
-                }}
-              >
-                <span
-                  className={cx('checkbox game-filter__check', on && 'game-filter__check--on')}
-                  aria-hidden="true"
-                >
-                  <Icon name="check" size={14} />
-                </span>
-                <span className="menu__label">{option.title}</span>
-              </li>
-            );
-          })
-        )}
+        <Switch
+          fallback={
+            <For each={options()} keyed={(option) => option.id}>
+              {(option, index) => {
+                const on = () => chosen().has(option().id);
+                return (
+                  <li
+                    id={optionId(index())}
+                    role="option"
+                    aria-selected={ariaBool(on())}
+                    class={[
+                      'menu__item',
+                      { 'menu__item--selected': on(), 'menu__item--active': index() === active() },
+                    ]}
+                    onPointerMove={() => setActive(index())}
+                    onPointerDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setActive(index());
+                      toggle(option());
+                    }}
+                  >
+                    <span
+                      class={['checkbox game-filter__check', { 'game-filter__check--on': on() }]}
+                      aria-hidden="true"
+                    >
+                      <Icon name="check" size={14} />
+                    </span>
+                    <span class="menu__label">{option().title}</span>
+                  </li>
+                );
+              }}
+            </For>
+          }
+        >
+          <Match when={props.failed}>
+            <li class="menu__empty" role="presentation">
+              {text.gamesError}
+            </li>
+          </Match>
+          <Match when={options().length === 0}>
+            <li class="menu__empty" role="presentation">
+              {props.games ? text.gamesEmpty : text.gamesLoading}
+            </li>
+          </Match>
+        </Switch>
       </ul>
     </div>
   );

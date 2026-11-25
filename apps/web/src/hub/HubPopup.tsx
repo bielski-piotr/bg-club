@@ -123,9 +123,17 @@ export function HubPopup({ route, me }: HubPopupProps) {
       // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi (DS §15.1).
       return <CalendarPopup isAdmin={me.role === 'admin'} />;
     case 'leaderboard':
-      return <LeaderboardPopup me={me} tab={route.tab} filters={route.filters} />;
+      // Obszar Ranking jest w Solid 2.0 (docs/solidjs-2-migration.md, etap 4).
+      return (
+        <SolidIsland
+          component={LeaderboardPopup}
+          props={{ me, tab: route.tab, filters: route.filters }}
+        />
+      );
     case 'leaderboard-ties':
-      return <TiesPopup me={me} tab={route.tab} filters={route.filters} />;
+      return (
+        <SolidIsland component={TiesPopup} props={{ me, tab: route.tab, filters: route.filters }} />
+      );
     case 'add-meeting':
       // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
       return me.role === 'admin' ? <AddMeetingPopup me={me} date={route.date} /> : <InvalidPopup />;

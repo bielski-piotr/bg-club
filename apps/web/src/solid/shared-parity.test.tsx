@@ -1,5 +1,4 @@
 /** @jsxImportSource @solidjs/web */
-import { fireEvent } from '@solidjs/testing-library';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render as renderReact } from '@testing-library/react';
@@ -10,20 +9,16 @@ import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { GameCover as ReactGameCover } from '../games/GameCover';
 import { gameSearchKey } from '../games/games';
 import { clubKey } from '../hub/club';
-import { DateRangeCalendar as ReactCalendar } from '../leaderboard/DateRangeCalendar';
-import { FilterBar as ReactFilterBar } from '../leaderboard/FilterBar';
-import { NO_FILTERS, type LeaderboardFilters } from '../leaderboard/filters';
 import { AvatarCropper as SolidCropper } from '../profile/AvatarCropper';
 import { AvatarCropper as ReactCropper } from '../react-shared/AvatarCropper';
 import { GameCover } from './games/GameCover';
-import { DateRangeCalendar } from './leaderboard/DateRangeCalendar';
-import { FilterBar } from './leaderboard/FilterBar';
 import { renderSolid as renderWithHost } from './testing';
 import { normalize } from './ui/normalizeDom';
 
 /*
  * Zgodność DOM elementów współdzielonych z etapu 3 (docs/solidjs-2-migration.md) z wersjami
- * React, które zostają w obszarach jeszcze niezmigrowanych (Ranking, Gry).
+ * React, które zostają w obszarach jeszcze niezmigrowanych (Gry). Pasek filtrów i kalendarz rankingu
+ * są od etapu 4 tylko w Solid (`leaderboard/`).
  */
 
 const h = (type: unknown, props?: unknown, ...children: unknown[]): ReactElement =>
@@ -49,19 +44,12 @@ function withReact(element: ReactElement) {
   );
 }
 
-const FILTERS: LeaderboardFilters = { from: '2026-03-02', to: '2026-03-12', games: ['g2'] };
-
 interface Case {
   readonly name: string;
   readonly react: () => ReactElement;
   readonly solid: () => ReturnType<typeof GameCover>;
   readonly act?: (container: HTMLElement) => void;
 }
-
-const clickPill = (index: number) => (container: HTMLElement) => {
-  const pill = container.querySelectorAll<HTMLButtonElement>('.lb-filter__pill')[index];
-  if (pill) fireEvent.click(pill);
-};
 
 const noop = () => undefined;
 const cases: Case[] = [
@@ -103,51 +91,6 @@ const cases: Case[] = [
         <GameCover id="g3" title="Wingspan" coverPath={null} src="/p.png" size="form" />
         <GameCover id="g4" title="Root" coverPath={null} size="large" unavailable />
       </div>
-    ),
-  },
-  {
-    name: 'FilterBar bez filtrów',
-    react: () => withReact(h(ReactFilterBar, { filters: NO_FILTERS, onChange: noop })),
-    solid: () => <FilterBar filters={NO_FILTERS} onChange={noop} />,
-  },
-  {
-    name: 'FilterBar z filtrami i dodatkiem',
-    react: () =>
-      withReact(
-        h(ReactFilterBar, {
-          filters: FILTERS,
-          onChange: noop,
-          label: 'Filtry',
-          extra: h('button', null, 'Remisy'),
-        }),
-      ),
-    solid: () => (
-      <FilterBar filters={FILTERS} onChange={noop} label="Filtry" extra={<button>Remisy</button>} />
-    ),
-  },
-  {
-    name: 'FilterBar: otwarty kalendarz',
-    react: () => withReact(h(ReactFilterBar, { filters: FILTERS, onChange: noop })),
-    solid: () => <FilterBar filters={FILTERS} onChange={noop} />,
-    act: clickPill(0),
-  },
-  {
-    name: 'FilterBar: otwarta lista gier',
-    react: () => withReact(h(ReactFilterBar, { filters: FILTERS, onChange: noop })),
-    solid: () => <FilterBar filters={FILTERS} onChange={noop} />,
-    act: clickPill(1),
-  },
-  {
-    name: 'DateRangeCalendar z zakresem',
-    react: () =>
-      h(ReactCalendar, {
-        from: '2026-03-02',
-        to: '2026-03-12',
-        today: '2026-03-20',
-        onChange: noop,
-      }),
-    solid: () => (
-      <DateRangeCalendar from="2026-03-02" to="2026-03-12" today="2026-03-20" onChange={noop} />
     ),
   },
   {

@@ -1,36 +1,39 @@
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import { createMemo, For, Match, Show, Switch } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { useClub } from '../hub/club';
 import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
-import { PopupLink } from '../popups/PopupLink';
-import { PopupModal } from '../popups/PopupModal';
-import { fullName, type Profile } from '../react-shared/profiles';
-import { Badge, EmptyState, Icon } from '../ui';
-import { cx } from '../ui/cx';
+import { fullName, type Profile } from '../profile/profileQueries';
+import { createClub } from '../solid/club';
+import { PopupLink } from '../solid/popups/PopupLink';
+import { PopupModal } from '../solid/popups/PopupModal';
+import { Badge, EmptyState, Icon } from '../solid/ui';
+import { ariaBool } from '../solid/ui/dom';
 import { BoardError, BoardLoading } from './BoardStatus';
-import { useBoardData } from './board';
-import { datesValue, gamesValue, useGameTitles } from './filterLabels';
+import { createBoardData } from './board';
+import { datesValue, gamesValue } from './filterLabels';
 import { hasDateFilter, hasFilters, NO_FILTERS, type LeaderboardFilters } from './filters';
+import { createGameTitles } from './gameTitles';
 import type { LeaderboardEntry, LeaderboardKind } from './leaderboard';
 import { tieGroups, type TieCriterion, type TieGroup } from './ties';
 
 /** Link „Remisy” do szczegółów rozstrzygnięcia dla bieżącej zakładki i filtrów. */
-export function TiesLink({
-  kind,
-  filters,
-}: {
+export function TiesLink(props: {
   readonly kind: LeaderboardKind;
   readonly filters: LeaderboardFilters;
 }) {
   const text = t.leaderboard.ties;
   return (
     <PopupLink
-      to={{ kind: 'leaderboard-ties', tab: kind, ...(hasFilters(filters) ? { filters } : {}) }}
-      className="select__pill lb-ties-link"
+      to={{
+        kind: 'leaderboard-ties',
+        tab: props.kind,
+        ...(hasFilters(props.filters) ? { filters: props.filters } : {}),
+      }}
+      class="select__pill lb-ties-link"
       aria-label={`${text.button}: ${text.buttonLabel.toLocaleLowerCase('pl-PL')}`}
     >
-      <Icon name="info" className="select__lead" />
+      <Icon name="info" class="select__lead" />
       <span>{text.button}</span>
     </PopupLink>
   );
@@ -45,118 +48,124 @@ function unit(kind: LeaderboardKind, value: number) {
  * grupa graczy z tym samym wynikiem z danymi kryteriów — spotkaniem osiągnięcia wyniku,
  * punktami na nim i liczbą wygranych — oraz kryterium, które ustawiło sąsiadów.
  */
-export function TiesPopup({
-  me,
-  tab,
-  filters = NO_FILTERS,
-}: {
+export function TiesPopup(props: {
   readonly me: Profile;
   readonly tab: LeaderboardKind;
   readonly filters?: LeaderboardFilters | undefined;
 }) {
-  const { client } = useAuth();
-  const club = useClub(client);
-  const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
-  const { entries, failed, retry } = useBoardData(tab, filters);
-  const { titles } = useGameTitles(filters.games.length > 0);
+  const filters = () => props.filters ?? NO_FILTERS;
+  const club = createClub();
+  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  const board = createBoardData(() => props.tab, filters);
+  const { titles } = createGameTitles(() => filters().games.length > 0);
   const text = t.leaderboard.ties;
-  const groups = entries ? tieGroups(entries) : undefined;
-  const applied = [
-    t.leaderboard.tabs[tab],
-    ...(hasDateFilter(filters) ? [datesValue(filters)] : []),
-    ...(filters.games.length > 0 ? [gamesValue(filters, titles)] : []),
-  ].join(' · ');
+  const groups = createMemo(() => {
+    const entries = board.entries();
+    return entries ? tieGroups(entries) : undefined;
+  });
+  const applied = () =>
+    [
+      t.leaderboard.tabs[props.tab],
+      ...(hasDateFilter(filters()) ? [datesValue(filters())] : []),
+      ...(filters().games.length > 0 ? [gamesValue(filters(), titles())] : []),
+    ].join(' · ');
 
   return (
-    <PopupModal title={text.title} width={560} className="ties-modal">
-      <div className="ties">
-        <p className="ties__applied">{format(text.filtered, { filters: applied })}</p>
-        <p className="ties__intro">{text.intro}</p>
-        <ol className="ties__rules">
-          {text.rules.map((rule) => (
-            <li key={rule}>{rule}</li>
-          ))}
+    <PopupModal title={text.title} width={560} class="ties-modal">
+      <div class="ties">
+        <p class="ties__applied">{format(text.filtered, { filters: applied() })}</p>
+        <p class="ties__intro">{text.intro}</p>
+        <ol class="ties__rules">
+          <For each={text.rules}>{(rule) => <li>{rule}</li>}</For>
         </ol>
-        <div aria-busy={!entries}>
-          {failed ? (
-            <BoardError onRetry={retry} />
-          ) : !groups ? (
-            <BoardLoading />
-          ) : groups.length === 0 ? (
-            <EmptyState icon="check" title={text.none} />
-          ) : (
-            groups.map((group) => (
-              <TieGroupList
-                key={group.members[0]?.entry.profile_id}
-                group={group}
-                kind={tab}
-                meId={me.id}
-                timeZone={timeZone}
-              />
-            ))
-          )}
+        <div aria-busy={ariaBool(!board.entries())}>
+          <Switch
+            fallback={
+              <For
+                each={groups() ?? []}
+                keyed={(group) => group.members[0]?.entry.profile_id ?? ''}
+              >
+                {(group) => (
+                  <TieGroupList
+                    group={group()}
+                    kind={props.tab}
+                    meId={props.me.id}
+                    timeZone={timeZone()}
+                  />
+                )}
+              </For>
+            }
+          >
+            <Match when={board.failed()}>
+              <BoardError onRetry={board.retry} />
+            </Match>
+            <Match when={!groups()}>
+              <BoardLoading />
+            </Match>
+            <Match when={groups()?.length === 0}>
+              <EmptyState icon="check" title={text.none} />
+            </Match>
+          </Switch>
         </div>
       </div>
     </PopupModal>
   );
 }
 
-function TieGroupList({
-  group,
-  kind,
-  meId,
-  timeZone,
-}: {
+function TieGroupList(props: {
   readonly group: TieGroup;
   readonly kind: LeaderboardKind;
   readonly meId: string;
   readonly timeZone: string;
 }) {
   const text = t.leaderboard.ties;
-  const first = group.members[0]?.entry.place ?? 0;
-  const last = group.members.at(-1)?.entry.place ?? first;
-  const value = unit(kind, group.value);
+  const range = createMemo(() => {
+    const first = props.group.members[0]?.entry.place ?? 0;
+    const last = props.group.members.at(-1)?.entry.place ?? first;
+    return { first, last, value: unit(props.kind, props.group.value) };
+  });
   return (
     <section
-      className="ties__group"
-      aria-label={format(text.groupLabel, { value, from: first, to: last })}
+      class="ties__group"
+      aria-label={format(text.groupLabel, {
+        value: range().value,
+        from: range().first,
+        to: range().last,
+      })}
     >
-      <h3 className="ties__group-title">
-        {format(text.group, { value })}
-        <span className="ties__group-places tnum">
-          {format(text.places, { from: first, to: last })}
+      <h3 class="ties__group-title">
+        {format(text.group, { value: range().value })}
+        <span class="ties__group-places tnum">
+          {format(text.places, { from: range().first, to: range().last })}
         </span>
       </h3>
-      <ol className="ties__list">
-        {group.members.map(({ entry, decidedBy }, index) => {
-          const next = group.members[index + 1]?.entry;
-          return (
-            <TieItem
-              key={entry.profile_id}
-              entry={entry}
-              me={entry.profile_id === meId}
-              decisive={decidedBy}
-              note={
-                decidedBy && next
-                  ? format(text.decided, { name: fullName(next), reason: text.reasons[decidedBy] })
-                  : undefined
-              }
-              timeZone={timeZone}
-            />
-          );
-        })}
+      <ol class="ties__list">
+        <For each={props.group.members} keyed={(member) => member.entry.profile_id}>
+          {(member, index) => {
+            const note = () => {
+              const { decidedBy } = member();
+              const next = props.group.members[index() + 1]?.entry;
+              return decidedBy && next
+                ? format(text.decided, { name: fullName(next), reason: text.reasons[decidedBy] })
+                : undefined;
+            };
+            return (
+              <TieItem
+                entry={member().entry}
+                me={member().entry.profile_id === props.meId}
+                decisive={member().decidedBy}
+                note={note()}
+                timeZone={props.timeZone}
+              />
+            );
+          }}
+        </For>
       </ol>
     </section>
   );
 }
 
-function TieItem({
-  entry,
-  me,
-  decisive,
-  note,
-  timeZone,
-}: {
+function TieItem(props: {
   readonly entry: LeaderboardEntry;
   readonly me: boolean;
   readonly decisive: TieCriterion | null;
@@ -164,51 +173,58 @@ function TieItem({
   readonly timeZone: string;
 }) {
   const text = t.leaderboard.ties;
-  const fact = (criterion: TieCriterion) =>
-    cx('ties__fact', criterion === decisive && 'ties__fact--decisive');
+  const fact = (criterion: TieCriterion) => [
+    'ties__fact',
+    { 'ties__fact--decisive': criterion === props.decisive },
+  ];
   return (
-    <li className={cx('ties__item', me && 'ties__item--me')}>
-      <div className={cx('ties__player', decisive === 'name' && 'ties__player--decisive')}>
-        <span className="ties__place tnum">{entry.place}.</span>
-        <span className="ties__name">{fullName(entry)}</span>
-        {me ? <Badge tone="accent">{t.ui.youBadge}</Badge> : null}
+    <li class={['ties__item', { 'ties__item--me': props.me }]}>
+      <div class={['ties__player', { 'ties__player--decisive': props.decisive === 'name' }]}>
+        <span class="ties__place tnum">{props.entry.place}.</span>
+        <span class="ties__name">{fullName(props.entry)}</span>
+        <Show when={props.me}>
+          <Badge tone="accent">{t.ui.youBadge}</Badge>
+        </Show>
       </div>
-      <dl className="ties__facts">
-        <div className={fact('reached')}>
+      <dl class="ties__facts">
+        <div class={fact('reached')}>
           <dt>{text.reached}</dt>
           <dd>
-            {entry.reached_meeting_id && entry.reached_at ? (
-              <PopupLink
-                to={{ kind: 'meeting', id: entry.reached_meeting_id }}
-                className="text-link ties__meeting"
-              >
-                <span>{entry.reached_meeting_title}</span>
-                <span className="ties__meeting-date tnum">
-                  {shortMeetingDate(entry.reached_at, timeZone)}
-                </span>
-              </PopupLink>
-            ) : (
-              <span className="ties__muted">{text.notReached}</span>
-            )}
+            <Show
+              when={props.entry.reached_meeting_id && props.entry.reached_at ? props.entry : null}
+              fallback={<span class="ties__muted">{text.notReached}</span>}
+            >
+              {(entry) => (
+                <PopupLink
+                  to={{ kind: 'meeting', id: entry().reached_meeting_id ?? '' }}
+                  class="text-link ties__meeting"
+                >
+                  <span>{entry().reached_meeting_title}</span>
+                  <span class="ties__meeting-date tnum">
+                    {shortMeetingDate(entry().reached_at ?? '', props.timeZone)}
+                  </span>
+                </PopupLink>
+              )}
+            </Show>
           </dd>
         </div>
-        <div className={fact('points')}>
+        <div class={fact('points')}>
           <dt>{text.meetingPoints}</dt>
-          <dd className="tnum">
-            {entry.reached_points === null ? '–' : formatNumber(entry.reached_points)}
+          <dd class="tnum">
+            {props.entry.reached_points === null ? '–' : formatNumber(props.entry.reached_points)}
           </dd>
         </div>
-        <div className={fact('wins')}>
+        <div class={fact('wins')}>
           <dt>{text.wins}</dt>
-          <dd className="tnum">{entry.wins}</dd>
+          <dd class="tnum">{props.entry.wins}</dd>
         </div>
       </dl>
-      {note ? (
-        <p className="ties__note">
+      <Show when={props.note}>
+        <p class="ties__note">
           <Icon name="chevron-down" size={14} />
-          {note}
+          {props.note}
         </p>
-      ) : null}
+      </Show>
     </li>
   );
 }

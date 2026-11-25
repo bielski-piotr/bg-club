@@ -1,14 +1,15 @@
+/** @jsxImportSource @solidjs/web */
 import { t } from '../i18n';
-import { Banner, Button, Skeleton, Spinner } from '../ui';
+import { Banner, Button, Skeleton, Spinner } from '../solid/ui';
 
 /** Stany rankingu wspólne dla widżetu i popupu: błąd z ponowieniem i wczytywanie. */
-export function BoardError({ onRetry }: { readonly onRetry: () => void }) {
+export function BoardError(props: { readonly onRetry: () => void }) {
   return (
     <Banner
       variant="error"
-      className="leaderboard-error"
+      class="leaderboard-error"
       action={
-        <Button size="sm" variant="secondary" icon="refresh" onClick={onRetry}>
+        <Button size="sm" variant="secondary" icon="refresh" onClick={() => props.onRetry()}>
           {t.hub.retry}
         </Button>
       }
@@ -20,9 +21,9 @@ export function BoardError({ onRetry }: { readonly onRetry: () => void }) {
 
 export function BoardLoading() {
   return (
-    <div className="leaderboard leaderboard--loading">
+    <div class="leaderboard leaderboard--loading">
       <Skeleton width={240} height={120} radius={14} />
-      <Spinner label={t.leaderboard.loading} className="sr-only" />
+      <Spinner label={t.leaderboard.loading} class="sr-only" />
     </div>
   );
 }

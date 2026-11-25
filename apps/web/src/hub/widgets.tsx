@@ -478,9 +478,6 @@ function PlaysTray({
   );
 }
 
-/** Ranking (LB-1…LB-7) ma własny moduł; hub importuje wszystkie widżety stąd. */
-export { RankingWidget } from '../leaderboard/RankingWidget';
-
 /**
  * Timeline (MTG-3, DS §15.1): najwyżej 2 najbliższe nadchodzące spotkania (od dalszego), divider
  * „Dziś” i najwyżej 4 ostatnie zakończone (od najnowszego), z datami w strefie klubu (NFR-10).
