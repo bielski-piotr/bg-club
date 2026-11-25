@@ -77,6 +77,8 @@ export interface VoteRow {
   readonly mine: boolean;
   /** Czy gra mieści liczbę uczestników (min ≤ n ≤ max). Niepasujące też przyjmują głosy. */
   readonly fits: boolean;
+  /** Czy gra jest dostępna: na niedostępną nie można głosować (oddany głos można cofnąć). */
+  readonly available: boolean;
 }
 
 /** Czy gra pasuje do liczby uczestników spotkania (VOTE-4). */
@@ -88,8 +90,8 @@ export function fitsPlayers(
 }
 
 /**
- * Lista głosowania (VOTE-3): wszystkie gry kolekcji z głosami, malejąco po liczbie głosów,
- * potem alfabetycznie po tytule. Głosy na gry spoza listy (np. właśnie usunięte) pomijamy.
+ * Lista głosowania (VOTE-3): wszystkie gry kolekcji z głosami, najpierw dostępne, malejąco po
+ * liczbie głosów, potem alfabetycznie po tytule; niedostępne na końcu. Głosy na gry spoza listy (np. właśnie usunięte) pomijamy.
  * Wyszukiwanie bez wielkości liter i polskich znaków.
  */
 export function voteRows(
@@ -113,10 +115,13 @@ export function voteRows(
         voters,
         mine: voters.includes(options.me),
         fits: fitsPlayers(game, options.participants),
+        // Brak pola (starsza odpowiedź) = dostępna.
+        available: game.available !== false,
       };
     })
     .sort(
       (a, b) =>
+        Number(b.available) - Number(a.available) ||
         b.voters.length - a.voters.length ||
         a.game.title.localeCompare(b.game.title, 'pl') ||
         a.game.id.localeCompare(b.game.id),
@@ -150,6 +155,7 @@ export function countLabel(n: number, forms: PluralForms & { readonly zero: stri
 export type VotingFailure =
   | 'closed'
   | 'gameDeleted'
+  | 'gameUnavailable'
   | 'notParticipant'
   | 'noGames'
   | 'notPlanned'
@@ -173,6 +179,7 @@ interface PostgrestLikeError {
 const HINTS: Readonly<Record<string, VotingFailure>> = {
   meeting_games_required: 'noGames',
   meeting_games_game_active: 'gameDeleted',
+  games_unavailable: 'gameUnavailable',
   meeting_games_planned: 'notPlanned',
   meetings_reopen_planned: 'notPlanned',
   meetings_not_found: 'gone',

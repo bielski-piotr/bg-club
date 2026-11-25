@@ -357,6 +357,7 @@ function VotesTray({ meeting, me }: { readonly meeting: Meeting; readonly me: Pr
                       title={row.game.title}
                       coverPath={row.game.cover_path}
                       size="thumb"
+                      unavailable={!row.available}
                     />
                     <span className="meeting-tray__name">{row.game.title}</span>
                     <span className="voter-count">
@@ -705,6 +706,7 @@ export function CollectionWidget({ isAdmin }: { readonly isAdmin: boolean }) {
               coverPath={featured.cover_path}
               size="large"
               className="collection-widget__cover"
+              unavailable={!featured.available}
             />
             <span className="collection-widget__text">
               <span className="collection-widget__title">{featured.title}</span>
@@ -725,6 +727,7 @@ export function CollectionWidget({ isAdmin }: { readonly isAdmin: boolean }) {
                         title={game.title}
                         coverPath={game.cover_path}
                         size="thumb"
+                        unavailable={!game.available}
                       />
                     </span>
                     <span className="row__text">

@@ -456,11 +456,19 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
       ]),
   });
   const mine = toggle.isPending ? toggle.variables : row.mine;
-  const mismatch = !row.fits;
+  const mismatch = !row.fits && row.available;
+  // Na niedostępną grę nie można zagłosować; oddany wcześniej głos można cofnąć.
+  const locked = !row.available && !row.mine;
   return (
     <li className="tray__item">
       <div className="row row--64 vote-row">
-        <GameCover id={game.id} title={game.title} coverPath={game.cover_path} size="thumb" />
+        <GameCover
+          id={game.id}
+          title={game.title}
+          coverPath={game.cover_path}
+          size="thumb"
+          unavailable={!row.available}
+        />
         <span className="vote-row__body">
           <span className="vote-row__name">{game.title}</span>
           <span className="vote-row__meta">
@@ -482,6 +490,12 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
                 </span>
               </span>
             ) : null}
+            {!row.available ? (
+              <span title={text.unavailableHint} className="vote-row__badge">
+                <Badge tone="neutral">{text.unavailable}</Badge>
+                <span className="sr-only">{text.unavailableHint}</span>
+              </span>
+            ) : null}
           </span>
         </span>
         {canVote ? (
@@ -490,7 +504,7 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
             className={cx('vote-toggle', mine && 'vote-toggle--on')}
             aria-pressed={mine}
             aria-label={format(mine ? text.voteOff : text.voteOn, { title: game.title })}
-            disabled={toggle.isPending}
+            disabled={toggle.isPending || locked}
             onClick={() => toggle.mutate(!row.mine)}
           >
             {mine ? <Icon name="check" size={14} /> : null}

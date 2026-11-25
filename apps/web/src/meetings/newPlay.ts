@@ -270,6 +270,7 @@ export type StartPlayFailure =
   | 'notInProgress'
   | 'scorepadGone'
   | 'gameGone'
+  | 'gameUnavailable'
   | 'scorepadTooSmall'
   | 'seats'
   | 'duplicate'
@@ -294,6 +295,7 @@ const HINTS: Readonly<Record<string, StartPlayFailure>> = {
   plays_meeting_in_progress: 'notInProgress',
   plays_scorepad_unavailable: 'scorepadGone',
   plays_game_active: 'gameGone',
+  games_unavailable: 'gameUnavailable',
   plays_scorepad_fits_game: 'scorepadTooSmall',
   play_results_seat_within_slots: 'seats',
   plays_players_unique: 'duplicate',

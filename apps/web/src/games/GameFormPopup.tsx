@@ -5,7 +5,7 @@ import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { Banner, Button, Icon, Stepper, TextField, useToast } from '../ui';
+import { Banner, Button, Icon, Stepper, Switch, TextField, useToast } from '../ui';
 import { clipboardImage, downloadCover, type CroppedCover } from './cover';
 import { CoverEditor, type CoverEditorResult, type CoverEditorStart } from './CoverEditor';
 import { GameCover } from './GameCover';
@@ -131,8 +131,12 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
   // Id nowej gry od razu: kolor monogramu w podglądzie jest ten sam co po zapisie.
   const [id] = useState(() => game?.id ?? crypto.randomUUID());
   const [values, setValues] = useState<GameFormValues>(() =>
-    game ? gameFormFrom(game) : emptyGameForm(),
+    // Nowy dodatek niedostępnej gry jest niedostępny (tak samo ustawia go baza).
+    game ? gameFormFrom(game) : { ...emptyGameForm(), available: base?.available ?? true },
   );
+  // Gra podstawowa dodatku (nowego albo edytowanego): uwaga, gdy jest niedostępna.
+  const baseGame = useGame(client, base?.id ?? game?.base_game_id ?? '');
+  const baseUnavailable = expansion && baseGame.data != null && !baseGame.data.available;
   const [cover, setCover] = useState<CoverState>({ kind: 'keep' });
   /** Otwarty edytor okładki i z czym się otworzył. */
   const [editor, setEditor] = useState<CoverEditorStart | null>(null);
@@ -347,6 +351,20 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
           }}
           onBlur={() => values.title !== '' && setTitleTouched(true)}
         />
+
+        <div className="game-form__group">
+          <Switch
+            label={form.availableLabel}
+            checked={values.available}
+            onCheckedChange={(available) => setValues((current) => ({ ...current, available }))}
+            description={expansion ? form.availableHintExpansion : form.availableHint}
+          />
+          {baseUnavailable && baseGame.data ? (
+            <p className="game-form__hint">
+              {format(form.availableBaseOff, { title: baseGame.data.title })}
+            </p>
+          ) : null}
+        </div>
 
         <fieldset className="game-form__group">
           <legend className="game-form__legend">{form.playersLegend}</legend>

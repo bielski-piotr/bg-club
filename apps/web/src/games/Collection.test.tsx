@@ -49,6 +49,7 @@ function game(n: number, title: string, extra: Partial<Game> = {}): Game {
     cover_source_path: null,
     cover_crop: null,
     play_count: null,
+    available: true,
     ...extra,
   };
 }
@@ -380,11 +381,39 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
           min_players: 2,
           max_players: 5,
           complexity: 1,
+          available: true,
           placement_points: complexityPoints(1, 5),
         },
         filters: { id: ZOLWIE.id, 'deleted_at is': null },
       },
     ]);
+  });
+
+  it('admin ustawia grę jako niedostępną w formularzu edycji', async () => {
+    const { writes } = renderHub([{ ...ZOLWIE, complexity: 2 }], ADA, `?p=game/${ZOLWIE.id}/edit`);
+    expect(await screen.findByLabelText('Tytuł')).toHaveValue('Żółwie Wyścigi');
+    const form = screen.getByRole('dialog', { name: 'Edytuj grę' });
+    const toggle = within(form).getByRole('switch', { name: 'Dostępna' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(within(form).getByRole('button', { name: 'Zapisz' }));
+    expect(await screen.findByText('Zapisano zmiany w grze Żółwie Wyścigi')).toBeInTheDocument();
+    expect(writes).toMatchObject([{ op: 'update', row: { available: false } }]);
+  });
+
+  it('niedostępna gra jest w kolekcji wyszarzona, a jej podgląd się otwiera', async () => {
+    renderHub([{ ...ZOLWIE, available: false }, LAKA], ADA, '?p=games');
+    const dialog = await screen.findByRole('dialog', { name: 'Kolekcja' });
+    const open = await within(dialog).findByRole('button', {
+      name: 'Szczegóły gry Żółwie Wyścigi (niedostępna)',
+    });
+    expect(open.closest('li')).toHaveClass('game-tile--unavailable');
+    expect(
+      within(dialog).getByRole('button', { name: 'Szczegóły gry Łąka i Pszczoły' }).closest('li'),
+    ).not.toHaveClass('game-tile--unavailable');
+    fireEvent.click(open);
+    expect(await screen.findByRole('dialog', { name: 'Żółwie Wyścigi' })).toBeInTheDocument();
   });
 
   it('edycja usuniętej albo nieistniejącej gry: „Nie znaleziono gry”', async () => {

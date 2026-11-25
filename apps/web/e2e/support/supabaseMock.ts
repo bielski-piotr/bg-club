@@ -465,6 +465,8 @@ export interface MockGame {
   readonly cover_crop?: unknown;
   /** Dodatek: liczba partii z nim. */
   readonly play_count?: number | null;
+  /** Dostępność gry (domyślnie dostępna). */
+  readonly available?: boolean;
 }
 
 /** Fikcyjna gra o numerze `n` (id wyprowadzone z numeru, data dodania: `n` października). */
@@ -484,6 +486,7 @@ export function mockGame(n: number, title: string, extra: Partial<MockGame> = {}
     cover_source_path: null,
     cover_crop: null,
     play_count: null,
+    available: true,
     ...extra,
   };
 }
