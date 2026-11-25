@@ -58,7 +58,12 @@ export function HubPopup({ route, me }: HubPopupProps) {
         <InvalidPopup />
       );
     case 'profile':
-      return <ProfilePopup id={route.id} isAdmin={me.role === 'admin'} />;
+      return (
+        <SolidIsland
+          component={ProfilePopup}
+          props={{ id: route.id, isAdmin: me.role === 'admin' }}
+        />
+      );
     case 'delete-member':
       // Członków usuwa tylko administrator (MEM-4); Edge Function i tak odrzuci gracza (403).
       return me.role === 'admin' ? (
@@ -68,14 +73,18 @@ export function HubPopup({ route, me }: HubPopupProps) {
       );
     case 'settings':
       // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć (USR-7).
-      return <SettingsPopup me={me} />;
+      return <SolidIsland component={SettingsPopup} props={{ me }} />;
     case 'change-password':
-      return <PasswordPopup me={me} variant="change" />;
+      return <SolidIsland component={PasswordPopup} props={{ me, variant: 'change' }} />;
     case 'delete-account':
       // Administrator nie usuwa swojego konta i nie widzi tej opcji (USR-6).
-      return me.role === 'admin' ? <InvalidPopup /> : <DeleteAccountDialog me={me} />;
+      return me.role === 'admin' ? (
+        <InvalidPopup />
+      ) : (
+        <SolidIsland component={DeleteAccountDialog} props={{ me }} />
+      );
     case 'first-login':
-      return <PasswordPopup me={me} variant="first" />;
+      return <SolidIsland component={PasswordPopup} props={{ me, variant: 'first' }} />;
     case 'club':
       // Formularz klubu jest tylko dla administratora (CLUB-2); gracz z linku go nie zobaczy.
       return me.role === 'admin' ? <ClubPopup /> : <InvalidPopup />;

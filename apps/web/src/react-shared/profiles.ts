@@ -1,12 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
-import { allProfilesQuery, avatarUrlQuery, membersQuery, profileQuery } from './profileQueries';
+import {
+  allProfilesQuery,
+  avatarUrlQuery,
+  membersQuery,
+  profileQuery,
+} from '../profile/profileQueries';
 
 /*
- * Hooki React profili. Typy, klucze i zapytania są w `profileQueries.ts` (bez frameworka,
- * wspólne z kodem Solid); ten moduł je re-eksportuje, żeby istniejące importy działały.
+ * Hooki React profili dla obszarów jeszcze w React (do etapu 8 migracji na Solid,
+ * docs/solidjs-2-migration.md). Typy, klucze i zapytania są w `profile/profileQueries.ts` (bez
+ * frameworka, wspólne z kodem Solid); ten moduł je re-eksportuje.
  */
-export * from './profileQueries';
+export * from '../profile/profileQueries';
 
 /** Adres zdjęcia profilowego (`avatarUrlQuery`). */
 export function useAvatarUrl(client: SupabaseClient, path: string | null) {

@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { format, t } from '../i18n';
 import { PopupLink } from '../popups/PopupLink';
 import { cx } from '../ui/cx';
-import './profile.css';
+import '../profile/profile.css';
 
 interface ProfileLinkProps {
   readonly id: string;

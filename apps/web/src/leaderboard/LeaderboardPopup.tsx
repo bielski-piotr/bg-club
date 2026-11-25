@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { plural, t } from '../i18n';
 import { PopupModal } from '../popups/PopupModal';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../react-shared/profiles';
 import { EmptyState, Tabs } from '../ui';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import { FilterBar } from './FilterBar';

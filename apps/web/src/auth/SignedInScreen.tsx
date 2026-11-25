@@ -1,4 +1,4 @@
-import { membersQuery } from '../profile/profiles';
+import { membersQuery } from '../react-shared/profiles';
 import { collectionWidgetQuery } from '../games/games';
 import { hubMeetingQuery } from '../meetings/meetings';
 import { usePrefetchQuery } from '@tanstack/react-query';

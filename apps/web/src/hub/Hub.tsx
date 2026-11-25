@@ -15,7 +15,7 @@ import { t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupHost } from '../popups/PopupHost';
 import type { PopupRoute } from '../popups/routes';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../react-shared/profiles';
 import { importOrReload } from '../pwa/staleChunk';
 import { Banner, Button, Spinner } from '../ui';
 import { AppHeader } from './AppHeader';

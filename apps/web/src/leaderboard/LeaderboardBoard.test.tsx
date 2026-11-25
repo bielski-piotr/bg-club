@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { PopupRouter } from '../popups/PopupRouter';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../react-shared/profiles';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import type { LeaderboardEntry } from './leaderboard';
 

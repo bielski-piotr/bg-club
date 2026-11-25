@@ -1,19 +1,20 @@
-import { useState } from 'react';
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import { createMemo, createSignal, For, Match, Show, Switch, useContext } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { GameCover } from '../games/GameCover';
 import { formatScore } from '../games/gameStatsData';
-import { useClub } from '../hub/club';
 import { format, t } from '../i18n';
-import { FilterBar } from '../leaderboard/FilterBar';
 import { hasFilters, NO_FILTERS, type LeaderboardFilters } from '../leaderboard/filters';
 import { shortMeetingDate } from '../meetings/datetime';
-import { PopupLink } from '../popups/PopupLink';
-import { QueryStatus } from '../popups/QueryStatus';
-import { EmptyState, Icon, Select, type SelectOption } from '../ui';
-import { cx } from '../ui/cx';
+import { createClub } from '../solid/club';
+import { AuthContext } from '../solid/context';
+import { GameCover } from '../solid/games/GameCover';
+import { FilterBar } from '../solid/leaderboard/FilterBar';
+import { PopupLink } from '../solid/popups/PopupLink';
+import { QueryStatus } from '../solid/popups/QueryStatus';
+import { createQuery } from '../solid/query';
+import { EmptyState, Icon, Select, type SelectOption } from '../solid/ui';
 import {
-  usePlayerRecords,
+  playerRecordsQuery,
   visibleRecords,
   type PlayerRecord,
   type RecordsView,
@@ -22,6 +23,10 @@ import {
 const text = t.profile.records;
 
 const VIEWS: readonly RecordsView[] = ['all', 'played', 'club'];
+const OPTIONS: readonly SelectOption<RecordsView>[] = VIEWS.map((value) => ({
+  value,
+  label: text.views[value],
+}));
 
 /**
  * Rekordy osobiste w profilu (PRD USR-4): każda gra kolekcji z okładką i najlepszym wynikiem
@@ -29,125 +34,144 @@ const VIEWS: readonly RecordsView[] = ['all', 'played', 'club'];
  * równy rekordowi klubu dostaje pieczątkę „Rekord klubu”. Filtry dat i gier jak w rankingu oraz
  * widok: wszystkie gry, tylko z wynikiem, tylko rekordy klubu.
  */
-export function PlayerRecordsSection({ profileId }: { readonly profileId: string }) {
-  const { client } = useAuth();
-  const [filters, setFilters] = useState<LeaderboardFilters>(NO_FILTERS);
-  const [view, setView] = useState<RecordsView>('all');
-  const records = usePlayerRecords(client, profileId, filters);
-  const club = useClub(client);
-  const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
-  const headingId = `${profileId}-records`;
-  const data = records.data;
-  const shown = data ? visibleRecords(data, view) : undefined;
-  const options: SelectOption<RecordsView>[] = VIEWS.map((value) => ({
-    value,
-    label: text.views[value],
-  }));
-  const noGames = data !== undefined && data.length === 0 && !hasFilters(filters);
+export function PlayerRecordsSection(props: { readonly profileId: string }) {
+  const auth = useContext(AuthContext);
+  const [filters, setFilters] = createSignal<LeaderboardFilters>(NO_FILTERS);
+  const [view, setView] = createSignal<RecordsView>('all');
+  const records = createQuery(() => playerRecordsQuery(auth.client, props.profileId, filters()));
+  const club = createClub();
+  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  const headingId = () => `${props.profileId}-records`;
+  const shown = createMemo(() => {
+    const data = records().data;
+    return data ? visibleRecords(data, view()) : undefined;
+  });
+  const noGames = () => {
+    const data = records().data;
+    return data !== undefined && data.length === 0 && !hasFilters(filters());
+  };
 
   return (
-    <section className="profile__section" aria-labelledby={headingId}>
-      <div className="player-stats__head">
-        <h3 id={headingId} className="profile__section-title">
+    <section class="profile__section" aria-labelledby={headingId()}>
+      <div class="player-stats__head">
+        <h3 id={headingId()} class="profile__section-title">
           {text.title}
         </h3>
-        {noGames ? null : (
+        <Show when={!noGames()}>
           <Select
             label={text.viewLabel}
             hideLabel
             appearance="pill"
             leadingIcon="trophy"
-            options={options}
-            value={view}
+            options={OPTIONS}
+            value={view()}
             onChange={setView}
           />
-        )}
+        </Show>
       </div>
-      {noGames ? null : (
-        <FilterBar filters={filters} onChange={setFilters} label={text.filtersLabel} />
-      )}
-      {shown === undefined ? (
-        <QueryStatus isError={records.isError} onRetry={() => void records.refetch()} />
-      ) : noGames ? (
-        <EmptyState icon="dice" title={text.noGamesTitle} helper={text.noGamesHelper} />
-      ) : shown.length === 0 ? (
-        <EmptyState icon="trophy" title={text.emptyTitle} helper={text.emptyHelper} />
-      ) : (
-        <ul className="records" aria-label={text.listLabel}>
-          {shown.map((record) => (
-            <li key={record.game_id}>
-              <RecordCard record={record} timeZone={timeZone} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <Show when={!noGames()}>
+        <FilterBar filters={filters()} onChange={setFilters} label={text.filtersLabel} />
+      </Show>
+      <Switch>
+        <Match when={shown() === undefined}>
+          <QueryStatus isError={records().isError} onRetry={() => void records().refetch()} />
+        </Match>
+        <Match when={noGames()}>
+          <EmptyState icon="dice" title={text.noGamesTitle} helper={text.noGamesHelper} />
+        </Match>
+        <Match when={shown()?.length === 0}>
+          <EmptyState icon="trophy" title={text.emptyTitle} helper={text.emptyHelper} />
+        </Match>
+        <Match when={shown()}>
+          {(list) => (
+            <ul class="records" aria-label={text.listLabel}>
+              <For each={list()} keyed={(record) => record.game_id}>
+                {(record) => (
+                  <li>
+                    <RecordCard record={record()} timeZone={timeZone()} />
+                  </li>
+                )}
+              </For>
+            </ul>
+          )}
+        </Match>
+      </Switch>
     </section>
   );
 }
 
-function RecordCard({
-  record,
-  timeZone,
-}: {
-  readonly record: PlayerRecord;
-  readonly timeZone: string;
-}) {
-  const played = record.value !== null;
-  const date = record.starts_at ? shortMeetingDate(record.starts_at, timeZone) : null;
+function RecordCard(props: { readonly record: PlayerRecord; readonly timeZone: string }) {
+  const played = () => props.record.value !== null;
+  const date = () =>
+    props.record.starts_at ? shortMeetingDate(props.record.starts_at, props.timeZone) : null;
+  const expansions = () => props.record.expansions ?? [];
   return (
     <article
-      className={cx('record', !played && 'record--empty', record.club_record && 'record--club')}
-      data-game={record.game_id}
-      data-club-record={record.club_record ? 'true' : 'false'}
+      class={['record', { 'record--empty': !played(), 'record--club': props.record.club_record }]}
+      data-game={props.record.game_id}
+      data-club-record={props.record.club_record ? 'true' : 'false'}
     >
-      <div className="record__cover">
+      <div class="record__cover">
         <GameCover
-          id={record.game_id}
-          title={record.title}
-          coverPath={record.cover_path}
+          id={props.record.game_id}
+          title={props.record.title}
+          coverPath={props.record.cover_path}
           size="large"
         />
-        {record.club_record ? (
-          <span className="record__stamp">
+        <Show when={props.record.club_record}>
+          <span class="record__stamp">
             <Icon name="trophy" />
             {text.clubRecord}
           </span>
-        ) : null}
+        </Show>
       </div>
       <PopupLink
-        to={{ kind: 'game', id: record.game_id }}
-        className="record__title"
-        aria-label={format(text.gameLink, { title: record.title })}
+        to={{ kind: 'game', id: props.record.game_id }}
+        class="record__title"
+        aria-label={format(text.gameLink, { title: props.record.title })}
       >
-        {record.title}
+        {props.record.title}
       </PopupLink>
-      {played ? (
-        <p className="record__value">
-          {formatScore(record.value ?? 0)}
-          {record.dir === 'asc' ? <span className="record__dir">{text.lowerBetter}</span> : null}
+      <Show
+        when={played()}
+        fallback={
+          <p class="record__value record__value--empty">
+            <span aria-hidden="true">{text.noValueShort}</span>
+            <span class="sr-only">{text.noValue}</span>
+          </p>
+        }
+      >
+        <p class="record__value">
+          {formatScore(props.record.value ?? 0)}
+          <Show when={props.record.dir === 'asc'}>
+            <span class="record__dir">{text.lowerBetter}</span>
+          </Show>
         </p>
-      ) : (
-        <p className="record__value record__value--empty">
-          <span aria-hidden="true">{text.noValueShort}</span>
-          <span className="sr-only">{text.noValue}</span>
-        </p>
-      )}
-      {played && record.meeting_id && date ? (
+      </Show>
+      <Show when={played() && props.record.meeting_id && date()}>
         <PopupLink
-          to={{ kind: 'meeting', id: record.meeting_id }}
-          className="record__meeting"
-          aria-label={format(text.meetingLink, { title: record.meeting_title ?? '', date })}
+          to={{ kind: 'meeting', id: props.record.meeting_id ?? '' }}
+          class="record__meeting"
+          aria-label={format(text.meetingLink, {
+            title: props.record.meeting_title ?? '',
+            date: date() ?? '',
+          })}
         >
-          {format(text.meetingMeta, { date, title: record.meeting_title ?? '' })}
+          {format(text.meetingMeta, {
+            date: date() ?? '',
+            title: props.record.meeting_title ?? '',
+          })}
         </PopupLink>
-      ) : null}
-      {played && record.expansions && record.expansions.length > 0 ? (
-        <p className="record__expansions">
+      </Show>
+      <Show when={played() && expansions().length > 0}>
+        <p class="record__expansions">
           {format(text.expansions, {
-            titles: record.expansions.map((expansion) => expansion.title).join(', '),
+            titles: expansions()
+              .map((expansion) => expansion.title)
+              .join(', '),
           })}
         </p>
-      ) : null}
+      </Show>
     </article>
   );
 }

@@ -1,5 +1,5 @@
 /** @jsxImportSource @solidjs/web */
-import { createSignal, onSettled, Show, useContext } from 'solid-js';
+import { createSignal, createUniqueId, onSettled, Show, useContext } from 'solid-js';
 import { createLeaveGuard } from '../popups/leaveGuard';
 import { PopupLink } from '../popups/PopupLink';
 import { PopupModal } from '../popups/PopupModal';
@@ -71,6 +71,17 @@ export function StackPopup(props: { readonly title: string }) {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Pole z etykietą: id z `createUniqueId`. */
+export function LabeledField(props: { readonly label: string }) {
+  const id = createUniqueId();
+  return (
+    <p>
+      <label for={id}>{props.label}</label>
+      <input id={id} />
+    </p>
   );
 }
 

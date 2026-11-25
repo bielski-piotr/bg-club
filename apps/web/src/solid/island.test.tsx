@@ -4,7 +4,7 @@ import { QueryClient } from '@tanstack/query-core';
 import { describe, expect, it, vi } from 'vitest';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import type { PopupRoute } from '../popups/routes';
-import { CachedValue, Echo, StackPopup } from './__tests__/fixtures';
+import { CachedValue, Echo, LabeledField, StackPopup } from './__tests__/fixtures';
 import { mountIsland } from './island';
 
 function popups(stack: readonly PopupRoute[]): PopupApi {
@@ -22,6 +22,28 @@ function popups(stack: readonly PopupRoute[]): PopupApi {
 function level(covered: boolean): PopupLevel {
   return { level: 0, covered, onBack: undefined, onClose: vi.fn(), onScrimClick: vi.fn() };
 }
+
+describe('mountIsland: identyfikatory', () => {
+  it('dwie wyspy nie dzielą id z createUniqueId (etykiety i aria wskazują własne elementy)', () => {
+    const a = document.createElement('div');
+    const b = document.createElement('div');
+    document.body.append(a, b);
+    const first = mountIsland(a, LabeledField, { label: 'Pierwsze' }, {});
+    const second = mountIsland(b, LabeledField, { label: 'Drugie' }, {});
+    const ids = [...document.querySelectorAll('input')].map((input) => input.id);
+    expect(new Set(ids).size).toBe(2);
+    expect(document.getElementById(a.querySelector('label')?.htmlFor ?? '')).toBe(
+      a.querySelector('input'),
+    );
+    expect(document.getElementById(b.querySelector('label')?.htmlFor ?? '')).toBe(
+      b.querySelector('input'),
+    );
+    first.dispose();
+    second.dispose();
+    a.remove();
+    b.remove();
+  });
+});
 
 // Pętla „generation” z `@solidjs/diagnostics` (skill agent-loops): mostek nie może wywoływać
 // kodów diagnostyki Solid, bo każda wyspa by je dziedziczyła.

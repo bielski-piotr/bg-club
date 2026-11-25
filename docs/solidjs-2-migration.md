@@ -82,6 +82,8 @@ Zasady ze skilla `solid-2.0`, w tym repo szczególnie:
 | guardy na podwójny efekt StrictMode (`opened` ref)          | usuwamy – Solid nie uruchamia efektów dwa razy                                                    |
 | `menu trigger={(props) => <button {...props}>}`             | render prop zostaje; spread propsów działa                                                        |
 | `setX(v); x()` w teście                                     | `flush()` przed asercją                                                                           |
+| kilka `return <PopupModal …>` dla stanów popupu             | jeden `PopupModal`, przełączana treść, tytuł i stopka (fokus zostaje na oknie)                    |
+| `draggable={false}`, `spellCheck={false}`                   | `draggable="false"`, `spellcheck="false"` (atrybuty wyliczeniowe tekstem)                         |
 
 Układ plików: kod Solid obszaru leży obok dzisiejszego (`members/MembersPopup.tsx` zostaje nazwą).
 Które katalogi `apps/web/src` są już w Solid, mówi jedna lista `SOLID_DIRS` w `apps/web/solid-files.js`:
@@ -188,11 +190,38 @@ Ustalenia:
   maszynie dewelopera już przed migracją; jeśli zacznie padać na CI, tymczasowo podnosimy próg z notatką. Optymalizacja
   startu po usunięciu Reacta (etap 8) i przy przebudowie UI.
 
-### Etap 3 – Profil i ustawienia (obszar bez widżetu)
+### Etap 3 – Profil i ustawienia ✅
 
-- Popupy: `profile`, `settings`, `change-password`, `delete-account`, `first-login` (`ProfilePopup`, `PlayerStats`, `PlayerRecords`, `SettingsPopup`, `PasswordPopup`, `DeleteAccountDialog`, `AvatarCropper`).
-- Ryzyka: `AvatarCropper` (gesty, pomiary → `onSettled`, refy), formularze ustawień i motyw (`useProfileTheme` – motyw ustawia host, wyspa tylko zapisuje).
-- Testy: `ProfileSettings.test.tsx`, `settings.test.ts`, `playerStats.test.ts`; e2e `profile.spec.ts`, `player-stats.spec.ts`.
+Zrobione:
+
+- `src/profile/` w Solid (`SOLID_DIRS`): `ProfilePopup`, `PlayerStats`, `PlayerRecords`, `SettingsPopup`, `PasswordPopup`
+  (`change` i `first`), `DeleteAccountDialog`, `AvatarCropper`; `HubPopup` montuje je przez `SolidIsland`.
+  `playerStatsData.ts` / `playerRecordsData.ts` dają opcje zapytań (`playerStatsQuery`, `playerRecordsQuery`) zamiast hooków.
+- **`src/react-shared/`** (React, znika w etapie 8): `ProfileAvatar`, `ProfileLink`, `AvatarCropper` (edytor okładek gier)
+  i hooki `profiles.ts` dla obszarów jeszcze w React. Obszar w katalogu Solid nie może mieć plików React, więc wspólne
+  komponenty React z takiego obszaru przenosimy tutaj.
+- Wspólne wersje Solid elementów z obszarów jeszcze w React (bo Solid nie osadza Reacta): `src/solid/leaderboard/`
+  (`FilterBar`, `FilterPopover`, `DateRangeCalendar`, `GameFilterPanel` – w etapie 4 przechodzą do `leaderboard/`),
+  `src/solid/games/` (`GameCover`, `createGameSearch`), `src/solid/club.ts` (`createClub`, `createCoverUrl`),
+  `src/solid/theme.ts` (`createTheme` nad `theme/themeStore.ts`, wspólnym z `useTheme`). `games.ts` ma `gameSearchQuery`.
+- Testy: `src/hub/ProfileSettings.test.tsx` (przeniesiony z `profile/`: test React nie może leżeć w katalogu Solid; zmiany
+  tylko w sposobie wpisywania i czekaniu na DOM), `src/hub/Hub.test.tsx`, `src/solid/shared-parity.test.tsx` (zgodność DOM
+  `GameCover`, `FilterBar` zamknięty i otwarty, `DateRangeCalendar`, `AvatarCropper`), `src/profile/profile.test.tsx` (bramka
+  bez diagnostyki). E2e profile, player-stats, deletion, hub, members, leaderboard, games, a11y-audit, smoke: zielone.
+
+Ustalenia (reguły na kolejne etapy):
+
+- **Jedno okno na wszystkie stany popupu.** React zachowuje element DOM, gdy na tym samym miejscu jest ten sam komponent
+  (`PopupModal` wczytywania i `PopupModal` z danymi); `<Switch>`/`<Show>` w Solid tworzą nowe okno, więc fokus ustawiony
+  przez `PopupHost` przepada (NFR-6). Komponent popupu renderuje jeden `PopupModal` i przełącza jego tytuł, akcje, stopkę
+  i treść (`ProfilePopup`, kadrowanie w `SettingsPopup`).
+- **Atrybuty wyliczeniowe jako tekst:** `draggable="false"`, `spellcheck="false"` (Solid usuwa atrybut dla `false`, a brak
+  `draggable` na `<img>` znaczy „auto” – obraz dałoby się przeciągać w kadrze). Wykrył to test zgodności DOM.
+- Szkic formularza z propsa, który nie może się resetować przy odświeżeniu danych hosta (np. imię w ustawieniach, gdy zapis
+  motywu odświeża własny profil): `createSignal(untrack(() => props.me.first_name))` – świadoma jednorazowa wartość.
+- `createUniqueId` poza hydracją używa jednego licznika dla wszystkich korzeni, więc id z różnych wysp się nie powtarzają
+  (sprawdza to `src/solid/island.test.tsx`).
+- Bundle: początkowy JS 230,9 KB gzip (limit 240).
 
 ### Etap 4 – Ranking
 

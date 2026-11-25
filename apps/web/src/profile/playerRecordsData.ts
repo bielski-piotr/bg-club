@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { gamesKey } from '../games/games';
 import type { LeaderboardFilters } from '../leaderboard/filters';
 import { isUuid } from '../popups/routes';
@@ -49,8 +48,13 @@ export function visibleRecords(
 export const playerRecordsKey = (id: string, filters: LeaderboardFilters) =>
   [...gamesKey, 'player-records', id, ...filtersKey(filters)] as const;
 
-export function usePlayerRecords(client: SupabaseClient, id: string, filters: LeaderboardFilters) {
-  return useQuery({
+/** Rekordy osobiste gracza z filtrami (opcje zapytania). */
+export function playerRecordsQuery(
+  client: SupabaseClient,
+  id: string,
+  filters: LeaderboardFilters,
+) {
+  return {
     queryKey: playerRecordsKey(id, filters),
     queryFn: async (): Promise<readonly PlayerRecord[]> => {
       if (!isUuid(id)) return [];
@@ -61,6 +65,9 @@ export function usePlayerRecords(client: SupabaseClient, id: string, filters: Le
       if (error) throw error;
       return (data ?? []) as PlayerRecord[];
     },
-    placeholderData: (previous, query) => (query?.queryKey[2] === id ? previous : undefined),
-  });
+    placeholderData: (
+      previous: readonly PlayerRecord[] | undefined,
+      query: { readonly queryKey: readonly unknown[] } | undefined,
+    ) => (query?.queryKey[2] === id ? previous : undefined),
+  };
 }

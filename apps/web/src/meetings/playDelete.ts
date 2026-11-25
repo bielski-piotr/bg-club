@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { QueryClient } from '@tanstack/react-query';
 import { gamesKey } from '../games/games';
-import { isOwnProfileKey, profilesKey } from '../profile/profiles';
+import { isOwnProfileKey, profilesKey } from '../react-shared/profiles';
 import { removeSheetImages } from '../sheets/sheetImages';
 import { meetingsKey } from './meetings';
 

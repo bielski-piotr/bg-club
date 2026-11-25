@@ -11,7 +11,7 @@ import { useMeetingRecords } from '../meetings/records';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { useAllProfiles } from '../profile/profiles';
+import { useAllProfiles } from '../react-shared/profiles';
 import { Button, Icon } from '../ui';
 import { SheetZoom } from './SheetZoom';
 import { useSavedSheet, useSheetImageUrl, type SavedSheet } from './sheets';

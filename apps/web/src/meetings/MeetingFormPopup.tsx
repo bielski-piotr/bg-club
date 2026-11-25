@@ -8,8 +8,8 @@ import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { fullName, useMembers, type Profile } from '../profile/profiles';
+import { ProfileAvatar } from '../react-shared/ProfileAvatar';
+import { fullName, useMembers, type Profile } from '../react-shared/profiles';
 import {
   Badge,
   Banner,

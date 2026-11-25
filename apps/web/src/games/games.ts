@@ -90,9 +90,10 @@ export function useCollectionWidget(client: SupabaseClient) {
  * unaccent + lower), więc „zolw” znajdzie „Żółwie”. Puste zapytanie = cała kolekcja. Przy
  * zmianie zapytania widać poprzednie wyniki, dopóki nie przyjdą nowe.
  */
-export function useGameSearch(client: SupabaseClient, query: string, enabled = true) {
+/** Wyszukiwanie w kolekcji (opcje zapytania, wspólne dla React i Solid). */
+export function gameSearchQuery(client: SupabaseClient, query: string, enabled = true) {
   const normalized = query.trim();
-  return useQuery({
+  return {
     queryKey: gameSearchKey(normalized),
     enabled,
     placeholderData: keepPreviousData,
@@ -103,7 +104,11 @@ export function useGameSearch(client: SupabaseClient, query: string, enabled = t
       if (error) throw error;
       return data as unknown as Game[];
     },
-  });
+  };
+}
+
+export function useGameSearch(client: SupabaseClient, query: string, enabled = true) {
+  return useQuery(gameSearchQuery(client, query, enabled));
 }
 
 /** Aktywna gra; `null` = nie ma takiej gry albo została usunięta (GAME-8). */

@@ -99,7 +99,8 @@ function renderHub(me: OwnProfile, options: FakeOptions = {}) {
   return { ...fake, auth, queryClient, view };
 }
 
-const type = (field: HTMLElement, value: string) => fireEvent.change(field, { target: { value } });
+// Popupy profilu są w Solid: wartość pola idzie zdarzeniem `input` (jak przy pisaniu).
+const type = (field: HTMLElement, value: string) => fireEvent.input(field, { target: { value } });
 
 describe('ustawienia (USR-5, USR-8)', () => {
   it('zapisuje imię i nazwisko z przyciętymi spacjami i wraca do huba', async () => {
@@ -185,14 +186,15 @@ describe('zmiana hasła (USR-5)', () => {
     });
     const dialog = await screen.findByRole('dialog', { name: 'Zmiana hasła' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zmień hasło' }));
-    expect(within(dialog).getByText('Wpisz obecne hasło.')).toBeInTheDocument();
+    // Popup jest w Solid: komunikaty pojawiają się w mikrozadaniu po zdarzeniu.
+    expect(await within(dialog).findByText('Wpisz obecne hasło.')).toBeInTheDocument();
     expect(within(dialog).getByText('Wpisz nowe hasło.')).toBeInTheDocument();
     expect(within(dialog).getByText('Powtórz nowe hasło.')).toBeInTheDocument();
 
     type(within(dialog).getByLabelText('Obecne hasło'), 'zle-haslo');
     type(within(dialog).getByLabelText('Nowe hasło'), 'nowe-haslo-123');
     type(within(dialog).getByLabelText('Powtórz nowe hasło'), 'nowe-haslo-124');
-    expect(within(dialog).getByText('Hasła nie są takie same.')).toBeInTheDocument();
+    expect(await within(dialog).findByText('Hasła nie są takie same.')).toBeInTheDocument();
     expect(fake.updateUser).not.toHaveBeenCalled();
 
     type(within(dialog).getByLabelText('Powtórz nowe hasło'), 'nowe-haslo-123');

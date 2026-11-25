@@ -1,12 +1,12 @@
-import { useMutation } from '@tanstack/react-query';
-import { useId, useState, type FormEvent } from 'react';
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import { createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { t } from '../i18n';
 import { deleteOwnAccount, DeletionError, type DeletionFailure } from '../members/deletion';
-import { usePopups } from '../popups/popupContext';
-import { PopupDialog } from '../popups/PopupDialog';
-import { Banner, Button, PasswordField } from '../ui';
+import { AuthContext, PopupsContext } from '../solid/context';
+import { PopupDialog } from '../solid/popups/PopupDialog';
+import { createMutation } from '../solid/query';
+import { Banner, Button, PasswordField } from '../solid/ui';
 import './profile.css';
 
 const text = t.deleteAccount;
@@ -28,21 +28,21 @@ const ERRORS: Readonly<Record<Exclude<DeletionFailure, 'wrongPassword'>, string>
  * (`delete-own-account`); jest tylko w stanie formularza. Po usunięciu sesja na tym urządzeniu
  * się kończy i aplikacja wraca do logowania z komunikatem. Administrator nie ma tej opcji.
  */
-export function DeleteAccountDialog({ me }: { readonly me: OwnProfile }) {
-  const { client, signOut } = useAuth();
-  const { back } = usePopups();
-  const formId = useId();
-  const [password, setPassword] = useState('');
-  const [showErrors, setShowErrors] = useState(false);
-  const [wrongPassword, setWrongPassword] = useState(false);
+export function DeleteAccountDialog(props: { readonly me: OwnProfile }) {
+  const auth = useContext(AuthContext);
+  const popups = useContext(PopupsContext);
+  const formId = createUniqueId();
+  const [password, setPassword] = createSignal('');
+  const [showErrors, setShowErrors] = createSignal(false);
+  const [wrongPassword, setWrongPassword] = createSignal(false);
 
-  const remove = useMutation({
-    mutationFn: () => deleteOwnAccount(client, password),
+  const remove = createMutation({
+    mutationFn: () => deleteOwnAccount(auth.client, password()),
     // Hasło jest w domknięciu mutacji: nie trzymamy go w cache'u po zamknięciu dialogu.
     gcTime: 0,
     onSuccess: () => {
       // Serwer już unieważnił sesje; lokalne wylogowanie czyści cache i popupy z adresu.
-      void signOut('accountDeleted');
+      void auth.signOut('accountDeleted');
     },
     onError: (error) => {
       if (error instanceof DeletionError && error.reason === 'wrongPassword') {
@@ -51,19 +51,29 @@ export function DeleteAccountDialog({ me }: { readonly me: OwnProfile }) {
     },
   });
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
+    flush();
     setShowErrors(true);
-    if (password === '' || remove.isPending || remove.isSuccess) return;
+    const state = remove.state();
+    if (password() === '' || state.isPending || state.isSuccess) return;
     remove.mutate();
   };
 
-  const failure = remove.error instanceof DeletionError ? remove.error.reason : 'unknown';
-  const fieldError = wrongPassword
-    ? text.errors.wrongPassword
-    : showErrors && password === ''
-      ? text.errors.passwordRequired
-      : undefined;
+  const failure = () => {
+    const error = remove.state().error;
+    return error instanceof DeletionError ? error.reason : 'unknown';
+  };
+  const fieldError = () =>
+    wrongPassword()
+      ? text.errors.wrongPassword
+      : showErrors() && password() === ''
+        ? text.errors.passwordRequired
+        : undefined;
+  const bannerFailure = () => {
+    const reason = failure();
+    return remove.state().isError && reason !== 'wrongPassword' ? reason : undefined;
+  };
 
   return (
     <PopupDialog
@@ -73,42 +83,46 @@ export function DeleteAccountDialog({ me }: { readonly me: OwnProfile }) {
       description={<p>{text.description}</p>}
       footer={
         <>
-          <Button variant="secondary" disabled={remove.isPending} onClick={back}>
+          <Button
+            variant="secondary"
+            disabled={remove.state().isPending}
+            onClick={() => popups.back()}
+          >
             {text.cancel}
           </Button>
           <Button
             type="submit"
             form={formId}
             variant="destructive"
-            loading={remove.isPending || remove.isSuccess}
+            loading={remove.state().isPending || remove.state().isSuccess}
           >
             {text.submit}
           </Button>
         </>
       }
     >
-      <form id={formId} className="delete-account" noValidate onSubmit={submit}>
-        {remove.isError && failure !== 'wrongPassword' ? (
-          <Banner variant="error">{ERRORS[failure]}</Banner>
-        ) : null}
+      <form id={formId} class="delete-account" novalidate onSubmit={submit}>
+        <Show when={bannerFailure()}>
+          {(reason) => <Banner variant="error">{ERRORS[reason()]}</Banner>}
+        </Show>
         {/* Ukryty login: menedżer haseł podpowie hasło właściwego konta. */}
         <input
           type="text"
           name="username"
-          autoComplete="username"
-          value={me.hook}
-          readOnly
+          autocomplete="username"
+          value={props.me.hook}
+          readonly
           hidden
         />
         <PasswordField
           label={text.passwordLabel}
-          value={password}
-          autoComplete="current-password"
+          value={password()}
+          autocomplete="current-password"
           required
           hint={text.passwordHint}
-          error={fieldError}
-          onChange={(event) => {
-            setPassword(event.target.value);
+          error={fieldError()}
+          onInput={(event) => {
+            setPassword(event.currentTarget.value);
             setWrongPassword(false);
           }}
         />

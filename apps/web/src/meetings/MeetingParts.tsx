@@ -1,6 +1,6 @@
 import { t } from '../i18n';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import type { Profile } from '../profile/profiles';
+import { ProfileAvatar } from '../react-shared/ProfileAvatar';
+import type { Profile } from '../react-shared/profiles';
 import { Badge, Icon, StatusChip } from '../ui';
 import { dateTile, durationLabel, localDateTime } from './datetime';
 import type { Meeting } from './meetings';

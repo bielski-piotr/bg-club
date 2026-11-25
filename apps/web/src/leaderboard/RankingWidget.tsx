@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { t } from '../i18n';
 import { PopupLink } from '../popups/PopupLink';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../react-shared/profiles';
 import { Card, EmptyState, Icon, Tabs } from '../ui';
 import { BoardError, BoardLoading } from './BoardStatus';
 import { FilterBar } from './FilterBar';

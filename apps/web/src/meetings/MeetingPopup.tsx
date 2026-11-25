@@ -11,7 +11,7 @@ import { format, plural, t } from '../i18n';
 import { usePopupLevel, usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { ProfileAvatar } from '../react-shared/ProfileAvatar';
 import {
   avatarPerson,
   compareProfiles,
@@ -19,7 +19,7 @@ import {
   useAllProfiles,
   useMembers,
   type Profile,
-} from '../profile/profiles';
+} from '../react-shared/profiles';
 import {
   AvatarStack,
   Badge,

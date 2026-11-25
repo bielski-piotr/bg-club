@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
-import { profilesKey } from '../profile/profiles';
+import { profilesKey } from '../react-shared/profiles';
 import { normalizeGames, type LeaderboardFilters } from './filters';
 import type { LeaderboardKind } from './kinds';
 

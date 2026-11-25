@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { Hub } from '../hub/Hub';
 import { PopupRouter } from '../popups/PopupRouter';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../react-shared/profiles';
 import { normalizeSearch, ToastProvider } from '../ui';
 import type { Game } from './games';
 

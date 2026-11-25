@@ -4,7 +4,7 @@
  * `eslint-plugin-solid`. Zmigrowany obszar dopisujemy tutaj; pliki `.tsx` w tych katalogach zaczynają
  * się od `/** @jsxImportSource @solidjs/web *\/` (typy JSX), co sprawdza `src/config/solid-files.test.ts`.
  */
-export const SOLID_DIRS = ['solid', 'members'];
+export const SOLID_DIRS = ['solid', 'members', 'profile'];
 
 const dirs = SOLID_DIRS.join('|');
 

@@ -6,9 +6,9 @@ import { FilterPopover } from '../leaderboard/FilterPopover';
 import { GameFilterPanel } from '../leaderboard/GameFilter';
 import { NO_FILTERS, normalizeGames } from '../leaderboard/filters';
 import { QueryStatus } from '../popups/QueryStatus';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { ProfileLink } from '../profile/ProfileLink';
-import { fullName, useAllProfiles } from '../profile/profiles';
+import { ProfileAvatar } from '../react-shared/ProfileAvatar';
+import { ProfileLink } from '../react-shared/ProfileLink';
+import { fullName, useAllProfiles } from '../react-shared/profiles';
 import { cx } from '../ui/cx';
 import { splitPlays, useMeetingPlays } from './plays';
 import {

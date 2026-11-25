@@ -16,7 +16,7 @@ import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
 import { useLeaveGuard } from '../popups/useLeaveGuard';
 import { useMounted } from '../popups/useMounted';
-import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
+import { fullName, useAllProfiles, type Profile } from '../react-shared/profiles';
 import { ScorePadView, type ScorePadHandle } from '../score-pad/ScorePadView';
 import {
   discardSheetImage,

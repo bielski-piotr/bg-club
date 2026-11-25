@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { IMAGE_ACCEPT, ImageScaleError } from '../club/image';
 import { t } from '../i18n';
-import { AvatarCropper, CROP_VIEW } from '../profile/AvatarCropper';
+import { AvatarCropper, CROP_VIEW } from '../react-shared/AvatarCropper';
 import {
   clampCrop,
   fromStoredCrop,

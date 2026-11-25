@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import { format, formatNumber, plural, t } from '../i18n';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { ProfileLink } from '../profile/ProfileLink';
-import { fullName, type Profile } from '../profile/profiles';
+import { ProfileAvatar } from '../react-shared/ProfileAvatar';
+import { ProfileLink } from '../react-shared/ProfileLink';
+import { fullName, type Profile } from '../react-shared/profiles';
 import { Badge, type AvatarSize } from '../ui';
 import { cx } from '../ui/cx';
 import {

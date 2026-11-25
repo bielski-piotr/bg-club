@@ -3,9 +3,9 @@ import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
 import { PopupLink } from '../popups/PopupLink';
 import { QueryStatus } from '../popups/QueryStatus';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { ProfileLink } from '../profile/ProfileLink';
-import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
+import { ProfileAvatar } from '../react-shared/ProfileAvatar';
+import { ProfileLink } from '../react-shared/ProfileLink';
+import { fullName, useAllProfiles, type Profile } from '../react-shared/profiles';
 import { EmptyState, Icon, ListRow, Tray } from '../ui';
 import { formatScore, useGameStats, type GameRecord, type GameStats } from './gameStatsData';
 

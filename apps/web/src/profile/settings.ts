@@ -3,7 +3,7 @@ import { isAuthError, isAuthRetryableFetchError, type SupabaseClient } from '@su
 import { OWN_PROFILE_COLUMNS, type OwnProfile } from '../auth/useOwnProfile';
 import type { ThemePreference } from '../theme/theme';
 import type { AvatarImage } from './crop';
-import { AVATARS_BUCKET } from './profiles';
+import { AVATARS_BUCKET } from './profileQueries';
 
 /**
  * Zapis ustawień własnego profilu (PRD USR-3, USR-5, USR-8, AUTH-6). Wszystko idzie przez sesję

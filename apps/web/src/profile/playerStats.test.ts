@@ -4,7 +4,7 @@ import { NO_FILTERS } from '../leaderboard/filters';
 import { PLAY_DEPENDENT_KEYS } from '../meetings/playDelete';
 import { playerRecordsKey, visibleRecords, type PlayerRecord } from './playerRecordsData';
 import { filterArgs, playerStatsKey, winRate } from './playerStatsData';
-import { isOwnProfileKey, profilesKey } from './profiles';
+import { isOwnProfileKey, profilesKey } from './profileQueries';
 
 const id = '00000000-0000-4000-a000-000000000011';
 const game = '00000000-0000-4000-b000-000000000001';

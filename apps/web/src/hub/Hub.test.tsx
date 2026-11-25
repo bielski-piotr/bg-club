@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { PopupRouter } from '../popups/PopupRouter';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../react-shared/profiles';
 import { ToastProvider } from '../ui';
 import { Hub } from './Hub';
 import { visibleMembers } from './members';

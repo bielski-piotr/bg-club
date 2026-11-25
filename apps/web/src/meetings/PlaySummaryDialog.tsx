@@ -8,8 +8,8 @@ import {
 import { useAuth } from '../auth/authContext';
 import { ManualTieControls } from '../score-pad/ManualTieControls';
 import { format, formatNumber, t } from '../i18n';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { fullName, type Profile } from '../profile/profiles';
+import { ProfileAvatar } from '../react-shared/ProfileAvatar';
+import { fullName, type Profile } from '../react-shared/profiles';
 import { Banner, Button, Dialog } from '../ui';
 import { cx } from '../ui/cx';
 import { PlayTimes, RecordBadge } from './MeetingParts';

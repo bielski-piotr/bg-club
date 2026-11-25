@@ -5,7 +5,7 @@ import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
 import { PopupLink } from '../popups/PopupLink';
 import { PopupModal } from '../popups/PopupModal';
-import { fullName, type Profile } from '../profile/profiles';
+import { fullName, type Profile } from '../react-shared/profiles';
 import { Badge, EmptyState, Icon } from '../ui';
 import { cx } from '../ui/cx';
 import { BoardError, BoardLoading } from './BoardStatus';

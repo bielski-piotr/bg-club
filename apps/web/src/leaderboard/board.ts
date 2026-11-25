@@ -1,6 +1,6 @@
 import { useAuth } from '../auth/authContext';
 import { t } from '../i18n';
-import { useAllProfiles } from '../profile/profiles';
+import { useAllProfiles } from '../react-shared/profiles';
 import type { LeaderboardFilters } from './filters';
 import { LEADERBOARD_KINDS, useLeaderboard, type LeaderboardKind } from './leaderboard';
 

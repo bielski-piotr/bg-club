@@ -4,7 +4,7 @@ import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { format, t } from '../i18n';
 import { QueryStatus } from '../popups/QueryStatus';
-import { avatarPerson, type Profile } from '../profile/profiles';
+import { avatarPerson, type Profile } from '../react-shared/profiles';
 import { AvatarStack, Badge, Button, Icon, Select, TextField, Tray, useToast } from '../ui';
 import { cx } from '../ui/cx';
 import {
