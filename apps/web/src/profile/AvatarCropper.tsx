@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 import { format, t } from '../i18n';
 import { Slider } from '../ui';
 import {
@@ -6,16 +13,21 @@ import {
   imageBox,
   INITIAL_CROP,
   MAX_ZOOM,
+  minZoom,
   panCrop,
   zoomCrop,
+  type CropFit,
   type CropState,
   type ImageSize,
 } from './crop';
 import './cropper.css';
 
-/** Bok kadru w px. Mieści się na ekranie 360 px z marginesami 16 (DS §7). */
+/**
+ * Bok kadru w px w modelu kadru (`CropState` liczy się w tych pikselach). Na ekranie kadr może
+ * być mniejszy albo większy: podgląd jest skalowany do miejsca w oknie.
+ */
 export const CROP_VIEW = 280;
-/** Krok przesunięcia strzałką (Shift: większy). */
+/** Krok przesunięcia strzałką w px ekranu (Shift: większy). */
 const KEY_STEP = 8;
 const ZOOM_STEP = 0.1;
 
@@ -30,13 +42,24 @@ interface AvatarCropperProps {
    * w widoku gry). Wynik jest zawsze kwadratem; maska pokazuje, co będzie widać.
    */
   readonly shape?: 'circle' | 'cover';
+  /** `contain`: obraz można oddalić, aż cały zmieści się w kadrze (tło: `fill`). */
+  readonly fit?: CropFit;
+  /** Kolor tła kadru odsłoniętego przy oddaleniu (jak na zapisanym obrazie). */
+  readonly fill?: string;
+  /**
+   * Margines wokół kadru jako ułamek boku podglądu: obraz poza kadrem jest widoczny
+   * (przyciemniony), więc widać, co zostaje poza okładką.
+   */
+  readonly margin?: number;
+  /** Największy bok podglądu w px; mniejszy, gdy okno jest węższe. */
+  readonly maxSize?: number;
 }
 
 /**
  * Kadr zdjęcia (USR-3, DS „Profil / Kadrowanie awatara”): kwadratowy kadr z okrągłą maską
  * (awatar) albo maską okładki gry.
  * Zdjęcie przesuwa się przeciągnięciem (mysz, palec) albo strzałkami, a powiększa suwakiem,
- * kółkiem myszy albo klawiszami + i −. Zdjęcie zawsze pokrywa cały kadr.
+ * kółkiem myszy albo klawiszami + i −. Przy `fit="cover"` zdjęcie zawsze pokrywa cały kadr.
  */
 export function AvatarCropper({
   src,
@@ -44,16 +67,41 @@ export function AvatarCropper({
   crop,
   onCropChange,
   shape = 'circle',
+  fit = 'cover',
+  fill,
+  margin = 0,
+  maxSize = CROP_VIEW,
 }: AvatarCropperProps) {
   const drag = useRef<{ id: number; x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  // Bok podglądu: tyle, ile mieści okno (najwyżej `maxSize`).
+  const root = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState(maxSize);
+  useLayoutEffect(() => {
+    const node = root.current;
+    if (!node) return;
+    const measure = () => {
+      const width = node.clientWidth;
+      setSize(width > 0 ? Math.min(maxSize, Math.floor(width)) : maxSize);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [maxSize]);
+  const inset = Math.round(size * margin);
+  const viewSide = size - 2 * inset;
+  /** Px ekranu na px modelu kadru. */
+  const ratio = viewSide / CROP_VIEW;
   const box = imageBox(crop, image, CROP_VIEW);
 
   // Bieżący kadr w refie: kilka zdarzeń (pointermove, kółko) przed kolejnym renderem liczy się
   // od wyniku poprzedniego, a nie od kadru z ostatniego renderu, więc żaden ruch nie ginie.
-  const latest = useRef({ crop, image, onCropChange });
+  const latest = useRef({ crop, image, onCropChange, ratio });
   useEffect(() => {
-    latest.current = { crop, image, onCropChange };
+    latest.current = { crop, image, onCropChange, ratio };
   });
   const update = (change: (current: CropState, image: ImageSize) => CropState) => {
     const current = latest.current;
@@ -61,6 +109,14 @@ export function AvatarCropper({
     latest.current = { ...current, crop: next };
     current.onCropChange(next);
   };
+  /** Przesunięcie o (dx, dy) px ekranu. */
+  const pan = (dx: number, dy: number) =>
+    update((current, size) => {
+      const scale = latest.current.ratio || 1;
+      return panCrop(current, dx / scale, dy / scale, size, CROP_VIEW, fit);
+    });
+  const zoomTo = (zoom: (current: CropState) => number) =>
+    update((current, size) => zoomCrop(current, zoom(current), size, CROP_VIEW, fit));
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -75,7 +131,7 @@ export function AvatarCropper({
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     drag.current = { id: start.id, x: event.clientX, y: event.clientY };
-    update((current, size) => panCrop(current, dx, dy, size, CROP_VIEW));
+    pan(dx, dy);
   };
 
   const endDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -87,9 +143,9 @@ export function AvatarCropper({
   // Kółko myszy powiększa zdjęcie zamiast przewijać popup: React podpina `wheel` jako pasywny,
   // więc nasłuch z `passive: false` jest podpięty ręcznie (z bieżącym stanem w refie).
   const stage = useRef<HTMLDivElement>(null);
-  const updateRef = useRef(update);
+  const zoomRef = useRef(zoomTo);
   useEffect(() => {
-    updateRef.current = update;
+    zoomRef.current = zoomTo;
   });
   useEffect(() => {
     const node = stage.current;
@@ -97,9 +153,7 @@ export function AvatarCropper({
     const onWheel = (event: globalThis.WheelEvent) => {
       event.preventDefault();
       const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08;
-      updateRef.current((current, size) =>
-        zoomCrop(current, current.zoom * factor, size, CROP_VIEW),
-      );
+      zoomRef.current((current) => current.zoom * factor);
     };
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
@@ -113,28 +167,29 @@ export function AvatarCropper({
       ArrowUp: [0, -step],
       ArrowDown: [0, step],
     };
-    const pan = pans[event.key];
-    if (pan) {
+    const move = pans[event.key];
+    if (move) {
       event.preventDefault();
-      update((current, size) => panCrop(current, pan[0], pan[1], size, CROP_VIEW));
+      pan(move[0], move[1]);
     } else if (event.key === '+' || event.key === '=') {
       event.preventDefault();
-      update((current, size) => zoomCrop(current, current.zoom + ZOOM_STEP, size, CROP_VIEW));
+      zoomTo((current) => current.zoom + ZOOM_STEP);
     } else if (event.key === '-') {
       event.preventDefault();
-      update((current, size) => zoomCrop(current, current.zoom - ZOOM_STEP, size, CROP_VIEW));
+      zoomTo((current) => current.zoom - ZOOM_STEP);
     } else if (event.key === '0') {
       event.preventDefault();
-      update((_, size) => clampCrop(INITIAL_CROP, size, CROP_VIEW));
+      update((_, size) => clampCrop(INITIAL_CROP, size, CROP_VIEW, fit));
     }
   };
 
+  const lowest = Math.ceil(minZoom(image, fit) * 100);
   return (
-    <div className="cropper">
+    <div ref={root} className="cropper">
       <div
         ref={stage}
         className={dragging ? 'cropper__stage cropper__stage--dragging' : 'cropper__stage'}
-        style={{ width: CROP_VIEW, height: CROP_VIEW }}
+        style={{ width: size, height: size }}
         role="group"
         aria-label={t.crop.stageLabel}
         tabIndex={0}
@@ -144,29 +199,40 @@ export function AvatarCropper({
         onPointerCancel={endDrag}
         onKeyDown={onKeyDown}
       >
+        {fill ? (
+          <span
+            className={shape === 'cover' ? 'cropper__fill cropper__fill--cover' : 'cropper__fill'}
+            style={{ inset, background: fill }}
+            aria-hidden="true"
+          />
+        ) : null}
         <img
           className="cropper__image"
           src={src}
           alt=""
           draggable={false}
-          style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
+          style={{
+            left: inset + box.left * ratio,
+            top: inset + box.top * ratio,
+            width: box.width * ratio,
+            height: box.height * ratio,
+          }}
         />
         <span
           className={shape === 'cover' ? 'cropper__mask cropper__mask--cover' : 'cropper__mask'}
+          style={{ inset }}
           aria-hidden="true"
         />
       </div>
       <Slider
         className="cropper__zoom"
         label={t.crop.zoomLabel}
-        min={100}
+        min={lowest}
         max={MAX_ZOOM * 100}
         step={1}
-        value={Math.round(crop.zoom * 100)}
+        value={Math.max(lowest, Math.round(crop.zoom * 100))}
         formatValue={(value) => format(t.crop.zoomValue, { n: value })}
-        onValueChange={(value) =>
-          update((current, size) => zoomCrop(current, value / 100, size, CROP_VIEW))
-        }
+        onValueChange={(value) => zoomTo(() => value / 100)}
       />
     </div>
   );

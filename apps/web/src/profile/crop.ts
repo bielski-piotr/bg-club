@@ -34,6 +34,21 @@ export interface ImageSize {
 
 export const INITIAL_CROP: CropState = { zoom: 1, x: 0, y: 0 };
 
+/**
+ * Jak bardzo można oddalić obraz: `cover` = obraz zawsze pokrywa cały kadr (awatar),
+ * `contain` = można oddalić aż cały obraz zmieści się w kadrze, a odsłonięte tło wypełnia
+ * kolor (okładka gry).
+ */
+export type CropFit = 'cover' | 'contain';
+
+/** Najmniejsze powiększenie: 1 (krótszy bok wypełnia kadr) albo dłuższy bok równy kadrowi. */
+export function minZoom(image: ImageSize, fit: CropFit = 'cover'): number {
+  if (fit === 'cover') return 1;
+  const short = Math.min(image.width, image.height);
+  const long = Math.max(image.width, image.height);
+  return long > 0 ? Math.min(1, short / long) : 1;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -43,12 +58,20 @@ export function displayScale(image: ImageSize, view: number, zoom: number): numb
   return (view / Math.min(image.width, image.height)) * zoom;
 }
 
-/** Powiększenie w dozwolonym zakresie i przesunięcie, przy którym obraz pokrywa kadr. */
-export function clampCrop(state: CropState, image: ImageSize, view: number): CropState {
-  const zoom = clamp(Number.isFinite(state.zoom) ? state.zoom : 1, 1, MAX_ZOOM);
+/**
+ * Powiększenie w dozwolonym zakresie i przesunięcie: obraz większy od kadru zawsze go pokrywa,
+ * a mniejszy (oddalony, `contain`) nie wychodzi poza kadr.
+ */
+export function clampCrop(
+  state: CropState,
+  image: ImageSize,
+  view: number,
+  fit: CropFit = 'cover',
+): CropState {
+  const zoom = clamp(Number.isFinite(state.zoom) ? state.zoom : 1, minZoom(image, fit), MAX_ZOOM);
   const scale = displayScale(image, view, zoom);
-  const maxX = Math.max(0, (image.width * scale - view) / 2);
-  const maxY = Math.max(0, (image.height * scale - view) / 2);
+  const maxX = Math.abs(image.width * scale - view) / 2;
+  const maxY = Math.abs(image.height * scale - view) / 2;
   // `+ 0` zamienia -0 na 0 (stabilne porównania w testach i stanie).
   return { zoom, x: clamp(state.x, -maxX, maxX) + 0, y: clamp(state.y, -maxY, maxY) + 0 };
 }
@@ -60,8 +83,9 @@ export function panCrop(
   dy: number,
   image: ImageSize,
   view: number,
+  fit: CropFit = 'cover',
 ): CropState {
-  return clampCrop({ ...state, x: state.x + dx, y: state.y + dy }, image, view);
+  return clampCrop({ ...state, x: state.x + dx, y: state.y + dy }, image, view, fit);
 }
 
 /** Zmienia powiększenie, zachowując punkt obrazu w środku kadru. */
@@ -70,10 +94,11 @@ export function zoomCrop(
   zoom: number,
   image: ImageSize,
   view: number,
+  fit: CropFit = 'cover',
 ): CropState {
-  const next = clamp(zoom, 1, MAX_ZOOM);
+  const next = clamp(zoom, minZoom(image, fit), MAX_ZOOM);
   const ratio = next / state.zoom;
-  return clampCrop({ zoom: next, x: state.x * ratio, y: state.y * ratio }, image, view);
+  return clampCrop({ zoom: next, x: state.x * ratio, y: state.y * ratio }, image, view, fit);
 }
 
 /** Wycinany kwadrat w pikselach obrazu źródłowego. */
@@ -181,7 +206,12 @@ export function toStoredCrop(state: CropState, view: number): StoredCrop {
 }
 
 /** Kadr z bazy (albo `null` / niepoprawny) → kadr ekranu, dopasowany do obrazu. */
-export function fromStoredCrop(stored: unknown, image: ImageSize, view: number): CropState {
+export function fromStoredCrop(
+  stored: unknown,
+  image: ImageSize,
+  view: number,
+  fit: CropFit = 'cover',
+): CropState {
   const value = (stored ?? {}) as Partial<Record<keyof StoredCrop, unknown>>;
   const number = (raw: unknown, fallback: number) =>
     typeof raw === 'number' && Number.isFinite(raw) ? raw : fallback;
@@ -193,27 +223,55 @@ export function fromStoredCrop(stored: unknown, image: ImageSize, view: number):
     },
     image,
     view,
+    fit,
   );
 }
 
 /**
+ * Kadr w pikselach obrazu: środek i bok kwadratu. Przy oddaleniu (`contain`) kwadrat może
+ * wychodzić poza obraz.
+ */
+export function cropFrame(
+  state: CropState,
+  image: ImageSize,
+  view: number,
+  fit: CropFit = 'cover',
+): { readonly cx: number; readonly cy: number; readonly side: number } {
+  const { zoom, x, y } = clampCrop(state, image, view, fit);
+  const scale = displayScale(image, view, zoom);
+  return { cx: image.width / 2 - x / scale, cy: image.height / 2 - y / scale, side: view / scale };
+}
+
+/**
  * Rysuje wybrany kwadrat na płótnie o boku `side` (bez powiększania ponad rozdzielczość
- * źródła: bok wyniku to najwyżej bok wycinka w pikselach obrazu).
+ * źródła: bok wyniku to najwyżej bok wycinka w pikselach obrazu). Tło odsłonięte przy
+ * oddaleniu wypełnia kolor `fill`.
  */
 export function renderCropCanvas(
   source: CanvasImageSource & ImageSize,
   state: CropState,
   view: number,
   side: number,
+  fit: CropFit = 'cover',
+  fill = '#ffffff',
 ): HTMLCanvasElement {
-  const rect = sourceRect(state, source, view);
-  const out = Math.max(1, Math.round(Math.min(side, rect.side)));
+  const frame = cropFrame(state, source, view, fit);
+  const out = Math.max(1, Math.round(Math.min(side, frame.side)));
   const canvas = document.createElement('canvas');
   canvas.width = out;
   canvas.height = out;
   const context = canvas.getContext('2d');
   if (!context) throw new AvatarImageFailure('decode');
   context.imageSmoothingQuality = 'high';
-  context.drawImage(source, rect.sx, rect.sy, rect.side, rect.side, 0, 0, out, out);
+  const k = out / frame.side;
+  const left = (frame.side / 2 - frame.cx) * k;
+  const top = (frame.side / 2 - frame.cy) * k;
+  const width = source.width * k;
+  const height = source.height * k;
+  if (left > 0 || top > 0 || left + width < out || top + height < out) {
+    context.fillStyle = fill;
+    context.fillRect(0, 0, out, out);
+  }
+  context.drawImage(source, left, top, width, height);
   return canvas;
 }

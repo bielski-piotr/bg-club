@@ -4,6 +4,8 @@
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  width: 100%;
+  min-width: 0;
 }
 
 .cropper__stage {
@@ -30,6 +32,17 @@
   position: absolute;
   max-width: none;
   pointer-events: none;
+}
+
+/* Tło kadru odsłonięte przy oddaleniu okładki (ten sam kolor trafia do zapisanego obrazu). */
+.cropper__fill {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.cropper__fill--cover {
+  border-radius: 12%;
 }
 
 /* Poza okręgiem przyciemnienie; okrąg pokazuje, jak awatar będzie wyglądał. */

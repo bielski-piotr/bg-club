@@ -4,9 +4,11 @@ import {
   checkAvatarFile,
   clampCrop,
   fromStoredCrop,
+  cropFrame,
   imageBox,
   INITIAL_CROP,
   MAX_ZOOM,
+  minZoom,
   panCrop,
   sourceRect,
   toStoredCrop,
@@ -107,5 +109,38 @@ describe('kadr zapisany w bazie (okładka gry)', () => {
   it('niepoprawny albo pusty kadr daje kadr startowy dopasowany do obrazu', () => {
     expect(fromStoredCrop(null, LANDSCAPE, VIEW)).toEqual(INITIAL_CROP);
     expect(fromStoredCrop({ zoom: 'x', x: 9 }, LANDSCAPE, VIEW)).toEqual({ zoom: 1, x: 70, y: 0 });
+  });
+});
+
+describe('oddalenie okładki (contain)', () => {
+  it('najmniejsze powiększenie mieści cały obraz w kadrze; awatar zostaje przy 1', () => {
+    expect(minZoom(LANDSCAPE)).toBe(1);
+    expect(minZoom(LANDSCAPE, 'contain')).toBeCloseTo(800 / 1200);
+    expect(minZoom(PORTRAIT, 'contain')).toBeCloseTo(600 / 900);
+    expect(minZoom({ width: 500, height: 500 }, 'contain')).toBe(1);
+    expect(zoomCrop(INITIAL_CROP, 0.1, LANDSCAPE, VIEW).zoom).toBe(1);
+    expect(zoomCrop(INITIAL_CROP, 0.1, LANDSCAPE, VIEW, 'contain').zoom).toBeCloseTo(2 / 3);
+  });
+
+  it('oddalony obraz przesuwa się tylko w obrębie kadru', () => {
+    const zoom = 2 / 3;
+    // 1200×800 przy powiększeniu 2/3 ma w kadrze 280×186,67: w pionie zapas ±46,67, w poziomie 0.
+    const moved = panCrop({ zoom, x: 0, y: 0 }, 500, 500, LANDSCAPE, VIEW, 'contain');
+    expect(moved.x).toBeCloseTo(0);
+    expect(moved.y).toBeCloseTo((280 - 280 * (800 / 1200)) / 2);
+    expect(imageBox(moved, LANDSCAPE, VIEW).top + 280 * (800 / 1200)).toBeCloseTo(VIEW);
+  });
+
+  it('kadr oddalonego obrazu jest większy niż obraz, ze środkiem przesuniętym jak obraz', () => {
+    const frame = cropFrame({ zoom: 2 / 3, x: 0, y: 0 }, LANDSCAPE, VIEW, 'contain');
+    expect(frame.side).toBeCloseTo(1200);
+    expect(frame.cx).toBeCloseTo(600);
+    expect(frame.cy).toBeCloseTo(400);
+  });
+
+  it('zapisany kadr z powiększeniem poniżej 1 wraca bez zmian tylko przy contain', () => {
+    const stored = { zoom: 0.75, x: 0, y: 0.05 };
+    expect(fromStoredCrop(stored, LANDSCAPE, VIEW, 'contain')).toEqual({ zoom: 0.75, x: 0, y: 14 });
+    expect(fromStoredCrop(stored, LANDSCAPE, VIEW).zoom).toBe(1);
   });
 });

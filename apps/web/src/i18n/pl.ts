@@ -419,9 +419,6 @@ export const pl = {
     back: 'Wybierz inne',
     apply: 'Gotowe',
     loading: 'Wczytywanie zdjęcia…',
-    coverTitle: 'Kadrowanie okładki',
-    coverIntro:
-      'Przeciągnij obraz i ustaw powiększenie. Jasny obszar to okładka w takim kształcie, jak w widoku gry.',
   },
   /** Zmiana hasła i propozycja przy pierwszym logowaniu (PRD USR-5, AUTH-6). */
   password: {
@@ -563,14 +560,30 @@ export const pl = {
         'Dodatek do gry {title}. Nie pojawi się w kolekcji ani w głosowaniu: zaznacza się go przy rozpoczęciu partii.',
       coverLabel: 'Okładka gry',
       addCover: 'Dodaj okładkę',
-      changeCover: 'Zmień okładkę',
-      removeCover: 'Usuń okładkę',
-      pasteCover: 'Wklej ze schowka',
-      recropCover: 'Zmień kadr',
+      editCover: 'Edytuj okładkę',
       coverHelper:
-        'WebP, JPEG lub PNG z pliku albo wklejony ze schowka (Ctrl+V). Po wyborze ustawisz kadr; okładka ma do 800 px i ok. 100 KB.',
+        'Kliknij okładkę, żeby dodać obraz, zmienić kadr albo go usunąć. Obraz możesz też wkleić skrótem Ctrl+V (⌘V).',
       coverFallback: 'Bez okładki pokazujemy monogram tytułu.',
-      coverProcessing: 'Przygotowywanie okładki…',
+      coverChanged: 'Nowa okładka zapisze się razem z grą.',
+      coverRemoved: 'Okładka zostanie usunięta po zapisaniu gry.',
+      /** Edytor okładki: podgląd z kadrem, wybór pliku, wklejenie i usunięcie (GAME-6). */
+      coverEditor: {
+        title: 'Okładka gry',
+        intro:
+          'Przeciągnij obraz i ustaw powiększenie. Jasny obszar to okładka w kształcie z widoku gry; oddal obraz, żeby zmieścić go w całości.',
+        empty: 'Brak okładki',
+        emptyHelper:
+          'Wybierz plik, wklej obraz ze schowka (Ctrl+V / ⌘V) albo przeciągnij go tutaj.',
+        pickFile: 'Wybierz plik',
+        pickOther: 'Inny plik',
+        paste: 'Wklej ze schowka',
+        remove: 'Usuń okładkę',
+        helper: 'WebP, JPEG lub PNG. Zapiszemy kwadrat do 800 px (ok. 100 KB).',
+        loading: 'Wczytywanie okładki…',
+        processing: 'Przygotowywanie obrazu…',
+        apply: 'Gotowe',
+        cancel: 'Anuluj',
+      },
       titleLabel: 'Tytuł',
       titlePlaceholder: 'np. Żółwie Wyścigi',
       playersLegend: 'Liczba graczy',

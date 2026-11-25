@@ -1,31 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/authContext';
-import { IMAGE_ACCEPT, ImageScaleError } from '../club/image';
 import { format, t } from '../i18n';
-import { AvatarCropper, CROP_VIEW } from '../profile/AvatarCropper';
-import {
-  clampCrop,
-  fromStoredCrop,
-  INITIAL_CROP,
-  toStoredCrop,
-  type CropState,
-} from '../profile/crop';
 import { usePopups } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryStatus } from '../popups/QueryStatus';
-import { Banner, Button, Icon, Spinner, Stepper, TextField, useToast } from '../ui';
-import {
-  canReadClipboard,
-  clipboardImage,
-  ClipboardError,
-  downloadCover,
-  prepareCoverSource,
-  readClipboardImage,
-  renderCover,
-  type CoverSource,
-  type CroppedCover,
-} from './cover';
+import { Banner, Button, Icon, Stepper, TextField, useToast } from '../ui';
+import { clipboardImage, downloadCover, type CroppedCover } from './cover';
+import { CoverEditor, type CoverEditorResult, type CoverEditorStart } from './CoverEditor';
 import { GameCover } from './GameCover';
 import {
   emptyGameForm,
@@ -111,22 +93,7 @@ export function AddExpansionPopup({ baseId }: { readonly baseId: string }) {
 type CoverState =
   | { readonly kind: 'keep' }
   | { readonly kind: 'remove' }
-  | { readonly kind: 'processing' }
   | ({ readonly kind: 'new'; readonly preview: string } & CroppedCover);
-
-/** Obraz w trakcie kadrowania: zdekodowany oryginał, adres podglądu i skąd pochodzi. */
-interface Cropping {
-  readonly bitmap: ImageBitmap;
-  readonly url: string;
-  readonly crop: CropState;
-  readonly source: CoverSource;
-}
-
-const COVER_ERRORS: Readonly<Record<ImageScaleError['reason'], string>> = {
-  type: form.errors.coverType,
-  decode: form.errors.coverDecode,
-  size: form.errors.coverSize,
-};
 
 const SAVE_ERRORS: Readonly<Record<GameSaveFailure, string>> = {
   forbidden: form.errors.forbidden,
@@ -159,7 +126,6 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
   const toast = useToast();
   const { back } = usePopups();
   const formId = useId();
-  const fileRef = useRef<HTMLInputElement>(null);
   const creating = game === null;
   const expansion = base !== null || (game?.base_game_id ?? null) !== null;
   // Id nowej gry od razu: kolor monogramu w podglądzie jest ten sam co po zapisie.
@@ -168,39 +134,22 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
     game ? gameFormFrom(game) : emptyGameForm(),
   );
   const [cover, setCover] = useState<CoverState>({ kind: 'keep' });
-  const [cropping, setCropping] = useState<Cropping | null>(null);
-  const [applying, setApplying] = useState(false);
-  const [coverError, setCoverError] = useState<string | undefined>(undefined);
+  /** Otwarty edytor okładki i z czym się otworzył. */
+  const [editor, setEditor] = useState<CoverEditorStart | null>(null);
   /** Błędy wszystkich pól po pierwszej próbie zapisu; tytułu także po opuszczeniu pola. */
   const [showErrors, setShowErrors] = useState(false);
   const [titleTouched, setTitleTouched] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
 
-  // Adres podglądu i obraz kadru zwalniamy przy podmianie i przy zamknięciu popupu (jak w
-  // formularzu klubu: ref, bo StrictMode od razu uruchamia sprzątanie efektu).
+  // Adres podglądu zwalniamy przy podmianie i przy zamknięciu popupu (jak w formularzu klubu:
+  // ref, bo StrictMode od razu uruchamia sprzątanie efektu).
   const previewUrl = useRef<string | null>(null);
-  const croppingRef = useRef<Cropping | null>(null);
   useEffect(
     () => () => {
       if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-      const open = croppingRef.current;
-      if (open) {
-        URL.revokeObjectURL(open.url);
-        open.bitmap.close();
-      }
     },
     [],
   );
-
-  const releaseCropping = () => {
-    const open = croppingRef.current;
-    if (open) {
-      URL.revokeObjectURL(open.url);
-      open.bitmap.close();
-    }
-    croppingRef.current = null;
-    setCropping(null);
-  };
 
   const errors = validateGameForm(values);
   const invalid = hasErrors(errors);
@@ -222,128 +171,68 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
     },
   });
 
-  /** Otwiera kadrowanie obrazu (oryginał w pamięci albo z Storage) z podanym kadrem. */
-  const startCropping = async (
-    blob: Blob,
-    source: CoverSource,
-    crop: (bitmap: ImageBitmap) => CropState,
-  ) => {
-    const bitmap = await createImageBitmap(blob);
-    const next: Cropping = { bitmap, url: URL.createObjectURL(blob), crop: crop(bitmap), source };
-    releaseCropping();
-    croppingRef.current = next;
-    setCropping(next);
-  };
+  const hasCover = cover.kind === 'new' || (cover.kind === 'keep' && game?.cover_path != null);
 
-  /** Nowy obraz (plik albo schowek): oryginał 1600 px, potem kadr od środka. */
-  const pickImage = async (file: Blob | undefined) => {
-    if (!file || cover.kind === 'processing') return;
-    setCoverError(undefined);
-    const before = cover;
-    setCover({ kind: 'processing' });
-    try {
-      const image = await prepareCoverSource(file);
-      await startCropping(image.blob, { kind: 'upload', image }, (bitmap) =>
-        clampCrop(INITIAL_CROP, bitmap, CROP_VIEW),
-      );
-      setCover(before);
-    } catch (error) {
-      setCover(before);
-      setCoverError(
-        error instanceof ImageScaleError ? COVER_ERRORS[error.reason] : form.errors.coverDecode,
-      );
-    }
-  };
-
-  /** Zmiana kadru okładki: nowej (jej oryginał) albo zapisanej (oryginał z Storage). */
-  const recrop = async () => {
-    if (cover.kind === 'processing') return;
-    setCoverError(undefined);
-    const before = cover;
-    try {
-      if (cover.kind === 'new') {
-        const blob =
-          cover.source.kind === 'upload'
-            ? cover.source.image.blob
-            : await downloadCover(client, cover.source.path);
-        await startCropping(blob, cover.source, (bitmap) =>
-          fromStoredCrop(cover.crop, bitmap, CROP_VIEW),
-        );
-        return;
-      }
-      if (cover.kind !== 'keep' || !game?.cover_path) return;
-      setCover({ kind: 'processing' });
-      // Okładka sprzed kadrowania nie ma oryginału: kadruje się sama okładka.
-      const path = game.cover_source_path ?? game.cover_path;
-      const stored = game.cover_source_path ? game.cover_crop : null;
-      const blob = await downloadCover(client, path);
-      await startCropping(blob, { kind: 'existing', path }, (bitmap) =>
-        fromStoredCrop(stored, bitmap, CROP_VIEW),
-      );
-      setCover(before);
-    } catch {
-      setCover(before);
-      setCoverError(form.errors.coverLoad);
-    }
-  };
-
-  const applyCrop = async () => {
-    if (!cropping || applying) return;
-    setApplying(true);
-    try {
-      const image = await renderCover(cropping.bitmap, cropping.crop, CROP_VIEW);
-      const preview = URL.createObjectURL(image.blob);
-      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-      previewUrl.current = preview;
-      setCover({
-        kind: 'new',
-        image,
-        preview,
-        crop: toStoredCrop(cropping.crop, CROP_VIEW),
-        source: cropping.source,
+  /** Edytor z obecną okładką: nowa (jej oryginał) albo zapisana (oryginał z Storage). */
+  const openEditor = () => {
+    if (cover.kind === 'new') {
+      const { source, crop } = cover;
+      setEditor({
+        kind: 'current',
+        load: async () => ({
+          blob:
+            source.kind === 'upload' ? source.image.blob : await downloadCover(client, source.path),
+          source,
+          crop,
+        }),
       });
-      setCoverError(undefined);
-      releaseCropping();
-    } catch (error) {
-      setCoverError(
-        error instanceof ImageScaleError ? COVER_ERRORS[error.reason] : form.errors.coverDecode,
-      );
-      releaseCropping();
-    } finally {
-      setApplying(false);
+      return;
     }
+    const path = cover.kind === 'keep' ? (game?.cover_path ?? null) : null;
+    if (!game || !path) {
+      setEditor({ kind: 'empty' });
+      return;
+    }
+    // Okładka sprzed kadrowania nie ma oryginału: kadruje się sama okładka.
+    const sourcePath = game.cover_source_path ?? path;
+    const crop = game.cover_source_path ? game.cover_crop : null;
+    setEditor({
+      kind: 'current',
+      load: async () => ({
+        blob: await downloadCover(client, sourcePath),
+        source: { kind: 'existing', path: sourcePath },
+        crop,
+      }),
+    });
   };
 
-  // Wklejenie obrazu (Ctrl+V / ⌘V) w dowolnym miejscu formularza: pola tekstowe nie przyjmują
-  // obrazów, więc obraz ze schowka zawsze trafia do okładki.
-  const pickRef = useRef(pickImage);
+  const closeEditor = (result: CoverEditorResult) => {
+    setEditor(null);
+    if (result.kind === 'unchanged') return;
+    if (result.kind === 'remove') {
+      // Gra bez zapisanej okładki: wystarczy porzucić nową.
+      setCover(game?.cover_path ? { kind: 'remove' } : { kind: 'keep' });
+      return;
+    }
+    const preview = URL.createObjectURL(result.image.blob);
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    previewUrl.current = preview;
+    setCover({ ...result, preview });
+  };
+
+  // Wklejenie obrazu (Ctrl+V / ⌘V) w dowolnym miejscu formularza otwiera edytor okładki z tym
+  // obrazem: pola tekstowe nie przyjmują obrazów.
   useEffect(() => {
-    pickRef.current = pickImage;
-  });
-  useEffect(() => {
-    if (cropping) return;
+    if (editor) return;
     const onPaste = (event: ClipboardEvent) => {
       const file = clipboardImage(event.clipboardData);
       if (!file) return;
       event.preventDefault();
-      void pickRef.current(file);
+      setEditor({ kind: 'file', file });
     };
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-  }, [cropping]);
-
-  const pasteFromClipboard = async () => {
-    setCoverError(undefined);
-    try {
-      await pickImage(await readClipboardImage());
-    } catch (error) {
-      setCoverError(
-        error instanceof ClipboardError && error.reason === 'empty'
-          ? form.errors.clipboardEmpty
-          : form.errors.clipboardDenied,
-      );
-    }
-  };
+  }, [editor]);
 
   const setMax = (maxPlayers: number) =>
     setValues((current) => withMaxPlayers(current, maxPlayers));
@@ -354,10 +243,6 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
       points: current.points.map((value, i) => (i === index ? text : value)),
     }));
 
-  const hasCover =
-    cover.kind === 'new' ||
-    cover.kind === 'processing' ||
-    (cover.kind === 'keep' && game?.cover_path != null);
   const coverPath = cover.kind === 'keep' ? (game?.cover_path ?? null) : null;
   const coverSrc = cover.kind === 'new' ? cover.preview : undefined;
 
@@ -372,7 +257,7 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
     event.preventDefault();
     setShowErrors(true);
     setSaveError(undefined);
-    if (invalid || cover.kind === 'processing' || save.isPending) return;
+    if (invalid || save.isPending) return;
     const change: CoverChange =
       cover.kind === 'new'
         ? { kind: 'new', image: cover.image, crop: cover.crop, source: cover.source }
@@ -382,38 +267,8 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
     save.mutate(change);
   };
 
-  if (cropping) {
-    return (
-      <PopupModal
-        title={t.crop.coverTitle}
-        footer={
-          <>
-            <Button variant="secondary" disabled={applying} onClick={releaseCropping}>
-              {form.cancel}
-            </Button>
-            <Button loading={applying} onClick={() => void applyCrop()}>
-              {t.crop.apply}
-            </Button>
-          </>
-        }
-      >
-        <p className="game-form__hint game-form__crop-intro">{t.crop.coverIntro}</p>
-        <AvatarCropper
-          src={cropping.url}
-          image={cropping.bitmap}
-          crop={cropping.crop}
-          shape="cover"
-          onCropChange={(crop) =>
-            setCropping((open) => {
-              if (!open) return open;
-              const next = { ...open, crop };
-              croppingRef.current = next;
-              return next;
-            })
-          }
-        />
-      </PopupModal>
-    );
+  if (editor) {
+    return <CoverEditor start={editor} onCancel={() => setEditor(null)} onDone={closeEditor} />;
   }
 
   const title = expansion
@@ -432,11 +287,7 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
           <Button variant="secondary" onClick={back}>
             {form.cancel}
           </Button>
-          <Button
-            type="submit"
-            form={formId}
-            loading={save.isPending || cover.kind === 'processing'}
-          >
+          <Button type="submit" form={formId} loading={save.isPending}>
             {form.save}
           </Button>
         </>
@@ -453,7 +304,12 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
 
         <fieldset className="club-form__logo">
           <legend className="sr-only">{form.coverLabel}</legend>
-          <div className="club-form__tile">
+          <button
+            type="button"
+            className="club-form__tile game-form__cover"
+            aria-label={hasCover ? form.editCover : form.addCover}
+            onClick={openEditor}
+          >
             <GameCover
               id={id}
               title={values.title}
@@ -462,72 +318,19 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
               size="form"
             />
             <span className="club-form__badge" aria-hidden="true">
-              {cover.kind === 'processing' ? <Spinner size={16} /> : <Icon name="upload" />}
+              <Icon name="pencil" />
             </span>
-          </div>
+          </button>
           <div className="club-form__logo-text">
-            <div className="club-form__logo-actions">
-              <button
-                type="button"
-                className="club-form__link"
-                disabled={cover.kind === 'processing'}
-                onClick={() => fileRef.current?.click()}
-              >
-                {hasCover ? form.changeCover : form.addCover}
-              </button>
-              {canReadClipboard() ? (
-                <button
-                  type="button"
-                  className="club-form__link"
-                  disabled={cover.kind === 'processing'}
-                  onClick={() => void pasteFromClipboard()}
-                >
-                  {form.pasteCover}
-                </button>
-              ) : null}
-              {hasCover && cover.kind !== 'processing' ? (
-                <button type="button" className="club-form__link" onClick={() => void recrop()}>
-                  {form.recropCover}
-                </button>
-              ) : null}
-              {hasCover && cover.kind !== 'processing' ? (
-                <button
-                  type="button"
-                  className="club-form__link club-form__link--muted"
-                  onClick={() => {
-                    setCover({ kind: 'remove' });
-                    setCoverError(undefined);
-                  }}
-                >
-                  {form.removeCover}
-                </button>
-              ) : null}
-            </div>
-            <p className="club-form__helper" role={coverError ? 'alert' : undefined}>
-              {coverError ? (
-                <span className="club-form__helper--error">{coverError}</span>
-              ) : cover.kind === 'processing' ? (
-                form.coverProcessing
-              ) : (
-                <>
-                  {form.coverHelper}
-                  <br />
-                  {form.coverFallback}
-                </>
-              )}
+            <p className="club-form__helper">
+              {form.coverHelper}
+              <br />
+              {cover.kind === 'new'
+                ? form.coverChanged
+                : cover.kind === 'remove'
+                  ? form.coverRemoved
+                  : form.coverFallback}
             </p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept={IMAGE_ACCEPT}
-              className="sr-only"
-              tabIndex={-1}
-              aria-label={form.coverLabel}
-              onChange={(event) => {
-                void pickImage(event.target.files?.[0]);
-                event.target.value = '';
-              }}
-            />
           </div>
         </fieldset>
 

@@ -42,16 +42,29 @@ z zaznaczonego dodatku. Partia zapisuje dodatki w `plays.expansion_ids` (niezmie
 
 ## Okładka z kadrem
 
-Po wyborze pliku albo wklejeniu obrazu (Ctrl+V / ⌘V w formularzu albo „Wklej ze schowka”, gdy
-przeglądarka udostępnia Clipboard API) otwiera się kadrowanie z maską w kształcie okładki
-z widoku gry (zaokrąglony kwadrat). Do Storage trafiają:
+W formularzu gry okładka jest jedną kontrolką: kafelek 120 px z ołówkiem otwiera edytor okładki
+(`games/CoverEditor.tsx`). Edytor pokazuje obecną okładkę w kadrze (nową z pamięci albo
+zapisany oryginał z Storage) i pozwala:
+
+- przesunąć i powiększyć obraz; podgląd (do 480 px) pokazuje obraz także poza maską okładki
+  (przyciemniony),
+- oddalić obraz poniżej 100%, aż zmieści się w całości (`fit: 'contain'`): odsłonięte tło
+  wypełnia średni kolor brzegów obrazu, tak samo w podglądzie i w zapisanej okładce,
+- wybrać inny plik, wkleić obraz ze schowka (przycisk, gdy przeglądarka udostępnia Clipboard
+  API, albo Ctrl+V / ⌘V) lub przeciągnąć plik,
+- usunąć okładkę.
+
+Ctrl+V w formularzu (poza edytorem) otwiera edytor z wklejonym obrazem. „Gotowe” bez zmian
+niczego nie zmienia; nowa albo usunięta okładka trafia do Storage dopiero przy zapisie gry.
+Do Storage trafiają:
 
 - okładka: kwadrat do 800 px (WebP ok. 100 KB), `games.cover_path`,
 - oryginał zmniejszony do 1600 px, `games.cover_source_path`,
-- kadr `games.cover_crop` = `{"zoom", "x", "y"}` (przesunięcie jako ułamek boku kadru).
+- kadr `games.cover_crop` = `{"zoom", "x", "y"}` (przesunięcie jako ułamek boku kadru;
+  `zoom` < 1 = obraz oddalony).
 
-„Zmień kadr” przy zapisanej okładce wczytuje oryginał i zapisany kadr; zapis tworzy nową
-okładkę, a oryginał zostaje. Okładki sprzed tej zmiany nie mają oryginału: kadruje się sama
+Ponowna edycja zapisanej okładki wczytuje oryginał i zapisany kadr; zapis tworzy nową
+okładkę, a oryginał zostaje. Okładki sprzed kadrowania nie mają oryginału: kadruje się sama
 okładka (staje się wtedy oryginałem). Po zapisie usuwane są tylko pliki, których nowa okładka
 nie używa.
 
