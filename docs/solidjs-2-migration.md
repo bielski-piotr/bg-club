@@ -163,13 +163,30 @@ Ustalenia:
 - `Collection.test.tsx` („admin ustawia grę jako niedostępną…”) bywa niestabilny już przed migracją: na `55ec68b` trwa ≈ 5,0 s
   przy limicie 5 s. Do naprawy osobno (poza migracją).
 
-### Etap 2 – Członkowie (pilotaż)
+### Etap 2 – Członkowie (pilotaż) ✅
 
-- Widżet: `MembersWidget` (+ `MembersStack`) przeniesiony z `hub/widgets.tsx` do `members/`.
-- Popupy: `members`, `add-member`, `delete-member` (`MembersPopup`, `AddMemberPopup`, `DeleteMemberDialog`).
-- Współdzielone do Solid: `ProfileAvatar`, `ProfileLink`, `profiles.ts` (fabryki zapytań bez Reacta).
-- Testy: `members/*.test.ts`; e2e `members.spec.ts`, `deletion.spec.ts`, `hub.spec.ts`.
-- Po pilotażu: retrospektywa mostka i konwencji, poprawki w tym dokumencie.
+Zrobione:
+
+- `src/members/` w Solid (`SOLID_DIRS`): `MembersWidget` (przeniesiony z `hub/widgets.tsx`), `MembersPopup`, `AddMemberPopup`,
+  `DeleteMemberDialog`; `Hub.tsx` i `HubPopup.tsx` montują je przez `SolidIsland`.
+- `profile/profileQueries.ts`: typy, klucze i zapytania profili bez frameworka; `profile/profiles.ts` re-eksportuje je i zostawia
+  hooki React. Wersje Solid: `src/solid/profile/` (`ProfileAvatar`, `ProfileLink`, `createMembers`, `createProfile`,
+  `createAllProfiles`, `createAvatarUrl`).
+- Testy: `src/hub/Hub.test.tsx` sprawdza obszar w prawdziwym hoście React (zmiana tylko w sposobie wpisywania: `fireEvent.input`
+  zamiast `change`, i `waitFor` po zmianie listy); `src/members/members.test.tsx` – bramka bez diagnostyki Solid.
+  E2e members, deletion, hub, profile, a11y-audit, smoke: zielone.
+
+Ustalenia:
+
+- Formularz czyta sygnały w `submit`: wpis z tego samego zadania (autouzupełnianie + Enter) widać dopiero po flushu, więc
+  `submit` zaczyna od `flush()`. Ten sam wzorzec w kolejnych formularzach.
+- Pośrednie importy `react-query` z modułów bez JSX (`profile/settings.ts` → `auth/useOwnProfile`, `games/gameVoteTotal.ts`)
+  zostają do etapów 3 i 5 (obszar używa z nich tylko stałych i walidacji).
+- **Bundle i start (decyzja: zostajemy przy kolejności „widżet + popupy”, koszt przyjęty do etapu 8):** początkowy JS
+  190,5 → 227,8 KB gzip (wspólny fragment z runtime'em Solid i UI ≈ 36 KB). `perf.spec.ts` (mobile, 4G + CPU ×4):
+  gotowość huba 2,50–2,64 s przed etapem → 2,85–3,24 s po nim (+0,4–0,6 s). Test NFR-2 (< 2 s) nie przechodził na
+  maszynie dewelopera już przed migracją; jeśli zacznie padać na CI, tymczasowo podnosimy próg z notatką. Optymalizacja
+  startu po usunięciu Reacta (etap 8) i przy przebudowie UI.
 
 ### Etap 3 – Profil i ustawienia (obszar bez widżetu)
 

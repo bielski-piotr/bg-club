@@ -1,14 +1,14 @@
+/** @jsxImportSource @solidjs/web */
 import { NAME_MAX_LENGTH } from '@bg-club/accounts';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useId, useState, type FormEvent } from 'react';
-import { useAuth } from '../auth/authContext';
+import { createMemo, createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
-import { PopupModal } from '../popups/PopupModal';
-import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { allProfilesKey, fullName, membersKey, profileKey } from '../profile/profiles';
+import { allProfilesKey, fullName, membersKey, profileKey } from '../profile/profileQueries';
 import { nameProblem } from '../profile/settings';
-import { Banner, Button, Icon, TextField, useToast } from '../ui';
+import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
+import { PopupModal } from '../solid/popups/PopupModal';
+import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
+import { createMutation } from '../solid/query';
+import { Banner, Button, Icon, TextField } from '../solid/ui';
 import {
   createMember,
   CreateMemberError,
@@ -29,8 +29,7 @@ const SAVE_ERRORS: Readonly<Record<Exclude<CreateMemberFailure, 'invalid'>, stri
   unknown: text.errors.unknown,
 };
 
-/** Ta sama walidacja co w Edge Function (`validateMemberInput`), żeby nie wysyłać złych danych. */
-const fieldError = (value: string): FieldProblem | undefined => nameProblem(value);
+type Problems = Partial<Record<keyof NewMember, FieldProblem>>;
 
 function problemText(problem: FieldProblem | undefined, required: string): string | undefined {
   if (problem === 'required') return required;
@@ -44,29 +43,27 @@ function problemText(problem: FieldProblem | undefined, required: string): strin
  * w adresie, cache'u zapytań ani `localStorage`, więc znika po zamknięciu okna.
  */
 export function AddMemberPopup() {
-  const [created, setCreated] = useState<CreatedMember | null>(null);
-  return created ? (
-    <Credentials created={created} onAnother={() => setCreated(null)} />
-  ) : (
-    <AddMemberForm onCreated={setCreated} />
+  const [created, setCreated] = createSignal<CreatedMember | null>(null);
+  return (
+    <Show when={created()} fallback={<AddMemberForm onCreated={(result) => setCreated(result)} />}>
+      {(result) => <Credentials created={result()} onAnother={() => setCreated(null)} />}
+    </Show>
   );
 }
 
-function AddMemberForm({ onCreated }: { readonly onCreated: (created: CreatedMember) => void }) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const { back } = usePopups();
-  const formId = useId();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [showErrors, setShowErrors] = useState(false);
-  const [serverProblems, setServerProblems] = useState<
-    Partial<Record<keyof NewMember, FieldProblem>>
-  >({});
-  const [saveError, setSaveError] = useState<string | undefined>(undefined);
+function AddMemberForm(props: { readonly onCreated: (created: CreatedMember) => void }) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const popups = useContext(PopupsContext);
+  const formId = createUniqueId();
+  const [firstName, setFirstName] = createSignal('');
+  const [lastName, setLastName] = createSignal('');
+  const [showErrors, setShowErrors] = createSignal(false);
+  const [serverProblems, setServerProblems] = createSignal<Problems>({});
+  const [saveError, setSaveError] = createSignal<string | undefined>(undefined);
 
-  const save = useMutation({
-    mutationFn: (input: NewMember) => createMember(client, input),
+  const save = createMutation({
+    mutationFn: (input: NewMember) => createMember(auth.client, input),
     // Wynik zawiera hasło: mutacja nie trzyma go w cache'u dłużej niż trwa ten formularz.
     gcTime: 0,
     onSuccess: (result) => {
@@ -74,7 +71,7 @@ function AddMemberForm({ onCreated }: { readonly onCreated: (created: CreatedMem
       void queryClient.invalidateQueries({ queryKey: membersKey });
       void queryClient.invalidateQueries({ queryKey: allProfilesKey });
       // Potwierdzeniem jest ekran z danymi logowania (bez toastu, który zasłaniałby stopkę).
-      onCreated(result);
+      props.onCreated(result);
     },
     onError: (error) => {
       if (error instanceof CreateMemberError && error.reason === 'invalid') {
@@ -86,26 +83,33 @@ function AddMemberForm({ onCreated }: { readonly onCreated: (created: CreatedMem
     },
   });
 
-  const local = {
-    firstName: fieldError(firstName),
-    lastName: fieldError(lastName),
-  };
-  const firstNameError = problemText(
-    (showErrors ? local.firstName : undefined) ?? serverProblems.firstName,
-    text.errors.firstNameRequired,
-  );
-  const lastNameError = problemText(
-    (showErrors ? local.lastName : undefined) ?? serverProblems.lastName,
-    text.errors.lastNameRequired,
-  );
+  // Ta sama walidacja co w Edge Function (`validateMemberInput`), żeby nie wysyłać złych danych.
+  const local = createMemo(() => ({
+    firstName: nameProblem(firstName()),
+    lastName: nameProblem(lastName()),
+  }));
+  const firstNameError = () =>
+    problemText(
+      (showErrors() ? local().firstName : undefined) ?? serverProblems().firstName,
+      text.errors.firstNameRequired,
+    );
+  const lastNameError = () =>
+    problemText(
+      (showErrors() ? local().lastName : undefined) ?? serverProblems().lastName,
+      text.errors.lastNameRequired,
+    );
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
+    // Wpis z tego samego zadania (autouzupełnianie, menedżer haseł + Enter) musi być już
+    // w sygnałach, zanim walidacja je odczyta: odczyty widzą zapis dopiero po flushu.
+    flush();
     setShowErrors(true);
     setSaveError(undefined);
     setServerProblems({});
-    if (local.firstName || local.lastName || save.isPending) return;
-    save.mutate({ firstName, lastName });
+    const problems = local();
+    if (problems.firstName || problems.lastName || save.state().isPending) return;
+    save.mutate({ firstName: firstName(), lastName: lastName() });
   };
 
   return (
@@ -113,43 +117,45 @@ function AddMemberForm({ onCreated }: { readonly onCreated: (created: CreatedMem
       title={text.title}
       footer={
         <>
-          <Button variant="secondary" onClick={back}>
+          <Button variant="secondary" onClick={() => popups.back()}>
             {text.cancel}
           </Button>
-          <Button type="submit" form={formId} loading={save.isPending}>
+          <Button type="submit" form={formId} loading={save.state().isPending}>
             {text.submit}
           </Button>
         </>
       }
     >
-      <form id={formId} className="member-form" noValidate onSubmit={submit}>
-        {saveError ? <Banner variant="error">{saveError}</Banner> : null}
-        <p className="member-form__intro">{text.intro}</p>
+      <form id={formId} class="member-form" novalidate onSubmit={submit}>
+        <Show when={saveError()}>
+          <Banner variant="error">{saveError()}</Banner>
+        </Show>
+        <p class="member-form__intro">{text.intro}</p>
         <TextField
           label={text.firstNameLabel}
           placeholder={text.firstNamePlaceholder}
-          value={firstName}
-          maxLength={NAME_MAX_LENGTH}
-          autoComplete="off"
-          autoCapitalize="words"
+          value={firstName()}
+          maxlength={NAME_MAX_LENGTH}
+          autocomplete="off"
+          autocapitalize="words"
           required
-          error={firstNameError}
-          onChange={(event) => {
-            setFirstName(event.target.value);
+          error={firstNameError()}
+          onInput={(event) => {
+            setFirstName(event.currentTarget.value);
             setServerProblems(({ firstName: _, ...rest }) => rest);
           }}
         />
         <TextField
           label={text.lastNameLabel}
           placeholder={text.lastNamePlaceholder}
-          value={lastName}
-          maxLength={NAME_MAX_LENGTH}
-          autoComplete="off"
-          autoCapitalize="words"
+          value={lastName()}
+          maxlength={NAME_MAX_LENGTH}
+          autocomplete="off"
+          autocapitalize="words"
           required
-          error={lastNameError}
-          onChange={(event) => {
-            setLastName(event.target.value);
+          error={lastNameError()}
+          onInput={(event) => {
+            setLastName(event.currentTarget.value);
             setServerProblems(({ lastName: _, ...rest }) => rest);
           }}
         />
@@ -158,45 +164,38 @@ function AddMemberForm({ onCreated }: { readonly onCreated: (created: CreatedMem
   );
 }
 
-function Credentials({
-  created,
-  onAnother,
-}: {
-  readonly created: CreatedMember;
-  readonly onAnother: () => void;
-}) {
-  const { back } = usePopups();
-  const { member, password } = created;
+function Credentials(props: { readonly created: CreatedMember; readonly onAnother: () => void }) {
+  const popups = useContext(PopupsContext);
   return (
     <PopupModal
       title={text.doneTitle}
       footer={
         <>
-          <Button variant="secondary" icon="user-plus" onClick={onAnother}>
+          <Button variant="secondary" icon="user-plus" onClick={() => props.onAnother()}>
             {text.addAnother}
           </Button>
-          <Button onClick={back}>{text.done}</Button>
+          <Button onClick={() => popups.back()}>{text.done}</Button>
         </>
       }
     >
-      <div className="member-form">
-        <div className="member-credentials__who">
-          <ProfileAvatar profile={member} size={56} decorative />
-          <div className="row__text">
-            <p className="member-credentials__name">{fullName(member)}</p>
-            <p className="member-credentials__helper">{text.credentialsIntro}</p>
+      <div class="member-form">
+        <div class="member-credentials__who">
+          <ProfileAvatar profile={props.created.member} size={56} decorative />
+          <div class="row__text">
+            <p class="member-credentials__name">{fullName(props.created.member)}</p>
+            <p class="member-credentials__helper">{text.credentialsIntro}</p>
           </div>
         </div>
         <Banner variant="warning">{text.passwordOnce}</Banner>
         <CopyField
           label={text.hookLabel}
-          value={member.hook}
+          value={props.created.member.hook}
           copyLabel={text.copyHook}
           copiedToast={text.copiedHook}
         />
         <CopyField
           label={text.passwordLabel}
-          value={password}
+          value={props.created.password}
           copyLabel={text.copyPassword}
           copiedToast={text.copiedPassword}
         />
@@ -205,48 +204,43 @@ function Credentials({
   );
 }
 
-function CopyField({
-  label,
-  value,
-  copyLabel,
-  copiedToast,
-}: {
+function CopyField(props: {
   readonly label: string;
   readonly value: string;
   readonly copyLabel: string;
   readonly copiedToast: string;
 }) {
-  const toast = useToast();
-  const [copied, setCopied] = useState(false);
+  const toast = useContext(ToastContext);
+  const [copied, setCopied] = createSignal(false);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(props.value);
       setCopied(true);
-      toast.show(copiedToast, 'success');
+      toast.show(props.copiedToast, 'success');
     } catch {
       toast.show(text.copyFailed, 'error');
     }
   };
   return (
     <TextField
-      label={label}
-      value={value}
-      readOnly
+      label={props.label}
+      value={props.value}
+      readonly
       mono
       // Wartość do przepisania z ekranu: bez autouzupełniania i podpowiedzi przeglądarki.
-      autoComplete="off"
-      spellCheck={false}
-      onFocus={(event) => event.target.select()}
+      autocomplete="off"
+      spellcheck="false"
+      onFocus={(event) => event.currentTarget.select()}
       trailing={
         <button
           type="button"
-          className="member-copy"
-          aria-label={copyLabel}
+          class="member-copy"
+          aria-label={props.copyLabel}
           onClick={() => void copy()}
         >
-          <Icon name={copied ? 'check' : 'copy'} />
-          <span className="member-copy__label" aria-hidden="true">
-            {copied ? text.copied : text.copy}
+          <Icon name={copied() ? 'check' : 'copy'} />
+          <span class="member-copy__label" aria-hidden="true">
+            {copied() ? text.copied : text.copy}
           </span>
         </button>
       }

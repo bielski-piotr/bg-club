@@ -1,5 +1,5 @@
-import type { Profile } from '../profile/profiles';
-import { normalizeSearch } from '../ui';
+import type { Profile } from '../profile/profileQueries';
+import { normalizeSearch } from '../ui/search';
 
 /**
  * Członkowie pasujący do wyszukiwania (MEM-2): każde słowo zapytania musi wystąpić w imieniu,

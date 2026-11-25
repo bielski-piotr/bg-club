@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { functionFailure } from '../lib/functions';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../profile/profileQueries';
 
 /** Edge Function tworząca konto członka (MEM-3, `supabase/functions/create-member`). */
 export const CREATE_MEMBER_FUNCTION = 'create-member';

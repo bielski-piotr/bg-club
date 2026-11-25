@@ -448,8 +448,9 @@ describe('dodawanie członka (MEM-3, AUTH-4)', () => {
     expect(within(form).getByText('Wpisz nazwisko.')).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalled();
 
-    fireEvent.change(within(form).getByLabelText('Imię'), { target: { value: ' Łukasz ' } });
-    fireEvent.change(within(form).getByLabelText('Nazwisko'), { target: { value: 'Żółw' } });
+    // Pola obszaru Członkowie są w Solid: wartość idzie zdarzeniem `input` (jak przy pisaniu).
+    fireEvent.input(within(form).getByLabelText('Imię'), { target: { value: ' Łukasz ' } });
+    fireEvent.input(within(form).getByLabelText('Nazwisko'), { target: { value: 'Żółw' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Dodaj członka' }));
 
     const done = await screen.findByRole('dialog', { name: 'Członek dodany' });
@@ -494,8 +495,8 @@ describe('dodawanie członka (MEM-3, AUTH-4)', () => {
       }),
     });
     const form = await screen.findByRole('dialog', { name: 'Dodaj członka' });
-    fireEvent.change(within(form).getByLabelText('Imię'), { target: { value: 'Ola' } });
-    fireEvent.change(within(form).getByLabelText('Nazwisko'), { target: { value: 'Nowak' } });
+    fireEvent.input(within(form).getByLabelText('Imię'), { target: { value: 'Ola' } });
+    fireEvent.input(within(form).getByLabelText('Nazwisko'), { target: { value: 'Nowak' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Dodaj członka' }));
     expect(
       await within(form).findByText(
@@ -535,19 +536,21 @@ describe('wyszukiwanie członków (MEM-2)', () => {
     expect(within(list).getByRole('button', { name: 'Dodaj członka' })).toBeInTheDocument();
 
     const search = within(list).getByRole('searchbox', { name: 'Szukaj członka' });
-    fireEvent.change(search, { target: { value: 'lukasz zol' } });
-    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    // Popup jest w Solid: wartość idzie zdarzeniem `input`, a lista zmienia się w mikrozadaniu.
+    fireEvent.input(search, { target: { value: 'lukasz zol' } });
+    await waitFor(() => expect(within(list).getAllByRole('listitem')).toHaveLength(1));
     expect(within(list).getByRole('link', { name: /Łukasz Żółw/ })).toBeInTheDocument();
     expect(within(list).getByRole('status')).toHaveTextContent('1 wynik');
 
-    fireEvent.change(search, { target: { value: '7C1E' } });
-    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    fireEvent.input(search, { target: { value: '7C1E' } });
+    await waitFor(() => expect(within(list).getAllByRole('listitem')).toHaveLength(1));
+    expect(within(list).getByRole('link', { name: /Łukasz Żółw/ })).toBeInTheDocument();
 
-    fireEvent.change(search, { target: { value: 'nikogo' } });
-    expect(within(list).queryAllByRole('listitem')).toHaveLength(0);
+    fireEvent.input(search, { target: { value: 'nikogo' } });
+    await waitFor(() => expect(within(list).queryAllByRole('listitem')).toHaveLength(0));
     expect(within(list).getByText('Nikt nie pasuje do „nikogo”')).toBeInTheDocument();
 
     fireEvent.keyDown(search, { key: 'Escape' });
-    expect(within(list).getAllByRole('listitem')).toHaveLength(8);
+    await waitFor(() => expect(within(list).getAllByRole('listitem')).toHaveLength(8));
   });
 });

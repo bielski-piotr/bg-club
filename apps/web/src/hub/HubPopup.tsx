@@ -3,6 +3,7 @@ import { CollectionPopup } from '../games/CollectionPopup';
 import { DeleteGameDialog } from '../games/DeleteGameDialog';
 import { GameDetailsPopup } from '../games/GameDetailsPopup';
 import { AddExpansionPopup, AddGamePopup, EditGamePopup } from '../games/GameFormPopup';
+import { SolidIsland } from '../bridge/SolidIsland';
 import { AddMemberPopup } from '../members/AddMemberPopup';
 import { DeleteMemberDialog } from '../members/DeleteMemberDialog';
 import { MembersPopup } from '../members/MembersPopup';
@@ -47,15 +48,24 @@ interface HubPopupProps {
 export function HubPopup({ route, me }: HubPopupProps) {
   switch (route.kind) {
     case 'members':
-      return <MembersPopup isAdmin={me.role === 'admin'} />;
+      // Obszar Członkowie jest w Solid 2.0 (docs/solidjs-2-migration.md, etap 2).
+      return <SolidIsland component={MembersPopup} props={{ isAdmin: me.role === 'admin' }} />;
     case 'add-member':
       // Członków dodaje tylko administrator (MEM-3); bazę i tak chroni Edge Function (403).
-      return me.role === 'admin' ? <AddMemberPopup /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={AddMemberPopup} props={{}} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'profile':
       return <ProfilePopup id={route.id} isAdmin={me.role === 'admin'} />;
     case 'delete-member':
       // Członków usuwa tylko administrator (MEM-4); Edge Function i tak odrzuci gracza (403).
-      return me.role === 'admin' ? <DeleteMemberDialog id={route.id} /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={DeleteMemberDialog} props={{ id: route.id }} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'settings':
       // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć (USR-7).
       return <SettingsPopup me={me} />;

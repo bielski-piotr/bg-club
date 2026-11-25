@@ -1,4 +1,4 @@
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../profile/profileQueries';
 
 /** MEM-1: przy więcej niż 5 członkach 4 awatary i licznik `+N`, przy 5 lub mniej wszystkie. */
 export const MEMBERS_WIDGET_SLOTS = 5;

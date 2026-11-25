@@ -22,13 +22,9 @@ import { AppHeader } from './AppHeader';
 import { PopupErrorBoundary } from './PopupErrorBoundary';
 import { useClub } from './club';
 import { useMasonry } from './useMasonry';
-import {
-  CollectionWidget,
-  MeetingWidget,
-  MembersWidget,
-  RankingWidget,
-  TimelineWidget,
-} from './widgets';
+import { SolidIsland } from '../bridge/SolidIsland';
+import { MembersWidget } from '../members/MembersWidget';
+import { CollectionWidget, MeetingWidget, RankingWidget, TimelineWidget } from './widgets';
 import './Hub.css';
 
 // Popupy huba (z edytorem notesów, formularzami i statystykami) są osobnym fragmentem pakietu:
@@ -145,7 +141,8 @@ function Widgets({ me }: { readonly me: Profile }) {
         <CollectionWidget isAdmin={me.role === 'admin'} />
       </div>
       <div className="hub__slot hub__slot--left">
-        <MembersWidget me={me} />
+        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 2). */}
+        <SolidIsland component={MembersWidget} props={{ me }} />
       </div>
     </div>
   );
