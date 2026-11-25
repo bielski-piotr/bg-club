@@ -128,7 +128,9 @@
   line-height: 18px;
 }
 
-/* Stopień: taca z imieniem i wynikiem; 1. miejsce najwyższe. */
+/* Stopień: taca z imieniem i wynikiem; 1. miejsce najwyższe, 3. najniższe.
+   Stałe wysokości (nie min-height), żeby odznaka „Ty” nie wyrównywała stopni: najwyższa
+   treść (imię 18 + odznaka 18 + wynik 30, odstępy i padding) mieści się w 92 px. */
 .podium__block {
   display: flex;
   flex-direction: column;
@@ -136,7 +138,7 @@
   justify-content: flex-start;
   gap: 4px;
   width: 100%;
-  min-height: 64px;
+  height: 112px;
   margin-top: 10px;
   padding: 10px 8px 12px;
   border-radius: var(--r-row) var(--r-row) 0 0;
@@ -145,11 +147,11 @@
 }
 
 .podium__step--1 .podium__block {
-  min-height: 88px;
+  height: 132px;
 }
 
 .podium__step--3 .podium__block {
-  min-height: 52px;
+  height: 92px;
 }
 
 .podium__name {
