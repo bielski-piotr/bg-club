@@ -9,7 +9,7 @@
 -- - `service_role` (Edge Functions) omija RLS i jest jedyną drogą do pól `role`, `hook`,
 --   `deleted_at` oraz do tworzenia i usuwania profili (§6.1). Ten klucz nie trafia do SPA.
 -- - Zapis i usuwanie partii i wyników (`plays`, `play_results`), rozpoczęcie i zakończenie
---   spotkania oraz przeliczenie osiągnięć idą przez RPC SECURITY DEFINER z kolejnych zadań
+--   spotkania idą przez RPC SECURITY DEFINER z kolejnych zadań
 --   (jedna transakcja: zmiana + przeliczenie, §5.6.5). Każde takie RPC zaczyna od
 --   `private.require_admin()` albo `private.require_meeting_runner(meeting_id)`.
 -- - Funkcje sprawdzające role są w schemacie `private`, którego PostgREST nie udostępnia, więc
@@ -193,13 +193,13 @@ alter default privileges for role postgres in schema public revoke all on functi
 revoke execute on function
   public.f_unaccent(text),
   public.search_text(text),
-  public.is_valid_points(int[], int),
+  public.is_valid_points(numeric[], int),
   public.is_valid_timezone(text)
 from public, anon;
 grant execute on function
   public.f_unaccent(text),
   public.search_text(text),
-  public.is_valid_points(int[], int),
+  public.is_valid_points(numeric[], int),
   public.is_valid_timezone(text)
 to authenticated;
 
@@ -214,11 +214,13 @@ grant update (name, logo_path, timezone) on public.club to authenticated;
 
 grant update (first_name, last_name, avatar_path, theme) on public.profiles to authenticated;
 
-grant insert (id, title, cover_path, min_players, max_players, placement_points) on public.games to authenticated;
-grant update (title, cover_path, min_players, max_players, placement_points, deleted_at) on public.games to authenticated;
+grant insert (id, title, cover_path, min_players, max_players, placement_points, complexity, base_game_id,
+  cover_source_path, cover_crop, available) on public.games to authenticated;
+grant update (title, cover_path, min_players, max_players, placement_points, deleted_at, complexity,
+  cover_source_path, cover_crop, available) on public.games to authenticated;
 
 grant insert (id, game_id, name) on public.scorepads to authenticated;
-grant update (name, current_version_id, deleted_at) on public.scorepads to authenticated;
+grant update (game_id, name, current_version_id, deleted_at) on public.scorepads to authenticated;
 
 grant insert (id, scorepad_id, template, image_path, player_slots) on public.scorepad_versions to authenticated;
 
@@ -238,9 +240,8 @@ grant insert (meeting_id, game_id, position) on public.meeting_games to authenti
 grant update (position) on public.meeting_games to authenticated;
 grant delete on public.meeting_games to authenticated;
 
--- plays, play_results, achievement_unlocks: tylko odczyt. Tworzenie, zapis i usuwanie partii
--- (także porzucenie szkicu) robi RPC, bo usunięcie musi w tej samej transakcji przeliczyć
--- statystyki, serie, rekordy i osiągnięcia (§5.6.5).
+-- plays, play_results: tylko odczyt. Tworzenie, zapis i usuwanie partii (także porzucenie
+-- szkicu) robi RPC, bo usunięcie musi w tej samej transakcji przeliczyć zależne dane (§5.6.5).
 
 -- Autor spotkania z tokenu, a nie z treści żądania.
 alter table public.meetings alter column created_by set default auth.uid();
@@ -382,10 +383,6 @@ create policy plays_select on public.plays for select to authenticated
   using ((select private.is_active_member()));
 
 create policy play_results_select on public.play_results for select to authenticated
-  using ((select private.is_active_member()));
-
--- achievement_unlocks: odczyt aktywni; zapis przez przeliczenie osiągnięć (RPC).
-create policy achievement_unlocks_select on public.achievement_unlocks for select to authenticated
   using ((select private.is_active_member()));
 
 -- ---------------------------------------------------------------------------------------------

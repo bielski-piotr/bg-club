@@ -3231,58 +3231,6 @@ export class ScorePad {
     if (!this.t || this.switching || this.opts.tear === false || this.opts.readOnly) return;
     this.completeTear();
   }
-
-  /** Do testów: wymusza oderwanie bieżącej kartki. */
-  tearNow(): void {
-    this.completeTear();
-  }
-
-  /** Do testów: stan kartki i przeciągania. */
-  debug(): Record<string, unknown> {
-    const a = this.active;
-    return {
-      game: a?.data.game,
-      resting: a?.resting,
-      flipped: a?.cloth.flipped,
-      lift: a?.cloth.maxLift,
-      released: a?.cloth.releasedCount(),
-      excess: this.drag?.excess ?? null,
-      flyers: this.flyers.length,
-      tpl: this.t?.id,
-      view: this.free ? 'free' : 'home',
-      angled: this.angled,
-      moving: !!this.camAnim,
-      zoom: this.free && this.spec ? this.homePose(1).dist / this.free.dist : 1,
-      fps: Math.round(this.fps),
-      texture: this.ps ? [this.ps.CW, this.ps.CH] : null,
-      pixelRatio: this.renderer?.getPixelRatio(),
-      entry: this.entryDebug(),
-    };
-  }
-
-  /** Do testów: zaznaczone pole wpisywania, tekst, błąd i położenie pola na ekranie. */
-  private entryDebug(): Record<string, unknown> | null {
-    const en = this.entry;
-    if (!en || !this.t || !this.active) return null;
-    const r = this.wrap.getBoundingClientRect();
-    const b = this.cellBox(en.spot);
-    return {
-      line: this.t.lines[en.spot.li].id,
-      seat: en.spot.p,
-      text: this.enIn.value,
-      error: this.ui.enErr.textContent,
-      focused: this.root.activeElement === this.enIn,
-      box: { x: b.x + r.left, y: b.y + r.top, w: b.w, h: b.h },
-      visible: this.visibleBox(),
-    };
-  }
-
-  /** Do testów: punkt kartki na ekranie (współrzędne klienta). */
-  pointOnSheet(u: number, v: number): { x: number; y: number } {
-    const s = this.screenOf(u, v);
-    const r = this.wrap.getBoundingClientRect();
-    return { x: s.x + r.left, y: s.y + r.top };
-  }
 }
 
 function fmtSize(t: PadTemplate): string {

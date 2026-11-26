@@ -2,7 +2,7 @@
  * Sumy notesu (PRD EDT-13): suma liczy się z wybranych kategorii, także z innych sum, bez cykli.
  *
  * Reguły domyślne (kategoria sumy bez listy `of`) pochodzą z notesu POC 2.4.0 i są tu przeniesione
- * bez zmian zachowania, żeby notes, edytor i testy liczyły tak samo.
+ * bez zmian zachowania, żeby notes i edytor liczyły tak samo.
  */
 import type { LineValues, ScoringLine, ScoringTemplate } from './template';
 import { FINAL_TOTAL, isComputed } from './template';

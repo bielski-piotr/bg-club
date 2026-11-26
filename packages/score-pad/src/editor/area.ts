@@ -1,6 +1,6 @@
 // Obszar kartki na zdjęciu (EDT-10): wielokąt w pikselach zdjęcia, z którego edytor wyznacza
 // cztery narożniki do prostowania perspektywy i kształt kartki (współrzędne kartki 0…1).
-// Czyste funkcje bez DOM, więc testy jednostkowe nie potrzebują przeglądarki.
+// Czyste funkcje bez DOM.
 
 import type { ShapePt, SheetShape } from '../core/shape';
 import { Persp, type Pt, type Quad } from './photo';

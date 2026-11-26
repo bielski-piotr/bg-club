@@ -366,11 +366,6 @@ export function webpEncoding(): boolean {
   return webp;
 }
 
-/** Tylko testy: ponowne sprawdzenie kodowania WebP. */
-export function resetWebpProbe(): void {
-  webp = null;
-}
-
 /** Bajty pliku zapisanego w data URL (base64). */
 export function dataUrlBytes(url: string): number {
   const i = url.indexOf(',');

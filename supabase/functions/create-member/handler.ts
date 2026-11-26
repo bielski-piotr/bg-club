@@ -1,7 +1,6 @@
 /**
  * Obsługa żądania `POST /functions/v1/create-member` (PRD MEM-3, AUTH-2, AUTH-4, USR-1).
- * Bez zależności od Deno i supabase-js: dostęp do Auth i bazy podaje `index.ts`, a testy
- * (`handler.test.ts`) podstawiają atrapy.
+ * Bez zależności od Deno i supabase-js: dostęp do Auth i bazy podaje `index.ts`.
  *
  * Kontrakt:
  * - nagłówek `Authorization: Bearer <token sesji>`; tylko aktywny administrator (403 dla gracza),

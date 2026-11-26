@@ -9,12 +9,5 @@
     "lib": ["ES2023", "DOM"],
     "types": ["node"]
   },
-  "include": [
-    "vite.config.ts",
-    "playwright.config.ts",
-    "e2e",
-    "src/config/secretKey.ts",
-    "src/pwa/plugin.ts",
-    "src/pwa/plugin.test.ts"
-  ]
+  "include": ["vite.config.ts", "src/config/secretKey.ts", "src/pwa/plugin.ts"]
 }

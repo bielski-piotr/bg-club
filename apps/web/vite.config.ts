@@ -1,7 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import solid from '@solidjs/vite-plugin';
-import { loadEnv, type Plugin } from 'vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { isSecretKey } from './src/config/secretKey';
 import { pwaPlugin } from './src/pwa/plugin';
 
@@ -52,16 +51,5 @@ export default defineConfig(({ mode }) => {
     server: { port: 5173, strictPort: true },
     preview: { port: 4173, strictPort: true },
     build: { target: 'es2022', sourcemap: true },
-    test: {
-      // Each jsdom worker also loads the lazy popup and scorepad modules. Running
-      // all files at once starves async UI assertions on developer machines.
-      maxWorkers: 1,
-      environment: 'jsdom',
-      include: ['src/**/*.test.{ts,tsx}'],
-      setupFiles: ['./src/test/setup.ts'],
-      restoreMocks: true,
-      // Test kontrastu czyta tokeny jako tekst (`tokens.css?raw`).
-      css: { include: [/tokens\.css/] },
-    },
   };
 });

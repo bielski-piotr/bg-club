@@ -25,7 +25,7 @@ export interface AccountProfile {
   readonly deleted: boolean;
 }
 
-/** Dostęp do bazy i Auth z kluczem service role (`index.ts`; w testach atrapy). */
+/** Dostęp do bazy i Auth z kluczem service role (`index.ts`). */
 export interface AccountStore {
   /** Id użytkownika z tokenu sesji albo `null`, gdy token jest nieważny. */
   authenticate(token: string): Promise<string | null>;

@@ -8,7 +8,7 @@ import type { MeetingPlay } from './plays';
 
 /**
  * Podsumowanie spotkania: zmiany w klasyfikacji punktów z funkcji SQL
- * `meeting_leaderboard_changes(meeting_id, game_ids)` (migracja `20261125000000`). Baza liczy
+ * `meeting_leaderboard_changes(meeting_id, game_ids)` (`20261113001800_game_stats.sql`). Baza liczy
  * punkty zdobyte na spotkaniu i miejsca przed spotkaniem i po nim (jak ranking punktów, także
  * z filtrem gier); tu tylko teksty i lista gier spotkania do filtra.
  */

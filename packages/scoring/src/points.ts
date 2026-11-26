@@ -1,7 +1,6 @@
 /**
  * Punkty leaderboardu za miejsca (PRD §5.6.2, §5.6.3). Te same reguły liczy w bazie
- * `public.play_points` (migracja `…_complexity_teams.sql`); obie wersje przechodzą
- * `cases/play-cases.json`.
+ * `public.play_points` (`supabase/migrations`).
  *
  * - Punktacja gry ma pozycję dla każdego miejsca 1…max graczy. W partii z *n* stronami
  *   (graczami albo zespołami) liczą się jej **ostatnie** *n* pozycje: zwycięzca dostaje punkty

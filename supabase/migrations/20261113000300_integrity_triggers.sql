@@ -299,7 +299,7 @@ set search_path = ''
 as $$
 declare
   meeting_status text;
-  points int[];
+  points numeric[];
   pad public.scorepads;
 begin
   -- Szkic powstaje zawsze jako szkic; zapis karteczki to osobny krok (save_play, [029]).
@@ -316,6 +316,18 @@ begin
       using errcode = '23514', constraint = 'plays_meeting_in_progress';
   end if;
 
+  new.expansion_ids := array(select distinct e from unnest(new.expansion_ids) e order by e);
+  if exists (
+    select 1 from unnest(new.expansion_ids) e(id)
+     where not exists (
+       select 1 from public.games g
+        where g.id = e.id and g.base_game_id = new.game_id and g.deleted_at is null and g.available
+     )
+  ) then
+    raise exception 'play expansions must be active expansions of game %', new.game_id
+      using errcode = '23514', constraint = 'plays_expansions_of_game', hint = 'plays_expansion_unavailable';
+  end if;
+
   select s.* into pad
     from public.scorepad_versions v
     join public.scorepads s on s.id = v.scorepad_id
@@ -324,7 +336,7 @@ begin
     raise exception 'scorepad version % does not exist', new.scorepad_version_id
       using errcode = '23503', constraint = 'plays_scorepad_version_id_fkey';
   end if;
-  if pad.game_id is distinct from new.game_id then
+  if pad.game_id is distinct from new.game_id and not (pad.game_id = any (new.expansion_ids)) then
     raise exception 'scorepad version does not belong to game %', new.game_id
       using errcode = '23514', constraint = 'plays_scorepad_matches_game';
   end if;
@@ -344,6 +356,12 @@ begin
   if not found then
     raise exception 'game % does not exist', new.game_id
       using errcode = '23503', constraint = 'plays_game_id_fkey';
+  end if;
+  if new.points_snapshot is distinct from points and exists (
+    select 1 from public.games g
+     where g.id = any (new.expansion_ids) and g.placement_points = new.points_snapshot
+  ) then
+    points := new.points_snapshot;
   end if;
   new.points_snapshot := points;
   new.started_at := now();
@@ -407,10 +425,11 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $fn$
 declare
   play public.plays;
   slots int;
+  teams boolean;
 begin
   if tg_op = 'UPDATE' and (new.play_id is distinct from old.play_id or new.meeting_id is distinct from old.meeting_id) then
     raise exception 'play_results.play_id and meeting_id are immutable'
@@ -435,16 +454,26 @@ begin
   end if;
 
   if tg_op <> 'DELETE' then
-    select v.player_slots into slots from public.scorepad_versions v where v.id = play.scorepad_version_id;
+    select v.player_slots, v.teams into slots, teams
+      from public.scorepad_versions v where v.id = play.scorepad_version_id;
     if new.seat > slots then
       raise exception 'seat % exceeds % player slots of the scorepad', new.seat, slots
         using errcode = '23514', constraint = 'play_results_seat_within_slots';
+    end if;
+    -- Notes bez zespołów: jeden gracz na miejsce w notesie.
+    if not coalesce(teams, false) and exists (
+      select 1 from public.play_results r
+       where r.play_id = new.play_id and r.seat = new.seat and r.profile_id <> new.profile_id
+         and (tg_op = 'INSERT' or r.profile_id <> old.profile_id)
+    ) then
+      raise exception 'seat % of play % is taken (play_results_seat_key)', new.seat, new.play_id
+        using errcode = '23505', constraint = 'play_results_seat_key';
     end if;
   end if;
 
   return coalesce(new, old);
 end;
-$$;
+$fn$;
 
 create trigger play_results_before_write before insert or update or delete on public.play_results
   for each row execute function public.play_results_before_write();
@@ -464,9 +493,8 @@ set search_path = ''
 as $$
 declare
   play public.plays;
-  slots int;
-  max_players int;
   players int;
+  sides int;
   incomplete int;
 begin
   select * into play from public.plays where id = target_play_id;
@@ -474,22 +502,19 @@ begin
     return;
   end if;
 
-  select count(*), count(*) filter (where r.place is null)
-    into players, incomplete
+  select count(*), count(distinct r.seat), count(*) filter (where r.place is null)
+    into players, sides, incomplete
     from public.play_results r
    where r.play_id = target_play_id;
 
-  select v.player_slots into slots from public.scorepad_versions v where v.id = play.scorepad_version_id;
-  max_players := least(cardinality(play.points_snapshot), slots);
-
-  if players > max_players then
-    raise exception 'play % has % players, at most % allowed', target_play_id, players, max_players
+  if players > cardinality(play.points_snapshot) then
+    raise exception 'play % has % players, at most % allowed', target_play_id, players, cardinality(play.points_snapshot)
       using errcode = '23514', constraint = 'plays_max_players';
   end if;
 
   if play.status = 'saved' then
-    if players < 2 then
-      raise exception 'saved play % has % players, at least 2 required', target_play_id, players
+    if sides < 2 then
+      raise exception 'saved play % has % sides, at least 2 required', target_play_id, sides
         using errcode = '23514', constraint = 'plays_min_players';
     end if;
     if incomplete > 0 then

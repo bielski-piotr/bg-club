@@ -2,7 +2,7 @@ import type { LeaderboardEntry } from './leaderboard';
 
 /**
  * Rozstrzygnięcia równych wyników (baza: `leaderboard`, migracja
- * `20261123000000_leaderboard_ties_filters.sql`). Miejsc ex aequo nie ma; równy wynik
+ * `20261113001700_leaderboard.sql`). Miejsc ex aequo nie ma; równy wynik
  * rozstrzygają kolejno kryteria z {@link TIE_CRITERIA}. Tu tylko odtwarzamy, które z nich
  * zdecydowało o kolejności sąsiadów w grupie.
  */

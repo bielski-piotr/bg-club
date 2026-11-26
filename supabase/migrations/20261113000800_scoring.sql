@@ -1,17 +1,19 @@
 -- [014] Punkty leaderboardu za miejsca (PRD §5.6.2, §5.6.3, §8.3).
 --
 -- Miejsca wyznacza notes (pakiet `@bg-club/scoring`), a punkty liczy baza: klient ich nie
--- przysyła. `play_points` jest czystą funkcją dla RPC zapisu partii (zadanie [029]) i liczy
--- tak samo jak `placementPoints` w TypeScripcie. Obie wersje przechodzą wspólne przypadki
--- `packages/scoring/src/cases/play-cases.json` (test pgTAP 110 jest z nich generowany).
+-- przysyła. `play_points` jest czystą funkcją dla RPC zapisu partii i liczy tak samo jak
+-- `placementPoints` w TypeScripcie.
 
--- Punkty kolejnych graczy (w kolejności `places`) według punktacji miejsc `points`:
--- - gracz na miejscu k bez remisu dostaje points[k],
--- - m graczy zremisowanych na miejscu k dostaje floor((points[k] + … + points[k+m−1]) / m).
+-- Punkty kolejnych stron (graczy albo zespołów, w kolejności `places`) według punktacji miejsc
+-- `points`:
+-- - n stron zajmuje ostatnie n pozycji punktacji (przesunięcie = cardinality(points) − n; gra
+--   2–6, partia 4 graczy: zwycięzca za 3. miejsce, ostatni za 6.),
+-- - strona na miejscu k bez remisu dostaje points[k + przesunięcie],
+-- - m stron zremisowanych na miejscu k dostaje floor(100 · suma ich pozycji / m) / 100.
 -- Miejsca muszą tworzyć numerację z remisami („1, 1, 3”): każde miejsce jest o jeden większe
--- od liczby graczy na lepszych miejscach. Błędne dane: wyjątek 22023.
-create function public.play_points(places int[], points int[])
-returns int[]
+-- od liczby stron na lepszych miejscach. Błędne dane: wyjątek 22023.
+create function public.play_points(places int[], points numeric[])
+returns numeric[]
 language plpgsql
 immutable
 parallel safe
@@ -19,7 +21,8 @@ set search_path = ''
 as $$
 declare
   players int := coalesce(cardinality(places), 0);
-  result int[] := '{}';
+  result numeric[] := '{}'::numeric[];
+  shift int;
   place int;
   tied int;
   better int;
@@ -38,6 +41,7 @@ begin
     raise exception 'play_points: % players, but placement points cover % places', players, cardinality(points)
       using errcode = '22023';
   end if;
+  shift := cardinality(points) - players;
 
   for i in 1 .. players loop
     place := places[i];
@@ -49,8 +53,8 @@ begin
         using errcode = '22023';
     end if;
     result := result || (
-      select floor(sum(v)::numeric / tied)::int
-        from unnest(points[place : place + tied - 1]) as v
+      select trim_scale(floor(sum(v) * 100 / tied) / 100)
+        from unnest(points[shift + place : shift + place + tied - 1]) as v
     );
   end loop;
 
@@ -58,8 +62,8 @@ begin
 end;
 $$;
 
-comment on function public.play_points(int[], int[]) is
-  'Punkty za miejsca z remisami (floor ze średniej punktów zajętych miejsc, PRD §5.6.2). Dla RPC zapisu partii.';
+comment on function public.play_points(int[], numeric[]) is
+  'Punkty za miejsca stron partii: ostatnie n pozycji punktacji dla n stron, remis = średnia zaokrąglona w dół do setnych (PRD §5.6.2). Dla RPC zapisu partii.';
 
--- Nie jest API klienta: wywoła ją RPC `save_play` (SECURITY DEFINER) w zadaniu [029].
-revoke execute on function public.play_points(int[], int[]) from public, anon, authenticated;
+-- Nie jest API klienta: woła ją RPC `save_play` (SECURITY DEFINER).
+revoke execute on function public.play_points(int[], numeric[]) from public, anon, authenticated;

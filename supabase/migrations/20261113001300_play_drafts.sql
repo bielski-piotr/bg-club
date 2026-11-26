@@ -20,12 +20,7 @@
 -- - Błędy reguł mają SQLSTATE 23514 (brak partii: P0002, konflikt: PT409) i nazwę reguły
 --   w HINT, jak w migracjach [023], [024] i [027].
 
-alter table public.plays
-  add column draft_version int not null default 0
-    constraint plays_draft_version_check check (draft_version >= 0),
-  add column draft_saved_at timestamptz,
-  add column draft_saved_by uuid references public.profiles (id);
-
+-- Kolumny szkicu (`draft_version`, `draft_saved_at`, `draft_saved_by`) są w tabeli `plays` ([003]).
 create index plays_draft_saved_by_idx on public.plays (draft_saved_by);
 
 comment on column public.plays.draft_version is
@@ -55,6 +50,7 @@ as $$
 begin
   if new.meeting_id is distinct from old.meeting_id
      or new.game_id is distinct from old.game_id
+     or new.expansion_ids is distinct from old.expansion_ids
      or new.scorepad_version_id is distinct from old.scorepad_version_id
      or new.points_snapshot is distinct from old.points_snapshot
      or new.started_by is distinct from old.started_by

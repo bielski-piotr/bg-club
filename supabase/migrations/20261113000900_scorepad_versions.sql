@@ -40,16 +40,28 @@ comment on column public.scorepad_versions.image_path is
 create or replace function public.scorepads_guard_update()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
+declare
+  target_deleted timestamptz;
 begin
-  -- Wersje i partie notesu wskazują grę; przeniesienie notesu do innej gry rozspójniłoby historię.
-  if new.game_id is distinct from old.game_id then
-    raise exception 'scorepads.game_id is immutable' using errcode = '23514', constraint = 'scorepads_game_immutable';
-  end if;
   if old.deleted_at is not null then
     raise exception 'scorepad % is deleted', old.id
       using errcode = '23514', constraint = 'scorepads_deleted_immutable';
+  end if;
+  -- Przeniesienie do innej gry albo dodatku: partie wskazują swoją grę i wersję notesu, więc
+  -- historia się nie zmienia. Cel musi być aktywny (blokada szereguje z jego usunięciem).
+  if new.game_id is distinct from old.game_id then
+    select g.deleted_at into target_deleted from public.games g where g.id = new.game_id for share;
+    if not found then
+      raise exception 'game % does not exist', new.game_id
+        using errcode = '23503', constraint = 'scorepads_game_id_fkey';
+    end if;
+    if target_deleted is not null then
+      raise exception 'game % is deleted', new.game_id
+        using errcode = '23514', constraint = 'scorepads_game_active', hint = 'scorepads_game_active';
+    end if;
   end if;
   if new.deleted_at is not null then
     new.deleted_at := now();

@@ -36,9 +36,9 @@ return lower(public.f_unaccent(value));
 comment on function public.search_text(text) is
   'Normalizacja do wyszukiwania: unaccent + lower. Ta sama funkcja buduje kolumnę i zapytanie.';
 
--- Czy tablica punktów zawiera wyłącznie liczby całkowite ≥ 0, bez NULL, jest jednowymiarowa
--- i ma oczekiwaną długość (GAME-5).
-create function public.is_valid_points(points int[], expected_length int)
+-- Czy tablica punktów zawiera wyłącznie liczby ≥ 0 z najwyżej dwoma miejscami po przecinku, bez
+-- NULL, jest jednowymiarowa i ma oczekiwaną długość (GAME-5).
+create function public.is_valid_points(points numeric[], expected_length int)
 returns boolean
 language sql
 immutable
@@ -50,10 +50,11 @@ return points is not null
   and (expected_length = 0 or array_ndims(points) = 1)
   and coalesce(array_lower(points, 1), 1) = 1
   and array_position(points, null) is null
-  and coalesce(0 <= all (points), true);
+  and coalesce(0 <= all (points), true)
+  and not exists (select 1 from unnest(points) v where v <> round(v, 2));
 
-comment on function public.is_valid_points(int[], int) is
-  'Walidacja punktacji miejsc: jednowymiarowa, indeksy od 1, bez NULL, wartości ≥ 0, zadana długość.';
+comment on function public.is_valid_points(numeric[], int) is
+  'Walidacja punktacji miejsc: jednowymiarowa, indeksy od 1, bez NULL, wartości ≥ 0 z najwyżej dwoma miejscami po przecinku, zadana długość.';
 
 -- Wspólny wyzwalacz `updated_at`.
 create function public.set_updated_at()

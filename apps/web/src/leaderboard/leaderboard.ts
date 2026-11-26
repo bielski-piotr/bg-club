@@ -5,7 +5,7 @@ import type { LeaderboardKind } from './kinds';
 
 /**
  * Dane rankingu (PRD LB-1…LB-7) z funkcji SQL `leaderboard(kind, date_from, date_to, game_ids)`
- * (migracja `20261123000000_leaderboard_ties_filters.sql`). Baza liczy miejsca bez remisów
+ * (migracja `20261113001700_leaderboard.sql`). Baza liczy miejsca bez remisów
  * (rozstrzygnięcia: `ties.ts`) i usuniętych na końcu bez podium; tu tylko dzielimy wynik na
  * stopnie podium i listę.
  */

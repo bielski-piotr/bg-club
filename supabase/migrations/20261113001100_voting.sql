@@ -11,7 +11,7 @@
 -- - Publikacja gier (`publish_meeting_games`, VOTE-5) zamyka głosowanie i zapisuje listę
 --   „Gramy w:” w jednej transakcji. Admin wybiera dowolne aktywne gry z kolekcji, także bez
 --   głosów; kolejność tablicy to kolejność listy. Ponowna publikacja w zaplanowanym spotkaniu
---   zastępuje listę. Głosy zostają (jawna historia głosowania, `voter-10`, Q18).
+--   zastępuje listę. Głosy zostają (jawna historia głosowania, Q18).
 -- - Ponowne otwarcie (`reopen_voting`, VOTE-6) jest możliwe tylko przed rozpoczęciem
 --   spotkania. Usuwa opublikowaną listę: otwarte głosowanie i „Gramy w:” się wykluczają, a
 --   rozpoczęcie przy otwartym głosowaniu (RUN-1) nie może pokazać nieaktualnej listy.
@@ -142,3 +142,27 @@ revoke insert, update, delete on public.meeting_games from authenticated;
 drop policy meeting_games_insert_admin on public.meeting_games;
 drop policy meeting_games_update_admin on public.meeting_games;
 drop policy meeting_games_delete_admin on public.meeting_games;
+
+-- ---------------------------------------------------------------------------------------------
+-- Suma głosów na grę (GAME-12)
+-- ---------------------------------------------------------------------------------------------
+-- GAME-12: suma istniejących głosów ze wszystkich spotkań, także po publikacji.
+-- Cofnięcie głosu i kaskady usuwania zmniejszają wynik przy kolejnym odczycie.
+-- Publikacja zachowuje game_votes.
+create function public.game_vote_total(game_id uuid)
+returns bigint
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select (select count(*) from public.game_votes v where v.game_id = g.id)
+    from public.games g
+   where g.id = game_vote_total.game_id;
+$$;
+
+comment on function public.game_vote_total(uuid) is
+  'GAME-12: liczba istniejących głosów na grę we wszystkich spotkaniach. RLS aktywnego członka; NULL bez gry lub dostępu.';
+
+revoke execute on function public.game_vote_total(uuid) from public, anon;
+grant execute on function public.game_vote_total(uuid) to authenticated;

@@ -1,7 +1,6 @@
 /**
  * Obsługa żądania `POST /functions/v1/delete-member` (PRD MEM-4, MEM-6, AUTH-7).
- * Bez zależności od Deno i supabase-js: dostęp do bazy i Auth podaje `index.ts`, a testy
- * (`handler.test.ts`) podstawiają atrapy.
+ * Bez zależności od Deno i supabase-js: dostęp do bazy i Auth podaje `index.ts`.
  *
  * Kontrakt:
  * - nagłówek `Authorization: Bearer <token sesji>`; tylko aktywny administrator (403 dla gracza),

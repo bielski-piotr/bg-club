@@ -1,7 +1,6 @@
 /**
  * Wspólne elementy odpowiedzi i żądań Edge Functions: CORS, odpowiedź JSON bez cache'u, token
- * sesji z nagłówka i treść JSON o ograniczonym rozmiarze. Bez zależności od Deno i supabase-js
- * (testy `deno test` wczytują je bez sieci).
+ * sesji z nagłówka i treść JSON o ograniczonym rozmiarze. Bez zależności od Deno i supabase-js.
  */
 
 /** Aplikacja jest na innym adresie niż API (Cloudflare Pages), a dostęp daje token, nie ciasteczko. */

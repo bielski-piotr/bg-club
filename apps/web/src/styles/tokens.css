@@ -10,7 +10,6 @@
  * w nim jaśniejszy (#4064F0), żeby wypełnienia (checkbox, switch) miały 3:1 na tle karty.
  *
  * Motyw wybiera atrybut `data-theme` na <html>: `light`, `dark` albo brak (systemowy).
- * Test `tokens.test.ts` sprawdza kontrast par tekst/tło w obu motywach.
  */
 :root {
   color-scheme: light;

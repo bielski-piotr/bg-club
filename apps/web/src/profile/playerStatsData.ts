@@ -6,7 +6,7 @@ import { profilesKey } from './profileQueries';
 /**
  * Statystyki gracza w profilu (PRD STAT-1–STAT-3) z funkcji SQL
  * `player_stats(profile_id, date_from, date_to, game_ids)` (migracja
- * `20261124000000_profile_records_without_achievements.sql`). Baza liczy wszystko z zapisanych
+ * `20261113001800_game_stats.sql`). Baza liczy wszystko z zapisanych
  * partii (szkice się nie liczą), więc zapis i usunięcie partii zmieniają je od razu (§5.6.5).
  *
  * Trzy grupy: statystyki profilu z filtrami jak w rankingu (`meetings`, `plays`, `wins`),

@@ -3,15 +3,14 @@
 -- Zasady:
 -- - Tylko admin (`private.require_admin`) trwale usuwa zapisaną partię po potwierdzeniu
 --   w aplikacji: `delete_play(play_id)`. Jedna transakcja usuwa partię z danymi kartki
---   (`plays.sheet`), wyniki graczy (`play_results`, kaskada) i odblokowania osiągnięć
---   wskazujące tę partię (`achievement_unlocks.play_id`, kaskada), a potem uruchamia
---   przeliczenie zależnych danych (`private.recalculate_after_plays_change`).
+--   (`plays.sheet`) i wyniki graczy (`play_results`, kaskada), a potem uruchamia przeliczenie
+--   zależnych danych (`private.recalculate_after_plays_change`).
 -- - Partia w toku (szkic) nie jest wynikiem: porzuca ją `discard_play` ([028]), więc
 --   `delete_play` na szkicu to błąd `plays_not_saved`.
 -- - Rankingi, statystyki i serie liczą się z `play_results` przy odczycie (E5), więc usunięte
---   wyniki znikają z nich od razu. Osiągnięcia ([036]) i ewentualne zapisane agregaty (E5/E6)
---   podmieniają ciało `private.recalculate_after_plays_change` (create or replace); każda
---   zmiana zapisanych partii wywołuje ją w tej samej transakcji (§5.6.5, Q17).
+--   wyniki znikają z nich od razu. Ewentualne zapisane agregaty podmienią ciało
+--   `private.recalculate_after_plays_change`; każda zmiana zapisanych partii wywołuje ją
+--   w tej samej transakcji (§5.6.5, Q17).
 -- - Obraz karteczki (bucket `sheets`) usuwa aplikacja przez API Storage po zatwierdzeniu
 --   transakcji: funkcja zwraca jego ścieżkę (albo NULL). Bezpośrednie `delete from
 --   storage.objects` blokuje Storage (`storage.protect_delete`). Błąd Storage nie przywraca
@@ -24,23 +23,21 @@
 -- - Błędy reguł mają SQLSTATE 23514 (brak partii: P0002) i nazwę reguły w HINT, jak
 --   w migracjach [027]–[030].
 
--- Przeliczenie po zmianie zapisanych partii spotkania (§5.6.5). Na razie nie ma zapisanych
--- agregatów: rankingi, statystyki, serie i rekordy liczą się z `play_results` przy odczycie,
--- a odblokowania usuniętej partii znikają kaskadą. Zadanie osiągnięć [036] (i ewentualne
--- agregaty E5/E6) podmienia ciało tej funkcji, zachowując sygnaturę.
+-- Przeliczenie po zmianie zapisanych partii spotkania (§5.6.5).
 create function private.recalculate_after_plays_change(meeting_id uuid)
 returns void
 language plpgsql
 set search_path = ''
 as $$
 begin
-  -- Wywołuje ją RPC security definer, więc działa z prawami właściciela. Celowo puste do [036]: patrz komentarz nad funkcją.
+  -- Nie ma zapisanych agregatów: rankingi, statystyki, serie i rekordy liczą się
+  -- z `play_results` przy odczycie. Punkt zostaje dla przyszłych agregatów (sygnatura bez zmian).
   perform recalculate_after_plays_change.meeting_id;
 end;
 $$;
 
 comment on function private.recalculate_after_plays_change(uuid) is
-  'Przeliczenie rankingów, serii, rekordów i osiągnięć po zmianie zapisanych partii spotkania (§5.6.5). Ciało uzupełniają [036] i E5/E6.';
+  'Przeliczenie po zmianie zapisanych partii spotkania (§5.6.5). Obecnie nic nie robi: wszystko liczy się z play_results przy odczycie.';
 
 revoke execute on function private.recalculate_after_plays_change(uuid) from public, anon, authenticated;
 
@@ -72,7 +69,7 @@ begin
       using errcode = '23514', constraint = 'plays_delete_saved', hint = 'plays_not_saved';
   end if;
 
-  -- Wyniki graczy i odblokowania tej partii znikają kaskadowo.
+  -- Wyniki graczy tej partii znikają kaskadowo.
   delete from public.plays p where p.id = play.id;
 
   perform private.recalculate_after_plays_change(play.meeting_id);

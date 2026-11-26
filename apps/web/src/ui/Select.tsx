@@ -184,7 +184,6 @@ export function Select<T extends string>(props: SelectProps<T>) {
     () => ({ index: open() ? active() : -1, query: query() }),
     ({ index }) => {
       if (index < 0) return;
-      // jsdom nie ma scrollIntoView.
       document.getElementById(optionId(index))?.scrollIntoView?.({ block: 'nearest' });
     },
   );

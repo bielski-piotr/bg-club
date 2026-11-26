@@ -1,7 +1,6 @@
 /**
  * Obsługa żądania `POST /functions/v1/delete-own-account` (PRD USR-6, MEM-6, AUTH-7).
- * Bez zależności od Deno i supabase-js: dostęp do bazy i Auth podaje `index.ts`, a testy
- * (`handler.test.ts`) podstawiają atrapy.
+ * Bez zależności od Deno i supabase-js: dostęp do bazy i Auth podaje `index.ts`.
  *
  * Kontrakt:
  * - nagłówek `Authorization: Bearer <token sesji>` aktywnego gracza,

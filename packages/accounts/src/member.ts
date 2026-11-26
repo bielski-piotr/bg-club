@@ -1,6 +1,6 @@
 /**
  * Tworzenie konta członka klubu (PRD MEM-3, AUTH-2, AUTH-4, USR-1). Używa go Edge Function
- * `create-member` (Deno) i testy, dlatego moduł nie zależy od supabase-js: dostęp do Auth
+ * `create-member` (Deno), dlatego moduł nie zależy od supabase-js: dostęp do Auth
  * i bazy przekazuje wywołujący ({@link MemberAccounts}).
  *
  * - Hook powstaje z imienia i nazwiska z transliteracją i losowym sufiksem. Jest unikalny:

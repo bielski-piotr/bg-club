@@ -1,8 +1,5 @@
 pnpm-lock.yaml
 dist/
-coverage/
-playwright-report/
-test-results/
 supabase/.temp/
 # Dokumenty źródłowe projektu są redagowane ręcznie.
 PRD.md

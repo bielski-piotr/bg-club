@@ -309,7 +309,7 @@ export function uniform(a: number, b: number, n: number): number[] {
 // ─────────────────────────────────────────────────────────── liczenie
 
 // Sumy i kategoria decydująca liczą się w `@bg-club/scoring` (PRD §8.3, EDT-13): ten sam kod
-// liczy notes, edytor i testy wyników. Nazwy zostają z POC.
+// liczy notes i edytor. Nazwy zostają z POC.
 export { effectiveOf, finalTotalIndex, inputLeaves, isComputed, isNumeric } from '@bg-club/scoring';
 
 /**
