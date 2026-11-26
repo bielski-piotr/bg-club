@@ -388,7 +388,8 @@ Ustalenia:
 - `PopupRouter` → store Solid nad `history` (stos, `navigating`, opener-y, mapa ochron); `PopupHost` → `<For>` po stosie z `<PopupLevelCtx value>` i efektem fokusu; `HubPopup` → `<Switch>`/`<Match>` z `lazy`, `<Loading>` i `<Errored>` (w miejsce `Suspense`, `PopupErrorBoundary`, `FocusWhenLoaded`); `Hub`, `useMasonry` (ref + `onSettled`), `AuthProvider`, `SignedInScreen` (prefetch przez `queryClient.prefetchQuery`), `LoginScreen`, `App`, `Root`, `main.tsx` (`render` z `@solidjs/web`), `AppStatus`, `DesignSystemPage`, `theme/`.
 - Usunąć `SolidIsland`/`Bridge`, wersje React z `ui/`, `react`, `react-dom`, `@tanstack/react-query`, `@testing-library/react`, `@vitejs/plugin-react`, `eslint-plugin-react-*`, `@types/react*`; `tsconfig.app.json` na `jsxImportSource: @solidjs/web`; jeden plugin JSX.
 - Przywrócić / obniżyć limit bundla, `perf.spec.ts`, `pwa.spec.ts`, `a11y-audit.spec.ts`, `regression.spec.ts`.
-- Decyzja o warstwie danych: zostać przy `query-core` + adapterze czy przejść na natywne async Solid (`createMemo` + `<Loading>` + `refresh`/`action`).
+- przejść na natywne async Solid (`createMemo` + `<Loading>` + `refresh`/`action`).
+- pozbyć się wszelakich pozostałości po wcześniej uzywanym react
 
 ## Definicja ukończenia obszaru
 
