@@ -10,6 +10,14 @@ Wskazówki dla agentów pracujących w tym repozytorium (Boardgame Club, `bg-clu
 - Kod źródłowy i komentarze piszemy po angielsku (identyfikatory, komentarze, JSDoc, komunikaty w logach i wyjątkach). Po polsku są tylko teksty widoczne dla użytkownika, wyłącznie przez `t` z `apps/web/src/i18n` (`format`, `plural`), nigdy na sztywno w JSX.
 - Komponenty bazowe bierz z `apps/web/src/ui` (barrel `../ui`), zanim napiszesz własne.
 
+## Git: branche i commity
+
+- Nazwy branchy po angielsku, krótkie (2–4 słowa w kebab-case), z prefiksem zależnym od rodzaju zmiany:
+  - `feature/` — nowa funkcjonalność lub rozbudowa istniejącej, np. `feature/meeting-reminders`;
+  - `bugfix/` — naprawa błędu, np. `bugfix/leaderboard-ties`.
+- Commit message po angielsku: krótkie (do ~60 znaków), opisowe, w trybie rozkazującym, bez kropki na końcu, np. `Add date filter to leaderboard`, `Fix tie order in game ranking`. Opisz, co zmiana daje, a nie „update files” czy „fixes”.
+- Jeden commit to jedna spójna zmiana. Szczegóły i uzasadnienie, jeśli są potrzebne, w treści commita po pustej linii.
+
 ## Skille Solid 2.0 — kiedy i jak z nich korzystać
 
 Solid 2.0 różni się od Solid 1.x i od Reacta; dopasowywanie wzorców z nich to główne źródło błędów. W `.claude/skills/` są trzy skille — ładuj je narzędziem Skill (`solid-2.0`, `solid-2.0-cheatsheet`, `reactivity-diagnostics`).
