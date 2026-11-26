@@ -343,6 +343,12 @@ export const pl = {
     },
   },
   /** Menu awatara w nagłówku. */
+  nav: {
+    label: 'Nawigacja główna',
+    club: 'Klub',
+    meetings: 'Spotkania',
+    games: 'Gry',
+  },
   avatarMenu: {
     label: 'Menu konta',
     trigger: 'Twoje konto: {name}',

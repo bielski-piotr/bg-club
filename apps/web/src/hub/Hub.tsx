@@ -29,8 +29,8 @@ const HubPopup = lazy(importOrReload(() => loadHubPopup().then((m) => ({ default
 const MAIN_ID = 'hub-main';
 
 /**
- * Widok Klubu: jedyny pełnoekranowy widok po zalogowaniu. Desktop: nagłówek
- * i dwie kolumny po 520 px (lewa: Spotkanie, Timeline, Członkowie; prawa: Ranking, Kolekcja).
+ * Club view: the only full-page view after sign-in. Desktop: header and two equal columns
+ * (left: Meeting, Timeline, Members; right: Ranking, Collection).
  * Telefon: jedna kolumna w tej samej kolejności. Przed założeniem klubu zamiast widżetów jest
  * pierwsze uruchomienie. Popupy ze stosu w adresie są nad hubem.
  */
