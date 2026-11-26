@@ -17,6 +17,7 @@ Wskazówki dla agentów pracujących w tym repozytorium (Boardgame Club, `bg-clu
   - `bugfix/` — naprawa błędu, np. `bugfix/leaderboard-ties`.
 - Commit message po angielsku: krótkie (do ~60 znaków), opisowe, w trybie rozkazującym, bez kropki na końcu, np. `Add date filter to leaderboard`, `Fix tie order in game ranking`. Opisz, co zmiana daje, a nie „update files” czy „fixes”.
 - Jeden commit to jedna spójna zmiana. Szczegóły i uzasadnienie, jeśli są potrzebne, w treści commita po pustej linii.
+- **Operacje git wykonuje Sonnet 5.5.** Tworzenie i nazywanie branchy, commity wraz z treścią commit message, push i tworzenie PR zlecaj subagentowi narzędziem Agent z `model: "sonnet"`. Przekaż mu: rodzaj zmiany (feature czy bugfix), krótki opis tego, co zostało zrobione, listę plików do commita i zasady z tej sekcji. Główny agent nie wykonuje tych operacji sam; po zakończeniu sprawdza wynik (`git log`, `git status`) i raportuje go użytkownikowi.
 
 ## Skille Solid 2.0 — kiedy i jak z nich korzystać
 
