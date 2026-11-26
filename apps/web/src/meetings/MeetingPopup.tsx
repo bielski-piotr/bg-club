@@ -1,25 +1,35 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Match,
+  Show,
+  Switch,
+  useContext,
+} from 'solid-js';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { GameCover } from '../react-shared/GameCover';
-import { useGameSearch } from '../react-shared/games';
-import { useClub } from '../hub/club';
+import { createGameSearch } from '../games/gameData';
+import { GameCover } from '../games/GameCover';
 import { gameVoteTotalKey } from '../games/gameVoteTotal';
 import { format, plural, t } from '../i18n';
-import { usePopupLevel, usePopups } from '../popups/popupContext';
-import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { ProfileAvatar } from '../react-shared/ProfileAvatar';
+import { avatarPerson, compareProfiles, fullName, type Profile } from '../profile/profileQueries';
+import { claimOrphanSweep, sweepOrphanSheetImages } from '../sheets/sheetImages';
+import { createClub } from '../solid/club';
 import {
-  avatarPerson,
-  compareProfiles,
-  fullName,
-  useAllProfiles,
-  useMembers,
-  type Profile,
-} from '../react-shared/profiles';
+  AuthContext,
+  PopupLevelContext,
+  PopupsContext,
+  QueryClientContext,
+  ToastContext,
+} from '../solid/context';
+import { PopupModal } from '../solid/popups/PopupModal';
+import { QueryStatus } from '../solid/popups/QueryStatus';
+import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
+import { createAllProfiles, createMembers } from '../solid/profile/profiles';
+import { createMutation } from '../solid/query';
 import {
   AvatarStack,
   Badge,
@@ -30,26 +40,30 @@ import {
   SearchField,
   StatusChip,
   Tray,
-  useToast,
-} from '../ui';
-import { cx } from '../ui/cx';
+  type MenuItem,
+} from '../solid/ui';
+import { ariaBool } from '../solid/ui/dom';
 import { DateVotingSection } from './DateVotingSection';
 import { formatMeetingDate, longMeetingDate } from './datetime';
-import { MeetingPlaysSection } from './MeetingPlays';
-import { MeetingSummarySection } from './MeetingSummary';
-import { claimOrphanSweep, sweepOrphanSheetImages } from '../sheets/sheetImages';
-import { meetingsKey, useMeeting, type Meeting } from './meetings';
+import {
+  createMeeting,
+  createMeetingOverview,
+  createMeetingPlays,
+  createMeetingVotes,
+  createPublishedGames,
+  createReopenVoting,
+} from './meetingData';
 import { menuItems } from './meetingMenu';
-import { gameWinners, isMeetingRunner, playedGames, useMeetingPlays } from './plays';
-import { useMeetingOverview, type MeetingOverview } from './overview';
+import { MeetingPlaysSection } from './MeetingPlays';
+import { meetingsKey, type Meeting } from './meetings';
+import { MeetingSummarySection } from './MeetingSummary';
+import { gameWinners, isMeetingRunner, playedGames } from './plays';
 import {
   castVote,
   fitsPlayers,
+  meetingVotesKey,
   mismatchLabel,
   myVoteCount,
-  meetingVotesKey,
-  useMeetingVotes,
-  usePublishedGames,
   voteRows,
   votesLabel,
   VotingError,
@@ -57,7 +71,6 @@ import {
   type PublishedGame,
   type Vote,
   type VoteRow,
-  useReopenVoting,
 } from './voting';
 import './meetings.css';
 
@@ -71,42 +84,53 @@ const popup = t.meetings.popup;
  * Usuń spotkanie”. Przebieg (RUN-1, RUN-4, VIEW-3): administrator i prowadzący rozpoczynają
  * i kończą spotkanie z pola akcji; trwające i zakończone pokazują partie w toku i zapisane.
  * Prowadzący nie ma akcji administracyjnych (uczestnicy, prowadzący, PLAN-4, Q14).
+ *
+ * Jedno okno na wszystkie stany (wczytywanie, spotkanie, brak spotkania): fokus, który
+ * `PopupHost` ustawił na oknie przy otwarciu, zostaje na nim po wczytaniu danych.
  */
-export function MeetingPopup({ id, me }: { readonly id: string; readonly me: OwnProfile }) {
-  const { client } = useAuth();
-  const meeting = useMeeting(client, id);
-  const club = useClub(client);
-  const members = useMembers(client);
-  useCloseWhenDeleted(meeting.data);
+export function MeetingPopup(props: { readonly id: string; readonly me: OwnProfile }) {
+  const meeting = createMeeting(() => props.id);
+  const club = createClub();
+  const members = createMembers();
+  createCloseWhenDeleted(() => meeting().data);
+  const ready = () => meeting().isSuccess && club().isSuccess && members().isSuccess;
+  const shown = () => (ready() ? (meeting().data ?? undefined) : undefined);
+  const notFound = () => ready() && !meeting().data;
+  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
 
-  if (!meeting.isSuccess || !club.isSuccess || !members.isSuccess) {
-    return (
-      <PopupModal title={meeting.data?.title ?? t.ui.loading}>
-        <QueryStatus
-          isError={meeting.isError || club.isError || members.isError}
-          onRetry={() => {
-            void meeting.refetch();
-            void club.refetch();
-            void members.refetch();
-          }}
-        />
-      </PopupModal>
-    );
-  }
-  if (!meeting.data) {
-    return (
-      <PopupModal title={popup.notFoundTitle}>
-        <p className="meeting-form__state">{popup.notFoundBody}</p>
-      </PopupModal>
-    );
-  }
   return (
-    <MeetingView
-      meeting={meeting.data}
-      me={me}
-      timeZone={club.data?.timezone ?? FALLBACK_TIMEZONE}
-      members={members.data}
-    />
+    <PopupModal
+      title={notFound() ? popup.notFoundTitle : (meeting().data?.title ?? t.ui.loading)}
+      actions={
+        <Show when={shown()}>{(current) => <MeetingMenu meeting={current()} me={props.me} />}</Show>
+      }
+    >
+      <Switch>
+        <Match when={shown()}>
+          {(current) => (
+            <MeetingView
+              meeting={current()}
+              me={props.me}
+              timeZone={timeZone()}
+              members={members().data ?? []}
+            />
+          )}
+        </Match>
+        <Match when={notFound()}>
+          <p class="meeting-form__state">{popup.notFoundBody}</p>
+        </Match>
+        <Match when={true}>
+          <QueryStatus
+            isError={meeting().isError || club().isError || members().isError}
+            onRetry={() => {
+              void meeting().refetch();
+              void club().refetch();
+              void members().refetch();
+            }}
+          />
+        </Match>
+      </Switch>
+    </PopupModal>
   );
 }
 
@@ -117,117 +141,123 @@ interface ViewProps {
   readonly members: readonly Profile[];
 }
 
-function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
-  const { client } = useAuth();
-  const overview = useMeetingOverview(client, meeting.id);
-  const isAdmin = me.role === 'admin';
-  const runner = isMeetingRunner(meeting, me);
-  const profiles = useAllProfiles(client);
+function MeetingView(props: ViewProps) {
+  const auth = useContext(AuthContext);
+  const profiles = createAllProfiles();
+  const isAdmin = () => props.me.role === 'admin';
+  const runner = () => isMeetingRunner(props.meeting, props.me);
+  const planned = () => props.meeting.status === 'planned';
   // Sprzątanie osieroconych obrazów karteczek (PAD-6): po przerwanym zapisie ostatniej partii
   // nie ma kolejnego zapisu, który by je usunął, więc robi to też otwarcie spotkania przez
   // admina albo prowadzącego (raz na spotkanie w tej karcie; po zakończeniu tylko admin).
-  const status = meeting.status;
-  useEffect(() => {
-    if (!runner || status === 'planned' || !claimOrphanSweep(meeting.id)) return;
-    void sweepOrphanSheetImages(client, meeting.id);
-  }, [client, meeting.id, runner, status]);
+  const sweep = createMemo(() => (runner() && !planned() ? props.meeting.id : null));
+  createEffect(
+    () => sweep(),
+    (meetingId) => {
+      if (meetingId === null || !claimOrphanSweep(meetingId)) return;
+      void sweepOrphanSheetImages(auth.client, meetingId);
+    },
+  );
   // Uczestnicy także usunięci w międzyczasie (MEM-5: zostają w historii spotkania).
-  const people = meeting.participants
-    .map((id) => profiles.data?.get(id) ?? members.find((member) => member.id === id))
-    .filter((person): person is Profile => person !== undefined)
-    .sort(compareProfiles);
-  const host = meeting.host_id ? members.find((member) => member.id === meeting.host_id) : null;
-  const planned = meeting.status === 'planned';
-  const labels = t.meetings.status;
-  const chip =
-    meeting.status === 'in_progress' ? (
-      <StatusChip tone="success">{labels.inProgress}</StatusChip>
-    ) : meeting.status === 'finished' ? (
-      <StatusChip tone="neutral">{labels.finished}</StatusChip>
-    ) : meeting.voting_open ? (
-      <StatusChip tone="accent">{labels.votingOpen}</StatusChip>
-    ) : (
-      <StatusChip tone="neutral">{labels.gamesChosen}</StatusChip>
-    );
+  const people = createMemo(() =>
+    props.meeting.participants
+      .map((id) => profiles().data?.get(id) ?? props.members.find((member) => member.id === id))
+      .filter((person): person is Profile => person !== undefined)
+      .sort(compareProfiles),
+  );
+  const host = createMemo(() => {
+    const hostId = props.meeting.host_id;
+    return hostId ? props.members.find((member) => member.id === hostId) : undefined;
+  });
+  const chip = createMemo((): { tone: 'neutral' | 'success' | 'accent'; label: string } => {
+    const labels = t.meetings.status;
+    if (props.meeting.status === 'in_progress')
+      return { tone: 'success', label: labels.inProgress };
+    if (props.meeting.status === 'finished') return { tone: 'neutral', label: labels.finished };
+    return props.meeting.voting_open
+      ? { tone: 'accent', label: labels.votingOpen }
+      : { tone: 'neutral', label: labels.gamesChosen };
+  });
+  const peopleId = () => `${props.meeting.id}-people`;
 
   return (
-    <PopupModal
-      title={meeting.title}
-      actions={
-        menuItems(meeting, overview.data, isAdmin, runner).length > 0 ? (
-          <MeetingMenu
-            meeting={meeting}
-            overview={overview.data}
-            isAdmin={isAdmin}
-            runner={runner}
-          />
-        ) : undefined
-      }
-    >
-      <div className="meeting-view">
-        <div className="meeting-view__meta">
-          {chip}
-          <span className="meeting-view__date">
-            <span aria-hidden="true">{formatMeetingDate(meeting.starts_at, timeZone)}</span>
-            <span className="sr-only">{longMeetingDate(meeting.starts_at, timeZone)}</span>
+    <div class="meeting-view">
+      <div class="meeting-view__meta">
+        <StatusChip tone={chip().tone}>{chip().label}</StatusChip>
+        <span class="meeting-view__date">
+          <span aria-hidden="true">
+            {formatMeetingDate(props.meeting.starts_at, props.timeZone)}
           </span>
-        </div>
-        <div className="meeting-view__people">
-          <AvatarStack
-            people={people.slice(0, 6).map((member) => avatarPerson(member))}
-            size={28}
-          />
-          <p className="meeting-widget__people">
-            <strong>{plural(meeting.participants.length, t.hub.meeting.participants)}</strong>
-            {' · '}
-            {host ? format(popup.hostLine, { name: host.first_name }) : popup.adminHost}
-          </p>
-        </div>
+          <span class="sr-only">{longMeetingDate(props.meeting.starts_at, props.timeZone)}</span>
+        </span>
+      </div>
+      <div class="meeting-view__people">
+        <AvatarStack
+          people={people()
+            .slice(0, 6)
+            .map((member) => avatarPerson(member))}
+          size={28}
+        />
+        <p class="meeting-widget__people">
+          <strong>{plural(props.meeting.participants.length, t.hub.meeting.participants)}</strong>
+          {' · '}
+          {host() ? format(popup.hostLine, { name: host()?.first_name ?? '' }) : popup.adminHost}
+        </p>
+      </div>
 
-        {runner && meeting.status !== 'finished' ? (
-          <RunnerBox meeting={meeting} isAdmin={isAdmin} />
-        ) : null}
+      <Show when={runner() && props.meeting.status !== 'finished'}>
+        <RunnerBox meeting={props.meeting} isAdmin={isAdmin()} />
+      </Show>
 
-        {planned ? (
-          <DateVotingSection meeting={meeting} me={me} members={members} timeZone={timeZone} />
-        ) : null}
+      <Show when={planned()}>
+        <DateVotingSection
+          meeting={props.meeting}
+          me={props.me}
+          members={props.members}
+          timeZone={props.timeZone}
+        />
+      </Show>
 
-        {planned && meeting.voting_open ? (
-          <VotingSection meeting={meeting} me={me} members={members} />
-        ) : (
-          <PlayingSection meeting={meeting} members={members} />
-        )}
-        {!planned ? (
-          <MeetingPlaysSection meeting={meeting} timeZone={timeZone} runner={runner} />
-        ) : null}
-        {!planned ? <MeetingSummarySection meetingId={meeting.id} /> : null}
+      <Show
+        when={planned() && props.meeting.voting_open}
+        fallback={<PlayingSection meeting={props.meeting} members={props.members} />}
+      >
+        <VotingSection meeting={props.meeting} me={props.me} members={props.members} />
+      </Show>
+      <Show when={!planned()}>
+        <MeetingPlaysSection meeting={props.meeting} timeZone={props.timeZone} runner={runner()} />
+        <MeetingSummarySection meetingId={props.meeting.id} />
+      </Show>
 
-        <section className="meeting-view__section" aria-labelledby={`${meeting.id}-people`}>
-          <h3 id={`${meeting.id}-people`} className="meeting-view__head">
-            {popup.participants}
-          </h3>
-          <Tray label={popup.participantsLabel}>
-            {people.map((member) => (
-              <li key={member.id} className="tray__item">
-                <div className="row meeting-person">
-                  <ProfileAvatar profile={member} size={36} decorative />
-                  <span className="meeting-member__name">{fullName(member)}</span>
-                  <span className="meeting-member__badges">
-                    {member.role === 'admin' ? (
+      <section class="meeting-view__section" aria-labelledby={peopleId()}>
+        <h3 id={peopleId()} class="meeting-view__head">
+          {popup.participants}
+        </h3>
+        <Tray label={popup.participantsLabel}>
+          <For each={people()} keyed={(member) => member.id}>
+            {(member) => (
+              <li class="tray__item">
+                <div class="row meeting-person">
+                  <ProfileAvatar profile={member()} size={36} decorative />
+                  <span class="meeting-member__name">{fullName(member())}</span>
+                  <span class="meeting-member__badges">
+                    <Show when={member().role === 'admin'}>
                       <Badge tone="accent">{t.ui.adminBadge}</Badge>
-                    ) : null}
-                    {member.id === meeting.host_id ? (
+                    </Show>
+                    <Show when={member().id === props.meeting.host_id}>
                       <Badge tone="neutral">{popup.hostBadge}</Badge>
-                    ) : null}
-                    {member.id === me.id ? <Badge tone="ink">{t.ui.youBadge}</Badge> : null}
+                    </Show>
+                    <Show when={member().id === props.me.id}>
+                      <Badge tone="ink">{t.ui.youBadge}</Badge>
+                    </Show>
                   </span>
                 </div>
               </li>
-            ))}
-          </Tray>
-        </section>
-      </div>
-    </PopupModal>
+            )}
+          </For>
+        </Tray>
+      </section>
+    </div>
   );
 }
 
@@ -238,85 +268,70 @@ function MeetingView({ meeting, me, timeZone, members }: ViewProps) {
  * mają potwierdzenie w osobnym dialogu. W trakcie także „Nowa partia” (RUN-2, RUN-3): kreator
  * gry, notesu i graczy; kilka partii może trwać naraz.
  */
-function RunnerBox({ meeting, isAdmin }: { readonly meeting: Meeting; readonly isAdmin: boolean }) {
-  const { client } = useAuth();
-  const { open } = usePopups();
-  const reopen = useReopenVoting(client);
+function RunnerBox(props: { readonly meeting: Meeting; readonly isAdmin: boolean }) {
+  const popups = useContext(PopupsContext);
+  const reopen = createReopenVoting();
   const run = t.meetings.run;
-  if (meeting.status === 'in_progress') {
-    return (
-      <div className="meeting-admin">
-        <p className="meeting-admin__text">{run.inProgressRunner}</p>
-        <Button
-          fullWidth
-          icon="plus"
-          onClick={() => open({ kind: 'new-play', meetingId: meeting.id })}
-        >
-          {run.newPlay}
-        </Button>
-        <Button
-          fullWidth
-          variant="secondary"
-          icon="flag"
-          onClick={() => open({ kind: 'finish-meeting', id: meeting.id })}
-        >
-          {run.finish}
-        </Button>
-      </div>
-    );
-  }
-  const start = (
+  const start = () => (
     <Button
       fullWidth
-      variant={isAdmin && meeting.voting_open ? 'secondary' : 'primary'}
+      variant={props.isAdmin && props.meeting.voting_open ? 'secondary' : 'primary'}
       icon="play"
-      onClick={() => open({ kind: 'start-meeting', id: meeting.id })}
+      onClick={() => popups.open({ kind: 'start-meeting', id: props.meeting.id })}
     >
       {run.start}
     </Button>
   );
-  if (!isAdmin) {
-    return (
-      <div className="meeting-admin">
-        <p className="meeting-admin__text">{run.plannedRunner}</p>
-        {start}
-      </div>
-    );
-  }
+  const publish = () => popups.open({ kind: 'publish-games', id: props.meeting.id });
   return (
-    <div className="meeting-admin">
-      <p className="meeting-admin__text">
-        {meeting.voting_open ? text.adminOpen : text.adminClosed}
-      </p>
-      {meeting.voting_open ? (
-        <>
-          <Button fullWidth onClick={() => open({ kind: 'publish-games', id: meeting.id })}>
-            {text.publish}
+    <div class="meeting-admin">
+      <Switch>
+        <Match when={props.meeting.status === 'in_progress'}>
+          <p class="meeting-admin__text">{run.inProgressRunner}</p>
+          <Button
+            fullWidth
+            icon="plus"
+            onClick={() => popups.open({ kind: 'new-play', meetingId: props.meeting.id })}
+          >
+            {run.newPlay}
           </Button>
-          {start}
-        </>
-      ) : (
-        <>
-          {start}
           <Button
             fullWidth
             variant="secondary"
-            icon="pencil"
-            onClick={() => open({ kind: 'publish-games', id: meeting.id })}
+            icon="flag"
+            onClick={() => popups.open({ kind: 'finish-meeting', id: props.meeting.id })}
           >
+            {run.finish}
+          </Button>
+        </Match>
+        <Match when={!props.isAdmin}>
+          <p class="meeting-admin__text">{run.plannedRunner}</p>
+          {start()}
+        </Match>
+        <Match when={props.meeting.voting_open}>
+          <p class="meeting-admin__text">{text.adminOpen}</p>
+          <Button fullWidth onClick={publish}>
+            {text.publish}
+          </Button>
+          {start()}
+        </Match>
+        <Match when={true}>
+          <p class="meeting-admin__text">{text.adminClosed}</p>
+          {start()}
+          <Button fullWidth variant="secondary" icon="pencil" onClick={publish}>
             {text.republish}
           </Button>
           <Button
             fullWidth
             variant="secondary"
             icon="refresh"
-            loading={reopen.isPending}
-            onClick={() => reopen.mutate(meeting.id)}
+            loading={reopen.state().isPending}
+            onClick={() => reopen.mutate(props.meeting.id)}
           >
             {text.reopen}
           </Button>
-        </>
-      )}
+        </Match>
+      </Switch>
     </div>
   );
 }
@@ -326,87 +341,95 @@ function RunnerBox({ meeting, isAdmin }: { readonly meeting: Meeting; readonly i
  * malejąco po głosach, z awatarami głosujących i wyszukiwarką. Przełącznik głosu mają tylko
  * uczestnicy; gry niepasujące do liczby uczestników mają oznaczenie, ale przyjmują głosy.
  */
-function VotingSection({
-  meeting,
-  me,
-  members,
-}: {
+function VotingSection(props: {
   readonly meeting: Meeting;
   readonly me: OwnProfile;
   readonly members: readonly Profile[];
 }) {
-  const { client } = useAuth();
-  const games = useGameSearch(client, '');
-  const votes = useMeetingVotes(client, meeting.id);
-  const [query, setQuery] = useState('');
-  const canVote = meeting.participants.includes(me.id);
-
-  if (!games.isSuccess || !votes.isSuccess) {
-    return (
-      <section className="meeting-view__section">
-        <QueryStatus
-          isError={games.isError || votes.isError}
-          onRetry={() => {
-            void games.refetch();
-            void votes.refetch();
-          }}
-        />
-      </section>
-    );
-  }
-  const rows = voteRows(games.data, votes.data, {
-    me: me.id,
-    participants: meeting.participants.length,
-    query,
+  const games = createGameSearch(() => '');
+  const votes = createMeetingVotes(() => props.meeting.id);
+  const [query, setQuery] = createSignal('');
+  const canVote = () => props.meeting.participants.includes(props.me.id);
+  const ready = () => games().isSuccess && votes().isSuccess;
+  const rows = createMemo(() => {
+    const list = games().data;
+    const cast = votes().data;
+    if (!ready() || !list || !cast) return [];
+    return voteRows(list, cast, {
+      me: props.me.id,
+      participants: props.meeting.participants.length,
+      query: query(),
+    });
   });
-  const searching = query.trim() !== '';
-  const headingId = `${meeting.id}-voting`;
+  const searching = () => query().trim() !== '';
+  const headingId = () => `${props.meeting.id}-voting`;
   return (
-    <section className="meeting-view__section" aria-labelledby={headingId}>
-      <div className="meeting-view__head-row">
-        <h3 id={headingId} className="meeting-view__head">
-          {text.title}
-        </h3>
-        {canVote ? (
-          <span className="meeting-view__note">
-            {format(text.myVotes, { n: myVoteCount(votes.data, me.id) })}
-          </span>
-        ) : null}
-      </div>
-      <p className="meeting-form__hint meeting-view__intro">
-        {canVote ? text.intro : text.notParticipant}
-      </p>
-      {games.data.length > 0 ? (
-        <SearchField
-          label={text.searchLabel}
-          placeholder={text.searchPlaceholder}
-          value={query}
-          onValueChange={setQuery}
-        />
-      ) : null}
-      <p className="sr-only" role="status">
-        {searching ? plural(rows.length, text.results) : ''}
-      </p>
-      {rows.length > 0 ? (
-        <Tray label={text.listLabel} className="vote-list">
-          {rows.map((row) => (
-            <VoteItem
-              key={row.game.id}
-              row={row}
-              meeting={meeting}
-              me={me}
-              members={members}
-              canVote={canVote}
+    <section class="meeting-view__section" aria-labelledby={ready() ? headingId() : undefined}>
+      <Show
+        when={ready()}
+        fallback={
+          <QueryStatus
+            isError={games().isError || votes().isError}
+            onRetry={() => {
+              void games().refetch();
+              void votes().refetch();
+            }}
+          />
+        }
+      >
+        <div class="meeting-view__head-row">
+          <h3 id={headingId()} class="meeting-view__head">
+            {text.title}
+          </h3>
+          <Show when={canVote()}>
+            <span class="meeting-view__note">
+              {format(text.myVotes, { n: myVoteCount(votes().data ?? [], props.me.id) })}
+            </span>
+          </Show>
+        </div>
+        <p class="meeting-form__hint meeting-view__intro">
+          {canVote() ? text.intro : text.notParticipant}
+        </p>
+        <Show when={(games().data?.length ?? 0) > 0}>
+          <SearchField
+            label={text.searchLabel}
+            placeholder={text.searchPlaceholder}
+            value={query()}
+            onValueChange={setQuery}
+          />
+        </Show>
+        <p class="sr-only" role="status">
+          {searching() ? plural(rows().length, text.results) : ''}
+        </p>
+        <Show
+          when={rows().length > 0}
+          fallback={
+            <EmptyState
+              icon={searching() ? 'search' : 'dice'}
+              title={
+                searching()
+                  ? format(text.noResultsTitle, { query: query().trim() })
+                  : text.emptyTitle
+              }
+              helper={searching() ? text.noResultsHelper : text.emptyHelper}
             />
-          ))}
-        </Tray>
-      ) : (
-        <EmptyState
-          icon={searching ? 'search' : 'dice'}
-          title={searching ? format(text.noResultsTitle, { query: query.trim() }) : text.emptyTitle}
-          helper={searching ? text.noResultsHelper : text.emptyHelper}
-        />
-      )}
+          }
+        >
+          <Tray label={text.listLabel} class="vote-list">
+            <For each={rows()} keyed={(row) => row.game.id}>
+              {(row) => (
+                <VoteItem
+                  row={row()}
+                  meeting={props.meeting}
+                  me={props.me}
+                  members={props.members}
+                  canVote={canVote()}
+                />
+              )}
+            </For>
+          </Tray>
+        </Show>
+      </Show>
     </section>
   );
 }
@@ -426,16 +449,19 @@ interface VoteItemProps {
   readonly canVote: boolean;
 }
 
-function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const { game } = row;
-  const voters = voterPeople(row.voters, members);
-  const toggle = useMutation({
+function VoteItem(props: VoteItemProps) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const voters = createMemo(() => voterPeople(props.row.voters, props.members));
+  const toggle = createMutation({
     mutationFn: (on: boolean) => {
-      const target = { meetingId: meeting.id, gameId: game.id, profileId: me.id };
-      return on ? castVote(client, target) : withdrawVote(client, target);
+      const target = {
+        meetingId: props.meeting.id,
+        gameId: props.row.game.id,
+        profileId: props.me.id,
+      };
+      return on ? castVote(auth.client, target) : withdrawVote(auth.client, target);
     },
     onSuccess: (_, on) => {
       toast.show(on ? t.meetings.toasts.voted : t.meetings.toasts.withdrawn, 'success');
@@ -450,67 +476,72 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
     onSettled: (_, error) =>
       Promise.all([
         queryClient.invalidateQueries({
-          queryKey: error ? meetingsKey : meetingVotesKey(meeting.id),
+          queryKey: error ? meetingsKey : meetingVotesKey(props.meeting.id),
         }),
-        queryClient.invalidateQueries({ queryKey: gameVoteTotalKey(game.id) }),
+        queryClient.invalidateQueries({ queryKey: gameVoteTotalKey(props.row.game.id) }),
       ]),
   });
-  const mine = toggle.isPending ? toggle.variables : row.mine;
-  const mismatch = !row.fits && row.available;
+  const mine = () => {
+    const state = toggle.state();
+    return state.isPending ? !!state.variables : props.row.mine;
+  };
+  const mismatch = () => !props.row.fits && props.row.available;
   // Na niedostępną grę nie można zagłosować; oddany wcześniej głos można cofnąć.
-  const locked = !row.available && !row.mine;
+  const locked = () => !props.row.available && !props.row.mine;
+  const mismatchHint = () => format(text.mismatchHint, { n: props.meeting.participants.length });
   return (
-    <li className="tray__item">
-      <div className="row row--64 vote-row">
+    <li class="tray__item">
+      <div class="row row--64 vote-row">
         <GameCover
-          id={game.id}
-          title={game.title}
-          coverPath={game.cover_path}
+          id={props.row.game.id}
+          title={props.row.game.title}
+          coverPath={props.row.game.cover_path}
           size="thumb"
-          unavailable={!row.available}
+          unavailable={!props.row.available}
         />
-        <span className="vote-row__body">
-          <span className="vote-row__name">{game.title}</span>
-          <span className="vote-row__meta">
-            {voters.length > 0 ? (
+        <span class="vote-row__body">
+          <span class="vote-row__name">{props.row.game.title}</span>
+          <span class="vote-row__meta">
+            <Show when={voters().length > 0}>
               <AvatarStack
-                people={voters.slice(0, 5).map((member) => avatarPerson(member))}
+                people={voters()
+                  .slice(0, 5)
+                  .map((member) => avatarPerson(member))}
                 size={20}
               />
-            ) : null}
-            <span>{votesLabel(row.voters.length)}</span>
-            {mismatch ? (
-              <span
-                title={format(text.mismatchHint, { n: meeting.participants.length })}
-                className="vote-row__badge"
-              >
-                <Badge tone="warning">{mismatchLabel(game)}</Badge>
-                <span className="sr-only">
-                  {format(text.mismatchHint, { n: meeting.participants.length })}
-                </span>
+            </Show>
+            <span>{votesLabel(props.row.voters.length)}</span>
+            <Show when={mismatch()}>
+              <span title={mismatchHint()} class="vote-row__badge">
+                <Badge tone="warning">{mismatchLabel(props.row.game)}</Badge>
+                <span class="sr-only">{mismatchHint()}</span>
               </span>
-            ) : null}
-            {!row.available ? (
-              <span title={text.unavailableHint} className="vote-row__badge">
+            </Show>
+            <Show when={!props.row.available}>
+              <span title={text.unavailableHint} class="vote-row__badge">
                 <Badge tone="neutral">{text.unavailable}</Badge>
-                <span className="sr-only">{text.unavailableHint}</span>
+                <span class="sr-only">{text.unavailableHint}</span>
               </span>
-            ) : null}
+            </Show>
           </span>
         </span>
-        {canVote ? (
+        <Show when={props.canVote}>
           <button
             type="button"
-            className={cx('vote-toggle', mine && 'vote-toggle--on')}
-            aria-pressed={mine}
-            aria-label={format(mine ? text.voteOff : text.voteOn, { title: game.title })}
-            disabled={toggle.isPending || locked}
-            onClick={() => toggle.mutate(!row.mine)}
+            class={['vote-toggle', { 'vote-toggle--on': mine() }]}
+            aria-pressed={ariaBool(mine())}
+            aria-label={format(mine() ? text.voteOff : text.voteOn, {
+              title: props.row.game.title,
+            })}
+            disabled={toggle.state().isPending || locked()}
+            onClick={() => toggle.mutate(!props.row.mine)}
           >
-            {mine ? <Icon name="check" size={14} /> : null}
-            <span aria-hidden="true">{mine ? text.voted : text.vote}</span>
+            <Show when={mine()}>
+              <Icon name="check" size={14} />
+            </Show>
+            <span aria-hidden="true">{mine() ? text.voted : text.vote}</span>
           </button>
-        ) : null}
+        </Show>
       </div>
     </li>
   );
@@ -521,60 +552,67 @@ function VoteItem({ row, meeting, me, members, canVote }: VoteItemProps) {
  * jest chip zwycięzców tej gry na spotkaniu (awatary i imiona). Gry rozegrane spoza listy
  * dochodzą na jej końcu (partię można rozpocząć w dowolnej grze kolekcji).
  */
-function PlayingSection({
-  meeting,
-  members,
-}: {
+function PlayingSection(props: {
   readonly meeting: Meeting;
   readonly members: readonly Profile[];
 }) {
-  const { client } = useAuth();
-  const games = usePublishedGames(client, meeting.id);
-  const votes = useMeetingVotes(client, meeting.id);
-  const plays = useMeetingPlays(client, meeting.id, false, meeting.status !== 'planned');
-  const profiles = useAllProfiles(client);
-  const headingId = `${meeting.id}-playing`;
-  const winners = gameWinners(plays.data ?? []);
-  const rows: PlayingRow[] = games.data
-    ? [
-        ...games.data.map((game) => ({ game, published: true })),
-        ...playedGames(plays.data ?? [])
-          .filter((game) => !games.data.some((g) => g.id === game.id))
-          .map((game) => ({ game, published: false })),
-      ]
-    : [];
+  const games = createPublishedGames(() => props.meeting.id);
+  const votes = createMeetingVotes(() => props.meeting.id);
+  const plays = createMeetingPlays(
+    () => props.meeting.id,
+    false,
+    () => props.meeting.status !== 'planned',
+  );
+  const profiles = createAllProfiles();
+  const headingId = () => `${props.meeting.id}-playing`;
+  const winners = createMemo(() => gameWinners(plays().data ?? []));
+  const rows = createMemo((): PlayingRow[] => {
+    const list = games().data;
+    if (!list) return [];
+    return [
+      ...list.map((game) => ({ game, published: true })),
+      ...playedGames(plays().data ?? [])
+        .filter((game) => !list.some((g) => g.id === game.id))
+        .map((game) => ({ game, published: false })),
+    ];
+  });
   return (
-    <section className="meeting-view__section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="meeting-view__head">
+    <section class="meeting-view__section" aria-labelledby={headingId()}>
+      <h3 id={headingId()} class="meeting-view__head">
         {text.playing}
       </h3>
-      {!games.isSuccess || !votes.isSuccess ? (
-        <QueryStatus
-          isError={games.isError || votes.isError}
-          onRetry={() => {
-            void games.refetch();
-            void votes.refetch();
-          }}
-        />
-      ) : rows.length === 0 ? (
-        <p className="meeting-form__state">{text.playingEmpty}</p>
-      ) : (
-        <Tray label={text.playingLabel}>
-          {rows.map((row) => (
-            <PlayingItem
-              key={row.game.id}
-              row={row}
-              votes={votes.data}
-              members={members}
-              participants={meeting.participants.length}
-              winners={(winners.get(row.game.id) ?? []).flatMap((id) => {
-                const person = profiles.data?.get(id);
-                return person ? [person] : [];
-              })}
-            />
-          ))}
-        </Tray>
-      )}
+      <Switch>
+        <Match when={!games().isSuccess || !votes().isSuccess}>
+          <QueryStatus
+            isError={games().isError || votes().isError}
+            onRetry={() => {
+              void games().refetch();
+              void votes().refetch();
+            }}
+          />
+        </Match>
+        <Match when={rows().length === 0}>
+          <p class="meeting-form__state">{text.playingEmpty}</p>
+        </Match>
+        <Match when={true}>
+          <Tray label={text.playingLabel}>
+            <For each={rows()} keyed={(row) => row.game.id}>
+              {(row) => (
+                <PlayingItem
+                  row={row()}
+                  votes={votes().data ?? []}
+                  members={props.members}
+                  participants={props.meeting.participants.length}
+                  winners={(winners().get(row().game.id) ?? []).flatMap((id) => {
+                    const person = profiles().data?.get(id);
+                    return person ? [person] : [];
+                  })}
+                />
+              )}
+            </For>
+          </Tray>
+        </Match>
+      </Switch>
     </section>
   );
 }
@@ -586,74 +624,80 @@ interface PlayingRow {
   readonly published: boolean;
 }
 
-function PlayingItem({
-  row,
-  votes,
-  members,
-  participants,
-  winners,
-}: {
+function PlayingItem(props: {
   readonly row: PlayingRow;
   readonly votes: readonly Vote[];
   readonly members: readonly Profile[];
   readonly participants: number;
   readonly winners: readonly Profile[];
 }) {
-  const { game } = row;
-  const voterIds = votes.filter((vote) => vote.game_id === game.id).map((v) => v.profile_id);
-  const voters = voterPeople(voterIds, members);
-  const fits =
-    game.min_players === undefined || game.max_players === undefined
-      ? true
-      : fitsPlayers({ min_players: game.min_players, max_players: game.max_players }, participants);
+  const voterIds = createMemo(() =>
+    props.votes.filter((vote) => vote.game_id === props.row.game.id).map((v) => v.profile_id),
+  );
+  const voters = createMemo(() => voterPeople(voterIds(), props.members));
+  // Liczba graczy tylko dla gier z opublikowanej listy (rozegrane spoza niej jej nie mają).
+  const players = () => {
+    const { min_players, max_players } = props.row.game;
+    return min_players === undefined || max_players === undefined
+      ? undefined
+      : { min_players, max_players };
+  };
+  const mismatch = () => {
+    const range = players();
+    return range && !fitsPlayers(range, props.participants) ? range : undefined;
+  };
   return (
-    <li className="tray__item">
-      <div className="row row--64 vote-row">
-        <GameCover id={game.id} title={game.title} coverPath={game.cover_path} size="thumb" />
-        <span className="vote-row__body">
-          <span className="vote-row__name">{game.title}</span>
-          <span className="vote-row__meta">
-            {voters.length > 0 ? (
+    <li class="tray__item">
+      <div class="row row--64 vote-row">
+        <GameCover
+          id={props.row.game.id}
+          title={props.row.game.title}
+          coverPath={props.row.game.cover_path}
+          size="thumb"
+        />
+        <span class="vote-row__body">
+          <span class="vote-row__name">{props.row.game.title}</span>
+          <span class="vote-row__meta">
+            <Show when={voters().length > 0}>
               <AvatarStack
-                people={voters.slice(0, 5).map((member) => avatarPerson(member))}
+                people={voters()
+                  .slice(0, 5)
+                  .map((member) => avatarPerson(member))}
                 size={20}
               />
-            ) : null}
-            {row.published ? <span>{votesLabel(voterIds.length)}</span> : null}
-            {!fits && game.min_players !== undefined && game.max_players !== undefined ? (
-              <Badge tone="warning">
-                {mismatchLabel({ min_players: game.min_players, max_players: game.max_players })}
-              </Badge>
-            ) : null}
+            </Show>
+            <Show when={props.row.published}>
+              <span>{votesLabel(voterIds().length)}</span>
+            </Show>
+            <Show when={mismatch()}>
+              {(range) => <Badge tone="warning">{mismatchLabel(range())}</Badge>}
+            </Show>
           </span>
         </span>
-        {winners.length > 0 ? <WinnerChip title={game.title} winners={winners} /> : null}
+        <Show when={props.winners.length > 0}>
+          <WinnerChip title={props.row.game.title} winners={props.winners} />
+        </Show>
       </div>
     </li>
   );
 }
 
 /** Chip zwycięzców gry na spotkaniu: puchar, awatary i imiona (wspólne 1. miejsce: wszyscy). */
-function WinnerChip({
-  title,
-  winners,
-}: {
-  readonly title: string;
-  readonly winners: readonly Profile[];
-}) {
-  const names = winners.map((person) => person.first_name).join(', ');
+function WinnerChip(props: { readonly title: string; readonly winners: readonly Profile[] }) {
+  const names = () => props.winners.map((person) => person.first_name).join(', ');
+  const label = () => format(t.meetings.plays.winnersLabel, { title: props.title, names: names() });
   return (
-    <span className="winner-chip" title={format(t.meetings.plays.winnersLabel, { title, names })}>
-      <Icon name="trophy" size={14} className="winner-chip__icon" />
-      <span className="winner-chip__stack" aria-hidden="true">
-        {winners.slice(0, 3).map((person) => (
-          <ProfileAvatar key={person.id} profile={person} size={20} ring="white" decorative />
-        ))}
+    <span class="winner-chip" title={label()}>
+      <Icon name="trophy" size={14} class="winner-chip__icon" />
+      <span class="winner-chip__stack" aria-hidden="true">
+        <For each={props.winners.slice(0, 3)} keyed={(person) => person.id}>
+          {(person) => <ProfileAvatar profile={person()} size={20} ring="white" decorative />}
+        </For>
       </span>
-      <span className="winner-chip__names" aria-hidden="true">
-        {names}
+      <span class="winner-chip__names" aria-hidden="true">
+        {names()}
       </span>
-      <span className="sr-only">{format(t.meetings.plays.winnersLabel, { title, names })}</span>
+      <span class="sr-only">{label()}</span>
     </span>
   );
 }
@@ -663,54 +707,58 @@ function WinnerChip({
  * a odświeżone dane mówią, że spotkania nie ma, więc zamyka się sam zamiast pokazywać
  * „Nie znaleziono”. Popup otwarty ze starego linku (spotkania nie było od początku) zostaje.
  */
-function useCloseWhenDeleted(meeting: Meeting | null | undefined) {
-  const { back } = usePopups();
-  const { covered } = usePopupLevel();
-  const seen = useRef(false);
-  useEffect(() => {
-    if (meeting) {
-      seen.current = true;
-    } else if (meeting === null && seen.current && !covered) {
-      seen.current = false;
-      back();
-    }
-  }, [meeting, covered, back]);
+function createCloseWhenDeleted(meeting: () => Meeting | null | undefined) {
+  const popups = useContext(PopupsContext);
+  const level = useContext(PopupLevelContext);
+  let seen = false;
+  createEffect(
+    () => ({ current: meeting(), covered: level.covered }),
+    ({ current, covered }) => {
+      if (current) {
+        seen = true;
+      } else if (current === null && seen && !covered) {
+        seen = false;
+        popups.back();
+      }
+    },
+  );
 }
 
-function MeetingMenu({
-  meeting,
-  overview,
-  isAdmin,
-  runner,
-}: {
-  readonly meeting: Meeting;
-  readonly overview: MeetingOverview | null | undefined;
-  readonly isAdmin: boolean;
-  readonly runner: boolean;
-}) {
-  const { client } = useAuth();
-  const { open } = usePopups();
-  const reopen = useReopenVoting(client);
+/** Menu spotkania w nagłówku popupu; liczba partii (`overview`) decyduje o „Usuń spotkanie”. */
+function MeetingMenu(props: { readonly meeting: Meeting; readonly me: OwnProfile }) {
+  const popups = useContext(PopupsContext);
+  const overview = createMeetingOverview(() => props.meeting.id);
+  const reopen = createReopenVoting();
   const label = t.meetings.view.actions;
+  const items = createMemo((): MenuItem[] =>
+    menuItems(
+      props.meeting,
+      overview().data,
+      props.me.role === 'admin',
+      isMeetingRunner(props.meeting, props.me),
+    ).map(({ route, ...item }) => ({
+      ...item,
+      onSelect: () => (route ? popups.open(route) : reopen.mutate(props.meeting.id)),
+    })),
+  );
   return (
-    <Menu
-      label={label}
-      align="end"
-      items={menuItems(meeting, overview, isAdmin, runner).map(({ route, ...item }) => ({
-        ...item,
-        onSelect: () => (route ? open(route) : reopen.mutate(meeting.id)),
-      }))}
-      trigger={(props) => (
-        <button
-          type="button"
-          {...props}
-          className="icon-btn icon-btn--36"
-          aria-label={label}
-          title={label}
-        >
-          <Icon name="more" />
-        </button>
-      )}
-    />
+    <Show when={items().length > 0}>
+      <Menu
+        label={label}
+        align="end"
+        items={items()}
+        trigger={(trigger) => (
+          <button
+            type="button"
+            {...trigger}
+            class="icon-btn icon-btn--36"
+            aria-label={label}
+            title={label}
+          >
+            <Icon name="more" />
+          </button>
+        )}
+      />
+    </Show>
   );
 }

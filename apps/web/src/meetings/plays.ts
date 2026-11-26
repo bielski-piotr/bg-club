@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { format, plural, t } from '../i18n';
 import { isUuid } from '../popups/routes';
@@ -68,13 +67,13 @@ export function fromPlayRow(row: PlayRow): MeetingPlay {
  * Partie spotkania: zapisane i szkice (partie w toku). `fresh`: pobiera je od nowa przy każdym
  * otwarciu (dialog zakończenia nie może polegać na liście sprzed chwili, RUN-4).
  */
-export function useMeetingPlays(
+export function meetingPlaysQuery(
   client: SupabaseClient,
   meetingId: string,
   fresh = false,
   enabled = true,
 ) {
-  return useQuery({
+  return {
     queryKey: meetingPlaysKey(meetingId),
     enabled,
     ...(fresh ? { refetchOnMount: 'always' as const } : {}),
@@ -88,7 +87,7 @@ export function useMeetingPlays(
       if (error) throw error;
       return data.map(fromPlayRow);
     },
-  });
+  };
 }
 
 /** Partia z kartką i szkicem (PAD-4): notes partii w toku i jej wznowienie. */
@@ -147,10 +146,10 @@ export function fromPlayDetailRow(row: PlayDetailRow): PlayDetail {
  * Partia z kartką (PAD-4). `null` = nie ma jej (np. porzucona). Szkic czyta się z bazy przy
  * każdym otwarciu: na innym urządzeniu mógł się zmienić (wznowienie bez synchronizacji na żywo).
  */
-export function usePlay(client: SupabaseClient, id: string) {
-  return useQuery({
+export function playQuery(client: SupabaseClient, id: string) {
+  return {
     queryKey: playKey(id),
-    refetchOnMount: 'always',
+    refetchOnMount: 'always' as const,
     // Notes trzyma własny stan; ponowne pobranie przy powrocie do karty niczego by nie zmieniło.
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<PlayDetail | null> => {
@@ -163,7 +162,7 @@ export function usePlay(client: SupabaseClient, id: string) {
       if (error) throw error;
       return data ? fromPlayDetailRow(data) : null;
     },
-  });
+  };
 }
 
 export interface SplitPlays {

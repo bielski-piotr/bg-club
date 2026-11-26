@@ -4,8 +4,7 @@ import { createQuery } from '../solid/query';
 import { gameSheetsQuery, savedSheetQuery, sheetImageUrlQuery } from './sheets';
 
 /*
- * Zapytania o karteczki w Solid: te same opcje co hook React (`react-shared/sheets.ts`) na
- * wspólnym cache. Parametry jako akcesory.
+ * Zapytania o karteczki w Solid: opcje z `sheets.ts` na wspólnym cache. Parametry jako akcesory.
  */
 
 /** Podpisany adres obrazu karteczki; bez ścieżki zapytanie jest wyłączone. */

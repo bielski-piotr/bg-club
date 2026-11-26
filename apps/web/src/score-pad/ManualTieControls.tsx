@@ -8,7 +8,7 @@ const text = t.scorepads.manual;
 
 /**
  * Ręczne rozstrzygnięcie remisów: każdy wybór ustawia gracza tylko w obrębie jego pierwotnej
- * grupy. Wersja React dla podsumowania partii (etap 6): `react-shared/ManualTieControls.tsx`.
+ * grupy.
  */
 export function ManualTieControls(props: {
   readonly groups: readonly (readonly number[])[];

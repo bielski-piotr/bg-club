@@ -3,6 +3,7 @@ import { signedUrlQuery } from '../lib/storage';
 import { AuthContext } from '../solid/context';
 import { createQuery } from '../solid/query';
 import {
+  activeScorepadsQuery,
   gameScorepadsQuery,
   scorepadQuery,
   scorepadTemplateQuery,
@@ -19,6 +20,12 @@ import {
 export function createGameScorepads(gameId: Accessor<string>) {
   const auth = useContext(AuthContext);
   return createQuery(() => gameScorepadsQuery(auth.client, gameId()));
+}
+
+/** Aktywne notesy wszystkich gier (`activeScorepadsQuery`). */
+export function createActiveScorepads() {
+  const auth = useContext(AuthContext);
+  return createQuery(() => activeScorepadsQuery(auth.client));
 }
 
 /** Aktywny notes (`scorepadQuery`); `null` = nie ma go albo został usunięty. */

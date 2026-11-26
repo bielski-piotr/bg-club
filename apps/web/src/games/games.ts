@@ -82,8 +82,7 @@ export function collectionWidgetQuery(client: SupabaseClient) {
 }
 
 /*
- * Opcje zapytań o gry bez frameworka: wspólne dla hooków React (`react-shared/games.ts`, do
- * etapu 8 migracji) i kodu Solid (`games/gameData.ts`) na tym samym cache.
+ * Opcje zapytań o gry bez frameworka (kod Solid: `games/gameData.ts`; prefetch w React).
  */
 
 /**

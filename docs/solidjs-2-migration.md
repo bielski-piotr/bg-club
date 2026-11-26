@@ -325,15 +325,58 @@ Ustalenia:
 - `Show when` z pustym tekstem jest fałszywe: do „klucza” komponentu (React `key`) z wartością, która może być pusta,
   używamy krotki (`when={[path()] as const} keyed`).
 
-### Etap 6 – Spotkania i Timeline
+### Etap 6 – Spotkania i Timeline ✅
 
-Największy obszar domenowy (≈10,5 tys. linii, 13 plików testów). Trzy PR-y:
+Największy obszar domenowy (≈10,5 tys. linii). Podział na 6a (Timeline, kalendarz, formularz spotkania, głosowanie
+na termin, usuwanie), 6b (widżet Spotkanie, popup spotkania z partiami i podsumowaniem, publikacja gier, start /
+zakończenie / ponowne otwarcie) i 6c (nowa partia, notes partii, podsumowanie partii, porzucenie i usunięcie) – jeden
+katalog, więc jeden commit.
 
-- 6a: `TimelineWidget` + `calendar` (`CalendarPopup`), `add-meeting`, `edit-meeting`, `delete-meeting` (`MeetingFormPopup`, `DateVotingSection`, `DeleteMeetingDialog`).
-- 6b: `MeetingWidget` (+ `MeetingBlock`, tace głosów/gier/partii) + `meeting` (`MeetingPopup`, `MeetingSummary`, `MeetingParts`), `publish-games`, `start-meeting`, `finish-meeting`, `reopen-meeting`.
-- 6c: `new-play`, `play`, `discard-play`, `delete-play` (`NewPlayPopup`, `PlayPopup` z notesem i ochroną wyjścia, `PlaySummaryDialog`, `DeletePlayDialog`, `DiscardPlayDialog`).
-- Ryzyka: `countdownLabel` (odliczanie – timer w `onSettled`), głosowanie i `useReopenVoting` (mutacje → `createMutation`/`action` z optymistycznym zapisem tam, gdzie dziś jest `onMutate`), szkice partii i `useLeaveGuard` w `PlayPopup`.
-- Testy: wszystkie `meetings/*.test.ts`; e2e `meetings.spec.ts`, `meeting-run.spec.ts`, `calendar.spec.ts`, `date-voting.spec.ts`, `voting.spec.ts`, `new-play.spec.ts`, `play-*.spec.ts`.
+Zrobione:
+
+- `src/meetings/` w Solid (`SOLID_DIRS`): `TimelineWidget` i `MeetingWidget` (przeniesione z `hub/widgets.tsx`, plik
+  usunięty), `CalendarPopup`, `MeetingFormPopup` (`AddMeetingPopup`, `EditMeetingPopup`), `DateVotingSection`,
+  `DeleteMeetingDialog`, `MeetingPopup`, `MeetingSummary`, `MeetingPlays`, `MeetingParts`, `PublishGamesPopup`,
+  `RunMeetingDialogs`, `NewPlayPopup`, `PlayPopup`, `PlaySummaryDialog`, `DeletePlayDialog`, `DiscardPlayDialog`.
+  `Hub` i `HubPopup` montują obszar przez `SolidIsland`.
+- Dane bez frameworka: hooki zastąpione fabrykami opcji (`meetingQuery`, `hubMeetingQuery`, `meetingPlayersQuery`,
+  `timelineQuery`, `calendarMonthQuery`, `meetingOverviewQuery`, `meetingPlaysQuery`, `playQuery`, `meetingVotesQuery`,
+  `publishedGamesQuery`, `meetingDateOptionsQuery`, `meetingSummaryQuery`, `recordPreviewQuery`); wersje Solid i mutacje
+  z toastem (`createReopenVoting`, `createDateDecision`) w `meetings/meetingData.ts`. Dodane też `createActiveScorepads`
+  (`score-pad/scorepadData.ts`) i `createAllExpansions` (`games/gameData.ts`).
+- `src/solid/meetings/` wchłonięty przez `meetings/MeetingParts.tsx` (`SheetThumbnail`, `PlayResultRows`, `PlayTimes`,
+  `RecordBadge` + `MiniDateTile`, `MeetingStatusChip`, `WinnersLine`).
+- Usunięte wersje React bez konsumentów: `react-shared/` `FilterPopover`, `GameFilter`, `GameCover`, `games.ts`, `sheets.ts`,
+  `scorepads.ts`, `ManualTieControls`, `ProfileLink`, a z nimi `solid/shared-parity.test.tsx` (nie ma już par React/Solid do
+  porównania). W `react-shared/` zostają `ProfileAvatar` i `profiles.ts` (nagłówek, etap 7) oraz `ScorePadView`,
+  `ScorePadEditorView`, `ScorePadStatus`, `useScorePadElement` (strona design systemu, etap 8).
+- Testy (bramki bez diagnostyki, `captureArtifact` + `expectNoDiagnostics`): `meetings/meetings-plan-area.test.tsx` (6a),
+  `meetings/meetings-run-area.test.tsx` (6b), `meetings/plays-area.test.tsx` (6c). Testy logiki `meetings/*.test.ts` bez zmian
+  (`playDelete.test.ts`: `QueryClient` z `query-core`). `pnpm check` zielone.
+- **E2e nie były uruchamiane** w etapie 6 (na prośbę). Przed scaleniem: `meetings`, `meeting-run`, `calendar`,
+  `date-voting`, `voting`, `new-play`, `play-drafts`, `play-save`, `play-delete`, `score-pad-entry`, `hub`,
+  `game-vote-totals`, `a11y-audit`, `smoke` oraz zaległe z 5b (`scorepad-*`, `score-pad*`, `design-system`).
+
+Ustalenia:
+
+- **Jedno okno także w popupach z wieloma źródłami danych:** `MeetingPopup`, `PublishGamesPopup`, `EditMeetingPopup`,
+  `CalendarPopup`, `NewPlayPopup`, `PlayPopup` (wczytywanie, „Nie znaleziono”, „Trwa partia”, notes – zmienia się tytuł,
+  `width`, klasa i `blocked`) i `FinishMeetingDialog` (ostrzeżenie o partiach w toku i potwierdzenie) mają jeden
+  `PopupModal`/`PopupDialog`.
+- **Formularz spotkania nie resetuje się w trakcie edycji:** startuje z pierwszych wczytanych danych (jak `GameFormPopup`);
+  w React powrót zapytania do wczytywania montował formularz od nowa i gubił wpisy.
+- **Walidacja pole po polu:** jedno memo błędów nad całym formularzem dawało w dev `WASTED_RECOMPUTE` i `HUGE_FAN_OUT`
+  (253 subskrybentów `values`). Każde pole liczy błąd tymi samymi regułami `validateMeetingForm` z neutralnymi wartościami
+  pozostałych pól (reguły zależą tylko od własnego pola; data od daty i godziny).
+- **Odliczanie w widżecie** odświeża się co minutę (React liczył je tylko przy ponownym renderze, więc po północy etykieta
+  bywała nieaktualna).
+- **Notes partii:** stan notesu powstaje przy pierwszym pokazaniu notesu w `PlayPopup`; po zamknięciu blokada aktualizacji
+  zwalnia się po ostatnim zapisie szkicu, a potem odświeża się zapytanie partii (zamiast obejścia `setTimeout(0)`
+  ze StrictMode). Fokus „Wróć do kartki” w podsumowaniu przez `ref` + `onSettled`.
+- `NewPlayPopup` przekazuje grę do `startPlay` jako argument mutacji: ponowienie używa tego samego id partii.
+- Pośredni import Reacta: `PlayPopup` → `pwa/updates.ts` (hook React w tym samym module); znika w etapie 8.
+- Bundle: początkowy JS 238,9 KB gzip (limit 240) – zapas się kończy; etap 7 może wymagać pomiaru i decyzji przed
+  podniesieniem limitu.
 
 ### Etap 7 – Klub i nagłówek
 

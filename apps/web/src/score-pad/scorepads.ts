@@ -67,8 +67,7 @@ export const scorepadKey = (id: string) => [...scorepadsKey, 'byId', id] as cons
 export const versionTemplateKey = (versionId: string) => ['scorepad-template', versionId] as const;
 
 /*
- * Opcje zapytań bez frameworka: wspólne dla kodu Solid (`score-pad/scorepadData.ts`) i hooka
- * React w `react-shared/scorepads.ts` (kreator partii, do etapu 6 migracji) na tym samym cache.
+ * Opcje zapytań bez frameworka; wersje Solid w `score-pad/scorepadData.ts`.
  */
 
 /** Aktywne notesy gry w kolejności dodania (GAME-7). */

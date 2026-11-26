@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { isUuid } from '../popups/routes';
 import { meetingsKey } from './meetings';
 
@@ -64,10 +63,6 @@ export function meetingRecordsQuery(client: SupabaseClient, meetingId: string, e
   };
 }
 
-export function useMeetingRecords(client: SupabaseClient, meetingId: string, enabled = true) {
-  return useQuery(meetingRecordsQuery(client, meetingId, enabled));
-}
-
 /** Wynik do podglądu przed zapisem: gracz i jego wartość kategorii decydującej. */
 export interface PreviewResult {
   readonly profileId: string;
@@ -78,13 +73,13 @@ export interface PreviewResult {
  * Podgląd rekordów partii w toku przed zapisem (podsumowanie oderwanej karteczki). Bez danych
  * (błąd, wczytywanie) podsumowanie pokazuje się bez oznaczeń: zapis od nich nie zależy.
  */
-export function useRecordPreview(
+export function recordPreviewQuery(
   client: SupabaseClient,
   playId: string,
   results: readonly PreviewResult[] | null,
 ) {
   const payload = (results ?? []).map((r) => ({ profile_id: r.profileId, value: r.value }));
-  return useQuery({
+  return {
     queryKey: [...meetingsKey, 'record-preview', playId, JSON.stringify(payload)] as const,
     enabled: results !== null && isUuid(playId),
     staleTime: Infinity,
@@ -101,5 +96,5 @@ export function useRecordPreview(
       }
       return records;
     },
-  });
+  };
 }

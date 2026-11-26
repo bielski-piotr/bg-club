@@ -12,6 +12,7 @@ export const SOLID_DIRS = [
   'games',
   'sheets',
   'score-pad',
+  'meetings',
 ];
 
 const dirs = SOLID_DIRS.join('|');

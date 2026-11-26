@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { queryOptions, useQuery } from '@tanstack/react-query';
 import { isUuid } from '../popups/routes';
 import { sameDateOptions } from './dateOptions';
 import type { MeetingFormValues } from './form';
@@ -46,8 +45,8 @@ export const hubMeetingKey = [...meetingsKey, 'hub'] as const;
 export const meetingPlayersKey = (id: string) => [...meetingsKey, 'players', id] as const;
 
 /** Spotkanie; `null` = nie ma takiego (np. usunięte, stary link). */
-export function useMeeting(client: SupabaseClient, id: string) {
-  return useQuery({
+export function meetingQuery(client: SupabaseClient, id: string) {
+  return {
     queryKey: meetingKey(id),
     queryFn: async (): Promise<Meeting | null> => {
       if (!isUuid(id)) return null;
@@ -59,7 +58,7 @@ export function useMeeting(client: SupabaseClient, id: string) {
       if (error) throw error;
       return data ? fromRow(data) : null;
     },
-  });
+  };
 }
 
 /**
@@ -67,7 +66,7 @@ export function useMeeting(client: SupabaseClient, id: string) {
  * (kolejność `starts_at`, potem `id`, Q24). `null` = brak spotkań do pokazania.
  */
 export function hubMeetingQuery(client: SupabaseClient) {
-  return queryOptions({
+  return {
     queryKey: hubMeetingKey,
     queryFn: async (): Promise<Meeting | null> => {
       const { data, error } = await client
@@ -84,19 +83,15 @@ export function hubMeetingQuery(client: SupabaseClient) {
       const [row] = data;
       return row ? fromRow(row) : null;
     },
-  });
-}
-
-export function useHubMeeting(client: SupabaseClient) {
-  return useQuery(hubMeetingQuery(client));
+  };
 }
 
 /**
  * Uczestnicy, którzy mają już partię w spotkaniu (zapisaną albo szkic). W spotkaniu w trakcie
  * nie da się ich usunąć (PLAN-4).
  */
-export function useMeetingPlayers(client: SupabaseClient, id: string, enabled: boolean) {
-  return useQuery({
+export function meetingPlayersQuery(client: SupabaseClient, id: string, enabled: boolean) {
+  return {
     queryKey: meetingPlayersKey(id),
     enabled,
     queryFn: async (): Promise<ReadonlySet<string>> => {
@@ -108,7 +103,7 @@ export function useMeetingPlayers(client: SupabaseClient, id: string, enabled: b
       if (error) throw error;
       return new Set(data.map((row) => row.profile_id));
     },
-  });
+  };
 }
 
 /**

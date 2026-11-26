@@ -1,8 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { t } from '../i18n';
 import { isUuid } from '../popups/routes';
-import { useToast } from '../ui';
 import { localDateTime } from './datetime';
 import type { DateOptionValue } from './dateOptions';
 import { meetingsKey } from './meetings';
@@ -41,8 +38,8 @@ export function fromDateOptionRow(row: DateOptionRow): DateOption {
 }
 
 /** Propozycje terminu spotkania od najwcześniejszej. */
-export function useMeetingDateOptions(client: SupabaseClient, meetingId: string, enabled = true) {
-  return useQuery({
+export function meetingDateOptionsQuery(client: SupabaseClient, meetingId: string, enabled = true) {
+  return {
     queryKey: meetingDateOptionsKey(meetingId),
     enabled,
     queryFn: async (): Promise<DateOption[]> => {
@@ -57,7 +54,7 @@ export function useMeetingDateOptions(client: SupabaseClient, meetingId: string,
       if (error) throw error;
       return data.map(fromDateOptionRow);
     },
-  });
+  };
 }
 
 /** Zapisane propozycje jako wartości formularza (w strefie klubu). */
@@ -198,26 +195,4 @@ export async function decideMeetingDate(
 export async function reopenDateVoting(client: SupabaseClient, meetingId: string): Promise<void> {
   const { error } = await client.rpc('reopen_date_voting', { meeting_id: meetingId });
   if (error) throw new DateVotingError(dateVotingFailure(error));
-}
-
-/** Decyzja administratora albo ponowne otwarcie: toast i odświeżenie spotkań. */
-export function useDateDecision(client: SupabaseClient) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const text = t.meetings.dateVoting;
-  return useMutation({
-    mutationFn: (
-      action:
-        | { readonly kind: 'decide'; readonly meetingId: string; readonly optionId: string }
-        | { readonly kind: 'reopen'; readonly meetingId: string },
-    ) =>
-      action.kind === 'decide'
-        ? decideMeetingDate(client, action.meetingId, action.optionId)
-        : reopenDateVoting(client, action.meetingId),
-    onSuccess: (_, action) =>
-      toast.show(action.kind === 'decide' ? text.decided : text.reopened, 'success'),
-    onError: (error) =>
-      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error'),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
-  });
 }

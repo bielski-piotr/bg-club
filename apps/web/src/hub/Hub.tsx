@@ -26,7 +26,8 @@ import { SolidIsland } from '../bridge/SolidIsland';
 import { MembersWidget } from '../members/MembersWidget';
 import { RankingWidget } from '../leaderboard/RankingWidget';
 import { CollectionWidget } from '../games/CollectionWidget';
-import { MeetingWidget, TimelineWidget } from './widgets';
+import { MeetingWidget } from '../meetings/MeetingWidget';
+import { TimelineWidget } from '../meetings/TimelineWidget';
 import './Hub.css';
 
 // Popupy huba (z edytorem notesów, formularzami i statystykami) są osobnym fragmentem pakietu:
@@ -131,14 +132,16 @@ function Widgets({ me }: { readonly me: Profile }) {
   return (
     <div ref={grid} className="hub__grid">
       <div className="hub__slot hub__slot--left">
-        <MeetingWidget me={me} />
+        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 6). */}
+        <SolidIsland component={MeetingWidget} props={{ me }} />
       </div>
       <div className="hub__slot hub__slot--right">
         {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 4). */}
         <SolidIsland component={RankingWidget} props={{ me }} />
       </div>
       <div className="hub__slot hub__slot--left">
-        <TimelineWidget />
+        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 6). */}
+        <SolidIsland component={TimelineWidget} props={{}} />
       </div>
       <div className="hub__slot hub__slot--right">
         {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 5a). */}

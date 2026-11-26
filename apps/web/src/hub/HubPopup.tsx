@@ -171,10 +171,11 @@ export function HubPopup({ route, me }: HubPopupProps) {
         <InvalidPopup />
       );
     case 'meeting':
-      return <MeetingPopup id={route.id} me={me} />;
+      // Spotkania i Timeline są w Solid 2.0 (docs/solidjs-2-migration.md, etap 6).
+      return <SolidIsland component={MeetingPopup} props={{ id: route.id, me }} />;
     case 'calendar':
       // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi (DS §15.1).
-      return <CalendarPopup isAdmin={me.role === 'admin'} />;
+      return <SolidIsland component={CalendarPopup} props={{ isAdmin: me.role === 'admin' }} />;
     case 'leaderboard':
       // Obszar Ranking jest w Solid 2.0 (docs/solidjs-2-migration.md, etap 4).
       return (
@@ -189,34 +190,58 @@ export function HubPopup({ route, me }: HubPopupProps) {
       );
     case 'add-meeting':
       // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
-      return me.role === 'admin' ? <AddMeetingPopup me={me} date={route.date} /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={AddMeetingPopup} props={{ me, date: route.date }} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'publish-games':
       // Gry publikuje tylko administrator (VOTE-5, §2.1); bazę chroni RPC.
-      return me.role === 'admin' ? <PublishGamesPopup id={route.id} me={me} /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={PublishGamesPopup} props={{ id: route.id, me }} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'edit-meeting':
-      return me.role === 'admin' ? <EditMeetingPopup id={route.id} me={me} /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={EditMeetingPopup} props={{ id: route.id, me }} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'delete-meeting':
-      return me.role === 'admin' ? <DeleteMeetingDialog id={route.id} /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={DeleteMeetingDialog} props={{ id: route.id }} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'start-meeting':
       // Admin albo prowadzący (RUN-1, §2.1); dialog sam sprawdza rolę, bazę chroni RPC.
-      return <StartMeetingDialog id={route.id} me={me} />;
+      return <SolidIsland component={StartMeetingDialog} props={{ id: route.id, me }} />;
     case 'finish-meeting':
-      return <FinishMeetingDialog id={route.id} me={me} />;
+      return <SolidIsland component={FinishMeetingDialog} props={{ id: route.id, me }} />;
     case 'reopen-meeting':
-      return me.role === 'admin' ? <ReopenMeetingDialog id={route.id} /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={ReopenMeetingDialog} props={{ id: route.id }} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'new-play':
       // Admin albo prowadzący spotkania w trakcie (RUN-2, PAD-9); popup sprawdza rolę i status,
       // bazę chroni RPC start_play.
-      return <NewPlayPopup meetingId={route.meetingId} me={me} />;
+      return <SolidIsland component={NewPlayPopup} props={{ meetingId: route.meetingId, me }} />;
     case 'play':
       // Notes tylko dla admina i prowadzącego trwającego spotkania, inni widzą „Trwa partia”
       // (PAD-9); popup sprawdza rolę i status, bazę chroni RPC save_play_draft.
-      return <PlayPopup id={route.id} me={me} />;
+      return <SolidIsland component={PlayPopup} props={{ id: route.id, me }} />;
     case 'discard-play':
-      return <DiscardPlayDialog id={route.id} me={me} />;
+      return <SolidIsland component={DiscardPlayDialog} props={{ id: route.id, me }} />;
     case 'delete-play':
       // Tylko admin (VIEW-6); bazę chroni RPC delete_play.
-      return me.role === 'admin' ? <DeletePlayDialog id={route.id} /> : <InvalidPopup />;
+      return me.role === 'admin' ? (
+        <SolidIsland component={DeletePlayDialog} props={{ id: route.id }} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'invalid':
       return <InvalidPopup />;
   }

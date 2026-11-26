@@ -25,8 +25,7 @@ interface GameCoverProps {
 
 /**
  * Okładka gry (GAME-6, DS §14): wgrany obraz albo kafelek w kolorze palety z białym
- * monogramem tytułu. Dekoracyjna: tytuł jest zawsze obok w tekście. Wersja React dla obszarów
- * jeszcze w React: `react-shared/GameCover.tsx` (ten sam DOM).
+ * monogramem tytułu. Dekoracyjna: tytuł jest zawsze obok w tekście.
  */
 export function GameCover(props: GameCoverProps) {
   const saved = createCoverUrl(() => (props.src === undefined ? props.coverPath : null));

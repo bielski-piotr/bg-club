@@ -64,7 +64,7 @@ export interface ScorePadHandle {
 /**
  * Notes 3D `<score-pad>` w trybie klubowym (PAD-1, PRD §8.5): szablony tylko z propsów,
  * bez lokalnej biblioteki i historii POC. Motyw idzie za motywem aplikacji. Wersja React
- * dla partii (spotkania, etap 6): `react-shared/ScorePadView.tsx` (ten sam DOM).
+ * dla strony design systemu (do etapu 8): `react-shared/ScorePadView.tsx` (ten sam DOM).
  * Nowy `config`, `templates` lub `template` (inna referencja) tworzy notes od nowa i czyści
  * kartkę, więc rodzic przekazuje stabilne obiekty (dane z zapytania albo memo).
  */

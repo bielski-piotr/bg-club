@@ -2,6 +2,7 @@ import { useContext, type Accessor } from 'solid-js';
 import { AuthContext } from '../solid/context';
 import { createQuery } from '../solid/query';
 import {
+  allExpansionsQuery,
   collectionWidgetQuery,
   expansionsQuery,
   gameQuery,
@@ -12,8 +13,8 @@ import { gameStatsQuery } from './gameStatsData';
 import { gameVoteTotalQuery } from './gameVoteTotal';
 
 /*
- * Zapytania o gry w Solid: te same opcje co hooki React (`react-shared/games.ts`) na wspólnym
- * cache. Klient Supabase z `AuthContext`; parametry jako akcesory.
+ * Zapytania o gry w Solid: opcje z `games.ts` na wspólnym cache
+ * zapytań. Klient Supabase z `AuthContext`; parametry jako akcesory.
  */
 
 /** Widżet kolekcji (`collectionWidgetQuery`). */
@@ -38,6 +39,12 @@ export function createGame(id: Accessor<string>) {
 export function createExpansions(baseId: Accessor<string>) {
   const auth = useContext(AuthContext);
   return createQuery(() => expansionsQuery(auth.client, baseId()));
+}
+
+/** Wszystkie aktywne dodatki (`allExpansionsQuery`); `enabled` = czy pobierać. */
+export function createAllExpansions(enabled: Accessor<boolean> = () => true) {
+  const auth = useContext(AuthContext);
+  return createQuery(() => allExpansionsQuery(auth.client, enabled()));
 }
 
 /** Tytuły gier i dodatków po id (`gameTitlesQuery`). */

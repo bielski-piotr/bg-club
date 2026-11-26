@@ -8,7 +8,7 @@ import { createGameSheets } from '../sheets/sheetData';
 import type { GallerySheet } from '../sheets/sheets';
 import { createClub } from '../solid/club';
 import { PopupsContext } from '../solid/context';
-import { SheetThumbnail } from '../solid/meetings/MeetingParts';
+import { SheetThumbnail } from '../meetings/MeetingParts';
 import { PopupLink } from '../solid/popups/PopupLink';
 import { PopupModal } from '../solid/popups/PopupModal';
 import { QueryStatus } from '../solid/popups/QueryStatus';

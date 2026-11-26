@@ -15,8 +15,7 @@ import { SHEETS_BUCKET } from './sheetImages';
  */
 
 /*
- * Opcje zapytań bez frameworka: wspólne dla hooków React (`react-shared/sheets.ts`, do etapu 8
- * migracji) i kodu Solid (`sheets/sheetData.ts`) na tym samym cache.
+ * Opcje zapytań bez frameworka; wersje Solid w `sheets/sheetData.ts`.
  */
 
 /** Podpisany adres obrazu karteczki; bez ścieżki zapytanie jest wyłączone. */

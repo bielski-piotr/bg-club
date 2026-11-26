@@ -1,20 +1,19 @@
-import { useState, type KeyboardEvent } from 'react';
+/** @jsxImportSource @solidjs/web */
 import {
   manualTieGroups,
   resolveManualTies,
   type RankedPlayer,
   type ScoringTemplate,
 } from '@bg-club/scoring';
-import { useAuth } from '../auth/authContext';
-import { ManualTieControls } from '../react-shared/ManualTieControls';
+import { createMemo, createSignal, For, onSettled, Show } from 'solid-js';
 import { format, formatNumber, t } from '../i18n';
-import { ProfileAvatar } from '../react-shared/ProfileAvatar';
-import { fullName, type Profile } from '../react-shared/profiles';
-import { Banner, Button, Dialog } from '../ui';
-import { cx } from '../ui/cx';
+import { fullName, type Profile } from '../profile/profileQueries';
+import { ManualTieControls } from '../score-pad/ManualTieControls';
+import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
+import { Banner, Button, Dialog } from '../solid/ui';
+import { createRecordPreview } from './meetingData';
 import { PlayTimes, RecordBadge } from './MeetingParts';
 import { playSummary, type PlaySeats, type PlaySaveFailure, type PlaySummary } from './playSave';
-import { useRecordPreview } from './records';
 
 const text = t.meetings.play.summary;
 
@@ -48,133 +47,163 @@ export interface PlaySummaryDialogProps {
  * albo osobistego oraz punkty leaderboardu (podgląd z tej samej reguły co w bazie). „Zapisz partię” kończy partię,
  * „Wróć do kartki”, Esc i tło kładą kartkę z powrotem na notes.
  */
-export function PlaySummaryDialog({
-  title,
-  playId,
-  startedAt,
-  timeZone,
-  summary: original,
-  profiles,
-  saving,
-  failure,
-  onCancel,
-  onConfirm,
-  manual,
-}: PlaySummaryDialogProps) {
-  const [resolved, setResolved] = useState<readonly RankedPlayer[] | null>(null);
-  const summary =
-    original && resolved && manual ? playSummary(manual.play, original.sheet, resolved) : original;
-  const groups = manual ? manualTieGroups(manual.template, manual.ranked) : [];
-  const { client } = useAuth();
-  const [endedAt] = useState(() => new Date());
-  const records = useRecordPreview(
-    client,
-    playId,
-    summary ? summary.rows.map((row) => ({ profileId: row.profileId, value: row.value })) : null,
-  ).data;
+export function PlaySummaryDialog(props: PlaySummaryDialogProps) {
+  const [resolved, setResolved] = createSignal<readonly RankedPlayer[] | null>(null);
+  const summary = createMemo(() => {
+    const original = props.summary;
+    const ties = resolved();
+    const manual = props.manual;
+    return original && ties && manual ? playSummary(manual.play, original.sheet, ties) : original;
+  });
+  const groups = createMemo(() => {
+    const manual = props.manual;
+    return manual ? manualTieGroups(manual.template, manual.ranked) : [];
+  });
+  // Koniec partii: chwila oderwania karteczki (otwarcia podsumowania).
+  const endedAt = new Date();
+  const records = createRecordPreview(
+    () => props.playId,
+    () => {
+      const current = summary();
+      return current
+        ? current.rows.map((row) => ({ profileId: row.profileId, value: row.value }))
+        : null;
+    },
+  );
+  let cancelButton: HTMLButtonElement | undefined;
+  // Fokus na „Wróć do kartki” po otwarciu (w React `autoFocus`; atrybut nie działa na wstawionym węźle).
+  onSettled(() => {
+    cancelButton?.focus();
+  });
   const cancel = () => {
-    if (!saving) onCancel();
+    if (!props.saving) props.onCancel();
   };
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return;
     // Esc zamyka tylko podsumowanie, nie notes pod nim (PopupHost pomija obsłużone Esc).
     event.preventDefault();
     cancel();
   };
+  // Zespół: wszyscy członkowie miejsca w notesie.
+  const nameOf = (seat: number) => {
+    const names = (props.summary?.rows ?? [])
+      .filter((r) => r.seat === seat + 1)
+      .map((r) => {
+        const person = props.profiles.get(r.profileId);
+        return person ? fullName(person) : t.meetings.plays.unknownPlayer;
+      });
+    return names.length > 0 ? names.join(', ') : t.meetings.plays.unknownPlayer;
+  };
   return (
-    <div className="play-summary" onKeyDown={onKeyDown}>
+    <div class="play-summary" onKeyDown={onKeyDown}>
       <Dialog
         title={text.title}
         icon="tear-off"
-        description={<p>{format(text.description, { title })}</p>}
+        description={<p>{format(text.description, { title: props.title })}</p>}
         onScrimClick={cancel}
         footer={
           <>
-            <Button variant="secondary" autoFocus disabled={saving} onClick={cancel}>
+            <Button
+              ref={(el: HTMLButtonElement) => (cancelButton = el)}
+              variant="secondary"
+              disabled={props.saving}
+              onClick={cancel}
+            >
               {text.cancel}
             </Button>
             <Button
-              loading={saving}
-              disabled={!summary}
-              onClick={() => summary && onConfirm(summary)}
+              loading={props.saving}
+              disabled={!summary()}
+              onClick={() => {
+                const current = summary();
+                if (current) props.onConfirm(current);
+              }}
             >
               {text.submit}
             </Button>
           </>
         }
       >
-        {original && manual ? (
+        <Show when={props.summary && props.manual}>
           <ManualTieControls
-            groups={groups}
-            disabled={saving}
-            nameOf={(seat) => {
-              // Zespół: wszyscy członkowie miejsca w notesie.
-              const names = original.rows
-                .filter((r) => r.seat === seat + 1)
-                .map((r) => {
-                  const person = profiles.get(r.profileId);
-                  return person ? fullName(person) : t.meetings.plays.unknownPlayer;
-                });
-              return names.length > 0 ? names.join(', ') : t.meetings.plays.unknownPlayer;
+            groups={groups()}
+            disabled={props.saving}
+            nameOf={nameOf}
+            onChange={(decisions) => {
+              const manual = props.manual;
+              if (manual) setResolved(resolveManualTies(manual.template, manual.ranked, decisions));
             }}
-            onChange={(decisions) =>
-              setResolved(resolveManualTies(manual.template, manual.ranked, decisions))
-            }
           />
-        ) : null}
-        <PlayTimes startedAt={startedAt} endedAt={endedAt} timeZone={timeZone} labels={text} />
-        {summary ? (
-          <ol className="play-summary__list" aria-label={format(text.listLabel, { title })}>
-            {summary.rows.map((row) => {
-              const person = profiles.get(row.profileId);
-              const note = [row.win ? text.win : null, row.tied ? text.shared : null]
-                .filter(Boolean)
-                .join(' · ');
-              return (
-                <li
-                  key={`${row.seat}-${row.profileId}`}
-                  className={cx('play-summary__row', row.win && 'is-first')}
-                >
-                  <span className="play-summary__place">
-                    <span aria-hidden="true">{format(text.place, { n: row.place })}</span>
-                    <span className="sr-only">{format(text.placeLabel, { n: row.place })}</span>
-                  </span>
-                  {person ? <ProfileAvatar profile={person} size={36} decorative /> : null}
-                  <span className="play-summary__player">
-                    <span className="play-summary__name">
-                      {person ? fullName(person) : t.meetings.plays.unknownPlayer}
-                    </span>
-                    {note ? <span className="play-summary__note">{note}</span> : null}
-                    {records?.get(row.profileId) ? (
-                      <RecordBadge kind={records.get(row.profileId) ?? 'personal'} />
-                    ) : null}
-                  </span>
-                  <span className="play-summary__score">
-                    {row.value === null ? (
-                      <span className="play-summary__empty">{text.noValue}</span>
-                    ) : (
-                      <>
-                        <span aria-hidden="true">{formatNumber(row.value)}</span>
-                        <span className="sr-only">{format(text.score, { n: row.value })}</span>
-                      </>
-                    )}
-                    {row.points !== null ? (
-                      <span className="play-summary__points">
-                        <span aria-hidden="true">{format(text.points, { n: row.points })}</span>
-                        <span className="sr-only">
-                          {format(text.pointsLabel, { n: row.points })}
-                        </span>
+        </Show>
+        <PlayTimes
+          startedAt={props.startedAt}
+          endedAt={endedAt}
+          timeZone={props.timeZone}
+          labels={text}
+        />
+        <Show when={summary()} fallback={<Banner variant="warning">{text.invalidSheet}</Banner>}>
+          {(current) => (
+            <ol
+              class="play-summary__list"
+              aria-label={format(text.listLabel, { title: props.title })}
+            >
+              <For each={current().rows} keyed={(row) => `${row.seat}-${row.profileId}`}>
+                {(row) => {
+                  const person = () => props.profiles.get(row().profileId);
+                  const note = () =>
+                    [row().win ? text.win : null, row().tied ? text.shared : null]
+                      .filter(Boolean)
+                      .join(' · ');
+                  const record = () => records().data?.get(row().profileId);
+                  return (
+                    <li class={['play-summary__row', { 'is-first': row().win }]}>
+                      <span class="play-summary__place">
+                        <span aria-hidden="true">{format(text.place, { n: row().place })}</span>
+                        <span class="sr-only">{format(text.placeLabel, { n: row().place })}</span>
                       </span>
-                    ) : null}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        ) : (
-          <Banner variant="warning">{text.invalidSheet}</Banner>
-        )}
-        {failure ? <Banner variant="error">{text.errors[failure]}</Banner> : null}
+                      <Show when={person()}>
+                        {(found) => <ProfileAvatar profile={found()} size={36} decorative />}
+                      </Show>
+                      <span class="play-summary__player">
+                        <span class="play-summary__name">
+                          {person()
+                            ? fullName(person() as Profile)
+                            : t.meetings.plays.unknownPlayer}
+                        </span>
+                        <Show when={note()}>
+                          <span class="play-summary__note">{note()}</span>
+                        </Show>
+                        <Show when={record()}>{(kind) => <RecordBadge kind={kind()} />}</Show>
+                      </span>
+                      <span class="play-summary__score">
+                        <Show
+                          when={row().value !== null}
+                          fallback={<span class="play-summary__empty">{text.noValue}</span>}
+                        >
+                          <span aria-hidden="true">{formatNumber(row().value ?? 0)}</span>
+                          <span class="sr-only">{format(text.score, { n: row().value ?? 0 })}</span>
+                        </Show>
+                        <Show when={row().points !== null}>
+                          <span class="play-summary__points">
+                            <span aria-hidden="true">
+                              {format(text.points, { n: row().points ?? 0 })}
+                            </span>
+                            <span class="sr-only">
+                              {format(text.pointsLabel, { n: row().points ?? 0 })}
+                            </span>
+                          </span>
+                        </Show>
+                      </span>
+                    </li>
+                  );
+                }}
+              </For>
+            </ol>
+          )}
+        </Show>
+        <Show when={props.failure}>
+          {(failure) => <Banner variant="error">{text.errors[failure()]}</Banner>}
+        </Show>
       </Dialog>
     </div>
   );

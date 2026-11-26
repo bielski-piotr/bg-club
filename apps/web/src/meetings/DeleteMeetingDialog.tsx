@@ -1,13 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import { Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
-import { InvalidPopup } from '../popups/InvalidPopup';
-import { usePopups } from '../popups/popupContext';
-import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { useMounted } from '../popups/useMounted';
-import { Banner, Button, useToast } from '../ui';
-import { deleteMeeting, MeetingError, meetingsKey, useMeeting } from './meetings';
+import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
+import { InvalidPopup } from '../solid/popups/InvalidPopup';
+import { createMounted } from '../solid/popups/leaveGuard';
+import { PopupDialog } from '../solid/popups/PopupDialog';
+import { QueryStatus } from '../solid/popups/QueryStatus';
+import { createMutation } from '../solid/query';
+import { Banner, Button } from '../solid/ui';
+import { createMeeting } from './meetingData';
+import { deleteMeeting, MeetingError, meetingsKey } from './meetings';
 
 const text = t.meetings.remove;
 
@@ -16,21 +18,22 @@ const text = t.meetings.remove;
  * głosy i uczestników. Trwającego spotkania nie usuwamy (najpierw trzeba je zakończyć),
  * a zakończonego z partiami nie usunie baza.
  */
-export function DeleteMeetingDialog({ id }: { readonly id: string }) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const { back } = usePopups();
-  const mounted = useMounted();
-  const query = useMeeting(client, id);
-  const meeting = query.data;
+export function DeleteMeetingDialog(props: { readonly id: string }) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const popups = useContext(PopupsContext);
+  const mounted = createMounted();
+  const query = createMeeting(() => props.id);
+  const meeting = () => query().data ?? undefined;
 
-  const remove = useMutation({
-    mutationFn: () => deleteMeeting(client, id),
+  const remove = createMutation({
+    mutationFn: () => deleteMeeting(auth.client, props.id),
     onSuccess: () => {
-      if (meeting)
-        toast.show(format(t.meetings.toasts.deleted, { title: meeting.title }), 'success');
-      if (mounted.current) back();
+      const removed = meeting();
+      if (removed)
+        toast.show(format(t.meetings.toasts.deleted, { title: removed.title }), 'success');
+      if (mounted()) popups.back();
       void queryClient.invalidateQueries({ queryKey: meetingsKey });
     },
     onError: () => void queryClient.invalidateQueries({ queryKey: meetingsKey }),
@@ -38,43 +41,56 @@ export function DeleteMeetingDialog({ id }: { readonly id: string }) {
 
   // Po sukcesie dialog zostaje do zamknięcia (Wstecz jest asynchroniczne). Wcześniej: z linku
   // nie usuniemy spotkania, którego nie ma.
-  if (!remove.isSuccess && query.isSuccess && !meeting) return <InvalidPopup />;
+  const unavailable = () => !remove.state().isSuccess && query().isSuccess && !meeting();
+  const running = () => meeting()?.status === 'in_progress';
+  const failure = () => {
+    const error = remove.state().error;
+    return error instanceof MeetingError ? t.meetings.errors[error.reason] : t.meetings.errors.save;
+  };
 
-  const running = meeting?.status === 'in_progress';
-  const failure =
-    remove.error instanceof MeetingError
-      ? t.meetings.errors[remove.error.reason]
-      : t.meetings.errors.save;
   return (
-    <PopupDialog
-      title={text.title}
-      icon="trash"
-      tone="danger"
-      description={
-        meeting ? (
-          <p>{format(text.description, { title: meeting.title })}</p>
-        ) : (
-          <QueryStatus isError={query.isError} onRetry={() => void query.refetch()} />
-        )
-      }
-      footer={
-        <>
-          <Button variant="secondary" disabled={remove.isPending} onClick={back}>
-            {text.cancel}
-          </Button>
-          <Button
-            variant="destructive"
-            loading={remove.isPending}
-            disabled={!meeting || running || remove.isSuccess}
-            onClick={() => remove.mutate()}
+    <Show when={!unavailable()} fallback={<InvalidPopup />}>
+      <PopupDialog
+        title={text.title}
+        icon="trash"
+        tone="danger"
+        description={
+          <Show
+            when={meeting()}
+            fallback={
+              <QueryStatus isError={query().isError} onRetry={() => void query().refetch()} />
+            }
           >
-            {text.submit}
-          </Button>
-        </>
-      }
-    >
-      {running ? <Banner variant="warning">{text.inProgress}</Banner> : null}
-      {remove.isError ? <Banner variant="error">{failure}</Banner> : null}
-    </PopupDialog>
+            {(shown) => <p>{format(text.description, { title: shown().title })}</p>}
+          </Show>
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={remove.state().isPending}
+              onClick={() => popups.back()}
+            >
+              {text.cancel}
+            </Button>
+            <Button
+              variant="destructive"
+              loading={remove.state().isPending}
+              disabled={!meeting() || running() || remove.state().isSuccess}
+              onClick={() => remove.mutate()}
+            >
+              {text.submit}
+            </Button>
+          </>
+        }
+      >
+        <Show when={running()}>
+          <Banner variant="warning">{text.inProgress}</Banner>
+        </Show>
+        <Show when={remove.state().isError}>
+          <Banner variant="error">{failure()}</Banner>
+        </Show>
+      </PopupDialog>
+    </Show>
   );
 }

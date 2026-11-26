@@ -1,20 +1,21 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import { Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
-import { InvalidPopup } from '../popups/InvalidPopup';
-import { usePopups } from '../popups/popupContext';
-import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { useMounted } from '../popups/useMounted';
 import { allowOrphanSweep } from '../sheets/sheetImages';
-import { Banner, Button, useToast } from '../ui';
+import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
+import { InvalidPopup } from '../solid/popups/InvalidPopup';
+import { createMounted } from '../solid/popups/leaveGuard';
+import { PopupDialog } from '../solid/popups/PopupDialog';
+import { QueryStatus } from '../solid/popups/QueryStatus';
+import { createMutation } from '../solid/query';
+import { Banner, Button } from '../solid/ui';
+import { createPlay } from './meetingData';
 import {
   deletePlay,
   invalidatePlayData,
   PlayDeleteError,
   removeDeletedPlayImage,
 } from './playDelete';
-import { usePlay } from './plays';
 
 const text = t.meetings.plays.deleteDialog;
 
@@ -37,18 +38,18 @@ interface DeleteTarget {
  * posprząta też kolejne otwarcie spotkania przez admina (`orphan_sheet_images`).
  * Otwarty nad karteczką tej partii zamyka też karteczkę. Rolę sprawdza `HubPopup`.
  */
-export function DeletePlayDialog({ id }: { readonly id: string }) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const { back, backBy, stack } = usePopups();
-  const mounted = useMounted();
-  const play = usePlay(client, id);
-  // Pod dialogiem może być karteczka tej partii: po usunięciu nie ma już czego pokazywać.
-  const below = stack.at(-2);
-  const overSheet = below?.kind === 'sheet' && below.id === id;
+export function DeletePlayDialog(props: { readonly id: string }) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const popups = useContext(PopupsContext);
+  const mounted = createMounted();
+  const play = createPlay(() => props.id);
   const close = () => {
-    if (mounted.current) backBy(overSheet ? 2 : 1);
+    // Pod dialogiem może być karteczka tej partii: po usunięciu nie ma już czego pokazywać.
+    const below = popups.stack.at(-2);
+    const overSheet = below?.kind === 'sheet' && below.id === props.id;
+    if (mounted()) popups.backBy(overSheet ? 2 : 1);
   };
   const closeWithLeftImage = (meetingId: string) => {
     // Obraz został w Storage: kolejne otwarcie spotkania w tej karcie znów posprząta.
@@ -56,11 +57,13 @@ export function DeletePlayDialog({ id }: { readonly id: string }) {
     close();
   };
 
-  const remove = useMutation({
+  const remove = createMutation({
     mutationFn: async (_target: DeleteTarget): Promise<DeleteOutcome> => {
-      const { imagePath } = await deletePlay(client, id);
+      const { imagePath } = await deletePlay(auth.client, props.id);
       if (!imagePath) return { leftImage: null };
-      return { leftImage: (await removeDeletedPlayImage(client, imagePath)) ? null : imagePath };
+      return {
+        leftImage: (await removeDeletedPlayImage(auth.client, imagePath)) ? null : imagePath,
+      };
     },
     onSuccess: ({ leftImage }, { title }) => {
       toast.show(format(t.meetings.toasts.playDeleted, { title }), 'success');
@@ -70,10 +73,11 @@ export function DeletePlayDialog({ id }: { readonly id: string }) {
     onError: () => void invalidatePlayData(queryClient),
   });
 
-  const leftImage = remove.data?.leftImage ?? null;
-  const retryImage = useMutation({
+  const leftImage = () => remove.state().data?.leftImage ?? null;
+  const retryImage = createMutation({
     mutationFn: async () => {
-      if (leftImage && !(await removeDeletedPlayImage(client, leftImage))) {
+      const path = leftImage();
+      if (path && !(await removeDeletedPlayImage(auth.client, path))) {
         throw new Error('sheet image not removed');
       }
     },
@@ -82,65 +86,89 @@ export function DeletePlayDialog({ id }: { readonly id: string }) {
 
   // Przed potwierdzeniem (np. z linku): tylko zapisana partia, która istnieje. Po próbie
   // usunięcia dialog zostaje, nawet gdy odświeżona partia już nie pasuje (błąd, sukces).
-  if (remove.isIdle && play.isSuccess && (!play.data || play.data.status !== 'saved')) {
-    return <InvalidPopup />;
-  }
-
-  const failure =
-    remove.error instanceof PlayDeleteError
-      ? remove.error.reason === 'forbidden'
+  const unavailable = () => {
+    const current = play();
+    return (
+      remove.state().isIdle &&
+      current.isSuccess &&
+      (!current.data || current.data.status !== 'saved')
+    );
+  };
+  const failure = () => {
+    const error = remove.state().error;
+    return error instanceof PlayDeleteError
+      ? error.reason === 'forbidden'
         ? text.errors.forbidden
-        : remove.error.reason === 'draft'
+        : error.reason === 'draft'
           ? text.errors.draft
           : text.errors.save
       : text.errors.save;
-  const title = play.data?.game.title ?? remove.variables?.title ?? '';
-  const imagePending = leftImage !== null && !retryImage.isSuccess;
+  };
+  const title = () => play().data?.game.title ?? remove.state().variables?.title ?? '';
+  const imagePending = () => leftImage() !== null && !retryImage.state().isSuccess;
+
   return (
-    <PopupDialog
-      title={text.title}
-      icon="trash"
-      tone="danger"
-      description={
-        play.data || remove.isSuccess ? (
-          <p>{format(text.description, { title })}</p>
-        ) : (
-          <QueryStatus isError={play.isError} onRetry={() => void play.refetch()} />
-        )
-      }
-      footer={
-        imagePending ? (
-          <>
+    <Show when={!unavailable()} fallback={<InvalidPopup />}>
+      <PopupDialog
+        title={text.title}
+        icon="trash"
+        tone="danger"
+        description={
+          <Show
+            when={play().data || remove.state().isSuccess}
+            fallback={
+              <QueryStatus isError={play().isError} onRetry={() => void play().refetch()} />
+            }
+          >
+            <p>{format(text.description, { title: title() })}</p>
+          </Show>
+        }
+        footer={
+          <Show
+            when={imagePending()}
+            fallback={
+              <>
+                <Button
+                  variant="secondary"
+                  disabled={remove.state().isPending}
+                  onClick={() => popups.back()}
+                >
+                  {text.cancel}
+                </Button>
+                <Button
+                  variant="destructive"
+                  loading={remove.state().isPending}
+                  disabled={!play().data || remove.state().isSuccess}
+                  onClick={() => {
+                    const current = play().data;
+                    if (current) remove.mutate({ title: title(), meetingId: current.meeting_id });
+                  }}
+                >
+                  {text.submit}
+                </Button>
+              </>
+            }
+          >
             <Button
               variant="secondary"
-              disabled={retryImage.isPending}
-              onClick={() => closeWithLeftImage(remove.variables?.meetingId ?? '')}
+              disabled={retryImage.state().isPending}
+              onClick={() => closeWithLeftImage(remove.state().variables?.meetingId ?? '')}
             >
               {text.close}
             </Button>
-            <Button loading={retryImage.isPending} onClick={() => retryImage.mutate()}>
+            <Button loading={retryImage.state().isPending} onClick={() => retryImage.mutate()}>
               {text.retryImage}
             </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="secondary" disabled={remove.isPending} onClick={back}>
-              {text.cancel}
-            </Button>
-            <Button
-              variant="destructive"
-              loading={remove.isPending}
-              disabled={!play.data || remove.isSuccess}
-              onClick={() => play.data && remove.mutate({ title, meetingId: play.data.meeting_id })}
-            >
-              {text.submit}
-            </Button>
-          </>
-        )
-      }
-    >
-      {remove.isError ? <Banner variant="error">{failure}</Banner> : null}
-      {imagePending ? <Banner variant="warning">{text.imageFailed}</Banner> : null}
-    </PopupDialog>
+          </Show>
+        }
+      >
+        <Show when={remove.state().isError}>
+          <Banner variant="error">{failure()}</Banner>
+        </Show>
+        <Show when={imagePending()}>
+          <Banner variant="warning">{text.imageFailed}</Banner>
+        </Show>
+      </PopupDialog>
+    </Show>
   );
 }

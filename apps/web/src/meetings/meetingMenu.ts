@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import type { PopupRoute } from '../popups/routes';
-import type { MenuItem } from '../ui';
+import type { MenuItem } from '../solid/ui';
 import type { Meeting } from './meetings';
 import type { MeetingOverview } from './overview';
 

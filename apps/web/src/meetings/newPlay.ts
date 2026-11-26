@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Game } from '../games/games';
 import { format, plural, t } from '../i18n';
 import type { Scorepad } from '../score-pad/scorepads';
-import { normalizeSearch } from '../ui';
+import { normalizeSearch } from '../ui/search';
 
 /*
  * Nowa partia (PRD RUN-2, RUN-3, PAD-2, PAD-3, PAD-9, DS §15 „Game / notes pick row”,
