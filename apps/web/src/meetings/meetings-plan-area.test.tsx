@@ -1,15 +1,14 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
 import { flush } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { clubKey } from '../club/club';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, membersKey, type Profile } from '../profile/profileQueries';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { CalendarPopup } from './CalendarPopup';
 import { monthOf } from './calendar';
 import { DateVotingSection } from './DateVotingSection';
@@ -21,7 +20,7 @@ import { calendarKey, timelineKey, type MeetingOverview } from './overview';
 import { TimelineWidget } from './TimelineWidget';
 
 /*
- * Obszar Spotkania – planowanie w Solid (etap 6a, docs/solidjs-2-migration.md): Timeline,
+ * Obszar Spotkania – planowanie: Timeline,
  * kalendarz, formularz spotkania, głosowanie na termin i usuwanie. Zachowanie sprawdzają e2e
  * (`calendar.spec.ts`, `meetings.spec.ts`, `date-voting.spec.ts`, `hub.spec.ts`); tu bramka
  * bez kodów diagnostyki Solid dla renderu i interakcji. Dane są fikcyjne.
@@ -183,7 +182,7 @@ describe('obszar Spotkania (planowanie) bez diagnostyki Solid', () => {
   it('Timeline, kalendarz z nawigacją i planowaniem dnia, usuwanie', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const widget = renderSolid(() => <TimelineWidget />, host());
+        const widget = renderWithProviders(() => <TimelineWidget />, host());
         await settle();
         const card = widget.container;
         expect(card).toHaveTextContent('Sobotnie granie');
@@ -193,7 +192,7 @@ describe('obszar Spotkania (planowanie) bez diagnostyki Solid', () => {
         widget.unmount();
 
         const calendarHost = host();
-        const calendar = renderSolid(() => <CalendarPopup isAdmin />, calendarHost);
+        const calendar = renderWithProviders(() => <CalendarPopup isAdmin />, calendarHost);
         await settle();
         const dialog = within(calendar.container).getByRole('dialog');
         expect(within(dialog).getAllByText('Sobotnie granie').length).toBeGreaterThan(0);
@@ -212,12 +211,12 @@ describe('obszar Spotkania (planowanie) bez diagnostyki Solid', () => {
         expect(dialog).toHaveTextContent('3 spotkania');
         calendar.unmount();
 
-        const remove = renderSolid(() => <DeleteMeetingDialog id={PLANNED.id} />, host());
+        const remove = renderWithProviders(() => <DeleteMeetingDialog id={PLANNED.id} />, host());
         await settle();
         expect(within(remove.container).getByRole('dialog')).toHaveTextContent('Sobotnie granie');
         remove.unmount();
 
-        const running = renderSolid(() => <DeleteMeetingDialog id={RUNNING.id} />, host());
+        const running = renderWithProviders(() => <DeleteMeetingDialog id={RUNNING.id} />, host());
         await settle();
         expect(within(running.container).getByRole('dialog')).toHaveTextContent(
           'To spotkanie trwa. Najpierw je zakończ.',
@@ -232,7 +231,10 @@ describe('obszar Spotkania (planowanie) bez diagnostyki Solid', () => {
   it('formularz spotkania z walidacją i propozycjami terminu, edycja, głosowanie na termin', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const add = renderSolid(() => <AddMeetingPopup me={ME} date="2026-11-27" />, host());
+        const add = renderWithProviders(
+          () => <AddMeetingPopup me={ME} date="2026-11-27" />,
+          host(),
+        );
         await settle();
         const form = within(add.container).getByRole('dialog');
         expect(within(form).getByLabelText('Data')).toHaveValue('2026-11-27');
@@ -261,28 +263,40 @@ describe('obszar Spotkania (planowanie) bez diagnostyki Solid', () => {
         expect(within(form).getByLabelText('Tytuł')).toHaveValue('Nowe granie');
         add.unmount();
 
-        const edit = renderSolid(() => <EditMeetingPopup id={PLANNED.id} me={ME} />, host());
+        const edit = renderWithProviders(
+          () => <EditMeetingPopup id={PLANNED.id} me={ME} />,
+          host(),
+        );
         await settle();
         const editForm = within(edit.container).getByRole('dialog');
         expect(within(editForm).getByLabelText('Tytuł')).toHaveValue('Sobotnie granie');
         expect(within(editForm).getByLabelText('Data propozycji 2')).toBeInTheDocument();
         edit.unmount();
 
-        const inProgress = renderSolid(() => <EditMeetingPopup id={RUNNING.id} me={ME} />, host());
+        const inProgress = renderWithProviders(
+          () => <EditMeetingPopup id={RUNNING.id} me={ME} />,
+          host(),
+        );
         await settle();
         const runningForm = within(inProgress.container).getByRole('dialog');
         expect(runningForm).toHaveTextContent('Ma partię');
         expect(within(runningForm).getByLabelText('Tytuł')).toBeDisabled();
         inProgress.unmount();
 
-        const finished = renderSolid(() => <EditMeetingPopup id={FINISHED.id} me={ME} />, host());
+        const finished = renderWithProviders(
+          () => <EditMeetingPopup id={FINISHED.id} me={ME} />,
+          host(),
+        );
         await settle();
         expect(within(finished.container).getByRole('dialog')).toHaveTextContent(
           'Spotkanie zakończone',
         );
         finished.unmount();
 
-        const missing = renderSolid(() => <EditMeetingPopup id={id('d000', 9)} me={ME} />, host());
+        const missing = renderWithProviders(
+          () => <EditMeetingPopup id={id('d000', 9)} me={ME} />,
+          host(),
+        );
         await settle();
         expect(within(missing.container).getByRole('dialog')).toHaveTextContent(
           'Nie znaleziono spotkania',
@@ -290,7 +304,7 @@ describe('obszar Spotkania (planowanie) bez diagnostyki Solid', () => {
         missing.unmount();
 
         const votingHost = host();
-        const voting = renderSolid(
+        const voting = renderWithProviders(
           () => (
             <DateVotingSection
               meeting={PLANNED}

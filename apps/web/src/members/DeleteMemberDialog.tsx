@@ -1,16 +1,18 @@
-/** @jsxImportSource @solidjs/web */
 import { Show, useContext } from 'solid-js';
 import { gameVoteTotalsKey } from '../games/gameVoteTotal';
 import { format, t } from '../i18n';
 import { fullName } from '../profile/profileQueries';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { InvalidPopup } from '../solid/popups/InvalidPopup';
-import { createMounted } from '../solid/popups/leaveGuard';
-import { PopupDialog } from '../solid/popups/PopupDialog';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createProfile } from '../solid/profile/profiles';
-import { createMutation } from '../solid/query';
-import { Banner, Button } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { InvalidPopup } from '../popups/InvalidPopup';
+import { createMounted } from '../popups/leaveGuard';
+import { PopupDialog } from '../popups/PopupDialog';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createProfile } from '../profile/profiles';
+import { createMutation } from '../lib/query';
+import { Banner, Button } from '../ui';
 import { deleteMember, DeletionError, type DeletionFailure } from './deletion';
 
 const text = t.deleteMember;

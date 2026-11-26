@@ -1,10 +1,9 @@
-/** @jsxImportSource @solidjs/web */
 import { QueryClient } from '@tanstack/query-core';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, flush, Match, Switch } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createMutation, createQuery } from './query';
-import { renderSolid } from './testing';
+import { renderWithProviders } from '../test/render';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -34,7 +33,7 @@ describe('createQuery', () => {
         </Switch>
       );
     }
-    renderSolid(() => <View />, { queryClient: newClient() });
+    renderWithProviders(() => <View />, { queryClient: newClient() });
     expect(screen.getByText('Wczytywanie')).toBeInTheDocument();
     request.resolve('gotowe');
     expect(await screen.findByText('Dane: gotowe')).toBeInTheDocument();
@@ -55,7 +54,7 @@ describe('createQuery', () => {
         </p>
       );
     }
-    renderSolid(() => <View />, { queryClient: newClient() });
+    renderWithProviders(() => <View />, { queryClient: newClient() });
     await waitFor(() => expect(screen.getByTestId('game')).toHaveTextContent('gra 1'));
     setId(2);
     flush();
@@ -87,7 +86,7 @@ describe('createQuery', () => {
         </Switch>
       );
     }
-    renderSolid(() => <View />, { queryClient: newClient() });
+    renderWithProviders(() => <View />, { queryClient: newClient() });
     (await screen.findByRole('button', { name: 'Ponów' })).click();
     expect(await screen.findByText('ok')).toBeInTheDocument();
   });
@@ -117,7 +116,7 @@ describe('createMutation', () => {
         </>
       );
     }
-    renderSolid(() => <View />, { queryClient: client });
+    renderWithProviders(() => <View />, { queryClient: client });
     await waitFor(() => expect(screen.getByTestId('name')).toHaveTextContent('stara nazwa'));
     expect(screen.getByTestId('status')).toHaveTextContent('idle');
     screen.getByRole('button', { name: 'Zmień' }).click();

@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createMemo,
   createSignal,
@@ -10,18 +9,21 @@ import {
   Switch,
   useContext,
 } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
-import { createClub } from '../solid/club';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { createMembers } from '../solid/profile/profiles';
-import { createMutation } from '../solid/query';
-import { Badge, Banner, Button, Checkbox, IconButton, Select, TextField, Tray } from '../solid/ui';
+import { createClub } from '../club/clubData';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { createMembers } from '../profile/profiles';
+import { createMutation } from '../lib/query';
+import { Badge, Banner, Button, Checkbox, IconButton, Select, TextField, Tray } from '../ui';
 import { duplicateDateOptions, type DateOptionValue } from './dateOptions';
 import { dateOptionValues } from './dateVoting';
 import { TIME_SLOTS, todayIn } from './datetime';
@@ -104,7 +106,7 @@ interface PopupProps {
   readonly date?: string | undefined;
 }
 
-/** Stan formularza ustalony raz, z pierwszych wczytanych danych (jak `useState` w React). */
+/** Stan formularza ustalony raz, z pierwszych wczytanych danych. */
 interface FormStart {
   /** Id nowego spotkania od razu: ponowienie po błędzie sieci nie zaplanuje drugiego. */
   readonly id: string;

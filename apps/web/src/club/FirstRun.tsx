@@ -1,8 +1,7 @@
-/** @jsxImportSource @solidjs/web */
 import { Show, useContext } from 'solid-js';
 import { t } from '../i18n';
-import { PopupsContext } from '../solid/context';
-import { Button } from '../solid/ui';
+import { PopupsContext } from '../popups/popupContext';
+import { Button } from '../ui';
 import { FirstRunIllustration } from './FirstRunIllustration';
 import './club.css';
 

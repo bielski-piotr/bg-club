@@ -1,11 +1,10 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, onSettled, Show, type Accessor } from 'solid-js';
 import { format, formatNumber, plural, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { ProfileLink } from '../solid/profile/ProfileLink';
-import { Badge, type AvatarSize } from '../solid/ui';
-import { ariaTrue } from '../solid/ui/dom';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { ProfileLink } from '../profile/ProfileLink';
+import { Badge, type AvatarSize } from '../ui';
+import { ariaTrue } from '../ui/dom';
 import {
   leaderboardLayout,
   widgetRows,

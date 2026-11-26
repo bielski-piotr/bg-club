@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type {
   ScorePadFile,
   ScorePadSaveDetail,
@@ -6,10 +5,10 @@ import type {
   ScorePadTemplate,
 } from '@bg-club/score-pad';
 import { createEffect, createMemo, createSignal, Match, Show, Switch, useContext } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, t } from '../i18n';
-import type { LeaveGuard } from '../popups/popupContext';
+import { type LeaveGuard, PopupsContext } from '../popups/popupContext';
 import { fullName, type Profile } from '../profile/profileQueries';
 import { pwa } from '../pwa/updates';
 import { loadVersionTemplate, versionTemplateKey } from '../score-pad/scorepads';
@@ -22,14 +21,16 @@ import {
   uploadSheetImage,
   type PendingSheetImage,
 } from '../sheets/sheetImages';
-import { createClub } from '../solid/club';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { createLeaveGuard, createMounted } from '../solid/popups/leaveGuard';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createAllProfiles } from '../solid/profile/profiles';
-import { createMutation, createQuery } from '../solid/query';
-import { Banner, Button } from '../solid/ui';
+import { createClub } from '../club/clubData';
+import { AuthContext } from '../auth/authContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { createLeaveGuard, createMounted } from '../popups/leaveGuard';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createAllProfiles } from '../profile/profiles';
+import { createMutation, createQuery } from '../lib/query';
+import { Banner, Button } from '../ui';
 import { localDateTime } from './datetime';
 import { createMeeting, createPlay } from './meetingData';
 import { meetingsKey } from './meetings';

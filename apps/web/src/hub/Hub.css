@@ -1,7 +1,7 @@
 /*
  * Widok Klubu (DS §17). Telefon: padding 16/16/32, odstęp 16, karty na całą szerokość.
  * Od 768 px: odstęp 24 i karty do 520 px. Od 1112 px: treść 1064 px, dwie kolumny po 520 px
- * z odstępem 24 i niezależnymi wysokościami (useMasonry.ts).
+ * z odstępem 24 i niezależnymi wysokościami (masonry.ts).
  */
 .hub {
   display: flex;

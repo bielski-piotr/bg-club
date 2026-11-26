@@ -1,11 +1,11 @@
-/** @jsxImportSource @solidjs/web */
 import { Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
-import { createCoverUrl } from '../solid/club';
-import { AuthContext, PopupsContext } from '../solid/context';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { IconButton, Menu, Skeleton } from '../solid/ui';
+import { createCoverUrl } from './clubData';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { IconButton, Menu, Skeleton } from '../ui';
 import type { Club } from './club';
 import { ClubLogo } from './ClubLogo';
 

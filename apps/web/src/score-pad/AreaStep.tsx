@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type {
   ScorePadEditorArea,
   ScorePadEditorAreaPatch,
@@ -7,14 +6,7 @@ import type {
 } from '@bg-club/score-pad';
 import { Show, createMemo } from 'solid-js';
 import { format, plural, t } from '../i18n';
-import {
-  ColorSwatches,
-  IconButton,
-  SegmentedControl,
-  Slider,
-  Switch,
-  TextField,
-} from '../solid/ui';
+import { ColorSwatches, IconButton, SegmentedControl, Slider, Switch, TextField } from '../ui';
 import { SCOREPAD_NAME_MAX } from './scorepads';
 import { SPINE_COLORS, areaHint, clampCm, formatCm, parseCm } from './area';
 import { createDraft } from './createDraft';

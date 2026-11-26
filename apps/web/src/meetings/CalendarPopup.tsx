@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createMemo,
   createSignal,
@@ -12,13 +11,13 @@ import {
 } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, plural, t } from '../i18n';
-import { createClub } from '../solid/club';
-import { PopupsContext } from '../solid/context';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { Button, Icon, IconButton, Tray } from '../solid/ui';
-import { ariaBool } from '../solid/ui/dom';
+import { createClub } from '../club/clubData';
+import { PopupsContext } from '../popups/popupContext';
+import { PopupLink } from '../popups/PopupLink';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { Button, Icon, IconButton, Tray } from '../ui';
+import { ariaBool } from '../ui/dom';
 import {
   dayNumber,
   groupByDay,
@@ -85,7 +84,7 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
   const popups = useContext(PopupsContext);
   const text = t.meetings.calendar;
   const today = createMemo(() => todayIn(props.timeZone));
-  // Miesiąc startowy jednorazowo z dzisiejszej daty (jak `useState` w React).
+  // Miesiąc startowy jednorazowo z dzisiejszej daty.
   const [month, setMonth] = createSignal<YearMonth>(untrack(() => monthOf(today())));
   const meetings = createCalendarMonth(month);
   const weeks = createMemo(() => monthGrid(month()));

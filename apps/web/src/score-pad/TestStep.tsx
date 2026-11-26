@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   FINAL_TOTAL,
   type ScorePadEditorStatus,
@@ -16,7 +15,7 @@ import {
 } from '@bg-club/scoring';
 import { createMemo, createSignal, For, onSettled, Show } from 'solid-js';
 import { format, t } from '../i18n';
-import { Banner, Button, Checkbox, Spinner } from '../solid/ui';
+import { Banner, Button, Checkbox, Spinner } from '../ui';
 import { ManualTieControls } from './ManualTieControls';
 import { fewerSeatsMessage } from './messages';
 import { ScorePadView, type ScorePadHandle } from './ScorePadView';
@@ -59,7 +58,7 @@ export function TestStep(props: TestStepProps) {
   const [ready, setReady] = createSignal(false);
   const [tie, setTie] = createSignal(false);
   const [results, setResults] = createSignal<readonly SheetResult[] | null>(null);
-  // Nowy obiekt = nowe kontrolki remisów (w React `key` z licznikiem): `<Show keyed>` tworzy je od nowa.
+  // Nowy obiekt = nowe kontrolki remisów: `<Show keyed>` tworzy je od nowa.
   const [manual, setManual] = createSignal<ManualState | null>(null);
   // Stabilny plik notesu: nowa referencja utworzyłaby notes od nowa (i wyczyściła kartkę).
   // Kartka startowa ma tylko fikcyjnych graczy „Gracz 1…n”, po jednym na miejsce notesu.

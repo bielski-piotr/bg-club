@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   manualTieGroups,
   resolveManualTies,
@@ -9,8 +8,8 @@ import { createMemo, createSignal, For, onSettled, Show } from 'solid-js';
 import { format, formatNumber, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
 import { ManualTieControls } from '../score-pad/ManualTieControls';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { Banner, Button, Dialog } from '../solid/ui';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { Banner, Button, Dialog } from '../ui';
 import { createRecordPreview } from './meetingData';
 import { PlayTimes, RecordBadge } from './MeetingParts';
 import { playSummary, type PlaySeats, type PlaySaveFailure, type PlaySummary } from './playSave';
@@ -71,7 +70,7 @@ export function PlaySummaryDialog(props: PlaySummaryDialogProps) {
     },
   );
   let cancelButton: HTMLButtonElement | undefined;
-  // Fokus na „Wróć do kartki” po otwarciu (w React `autoFocus`; atrybut nie działa na wstawionym węźle).
+  // Fokus na „Wróć do kartki” po otwarciu (`autofocus` nie działa na wstawionym węźle).
   onSettled(() => {
     cancelButton?.focus();
   });

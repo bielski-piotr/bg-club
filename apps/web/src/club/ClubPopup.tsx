@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createMemo,
   createSignal,
@@ -12,11 +11,14 @@ import {
 } from 'solid-js';
 import { format, t } from '../i18n';
 import { leaderboardRootKey } from '../leaderboard/leaderboard';
-import { createClub, createCoverUrl } from '../solid/club';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation } from '../solid/query';
+import { createClub, createCoverUrl } from './clubData';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation } from '../lib/query';
 import {
   Banner,
   Button,
@@ -26,7 +28,7 @@ import {
   Spinner,
   TextField,
   type SelectOption,
-} from '../solid/ui';
+} from '../ui';
 import {
   CLUB_NAME_MAX,
   ClubSaveError,

@@ -1,5 +1,6 @@
-import { useId, type ButtonHTMLAttributes, type ReactNode } from 'react';
-import { cx } from './cx';
+import type { JSX } from '@solidjs/web';
+import { createUniqueId, Show } from 'solid-js';
+import { createSlot, type ClassValue } from './dom';
 import { Icon } from './Icon';
 import './Card.css';
 
@@ -8,59 +9,72 @@ export interface CardProps {
   /** Licznik obok tytułu, np. „12 osób”. */
   readonly count?: string | undefined;
   /** Element po prawej w nagłówku: link „Zobacz więcej”, odliczanie, chip „Trwa”. */
-  readonly action?: ReactNode | undefined;
-  readonly children: ReactNode;
+  readonly action?: JSX.Element | undefined;
+  readonly children: JSX.Element;
   /** Poziom nagłówka tytułu (domyślnie h2). */
   readonly headingLevel?: 2 | 3 | undefined;
-  readonly className?: string | undefined;
+  readonly class?: ClassValue;
 }
 
 /**
  * Karta widżetu (DS §6): biała, ramka #E4E7F0, promień 28/24, padding 28/16, cień karty.
  * Szerokość wyznacza rodzic (520 desktop / 343 telefon).
  */
-export function Card({ title, count, action, children, headingLevel = 2, className }: CardProps) {
-  const id = useId();
-  const Heading = headingLevel === 2 ? 'h2' : 'h3';
+export function Card(props: CardProps) {
+  const id = createUniqueId();
+  const action = createSlot(() => props.action);
   return (
-    <section className={cx('card', className)} aria-labelledby={id}>
-      <header className="card__header">
-        <div className="card__title-group">
-          <Heading id={id} className="card__title">
-            {title}
-          </Heading>
-          {count ? <span className="card__count">{count}</span> : null}
+    <section class={['card', props.class]} aria-labelledby={id}>
+      <header class="card__header">
+        <div class="card__title-group">
+          <Show
+            when={props.headingLevel === 3}
+            fallback={
+              <h2 id={id} class="card__title">
+                {props.title}
+              </h2>
+            }
+          >
+            <h3 id={id} class="card__title">
+              {props.title}
+            </h3>
+          </Show>
+          <Show when={props.count}>
+            <span class="card__count">{props.count}</span>
+          </Show>
         </div>
-        {action ? <div className="card__action">{action}</div> : null}
+        <Show when={action()}>
+          <div class="card__action">{action()}</div>
+        </Show>
       </header>
-      {children}
+      {props.children}
     </section>
   );
 }
 
 export interface TrayProps {
-  readonly children: ReactNode;
+  readonly children: JSX.Element;
   /** Etykieta listy dla czytnika ekranu. */
   readonly label?: string | undefined;
-  readonly className?: string | undefined;
+  readonly class?: ClassValue;
 }
 
 /** Taca listy (DS §6): tło #F1F3F9, promień 22, padding 10, odstęp 6. Dzieci: `ListRow`. */
-export function Tray({ children, label, className }: TrayProps) {
+export function Tray(props: TrayProps) {
   return (
-    <ul className={cx('tray', className)} aria-label={label}>
-      {children}
+    <ul class={['tray', props.class]} aria-label={props.label}>
+      {props.children}
     </ul>
   );
 }
 
 export interface ListRowProps {
   /** Element na początku: pozycja, awatar, miniatura, checkbox. */
-  readonly leading?: ReactNode | undefined;
-  readonly title: ReactNode;
-  readonly meta?: ReactNode | undefined;
+  readonly leading?: JSX.Element | undefined;
+  readonly title: JSX.Element;
+  readonly meta?: JSX.Element | undefined;
   /** Element na końcu: wynik, badge, przycisk ⋯. */
-  readonly trailing?: ReactNode | undefined;
+  readonly trailing?: JSX.Element | undefined;
   /** 54 (ranking, gry) albo 64 (członkowie w popupie), DS §6–§7. */
   readonly height?: 54 | 64 | undefined;
   /** Wiersz bieżącego użytkownika: tło akcentu, biały tekst (DS §6). */
@@ -68,46 +82,48 @@ export interface ListRowProps {
   /** Wyszarzony wiersz (np. usunięty członek). */
   readonly muted?: boolean | undefined;
   /** Cały wiersz jest przyciskiem (otwiera szczegóły); dodaje strzałkę. */
-  readonly onClick?: ButtonHTMLAttributes<HTMLButtonElement>['onClick'] | undefined;
+  readonly onClick?: ((event: MouseEvent) => void) | undefined;
 }
 
-export function ListRow({
-  leading,
-  title,
-  meta,
-  trailing,
-  height = 54,
-  highlighted = false,
-  muted = false,
-  onClick,
-}: ListRowProps) {
-  const body = (
+export function ListRow(props: ListRowProps) {
+  const leading = createSlot(() => props.leading);
+  const meta = createSlot(() => props.meta);
+  const trailing = createSlot(() => props.trailing);
+  const body = () => (
     <>
-      {leading ? <span className="row__leading">{leading}</span> : null}
-      <span className="row__text">
-        <span className="row__title">{title}</span>
-        {meta ? <span className="row__meta">{meta}</span> : null}
+      <Show when={leading()}>
+        <span class="row__leading">{leading()}</span>
+      </Show>
+      <span class="row__text">
+        <span class="row__title">{props.title}</span>
+        <Show when={meta()}>
+          <span class="row__meta">{meta()}</span>
+        </Show>
       </span>
-      {trailing ? <span className="row__trailing">{trailing}</span> : null}
-      {onClick ? <Icon name="chevron-right" className="row__chevron" /> : null}
+      <Show when={trailing()}>
+        <span class="row__trailing">{trailing()}</span>
+      </Show>
+      <Show when={props.onClick}>
+        <Icon name="chevron-right" class="row__chevron" />
+      </Show>
     </>
   );
-  const classes = cx(
+  const classes = () => [
     'row',
-    `row--${height}`,
-    highlighted && 'row--highlighted',
-    muted && 'row--muted',
-    onClick && 'row--interactive',
-  );
+    `row--${props.height ?? 54}`,
+    {
+      'row--highlighted': !!props.highlighted,
+      'row--muted': !!props.muted,
+      'row--interactive': !!props.onClick,
+    },
+  ];
   return (
-    <li className="tray__item">
-      {onClick ? (
-        <button type="button" className={classes} onClick={onClick}>
-          {body}
+    <li class="tray__item">
+      <Show when={props.onClick} fallback={<div class={classes()}>{body()}</div>}>
+        <button type="button" class={classes()} onClick={(event) => props.onClick?.(event)}>
+          {body()}
         </button>
-      ) : (
-        <div className={classes}>{body}</div>
-      )}
+      </Show>
     </li>
   );
 }

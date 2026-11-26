@@ -82,7 +82,7 @@ export function collectionWidgetQuery(client: SupabaseClient) {
 }
 
 /*
- * Opcje zapytań o gry bez frameworka (kod Solid: `games/gameData.ts`; prefetch w React).
+ * Opcje zapytań o gry bez frameworka (akcesory: `games/gameData.ts`; prefetch w `SignedInScreen`).
  */
 
 /**

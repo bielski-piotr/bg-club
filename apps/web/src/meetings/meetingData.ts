@@ -1,7 +1,9 @@
 import { useContext, type Accessor } from 'solid-js';
 import { t } from '../i18n';
-import { AuthContext, QueryClientContext, ToastContext } from '../solid/context';
-import { createMutation, createQuery } from '../solid/query';
+import { AuthContext } from '../auth/authContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { createMutation, createQuery } from '../lib/query';
 import {
   decideMeetingDate,
   DateVotingError,
@@ -17,7 +19,7 @@ import type { YearMonth } from './calendar';
 import { meetingVotesQuery, publishedGamesQuery, reopenVoting, VotingError } from './voting';
 
 /*
- * Zapytania i mutacje spotkań w Solid (etap 6, docs/solidjs-2-migration.md): opcje z modułów
+ * Zapytania i mutacje spotkań: opcje z modułów
  * bez frameworka na wspólnym cache. Klient Supabase z `AuthContext`; parametry jako akcesory.
  */
 

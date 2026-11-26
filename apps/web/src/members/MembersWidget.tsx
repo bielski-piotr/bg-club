@@ -1,14 +1,13 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, For, Match, Show, Switch, useContext } from 'solid-js';
 import { visibleMembers } from '../hub/members';
 import { format, plural, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
-import { PopupsContext } from '../solid/context';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { ProfileLink } from '../solid/profile/ProfileLink';
-import { createMembers } from '../solid/profile/profiles';
-import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../solid/ui';
+import { PopupsContext } from '../popups/popupContext';
+import { PopupLink } from '../popups/PopupLink';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { ProfileLink } from '../profile/ProfileLink';
+import { createMembers } from '../profile/profiles';
+import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui';
 
 /**
  * Widżet Członkowie (MEM-1, DS §6 „Widget members”): awatary członków prowadzące do profili,

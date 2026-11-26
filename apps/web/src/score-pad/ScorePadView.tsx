@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type {
   ScorePadChangeDetail,
   ScorePadEventMap,
@@ -9,8 +8,8 @@ import type {
 } from '@bg-club/score-pad';
 import { createEffect } from 'solid-js';
 import { t } from '../i18n';
-import { createTheme } from '../solid/theme';
-import { ariaBool, type ClassValue } from '../solid/ui/dom';
+import { createTheme } from '../theme/createTheme';
+import { ariaBool, type ClassValue } from '../ui/dom';
 import { createScorePadElement, type ScorePadLoadState } from './createScorePadElement';
 import { ScorePadStatus } from './ScorePadStatus';
 import './scorePad.css';
@@ -63,8 +62,7 @@ export interface ScorePadHandle {
 
 /**
  * Notes 3D `<score-pad>` w trybie klubowym (PAD-1, PRD §8.5): szablony tylko z propsów,
- * bez lokalnej biblioteki i historii POC. Motyw idzie za motywem aplikacji. Wersja React
- * dla strony design systemu (do etapu 8): `react-shared/ScorePadView.tsx` (ten sam DOM).
+ * bez lokalnej biblioteki i historii POC. Motyw idzie za motywem aplikacji.
  * Nowy `config`, `templates` lub `template` (inna referencja) tworzy notes od nowa i czyści
  * kartkę, więc rodzic przekazuje stabilne obiekty (dane z zapytania albo memo).
  */

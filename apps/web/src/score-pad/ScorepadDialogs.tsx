@@ -1,15 +1,17 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
 import { createGameSearch } from '../games/gameData';
 import { allExpansionsQuery } from '../games/games';
 import { format, t } from '../i18n';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { InvalidPopup } from '../solid/popups/InvalidPopup';
-import { createMounted } from '../solid/popups/leaveGuard';
-import { PopupDialog } from '../solid/popups/PopupDialog';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation, createQuery } from '../solid/query';
-import { Banner, Button, Select, TextField, type SelectOption } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { InvalidPopup } from '../popups/InvalidPopup';
+import { createMounted } from '../popups/leaveGuard';
+import { PopupDialog } from '../popups/PopupDialog';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation, createQuery } from '../lib/query';
+import { Banner, Button, Select, TextField, type SelectOption } from '../ui';
 import { scorepadErrorMessage } from './messages';
 import { createScorepad } from './scorepadData';
 import {

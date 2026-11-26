@@ -1,9 +1,8 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, Match, Show, Switch } from 'solid-js';
 import { t } from '../i18n';
 import type { Profile } from '../profile/profileQueries';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { Card, EmptyState, Icon, Tabs } from '../solid/ui';
+import { PopupLink } from '../popups/PopupLink';
+import { Card, EmptyState, Icon, Tabs } from '../ui';
 import { BoardError, BoardLoading } from './BoardStatus';
 import { FilterBar } from './FilterBar';
 import { LeaderboardBoard } from './LeaderboardBoard';

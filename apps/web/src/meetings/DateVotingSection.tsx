@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createMemo,
   createSignal,
@@ -10,14 +9,16 @@ import {
   untrack,
   useContext,
 } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
 import { avatarPerson, type Profile } from '../profile/profileQueries';
-import { AuthContext, QueryClientContext, ToastContext } from '../solid/context';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation } from '../solid/query';
-import { AvatarStack, Badge, Button, Icon, Select, TextField, Tray } from '../solid/ui';
-import { ariaBool } from '../solid/ui/dom';
+import { AuthContext } from '../auth/authContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation } from '../lib/query';
+import { AvatarStack, Badge, Button, Icon, Select, TextField, Tray } from '../ui';
+import { ariaBool } from '../ui/dom';
 import {
   castDateVote,
   DateVotingError,
@@ -159,7 +160,7 @@ function ProposeDate(props: { readonly meeting: Meeting; readonly timeZone: stri
   const queryClient = useContext(QueryClientContext);
   const toast = useContext(ToastContext);
   const today = () => todayIn(props.timeZone);
-  // Wartość startowa jednorazowo z terminu spotkania (jak `useState` w React).
+  // Wartość startowa jednorazowo z terminu spotkania.
   const [value, setValue] = createSignal(
     untrack(() => {
       const start = localDateTime(props.meeting.starts_at, props.timeZone);

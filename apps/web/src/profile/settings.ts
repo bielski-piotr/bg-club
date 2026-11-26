@@ -1,6 +1,6 @@
 import { MIN_PASSWORD_LENGTH, NAME_MAX_LENGTH } from '@bg-club/accounts';
 import { isAuthError, isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js';
-import { OWN_PROFILE_COLUMNS, type OwnProfile } from '../auth/useOwnProfile';
+import { OWN_PROFILE_COLUMNS, type OwnProfile } from '../auth/ownProfile';
 import type { ThemePreference } from '../theme/theme';
 import type { AvatarImage } from './crop';
 import { AVATARS_BUCKET } from './profileQueries';

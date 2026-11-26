@@ -1,9 +1,8 @@
-/** @jsxImportSource @solidjs/web */
 import type { JSX } from '@solidjs/web';
-import { format, t } from '../../i18n';
+import { format, t } from '../i18n';
 import { PopupLink } from '../popups/PopupLink';
 import type { ClassValue } from '../ui/dom';
-import '../../profile/profile.css';
+import './profile.css';
 
 interface ProfileLinkProps {
   readonly id: string;

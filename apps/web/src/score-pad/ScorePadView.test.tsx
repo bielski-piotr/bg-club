@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SAMPLE_SCORE_PAD } from '../design-system/scorePadSample';
@@ -9,8 +8,7 @@ import { ScorePadEditorView } from './ScorePadEditorView';
 import { ScorePadView, type ScorePadHandle } from './ScorePadView';
 
 /*
- * Notes i edytor w Solid (etap 5b, docs/solidjs-2-migration.md): te same przypadki co
- * `react-shared/ScorePadView.test.tsx` (wersja React dla partii). Zmiany z efektów (motyw,
+ * Notes i edytor (motyw, ładowanie, zdarzenia, uchwyt). Zmiany z efektów (motyw,
  * stan ładowania) widać po mikrozadaniu, więc asercje czekają (`vi.waitFor`).
  */
 

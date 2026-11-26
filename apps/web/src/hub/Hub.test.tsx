@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/query-core';
+import { QueryClientContext } from '../lib/queryClient';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { PopupRouter } from '../popups/PopupRouter';
@@ -172,17 +173,17 @@ function renderHub(members: Profile[], options: FakeOptions = {}, me: Profile = 
     signOut: vi.fn(async () => undefined),
   } as unknown as AuthContextValue;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
+  render(() => (
+    <QueryClientContext value={queryClient}>
       <ToastProvider>
-        <AuthContext.Provider value={auth}>
+        <AuthContext value={auth}>
           <PopupRouter>
             <Hub me={{ ...me, theme: 'system', password_change_suggested: false }} />
           </PopupRouter>
-        </AuthContext.Provider>
+        </AuthContext>
       </ToastProvider>
-    </QueryClientProvider>,
-  );
+    </QueryClientContext>
+  ));
   return { auth, queryClient, ...fake };
 }
 
@@ -361,7 +362,8 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
     expect(writes).toEqual([
       { op: 'insert', row: { name: 'Klub Planszówkowy', timezone: zone, logo_path: null } },
     ]);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // Popup zamyka cofnięcie historii (`popstate` przychodzi w kolejnym zadaniu).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Spotkanie',
       'Ranking',
@@ -390,7 +392,7 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Planszówki' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('admin edytuje nazwę i strefę z nagłówka; gracz nie ma ołówka', async () => {
@@ -452,7 +454,7 @@ describe('dodawanie członka (MEM-3, AUTH-4)', () => {
     expect(within(form).getByText('Wpisz nazwisko.')).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalled();
 
-    // Pola obszaru Członkowie są w Solid: wartość idzie zdarzeniem `input` (jak przy pisaniu).
+    // Wartość pola idzie zdarzeniem `input` (jak przy pisaniu).
     fireEvent.input(within(form).getByLabelText('Imię'), { target: { value: ' Łukasz ' } });
     fireEvent.input(within(form).getByLabelText('Nazwisko'), { target: { value: 'Żółw' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Dodaj członka' }));
@@ -540,7 +542,7 @@ describe('wyszukiwanie członków (MEM-2)', () => {
     expect(within(list).getByRole('button', { name: 'Dodaj członka' })).toBeInTheDocument();
 
     const search = within(list).getByRole('searchbox', { name: 'Szukaj członka' });
-    // Popup jest w Solid: wartość idzie zdarzeniem `input`, a lista zmienia się w mikrozadaniu.
+    // Wartość idzie zdarzeniem `input`, a lista zmienia się w mikrozadaniu.
     fireEvent.input(search, { target: { value: 'lukasz zol' } });
     await waitFor(() => expect(within(list).getAllByRole('listitem')).toHaveLength(1));
     expect(within(list).getByRole('link', { name: /Łukasz Żółw/ })).toBeInTheDocument();

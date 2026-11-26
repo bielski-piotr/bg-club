@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type {
   ScorePadEditorAreaPatch,
   ScorePadEditorCategoriesAction,
@@ -11,8 +10,8 @@ import type {
 } from '@bg-club/score-pad';
 import { createEffect } from 'solid-js';
 import { t } from '../i18n';
-import { createTheme } from '../solid/theme';
-import { ariaBool, type ClassValue } from '../solid/ui/dom';
+import { createTheme } from '../theme/createTheme';
+import { ariaBool, type ClassValue } from '../ui/dom';
 import { createScorePadElement, type ScorePadLoadState } from './createScorePadElement';
 import { ScorePadStatus } from './ScorePadStatus';
 import './scorePad.css';
@@ -62,8 +61,7 @@ export interface ScorePadEditorHandle {
 }
 
 /**
- * Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). Wersja React dla strony design
- * systemu: `react-shared/ScorePadEditorView.tsx` (ten sam DOM).
+ * Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5); także na stronie design systemu.
  */
 export function ScorePadEditorView(props: ScorePadEditorViewProps) {
   const theme = createTheme();

@@ -1,16 +1,15 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, screen, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
 import { flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { gameSearchKey } from '../games/games';
 import { clubKey } from '../club/club';
 import { NO_FILTERS } from '../leaderboard/filters';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { PasswordPopup } from './PasswordPopup';
 import { playerRecordsKey, type PlayerRecord } from './playerRecordsData';
@@ -20,7 +19,7 @@ import { ProfilePopup } from './ProfilePopup';
 import { SettingsPopup } from './SettingsPopup';
 
 /*
- * Obszar Profil w Solid (etap 3, docs/solidjs-2-migration.md). Zachowanie w hubie sprawdzają
+ * Obszar Profil. Zachowanie w hubie sprawdzają
  * `src/hub/Hub.test.tsx` i `src/hub/ProfileSettings.test.tsx`; tu bramka bez kodów diagnostyki
  * Solid dla renderu i interakcji (skill agent-loops, pętla 1).
  */
@@ -129,7 +128,10 @@ describe('obszar Profil bez diagnostyki Solid', () => {
   it('profil ze statystykami, rekordami i filtrami, ustawienia, hasło, usunięcie konta', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const profile = renderSolid(() => <ProfilePopup id={ME.id} isAdmin={false} />, host());
+        const profile = renderWithProviders(
+          () => <ProfilePopup id={ME.id} isAdmin={false} />,
+          host(),
+        );
         const dialog = within(profile.container).getByRole('dialog');
         expect(dialog).toHaveTextContent('Ada Testowa');
         expect(dialog).toHaveTextContent('Wieczór');
@@ -155,7 +157,7 @@ describe('obszar Profil bez diagnostyki Solid', () => {
         await settle();
         profile.unmount();
 
-        const settings = renderSolid(() => <SettingsPopup me={ME} />, host());
+        const settings = renderWithProviders(() => <SettingsPopup me={ME} />, host());
         fireEvent.input(within(settings.container).getByLabelText('Imię'), {
           target: { value: 'Adela' },
         });
@@ -164,13 +166,16 @@ describe('obszar Profil bez diagnostyki Solid', () => {
         expect(within(settings.container).getByLabelText('Imię')).toHaveValue('Adela');
         settings.unmount();
 
-        const password = renderSolid(() => <PasswordPopup me={ME} variant="first" />, host());
+        const password = renderWithProviders(
+          () => <PasswordPopup me={ME} variant="first" />,
+          host(),
+        );
         fireEvent.click(screen.getByRole('button', { name: 'Zmień hasło' }));
         await settle();
         expect(screen.getByText('Wpisz obecne hasło.')).toBeInTheDocument();
         password.unmount();
 
-        const remove = renderSolid(() => <DeleteAccountDialog me={ME} />, host());
+        const remove = renderWithProviders(() => <DeleteAccountDialog me={ME} />, host());
         fireEvent.input(screen.getByLabelText('Hasło'), { target: { value: 'tajne' } });
         await settle();
         remove.unmount();

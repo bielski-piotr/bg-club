@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createEffect,
   createMemo,
@@ -13,11 +12,14 @@ import {
   useContext,
 } from 'solid-js';
 import { format, t } from '../i18n';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation } from '../solid/query';
-import { Banner, Button, Icon, Stepper, Switch as Toggle, TextField } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation } from '../lib/query';
+import { Banner, Button, Icon, Stepper, Switch as Toggle, TextField } from '../ui';
 import { clipboardImage, downloadCover, type CroppedCover } from './cover';
 import { CoverEditor, type CoverEditorResult, type CoverEditorStart } from './CoverEditor';
 import {
@@ -132,7 +134,7 @@ function GameFormPopup(props: {
     if (!data || notFound()) return undefined;
     return props.mode === 'edit' ? { game: data, base: null } : { game: null, base: data };
   };
-  // Formularz startuje z pierwszych wczytanych danych (jak `useState` w React): odświeżenie
+  // Formularz startuje z pierwszych wczytanych danych (raz, przy montowaniu): odświeżenie
   // gry w cache nie nadpisuje tego, co wpisano.
   let first: FormTarget | undefined;
   const ctx = createMemo(() => (first ??= target()));

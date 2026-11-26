@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createMemo,
   createSignal,
@@ -14,10 +13,10 @@ import { createGameSearch } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
 import { format, plural, t } from '../i18n';
 import { avatarPerson, type Profile } from '../profile/profileQueries';
-import { createClub } from '../solid/club';
-import { PopupsContext } from '../solid/context';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { createAllProfiles, createMembers } from '../solid/profile/profiles';
+import { createClub } from '../club/clubData';
+import { PopupsContext } from '../popups/popupContext';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { createAllProfiles, createMembers } from '../profile/profiles';
 import {
   AvatarStack,
   Banner,
@@ -31,7 +30,7 @@ import {
   StatusChip,
   Tray,
   type MenuItem,
-} from '../solid/ui';
+} from '../ui';
 import { dateTile, formatMeetingDate, localDateTime, longMeetingDate } from './datetime';
 import {
   createHubMeeting,

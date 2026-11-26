@@ -4,9 +4,8 @@ import { isUuid } from '../popups/routes';
 import type { AvatarPerson } from '../ui/Avatar';
 
 /*
- * Profile graczy bez zależności od frameworka: typy, klucze i zapytania TanStack (opcje dla
- * `useQuery` w React i `createQuery` w Solid, docs/solidjs-2-migration.md). Hooki React są
- * w `profiles.ts`, akcesory Solid w `src/solid/profile/profiles.ts`.
+ * Profile graczy: typy, klucze i opcje zapytań TanStack (`createQuery`). Akcesory komponentów
+ * są w `profiles.ts`.
  */
 
 /** Profil gracza widoczny dla członków klubu (PRD §5.2, RLS: odczyt dla aktywnych kont). */

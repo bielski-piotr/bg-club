@@ -1,18 +1,17 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, Match, Show, Switch, useContext } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { createGameTitlesById } from '../games/gameData';
 import { format, t } from '../i18n';
 import { formatMeetingDate } from '../meetings/datetime';
 import type { Profile } from '../profile/profileQueries';
-import { createClub } from '../solid/club';
-import { PopupsContext } from '../solid/context';
+import { createClub } from '../club/clubData';
+import { PopupsContext } from '../popups/popupContext';
 import { PlayResultRows, PlayTimes, SheetThumbnail } from '../meetings/MeetingParts';
 import { createMeetingRecords } from '../meetings/meetingData';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createAllProfiles } from '../solid/profile/profiles';
-import { Button, Icon } from '../solid/ui';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createAllProfiles } from '../profile/profiles';
+import { Button, Icon } from '../ui';
 import { createSavedSheet, createSheetImageUrl } from './sheetData';
 import { SheetZoom } from './SheetZoom';
 import type { SavedSheet } from './sheets';

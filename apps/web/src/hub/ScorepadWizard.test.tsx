@@ -9,8 +9,10 @@ import type {
   ScorePadZoomAction,
 } from '@bg-club/score-pad';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent as fire, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/query-core';
+import { QueryClientContext } from '../lib/queryClient';
+import { fireEvent as fire, render, screen, waitFor, within } from '@solidjs/testing-library';
+import { act } from '../test/render';
 import { flush, onSettled } from 'solid-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
@@ -18,7 +20,6 @@ import type { Game } from '../games/games';
 import { PopupHost } from '../popups/PopupHost';
 import { PopupRouter } from '../popups/PopupRouter';
 import { ToastProvider } from '../ui';
-import { SolidIsland } from '../bridge/SolidIsland';
 import type {
   ScorePadEditorHandle,
   ScorePadEditorViewProps,
@@ -195,9 +196,8 @@ const padFake = vi.hoisted(() => ({
 }));
 
 /*
- * Atrapy są komponentami Solid (kreator jest wyspą Solid). Plik leży w katalogu Reacta (host
- * `PopupRouter`/`PopupHost` z ochroną przed zamknięciem i fokusem), więc atrapy tworzą DOM
- * bez JSX.
+ * Atrapy widoków notesu są komponentami, które tworzą DOM bez JSX (jak prawdziwy element notesu);
+ * kreator działa na prawdziwym `PopupRouter`/`PopupHost` z ochroną przed zamknięciem i fokusem.
  */
 vi.mock('../score-pad/ScorePadView', () => ({
   ScorePadView: function FakePad(props: ScorePadViewProps) {
@@ -246,7 +246,7 @@ function update(patch: Partial<ScorePadEditorStatus>) {
   });
 }
 
-/** Zdarzenie DOM i zastosowanie zmian Solid przed asercją (DOM wyspy zmienia się w mikrozadaniu). */
+/** Zdarzenie DOM i zastosowanie zmian przed asercją (DOM zmienia się w mikrozadaniu). */
 const fireEvent = new Proxy(fire, {
   get: (target, key: keyof typeof fire) => {
     const event = target[key] as (...args: unknown[]) => boolean;
@@ -372,34 +372,31 @@ function renderWizard(pad: Scorepad | null = null, template?: ScorePadTemplate) 
     signIn: vi.fn(),
     signOut: vi.fn(async () => undefined),
   } as unknown as AuthContextValue;
-  render(
-    <QueryClientProvider client={new QueryClient()}>
+  render(() => (
+    <QueryClientContext value={new QueryClient()}>
       <ToastProvider>
-        <AuthContext.Provider value={auth}>
+        <AuthContext value={auth}>
           <PopupRouter>
             <PopupHost
               fallbackFocusId="main"
               renderPopup={() => (
-                <SolidIsland
-                  component={ScorepadWizard}
-                  props={{
-                    mode: pad ? 'edit' : 'add',
-                    scorepadId: '00000000-0000-4000-d000-000000000009',
-                    source: { game: GAME, pad, template },
-                    notFound: false,
-                    isError: false,
-                    onRetry: () => undefined,
-                  }}
+                <ScorepadWizard
+                  mode={pad ? 'edit' : 'add'}
+                  scorepadId="00000000-0000-4000-d000-000000000009"
+                  source={{ game: GAME, pad, template }}
+                  notFound={false}
+                  isError={false}
+                  onRetry={() => undefined}
                 />
               )}
             >
-              <main id="main" tabIndex={-1} />
+              <main id="main" tabindex={-1} />
             </PopupHost>
           </PopupRouter>
-        </AuthContext.Provider>
+        </AuthContext>
       </ToastProvider>
-    </QueryClientProvider>,
-  );
+    </QueryClientContext>
+  ));
   return screen.getByRole('dialog', { name: pad ? 'Edytuj notes' : 'Nowy notes' });
 }
 

@@ -1,8 +1,8 @@
 import { useContext, type Accessor } from 'solid-js';
 import { t } from '../i18n';
-import { AuthContext } from '../solid/context';
-import { createAllProfiles } from '../solid/profile/profiles';
-import { createQuery } from '../solid/query';
+import { AuthContext } from '../auth/authContext';
+import { createAllProfiles } from '../profile/profiles';
+import { createQuery } from '../lib/query';
 import type { LeaderboardFilters } from './filters';
 import { LEADERBOARD_KINDS, leaderboardQuery, type LeaderboardKind } from './leaderboard';
 

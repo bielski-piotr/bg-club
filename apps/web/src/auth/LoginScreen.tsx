@@ -1,8 +1,8 @@
 import { isValidHook, normalizeHook } from '@bg-club/accounts';
-import { useRef, useState, type FormEvent } from 'react';
+import { createSignal, flush, Show, useContext } from 'solid-js';
 import { t } from '../i18n';
 import { Banner, Button, PasswordField, TextField, type BannerVariant } from '../ui';
-import { useAuth, type AuthNotice } from './authContext';
+import { AuthContext, type AuthNotice } from './authContext';
 import type { LoginErrorKind } from './errors';
 import './LoginScreen.css';
 
@@ -41,102 +41,109 @@ const NOTICE_VARIANT: Readonly<Record<AuthNotice, BannerVariant>> = {
  * się w interfejsie. Brak samodzielnej rejestracji i resetu hasła (PRD §1.2): konto i hasło
  * daje administrator.
  */
-export function LoginScreen({ notice }: { readonly notice: AuthNotice | null }) {
-  const { signIn } = useAuth();
-  const [hook, setHook] = useState('');
-  const [password, setPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [serverError, setServerError] = useState<LoginErrorKind | null>(null);
-  const [pending, setPending] = useState(false);
-  const hookRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
+export function LoginScreen(props: { readonly notice: AuthNotice | null }) {
+  const auth = useContext(AuthContext);
+  const [hook, setHook] = createSignal('');
+  const [password, setPassword] = createSignal('');
+  const [fieldErrors, setFieldErrors] = createSignal<FieldErrors>({});
+  const [serverError, setServerError] = createSignal<LoginErrorKind | null>(null);
+  const [pending, setPending] = createSignal(false);
+  let hookInput: HTMLInputElement | undefined;
+  let passwordInput: HTMLInputElement | undefined;
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
-    if (pending) return;
-    const normalized = normalizeHook(hook);
-    const errors = validate(normalized, password);
+    // Wpis z tego samego zadania (autouzupełnianie + Enter) jest w sygnałach dopiero po flushu.
+    flush();
+    if (pending()) return;
+    const normalized = normalizeHook(hook());
+    const errors = validate(normalized, password());
     setFieldErrors(errors);
     setServerError(null);
     if (errors.hook) {
-      hookRef.current?.focus();
+      hookInput?.focus();
       return;
     }
     if (errors.password) {
-      passwordRef.current?.focus();
+      passwordInput?.focus();
       return;
     }
 
     setHook(normalized);
     setPending(true);
-    const result = await signIn(normalized, password).catch(
-      () => ({ ok: false, error: 'unknown' }) as const,
-    );
+    const result = await auth
+      .signIn(normalized, password())
+      .catch(() => ({ ok: false, error: 'unknown' }) as const);
     // Po udanym logowaniu ekran znika (AuthProvider przełącza widok); tu tylko błędy.
     if (!result.ok) {
       setPending(false);
       setServerError(result.error);
       if (result.error === 'invalidCredentials') {
         setPassword('');
-        passwordRef.current?.focus();
+        passwordInput?.focus();
       }
     }
   };
 
-  const message = serverError ? t.auth.errors[serverError] : null;
-  const shownNotice = message === null ? notice : null;
+  const message = () => {
+    const error = serverError();
+    return error ? t.auth.errors[error] : null;
+  };
+  const shownNotice = () => (message() === null ? props.notice : null);
 
   return (
-    <main className="shell">
-      <section className="start-card login" aria-labelledby="login-title">
-        <p className="eyebrow">{t.app.name}</p>
-        <h1 id="login-title" className="title">
+    <main class="shell">
+      <section class="start-card login" aria-labelledby="login-title">
+        <p class="eyebrow">{t.app.name}</p>
+        <h1 id="login-title" class="title">
           {t.auth.title}
         </h1>
-        <p className="body">{t.auth.intro}</p>
+        <p class="body">{t.auth.intro}</p>
 
-        {shownNotice ? (
-          <Banner variant={NOTICE_VARIANT[shownNotice]} className="login__banner">
-            {NOTICE_TEXT[shownNotice]}
-          </Banner>
-        ) : null}
+        <Show when={shownNotice()}>
+          {(notice) => (
+            <Banner variant={NOTICE_VARIANT[notice()]} class="login__banner">
+              {NOTICE_TEXT[notice()]}
+            </Banner>
+          )}
+        </Show>
 
-        <form className="login__form" noValidate onSubmit={onSubmit}>
+        <form class="login__form" novalidate onSubmit={(event) => void onSubmit(event)}>
           <TextField
-            ref={hookRef}
+            ref={(el) => (hookInput = el)}
             label={t.auth.hookLabel}
             name="username"
             mono
-            value={hook}
-            onChange={(event) => {
-              setHook(event.target.value);
+            value={hook()}
+            onInput={(event) => {
+              setHook(event.currentTarget.value);
               setFieldErrors((errors) => ({ ...errors, hook: undefined }));
             }}
             placeholder={t.auth.hookPlaceholder}
-            autoComplete="username"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="next"
+            autocomplete="username"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="next"
             required
-            error={fieldErrors.hook}
+            error={fieldErrors().hook}
           />
           <PasswordField
-            ref={passwordRef}
+            ref={(el) => (passwordInput = el)}
             label={t.auth.passwordLabel}
             name="password"
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
+            value={password()}
+            onInput={(event) => {
+              setPassword(event.currentTarget.value);
               setFieldErrors((errors) => ({ ...errors, password: undefined }));
             }}
-            autoComplete="current-password"
-            enterKeyHint="go"
+            autocomplete="current-password"
+            enterkeyhint="go"
             required
-            error={fieldErrors.password}
+            error={fieldErrors().password}
           />
-          {message ? <Banner variant="error">{message}</Banner> : null}
-          <Button type="submit" fullWidth loading={pending} className="login__submit">
+          <Show when={message()}>{(text) => <Banner variant="error">{text()}</Banner>}</Show>
+          <Button type="submit" fullWidth loading={pending()} class="login__submit">
             {t.auth.submit}
           </Button>
         </form>

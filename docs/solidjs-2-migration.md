@@ -96,6 +96,8 @@ w obu wersjach w czasie migracji, mają wersję Solid w `src/solid/ui/` – patr
 
 ## Etapy
 
+> Od etapu 8a w repo nie ma Reacta ani `SOLID_DIRS`; opisy strategii wysp, mostka i układu plików wyżej dotyczą okresu migracji.
+
 Każdy etap to osobny PR z gałęzi od `feature/solidjs-2-migration`. Kolejność: od najmniejszych i najmniej
 powiązanych obszarów (walidacja mostka) do największego (spotkania), na końcu powłoka.
 
@@ -409,13 +411,56 @@ Ustalenia:
 - Bundle: początkowy JS 239,4 KB gzip (limit 240) – zapasu praktycznie brak; kolejna zmiana przed etapem 8 wymaga
   decyzji o limicie.
 
-### Etap 8 – powłoka i usunięcie Reacta
+### Etap 8a – powłoka i usunięcie Reacta ✅
 
-- `PopupRouter` → store Solid nad `history` (stos, `navigating`, opener-y, mapa ochron); `PopupHost` → `<For>` po stosie z `<PopupLevelCtx value>` i efektem fokusu; `HubPopup` → `<Switch>`/`<Match>` z `lazy`, `<Loading>` i `<Errored>` (w miejsce `Suspense`, `PopupErrorBoundary`, `FocusWhenLoaded`); `Hub`, `useMasonry` (ref + `onSettled`), `AuthProvider`, `SignedInScreen` (prefetch przez `queryClient.prefetchQuery`), `LoginScreen`, `App`, `Root`, `main.tsx` (`render` z `@solidjs/web`), `AppStatus`, `DesignSystemPage`, `theme/`.
-- Usunąć `SolidIsland`/`Bridge`, wersje React z `ui/`, `react`, `react-dom`, `@tanstack/react-query`, `@testing-library/react`, `@vitejs/plugin-react`, `eslint-plugin-react-*`, `@types/react*`; `tsconfig.app.json` na `jsxImportSource: @solidjs/web`; jeden plugin JSX.
-- Przywrócić / obniżyć limit bundla, `perf.spec.ts`, `pwa.spec.ts`, `a11y-audit.spec.ts`, `regression.spec.ts`.
-- przejść na natywne async Solid (`createMemo` + `<Loading>` + `refresh`/`action`).
-- pozbyć się wszelakich pozostałości po wcześniej uzywanym react
+Zrobione (w aplikacji nie ma już Reacta; całe `apps/web` to Solid 2.0):
+
+- Powłoka w Solid: `main.tsx` (`render` z `@solidjs/web`), `Root` (`lazy` + `<Loading>` dla galerii), `App`/`AuthGate`
+  (`<Match keyed>` po id użytkownika zamiast `key`), `AuthProvider` (stan w sygnale, `state` jako getter kontekstu),
+  `SignedInScreen` (prefetch `queryClient.prefetchQuery` w `onSettled`, `createProfileTheme`), `LoginScreen`, `LoadingScreen`,
+  `AppStatus` (`createPwa`, `createOnline`), `ToastProvider`/`Toast` (`ui/Toast.tsx`), `DesignSystemPage` (notesy z `score-pad/`).
+- Popupy: `PopupRouter` (sygnał `search` nad `history`, decyzje na `window.location`), `PopupHost` (`<For>` po wpisach stosu
+  z `PopupLevelContext` z getterami `level`/`covered`/`onBack`, efekty fokusu, Esc i `popup-open`), `HubPopup` (mapa rodzaj
+  adresu → widok przez `<Dynamic>`; popup powstaje od nowa tylko przy zmianie rodzaju, nie przy zmianie `me`), `Hub`
+  (`<Errored>` + `<Loading>` w miejsce `PopupErrorBoundary`/`Suspense`, `FocusWhenLoaded` przez `onSettled`), `hub/masonry.ts`.
+- Usunięte: `SolidIsland`, `Bridge`, `island`, `solid/context.ts`, `react-shared/`, wersje React z `ui/` i `popups/`, `cx.ts`,
+  `useLeaveGuard`/`useMounted`/`useTheme`/`useProfileTheme`, `solid-files.js` (+ test), test zgodności DOM React/Solid.
+  Pakiety: `react`, `react-dom`, `@tanstack/react-query`, `@testing-library/react`, `@vitejs/plugin-react`, `@types/react*`,
+  `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`.
+- Katalog `src/solid/` rozłożony na właścicieli: `solid/ui` → `ui/`, `solid/popups` → `popups/`, `solid/profile` → `profile/`,
+  `solid/query.ts` → `lib/query.ts`, `solid/club.ts` → `club/clubData.ts`, `solid/theme.ts` → `theme/createTheme.ts`,
+  `solid/testing.tsx` → `test/render.tsx` (`renderWithProviders`, `act`). Konteksty przy swoich modułach: `QueryClientContext`
+  (`lib/queryClient.ts`), `AuthContext` (`auth/authContext.ts`), `PopupsContext`/`PopupLevelContext`/`PopupGuardsContext`/
+  `PopupOpenersContext` (`popups/popupContext.ts`), `ToastContext` (`ui/toastContext.ts`). `auth/useOwnProfile.ts` →
+  `auth/ownProfile.ts` (`ownProfileQuery`).
+- Konfiguracja: `tsconfig.app.json` z `jsx: preserve` i `jsxImportSource: @solidjs/web` (dyrektywy w plikach usunięte), jeden
+  plugin `solid()` w Vite, `eslint-plugin-solid/configs/v2` dla całego `apps/web/src`.
+- Testy hosta (`hub/*.test.tsx`, `AuthGate`, `App`, `PopupStack`, `PopupModal`, `updates`) na `@solidjs/testing-library`; zmiany
+  tylko w renderze, `fireEvent.input` zamiast `change` w logowaniu i czekaniu na DOM (`flush` / `act` / `waitFor`).
+  Vitest: 609 testów zielonych, `pnpm check` zielone.
+- **Bundle:** początkowy JS **167,3 KB gzip** (przed migracją 190,5 KB, w trakcie 239,4 KB); `JS_LIMIT_KB` wraca do 215.
+- **E2e (wszystkie 37 specyfikacji × 4 projekty):** 674 zielone, 24 pominięte, 6 czerwonych:
+  - `new-play.spec.ts` „dodatki partii” (4 projekty): `check()` na ukrytym `input` (`span.checkbox` przechwytuje kliknięcie).
+    Pada tak samo na `b9abc6a` (przed etapem 6, jeszcze React), więc to błąd testu od `f5875a2`, nie migracji. Do naprawy osobno.
+  - `perf.spec.ts` NFR-2: gotowość huba 2,26–2,64 s (przed migracją 2,50–2,64 s, po etapie 2 2,85–3,24 s); próg 2 s nie
+    przechodził lokalnie już przed migracją. Widać drugą falę zapytań (ranking, Timeline) po pierwszej – kandydat do prefetchu.
+  - `scorepad-categories.spec.ts` (mobile-light, raz): niestabilny, 3/3 przy powtórzeniu.
+
+Ustalenia:
+
+- **Tożsamość wpisów stosu:** każda zmiana adresu daje nowe obiekty tras; gdyby `<For>` dostawał je wprost, popupy pod spodem
+  montowałyby się od nowa (gubiąc stan i element do oddania fokusu). `PopupHost` zachowuje obiekt wpisu o tym samym kluczu.
+- **`from()` z synchronicznym źródłem** (sklep `pwa`, `online`/`offline`) nie przenosił kolejnych wartości do DOM; stan PWA
+  i sieci to sygnał zapisywany w nasłuchu (`onCleanup` wypisuje). Adapter zapytań (`lib/query.ts`) działa bez zmian.
+- `onSettled` traktuje zwracaną wartość jak sprzątanie: callback z przypisaniem (`() => (x = true)`) rzuca „invalid cleanup value”.
+- Popup zamykany po zapisie (`back()`) znika po `popstate`, czyli w kolejnym zadaniu: testy czekają (`waitFor`).
+
+### Etap 8b – natywne async Solid (do zrobienia)
+
+- Zastąpić `createQuery`/`createMutation` (`lib/query.ts`, ≈ 68 zapytań i 56 mutacji w 40 plikach) przez `createMemo` +
+  `<Loading>` + `refresh`/`action`. Do decyzji przed startem: odpowiednik `staleTime` i cache między popupami, prefetch
+  w `SignedInScreen`, inwalidacje (≈ 40 `invalidateQueries`, 69 `setQueryData`), `keepPreviousData`.
+- Po 8b: usunąć `@tanstack/query-core`, przejrzeć `perf.spec.ts` i limit bundla.
 
 ## Definicja ukończenia obszaru
 

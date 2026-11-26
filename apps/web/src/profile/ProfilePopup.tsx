@@ -1,12 +1,12 @@
-/** @jsxImportSource @solidjs/web */
 import { Match, Show, Switch, useContext } from 'solid-js';
 import { t } from '../i18n';
-import { AuthContext, PopupsContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { createProfile } from '../solid/profile/profiles';
-import { Badge, Banner, Button, EmptyState } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { ProfileAvatar } from './ProfileAvatar';
+import { createProfile } from './profiles';
+import { Badge, Banner, Button, EmptyState } from '../ui';
 import { PlayerRecordsSection } from './PlayerRecords';
 import { PlayerStatsSection } from './PlayerStats';
 import { fullName, type Profile } from './profileQueries';
@@ -117,7 +117,7 @@ function ProfileView(props: {
           {t.profile.removedNote}
         </Banner>
       </Show>
-      {/* Inny profil = nowe sekcje (filtry wracają do domyślnych), jak `key` w React. */}
+      {/* Inny profil = nowe sekcje (filtry wracają do domyślnych). */}
       <Show when={props.profile.id} keyed>
         {(id) => (
           <>

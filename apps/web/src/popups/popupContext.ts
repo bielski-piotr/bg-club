@@ -1,8 +1,8 @@
-import { createContext, useContext, type MouseEvent } from 'react';
+import { createContext } from 'solid-js';
 import type { PopupRoute } from './routes';
 
 export interface PopupApi {
-  /** Stos popupów z adresu, od dołu do góry. Pusty = sam hub. */
+  /** Stos popupów z adresu, od dołu do góry. Pusty = sam hub. Pole jest reaktywne. */
   readonly stack: readonly PopupRoute[];
   /** Otwiera popup nad bieżącym (nowy wpis historii, więc Wstecz go zamyka). */
   readonly open: (route: PopupRoute) => void;
@@ -18,28 +18,8 @@ export interface PopupApi {
   readonly hrefFor: (route: PopupRoute) => string;
 }
 
-export const PopupContext = createContext<PopupApi | null>(null);
-
-export function usePopups(): PopupApi {
-  const value = useContext(PopupContext);
-  if (!value) throw new Error('usePopups wymaga <PopupRouter>');
-  return value;
-}
-
-/**
- * Kliknięcie linku do popupu: zwykłe kliknięcie otwiera popup w aplikacji, a kliknięcie
- * z Ctrl / Cmd / Shift / środkowym przyciskiem zostaje przeglądarce (nowa karta z tym adresem).
- */
-export function isPlainClick(event: MouseEvent): boolean {
-  return (
-    event.button === 0 &&
-    !event.defaultPrevented &&
-    !event.metaKey &&
-    !event.ctrlKey &&
-    !event.shiftKey &&
-    !event.altKey
-  );
-}
+/** Stos popupów z adresu (`PopupRouter`). */
+export const PopupsContext = createContext<PopupApi>();
 
 /**
  * Elementy, które otworzyły popupy (indeks = poziom stosu). Zapisuje je `open`, a po zamknięciu
@@ -52,15 +32,9 @@ export interface PopupOpeners {
   readonly take: (level: number) => Element | null;
 }
 
-export const PopupOpenersContext = createContext<PopupOpeners | null>(null);
+export const PopupOpenersContext = createContext<PopupOpeners>();
 
-export function usePopupOpeners(): PopupOpeners {
-  const value = useContext(PopupOpenersContext);
-  if (!value) throw new Error('usePopupOpeners wymaga <PopupRouter>');
-  return value;
-}
-
-/** Poziom popupu na stosie: popup sam wie, czy jest przykryty i czy ma przycisk ←. */
+/** Poziom popupu na stosie: popup sam wie, czy jest przykryty i czy ma przycisk ←. Pola są reaktywne. */
 export interface PopupLevel {
   readonly level: number;
   readonly covered: boolean;
@@ -70,13 +44,7 @@ export interface PopupLevel {
   readonly onScrimClick: () => void;
 }
 
-export const PopupLevelContext = createContext<PopupLevel | null>(null);
-
-export function usePopupLevel(): PopupLevel {
-  const value = useContext(PopupLevelContext);
-  if (!value) throw new Error('usePopupLevel wymaga popupu w <PopupHost>');
-  return value;
-}
+export const PopupLevelContext = createContext<PopupLevel>();
 
 /**
  * Ochrona popupu przed zamknięciem, np. przy niezapisanych zmianach (EDT-1). Dostaje `leave`,
@@ -89,10 +57,4 @@ export interface PopupGuards {
   readonly set: (level: number, guard: LeaveGuard | null) => void;
 }
 
-export const PopupGuardsContext = createContext<PopupGuards | null>(null);
-
-export function usePopupGuards(): PopupGuards {
-  const value = useContext(PopupGuardsContext);
-  if (!value) throw new Error('usePopupGuards wymaga <PopupRouter>');
-  return value;
-}
+export const PopupGuardsContext = createContext<PopupGuards>();

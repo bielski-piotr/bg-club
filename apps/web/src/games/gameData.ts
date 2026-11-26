@@ -1,6 +1,6 @@
 import { useContext, type Accessor } from 'solid-js';
-import { AuthContext } from '../solid/context';
-import { createQuery } from '../solid/query';
+import { AuthContext } from '../auth/authContext';
+import { createQuery } from '../lib/query';
 import {
   allExpansionsQuery,
   collectionWidgetQuery,
@@ -13,7 +13,7 @@ import { gameStatsQuery } from './gameStatsData';
 import { gameVoteTotalQuery } from './gameVoteTotal';
 
 /*
- * Zapytania o gry w Solid: opcje z `games.ts` na wspólnym cache
+ * Zapytania o gry: opcje z `games.ts` na wspólnym cache
  * zapytań. Klient Supabase z `AuthContext`; parametry jako akcesory.
  */
 

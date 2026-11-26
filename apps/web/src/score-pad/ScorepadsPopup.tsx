@@ -1,14 +1,16 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, Match, Show, Switch, useContext } from 'solid-js';
 import { createGame } from '../games/gameData';
 import type { Game } from '../games/games';
 import { playersLabel } from '../games/labels';
 import { format, plural, t } from '../i18n';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation } from '../solid/query';
-import { Banner, Button, EmptyState, Icon, Menu, Tray } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation } from '../lib/query';
+import { Banner, Button, EmptyState, Icon, Menu, Tray } from '../ui';
 import { fewerSeatsMessage, scorepadErrorMessage } from './messages';
 import { createGameScorepads, createScorepadFileUrl } from './scorepadData';
 import {

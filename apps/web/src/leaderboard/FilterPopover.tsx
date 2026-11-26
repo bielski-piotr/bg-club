@@ -1,11 +1,10 @@
-/** @jsxImportSource @solidjs/web */
 import type { JSX } from '@solidjs/web';
 import { createEffect, createSignal, createUniqueId, Show } from 'solid-js';
 import { t } from '../i18n';
 import { focusableIn } from '../ui/focusable';
-import { ariaBool } from '../solid/ui/dom';
-import { Button } from '../solid/ui/Button';
-import { Icon, type IconName } from '../solid/ui/Icon';
+import { ariaBool } from '../ui/dom';
+import { Button } from '../ui/Button';
+import { Icon, type IconName } from '../ui/Icon';
 import '../ui/Field.css';
 import '../ui/Select.css';
 

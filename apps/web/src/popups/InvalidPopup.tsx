@@ -1,18 +1,20 @@
+import { useContext } from 'solid-js';
 import { t } from '../i18n';
-import { Button, EmptyState } from '../ui';
-import { usePopups } from './popupContext';
+import { PopupsContext } from './popupContext';
+import { Button } from '../ui/Button';
+import { EmptyState } from '../ui/Feedback';
 import { PopupModal } from './PopupModal';
 
 /** Popup pod nieznanym albo uszkodzonym adresem `?p=…`: czytelny stan zamiast pustego okna. */
 export function InvalidPopup() {
-  const { closeAll } = usePopups();
+  const popups = useContext(PopupsContext);
   return (
     <PopupModal title={t.popups.invalidTitle}>
       <EmptyState
         icon="alert"
         title={t.popups.invalidBody}
         action={
-          <Button fullWidth onClick={closeAll}>
+          <Button fullWidth onClick={() => popups.closeAll()}>
             {t.popups.backToClub}
           </Button>
         }

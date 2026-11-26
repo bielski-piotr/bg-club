@@ -1,8 +1,8 @@
 import { applyTheme, readStoredPreference, storePreference, type ThemePreference } from './theme';
 
 /*
- * Wybór motywu w karcie bez zależności od frameworka: hook React (`useTheme`) i akcesor Solid
- * (`src/solid/theme.ts`) czytają ten sam stan i słuchają tych samych zmian.
+ * Wybór motywu w karcie: jeden stan dla całej aplikacji (`createTheme` w komponentach,
+ * `initTheme` przy starcie).
  */
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';

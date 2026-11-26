@@ -1,8 +1,8 @@
 import { useContext, type Accessor } from 'solid-js';
-import { clubQuery, COVERS_BUCKET } from '../club/club';
+import { clubQuery, COVERS_BUCKET } from './club';
 import { signedUrlQuery } from '../lib/storage';
-import { AuthContext } from './context';
-import { createQuery } from './query';
+import { AuthContext } from '../auth/authContext';
+import { createQuery } from '../lib/query';
 
 /** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1). */
 export function createClub() {

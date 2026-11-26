@@ -1,14 +1,13 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, For, Match, Show, Switch } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
 import { fullName, type Profile } from '../profile/profileQueries';
-import { createClub } from '../solid/club';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { Badge, EmptyState, Icon } from '../solid/ui';
-import { ariaBool } from '../solid/ui/dom';
+import { createClub } from '../club/clubData';
+import { PopupLink } from '../popups/PopupLink';
+import { PopupModal } from '../popups/PopupModal';
+import { Badge, EmptyState, Icon } from '../ui';
+import { ariaBool } from '../ui/dom';
 import { BoardError, BoardLoading } from './BoardStatus';
 import { createBoardData } from './board';
 import { datesValue, gamesValue } from './filterLabels';

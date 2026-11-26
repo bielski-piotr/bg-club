@@ -10,11 +10,10 @@ import {
   type QueryObserverResult,
 } from '@tanstack/query-core';
 import { createMemo, from, useContext, type Accessor } from 'solid-js';
-import { QueryClientContext } from './context';
+import { QueryClientContext } from './queryClient';
 
 /*
- * Zapytania w Solid na wspólnym `QueryClient` z częścią React (docs/solidjs-2-migration.md):
- * cache, `staleTime`, prefetch i `invalidateQueries` działają tak samo w obu światach.
+ * Zapytania na wspólnym `QueryClient` (cache, `staleTime`, prefetch, `invalidateQueries`).
  * `@tanstack/solid-query` 5.x wspiera tylko Solid 1.x, stąd własny cienki adapter.
  */
 

@@ -1,10 +1,9 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, createUniqueId, For, Match, Switch } from 'solid-js';
 import type { Game } from '../games/games';
 import { t } from '../i18n';
 import { gameOptions, type GameOption } from './gameOptions';
-import { ariaBool } from '../solid/ui/dom';
-import { Icon } from '../solid/ui/Icon';
+import { ariaBool } from '../ui/dom';
+import { Icon } from '../ui/Icon';
 import '../ui/Choice.css';
 
 export interface GameFilterPanelProps {

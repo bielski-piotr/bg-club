@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createEffect,
   createSignal,
@@ -10,11 +9,11 @@ import {
   type Accessor,
 } from 'solid-js';
 import { format, plural, t } from '../i18n';
-import { PopupsContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { Button, createChunks, EmptyState, Icon, Menu, SearchField, ShowMore } from '../solid/ui';
-import { ariaTrue } from '../solid/ui/dom';
+import { PopupsContext } from '../popups/popupContext';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { Button, createChunks, EmptyState, Icon, Menu, SearchField, ShowMore } from '../ui';
+import { ariaTrue } from '../ui/dom';
 import { GameCover } from './GameCover';
 import { createGameSearch } from './gameData';
 import type { Game } from './games';

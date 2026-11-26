@@ -1753,7 +1753,7 @@ export const pl = {
   /** Teksty wbudowane w komponenty design systemu (`src/ui`). */
   ui: {
     close: 'Zamknij',
-    /** Długie listy rysowane porcjami (NFR-2, `useChunks`). */
+    /** Długie listy rysowane porcjami (NFR-2, `createChunks`). */
     showMore: 'Pokaż więcej ({count})',
     back: 'Wróć',
     more: 'Więcej opcji',

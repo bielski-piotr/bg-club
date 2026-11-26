@@ -5,7 +5,7 @@ import { loadScorePadPart, type ScorePadPart } from './load';
 export type ScorePadLoadState = 'loading' | 'ready' | 'error';
 
 /**
- * Wspólna część adapterów notesu (wersja Solid `useScorePadElement`): leniwie ładuje moduł,
+ * Wspólna część adapterów notesu: leniwie ładuje moduł,
  * tworzy element w kontenerze i usuwa go przy odmontowaniu lub zmianie wejścia. Usunięcie
  * elementu ze strony wywołuje w nim `destroy()` (`disconnectedCallback`): zatrzymuje animację
  * i zwalnia WebGL oraz nasłuchy.

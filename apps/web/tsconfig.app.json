@@ -7,9 +7,10 @@
     "emitDeclarationOnly": true,
     "outDir": "./node_modules/.tmp/app",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web",
     "types": ["vite/client", "@testing-library/jest-dom/vitest"]
   },
-  "include": ["src", "solid-files.d.ts"],
+  "include": ["src"],
   "exclude": ["src/pwa/plugin.ts", "src/pwa/plugin.test.ts"]
 }

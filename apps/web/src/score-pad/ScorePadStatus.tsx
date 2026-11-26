@@ -1,7 +1,6 @@
-/** @jsxImportSource @solidjs/web */
 import { Match, Switch } from 'solid-js';
 import { t } from '../i18n';
-import { Banner, Button, Spinner } from '../solid/ui';
+import { Banner, Button, Spinner } from '../ui';
 import type { ScorePadLoadState } from './createScorePadElement';
 
 /** Nakładka na czas ładowania modułu albo komunikat błędu z ponowieniem. */

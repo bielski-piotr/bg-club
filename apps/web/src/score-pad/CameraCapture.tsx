@@ -1,7 +1,6 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, onSettled, Show } from 'solid-js';
 import { t } from '../i18n';
-import { Button, Spinner } from '../solid/ui';
+import { Button, Spinner } from '../ui';
 import { cameraProblem, cameraSupported, type CameraProblem } from './camera';
 
 const text = t.scorepads.wizard.camera;

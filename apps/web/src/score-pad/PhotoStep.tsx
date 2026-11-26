@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createEffect,
   createMemo,
@@ -10,7 +9,7 @@ import {
   Switch,
 } from 'solid-js';
 import { t } from '../i18n';
-import { Banner, Button, Icon, Spinner, TextLink } from '../solid/ui';
+import { Banner, Button, Icon, Spinner, TextLink } from '../ui';
 import { cameraSupported, type CameraProblem } from './camera';
 import { CameraCapture } from './CameraCapture';
 import type { ScorePadLoadState } from './createScorePadElement';

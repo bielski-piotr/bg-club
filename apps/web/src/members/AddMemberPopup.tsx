@@ -1,14 +1,16 @@
-/** @jsxImportSource @solidjs/web */
 import { NAME_MAX_LENGTH } from '@bg-club/accounts';
 import { createMemo, createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
 import { allProfilesKey, fullName, membersKey, profileKey } from '../profile/profileQueries';
 import { nameProblem } from '../profile/settings';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { createMutation } from '../solid/query';
-import { Banner, Button, Icon, TextField } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { createMutation } from '../lib/query';
+import { Banner, Button, Icon, TextField } from '../ui';
 import {
   createMember,
   CreateMemberError,

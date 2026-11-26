@@ -1,5 +1,6 @@
-import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
-import { cx } from './cx';
+import type { JSX } from '@solidjs/web';
+import { createUniqueId, For, Show } from 'solid-js';
+import { ariaBool, type ClassValue } from './dom';
 import './Choice.css';
 import './Tabs.css';
 
@@ -15,8 +16,8 @@ export interface TabsProps<T extends string> {
   readonly value: T;
   readonly onChange: (value: T) => void;
   /** Treść aktywnej zakładki (renderowana w `role="tabpanel"`). */
-  readonly children?: (value: T) => ReactNode;
-  readonly className?: string | undefined;
+  readonly children?: ((value: T) => JSX.Element) | undefined;
+  readonly class?: ClassValue;
 }
 
 /**
@@ -24,33 +25,26 @@ export interface TabsProps<T extends string> {
  * Wzorzec WAI-ARIA Tabs z automatyczną aktywacją: strzałki, Home i End zmieniają zakładkę,
  * fokus jest tylko na aktywnej (roving tabindex).
  */
-export function Tabs<T extends string>({
-  label,
-  items,
-  value,
-  onChange,
-  children,
-  className,
-}: TabsProps<T>) {
-  const id = useId();
+export function Tabs<T extends string>(props: TabsProps<T>) {
+  const id = createUniqueId();
   const tabId = (item: T) => `${id}-tab-${item}`;
   const panelId = `${id}-panel`;
-  const refs = useRef(new Map<T, HTMLButtonElement>());
+  const buttons = new Map<T, HTMLButtonElement>();
 
   const focusAt = (index: number) => {
-    const item = items[(index + items.length) % items.length];
+    const item = props.items[(index + props.items.length) % props.items.length];
     if (!item) return;
-    onChange(item.id);
-    refs.current.get(item.id)?.focus();
+    props.onChange(item.id);
+    buttons.get(item.id)?.focus();
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const index = items.findIndex((i) => i.id === value);
+  const onKeyDown = (event: KeyboardEvent) => {
+    const index = props.items.findIndex((i) => i.id === props.value);
     const keys: Record<string, () => void> = {
       ArrowRight: () => focusAt(index + 1),
       ArrowLeft: () => focusAt(index - 1),
       Home: () => focusAt(0),
-      End: () => focusAt(items.length - 1),
+      End: () => focusAt(props.items.length - 1),
     };
     const action = keys[event.key];
     if (action) {
@@ -60,42 +54,39 @@ export function Tabs<T extends string>({
   };
 
   return (
-    <div className={cx('tabs', className)}>
-      <div role="tablist" aria-label={label} className="pills tabs__list" onKeyDown={onKeyDown}>
-        {items.map((item) => {
-          const selected = item.id === value;
-          return (
+    <div class={['tabs', props.class]}>
+      <div role="tablist" aria-label={props.label} class="pills tabs__list" onKeyDown={onKeyDown}>
+        <For each={props.items}>
+          {(item) => (
             <button
-              key={item.id}
-              ref={(el) => {
-                if (el) refs.current.set(item.id, el);
-                else refs.current.delete(item.id);
-              }}
+              ref={(el) => buttons.set(item.id, el)}
               type="button"
               role="tab"
               id={tabId(item.id)}
-              aria-selected={selected}
-              aria-controls={children ? panelId : undefined}
-              tabIndex={selected ? 0 : -1}
-              className="pill"
-              onClick={() => onChange(item.id)}
+              aria-selected={ariaBool(item.id === props.value)}
+              aria-controls={props.children ? panelId : undefined}
+              tabindex={item.id === props.value ? 0 : -1}
+              class="pill"
+              onClick={() => props.onChange(item.id)}
             >
               {item.label}
             </button>
-          );
-        })}
+          )}
+        </For>
       </div>
-      {children ? (
-        <div
-          role="tabpanel"
-          id={panelId}
-          aria-labelledby={tabId(value)}
-          className="tabs__panel"
-          tabIndex={0}
-        >
-          {children(value)}
-        </div>
-      ) : null}
+      <Show when={props.children}>
+        {(render) => (
+          <div
+            role="tabpanel"
+            id={panelId}
+            aria-labelledby={tabId(props.value)}
+            class="tabs__panel"
+            tabindex={0}
+          >
+            {render()(props.value)}
+          </div>
+        )}
+      </Show>
     </div>
   );
 }

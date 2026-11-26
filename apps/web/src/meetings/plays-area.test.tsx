@@ -1,11 +1,10 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
 import { flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { SAMPLE_SCORE_PAD } from '../design-system/scorePadSample';
 import { gameSearchKey, gamesKey, type Game } from '../games/games';
 import { clubKey } from '../club/club';
@@ -13,7 +12,7 @@ import { format, t } from '../i18n';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, type Profile } from '../profile/profileQueries';
 import { scorepadsKey, type Scorepad } from '../score-pad/scorepads';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { DeletePlayDialog } from './DeletePlayDialog';
 import { DiscardPlayDialog } from './DiscardPlayDialog';
 import { meetingKey, type Meeting } from './meetings';
@@ -24,7 +23,7 @@ import { PlaySummaryDialog } from './PlaySummaryDialog';
 import { meetingGamesKey } from './voting';
 
 /*
- * Partie w Solid (etap 6c, docs/solidjs-2-migration.md): kreator nowej partii, notes partii,
+ * Partie: kreator nowej partii, notes partii,
  * podsumowanie oderwanej kartki i dialogi porzucenia oraz usunięcia. Zachowanie sprawdzają e2e
  * (`new-play.spec.ts`, `play-drafts.spec.ts`, `play-save.spec.ts`, `play-delete.spec.ts`,
  * `score-pad-entry.spec.ts`); tu bramka bez kodów diagnostyki Solid dla renderu i interakcji
@@ -194,7 +193,10 @@ describe('obszar Partie bez diagnostyki Solid', () => {
   it('kreator nowej partii: gra, pominięty notes, gracze na miejscach', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const popup = renderSolid(() => <NewPlayPopup meetingId={MEETING.id} me={ADMIN} />, host());
+        const popup = renderWithProviders(
+          () => <NewPlayPopup meetingId={MEETING.id} me={ADMIN} />,
+          host(),
+        );
         await settle();
         const dialog = within(popup.container).getByRole('dialog');
         expect(dialog).toHaveTextContent('Azul');
@@ -232,7 +234,10 @@ describe('obszar Partie bez diagnostyki Solid', () => {
         expect(within(dialog).getByRole('radio')).toBeChecked();
         popup.unmount();
 
-        const blocked = renderSolid(() => <NewPlayPopup meetingId={MEETING.id} me={CEL} />, host());
+        const blocked = renderWithProviders(
+          () => <NewPlayPopup meetingId={MEETING.id} me={CEL} />,
+          host(),
+        );
         await settle();
         expect(blocked.container).toHaveTextContent(newPlay.notRunner);
         expect(blocked.container.querySelector('.modal__footer')).toBeNull();
@@ -246,7 +251,7 @@ describe('obszar Partie bez diagnostyki Solid', () => {
   it('notes partii, „Trwa partia” i podsumowanie oderwanej kartki', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const pad = renderSolid(() => <PlayPopup id={PLAY_ID} me={ADMIN} />, host());
+        const pad = renderWithProviders(() => <PlayPopup id={PLAY_ID} me={ADMIN} />, host());
         await vi.waitFor(() =>
           expect(pad.container.querySelector('.play-pad__status')).not.toBeNull(),
         );
@@ -264,7 +269,7 @@ describe('obszar Partie bez diagnostyki Solid', () => {
         await settle();
         pad.unmount();
 
-        const live = renderSolid(() => <PlayPopup id={PLAY_ID} me={CEL} />, host());
+        const live = renderWithProviders(() => <PlayPopup id={PLAY_ID} me={CEL} />, host());
         await vi.waitFor(() => expect(live.container).toHaveTextContent(playText.notRunner));
         expect(live.container).toHaveTextContent('Ada Testowa, Bob Testowa');
         live.unmount();
@@ -295,7 +300,7 @@ describe('obszar Partie bez diagnostyki Solid', () => {
         };
         const onCancel = vi.fn();
         const onConfirm = vi.fn();
-        const dialogs = renderSolid(
+        const dialogs = renderWithProviders(
           () => (
             <PlaySummaryDialog
               title="Azul"
@@ -330,7 +335,10 @@ describe('obszar Partie bez diagnostyki Solid', () => {
   it('porzucenie szkicu i usunięcie zapisanej partii', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const discard = renderSolid(() => <DiscardPlayDialog id={PLAY_ID} me={ADMIN} />, host());
+        const discard = renderWithProviders(
+          () => <DiscardPlayDialog id={PLAY_ID} me={ADMIN} />,
+          host(),
+        );
         await vi.waitFor(() => expect(discard.container).toHaveTextContent('Azul'));
         expect(
           within(discard.container).getByRole('button', {
@@ -339,7 +347,7 @@ describe('obszar Partie bez diagnostyki Solid', () => {
         ).toBeEnabled();
         discard.unmount();
 
-        const remove = renderSolid(() => <DeletePlayDialog id={PLAY_ID} />, host('saved'));
+        const remove = renderWithProviders(() => <DeletePlayDialog id={PLAY_ID} />, host('saved'));
         await vi.waitFor(() => expect(remove.container).toHaveTextContent('Azul'));
         expect(
           within(remove.container).getByRole('button', {
@@ -349,7 +357,7 @@ describe('obszar Partie bez diagnostyki Solid', () => {
         remove.unmount();
 
         // Szkic nie jest zapisaną partią: usunięcie z linku pokazuje „Nie znaleziono”.
-        const invalid = renderSolid(() => <DeletePlayDialog id={PLAY_ID} />, host('draft'));
+        const invalid = renderWithProviders(() => <DeletePlayDialog id={PLAY_ID} />, host('draft'));
         await vi.waitFor(() =>
           expect(
             within(invalid.container).queryByRole('button', {

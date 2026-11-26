@@ -1,12 +1,11 @@
-/** @jsxImportSource @solidjs/web */
 import { For, Match, Show, Switch, createMemo } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, plural, t } from '../i18n';
 import type { Profile } from '../profile/profileQueries';
-import { createClub } from '../solid/club';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { createAllProfiles } from '../solid/profile/profiles';
-import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../solid/ui';
+import { createClub } from '../club/clubData';
+import { PopupLink } from '../popups/PopupLink';
+import { createAllProfiles } from '../profile/profiles';
+import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui';
 import { shortDayLabel, weekdayTime } from './calendar';
 import { longMeetingDate, todayIn } from './datetime';
 import { createTimeline } from './meetingData';

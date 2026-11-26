@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { format, t } from '../i18n';
 import { dateTile, durationLabel, localDateTime } from './datetime';
@@ -8,10 +7,10 @@ import type { PlayRecords, RecordKind } from './records';
 import { fullName, type Profile } from '../profile/profileQueries';
 import { createSheetImageUrl } from '../sheets/sheetData';
 import { paletteColor, paletteIndex } from '../ui/avatarUtils';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { ProfileLink } from '../solid/profile/ProfileLink';
-import { Badge, Icon, StatusChip } from '../solid/ui';
-import type { ClassValue } from '../solid/ui/dom';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { ProfileLink } from '../profile/ProfileLink';
+import { Badge, Icon, StatusChip } from '../ui';
+import type { ClassValue } from '../ui/dom';
 import '../sheets/sheets.css';
 
 /*

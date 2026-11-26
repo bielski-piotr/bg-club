@@ -1,39 +1,26 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from 'react';
-import { useAuth } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
-import { useQuery } from '@tanstack/react-query';
+import { Errored, Loading, Match, onSettled, Switch, lazy, useContext } from 'solid-js';
+import type { OwnProfile } from '../auth/ownProfile';
 import { AppHeader } from '../club/AppHeader';
-import { clubQuery } from '../club/club';
+import { createClub } from '../club/clubData';
 import { FirstRun } from '../club/FirstRun';
+import { CollectionWidget } from '../games/CollectionWidget';
 import { t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
+import { RankingWidget } from '../leaderboard/RankingWidget';
+import { MeetingWidget } from '../meetings/MeetingWidget';
+import { TimelineWidget } from '../meetings/TimelineWidget';
+import { MembersWidget } from '../members/MembersWidget';
+import { PopupsContext } from '../popups/popupContext';
 import { PopupHost } from '../popups/PopupHost';
 import type { PopupRoute } from '../popups/routes';
 import type { Profile } from '../profile/profileQueries';
 import { importOrReload } from '../pwa/staleChunk';
 import { Banner, Button, Spinner } from '../ui';
-import { PopupErrorBoundary } from './PopupErrorBoundary';
-import { useMasonry } from './useMasonry';
-import { SolidIsland } from '../bridge/SolidIsland';
-import { MembersWidget } from '../members/MembersWidget';
-import { RankingWidget } from '../leaderboard/RankingWidget';
-import { CollectionWidget } from '../games/CollectionWidget';
-import { MeetingWidget } from '../meetings/MeetingWidget';
-import { TimelineWidget } from '../meetings/TimelineWidget';
+import { masonry } from './masonry';
 import './Hub.css';
 
 // Popupy huba (z edytorem notesów, formularzami i statystykami) są osobnym fragmentem pakietu:
 // widok Klubu nie czeka na nie przy starcie (NFR-2). Fragment jest pobierany zaraz po
-// wyświetleniu huba (`usePrefetchPopups`), więc otwarcie popupu zwykle nie czeka na sieć.
+// wyświetleniu huba (`prefetchPopups`), więc otwarcie popupu zwykle nie czeka na sieć.
 const loadHubPopup = () => import('./HubPopup');
 // Po wdrożeniu karta ze starym pakietem nie znajdzie fragmentu: przeładowujemy ją raz
 // (src/pwa/staleChunk.ts), a gdy to nie pomoże, granica błędu pokazuje komunikat.
@@ -47,111 +34,99 @@ const MAIN_ID = 'hub-main';
  * Telefon: jedna kolumna w kolejności PRD. Przed założeniem klubu zamiast widżetów jest
  * pierwsze uruchomienie (CLUB-1, CLUB-3). Popupy ze stosu w adresie są nad hubem.
  */
-export function Hub({ me }: { readonly me: OwnProfile }) {
-  const { client } = useAuth();
-  const club = useQuery(clubQuery(client));
-  usePasswordSuggestion(me);
-  usePrefetchPopups();
-  const renderPopup = useCallback(
-    (route: PopupRoute) => <LazyHubPopup route={route} me={me} />,
-    [me],
-  );
+export function Hub(props: { readonly me: OwnProfile }) {
+  const club = createClub();
+  const popups = useContext(PopupsContext);
+  // Pierwsze logowanie kontem z wygenerowanym hasłem (AUTH-6): przy wejściu do aplikacji bez
+  // popupów w adresie otwiera propozycję własnego hasła. Wejście z linku do popupu jej nie
+  // przerywa (ani po jego zamknięciu). „Pomiń” zapisuje rezygnację w profilu, a zamknięcie
+  // (×, Esc) tylko odkłada propozycję do kolejnego uruchomienia. Decyzja zapada raz, po
+  // wyświetleniu huba.
+  onSettled(() => {
+    if (props.me.password_change_suggested && popups.stack.length === 0) {
+      popups.open({ kind: 'first-login' });
+    }
+  });
+  onSettled(prefetchPopups);
   // Dane klubu mają pierwszeństwo przed błędem: nieudane ponowne pobranie nie chowa widżetów.
-  const loaded = club.data !== undefined;
-  const firstRun = club.data === null;
+  const loaded = () => club().data !== undefined;
+  const firstRun = () => club().data === null;
+  const isAdmin = () => props.me.role === 'admin';
 
   return (
-    <PopupHost renderPopup={renderPopup} fallbackFocusId={MAIN_ID}>
-      <div className={firstRun ? 'hub hub--first-run' : 'hub'}>
-        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 7). */}
-        <SolidIsland
-          component={AppHeader}
-          props={{ club: loaded ? (club.data ?? 'none') : club.isError ? null : undefined, me }}
+    <PopupHost
+      renderPopup={(route) => <LazyHubPopup route={route} me={props.me} />}
+      fallbackFocusId={MAIN_ID}
+    >
+      <div class={['hub', { 'hub--first-run': firstRun() }]}>
+        <AppHeader
+          club={loaded() ? (club().data ?? 'none') : club().isError ? null : undefined}
+          me={props.me}
         />
         <main
           id={MAIN_ID}
-          className="hub__main"
-          tabIndex={-1}
-          aria-label={firstRun ? undefined : t.hub.widgetsLabel}
+          class="hub__main"
+          tabindex={-1}
+          aria-label={firstRun() ? undefined : t.hub.widgetsLabel}
         >
-          {loaded ? (
-            firstRun ? (
-              <SolidIsland component={FirstRun} props={{ isAdmin: me.role === 'admin' }} />
-            ) : (
-              <Widgets me={me} />
-            )
-          ) : club.isError ? (
-            <Banner
-              variant="error"
-              className="hub__error"
-              action={
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon="refresh"
-                  onClick={() => void club.refetch()}
-                >
-                  {t.hub.retry}
-                </Button>
-              }
-            >
-              {t.club.loadError}
-            </Banner>
-          ) : (
-            <div className="hub__status">
-              <Spinner size={24} label={t.club.loading} />
-            </div>
-          )}
+          <Switch
+            fallback={
+              <div class="hub__status">
+                <Spinner size={24} label={t.club.loading} />
+              </div>
+            }
+          >
+            <Match when={firstRun()}>
+              <FirstRun isAdmin={isAdmin()} />
+            </Match>
+            <Match when={loaded()}>
+              <Widgets me={props.me} />
+            </Match>
+            <Match when={club().isError}>
+              <Banner
+                variant="error"
+                class="hub__error"
+                action={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon="refresh"
+                    onClick={() => void club().refetch()}
+                  >
+                    {t.hub.retry}
+                  </Button>
+                }
+              >
+                {t.club.loadError}
+              </Banner>
+            </Match>
+          </Switch>
         </main>
       </div>
     </PopupHost>
   );
 }
 
-/**
- * Pierwsze logowanie kontem z wygenerowanym hasłem (AUTH-6): przy wejściu do aplikacji bez
- * popupów w adresie otwiera propozycję własnego hasła. Wejście z linku do popupu jej nie
- * przerywa (ani po jego zamknięciu). „Pomiń” zapisuje rezygnację w profilu, a zamknięcie (×, Esc)
- * tylko odkłada propozycję do kolejnego uruchomienia.
- */
-function usePasswordSuggestion(me: OwnProfile) {
-  const { stack, open } = usePopups();
-  // Decyzja zapada raz, przy pierwszym renderze huba.
-  const [suggest] = useState(() => me.password_change_suggested && stack.length === 0);
-  // Ref chroni przed podwójnym otwarciem, gdy StrictMode uruchamia efekt drugi raz.
-  const opened = useRef(false);
-  useEffect(() => {
-    if (!suggest || opened.current) return;
-    opened.current = true;
-    open({ kind: 'first-login' });
-  }, [suggest, open]);
-}
-
 /** Pięć widżetów w kolejności PRD §4; każdy ma własny pusty stan (CLUB-4). */
-function Widgets({ me }: { readonly me: Profile }) {
-  const grid = useRef<HTMLDivElement>(null);
-  useMasonry(grid);
+function Widgets(props: { readonly me: Profile }) {
+  let grid: HTMLDivElement | undefined;
+  onSettled(() => (grid ? masonry(grid) : undefined));
   return (
-    <div ref={grid} className="hub__grid">
-      <div className="hub__slot hub__slot--left">
-        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 6). */}
-        <SolidIsland component={MeetingWidget} props={{ me }} />
+    <div ref={(el) => (grid = el)} class="hub__grid">
+      <div class="hub__slot hub__slot--left">
+        <MeetingWidget me={props.me} />
       </div>
-      <div className="hub__slot hub__slot--right">
-        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 4). */}
-        <SolidIsland component={RankingWidget} props={{ me }} />
+      <div class="hub__slot hub__slot--right">
+        <RankingWidget me={props.me} />
       </div>
-      <div className="hub__slot hub__slot--left">
-        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 6). */}
-        <SolidIsland component={TimelineWidget} props={{}} />
+      <div class="hub__slot hub__slot--left">
+        <TimelineWidget />
       </div>
-      <div className="hub__slot hub__slot--right">
-        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 5a). */}
-        <SolidIsland component={CollectionWidget} props={{ isAdmin: me.role === 'admin' }} />
+      <div class="hub__slot hub__slot--right">
+        <CollectionWidget isAdmin={props.me.role === 'admin'} />
       </div>
-      <div className="hub__slot hub__slot--left">
-        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 2). */}
-        <SolidIsland component={MembersWidget} props={{ me }} />
+      <div class="hub__slot hub__slot--left">
+        <MembersWidget me={props.me} />
       </div>
     </div>
   );
@@ -159,24 +134,39 @@ function Widgets({ me }: { readonly me: Profile }) {
 
 /**
  * Popup z leniwie ładowanego fragmentu. Gdy fragment jeszcze nie dotarł, `PopupHost` nie ma
- * dokąd przenieść fokusu; po wczytaniu przenosimy go do najwyższego okna (NFR-6).
+ * dokąd przenieść fokusu; po wczytaniu przenosimy go do najwyższego okna (NFR-6). Błąd
+ * wczytania (np. stary pakiet po wdrożeniu, gdy przeładowanie nie pomogło) zostaje w popupie:
+ * hub jest widoczny, a nad nim komunikat z przeładowaniem strony.
  */
-function LazyHubPopup({ route, me }: { readonly route: PopupRoute; readonly me: OwnProfile }) {
-  const suspendedRef = useRef(false);
+function LazyHubPopup(props: { readonly route: PopupRoute; readonly me: OwnProfile }) {
+  let suspended = false;
   return (
-    <PopupErrorBoundary>
-      <Suspense fallback={<PopupLoading suspendedRef={suspendedRef} />}>
-        <HubPopup route={route} me={me} />
-        <FocusWhenLoaded suspendedRef={suspendedRef} />
-      </Suspense>
-    </PopupErrorBoundary>
+    <Errored fallback={<PopupError />}>
+      <Loading
+        fallback={
+          <PopupLoading
+            onShown={() => {
+              suspended = true;
+            }}
+          />
+        }
+      >
+        <HubPopup route={props.route} me={props.me} />
+        <FocusWhenLoaded
+          wasSuspended={() => {
+            const was = suspended;
+            suspended = false;
+            return was;
+          }}
+        />
+      </Loading>
+    </Errored>
   );
 }
 
-function FocusWhenLoaded({ suspendedRef }: { readonly suspendedRef: RefObject<boolean> }) {
-  useLayoutEffect(() => {
-    if (!suspendedRef.current) return;
-    suspendedRef.current = false;
+function FocusWhenLoaded(props: { readonly wasSuspended: () => boolean }) {
+  onSettled(() => {
+    if (!props.wasSuspended()) return;
     // Użytkownik zdążył przejść do innego okna: nie zabieramy mu fokusu.
     if (document.activeElement?.closest('[role="dialog"]')) return;
     const dialogs = [
@@ -187,31 +177,46 @@ function FocusWhenLoaded({ suspendedRef }: { readonly suspendedRef: RefObject<bo
       .sort((a, b) => level(a) - level(b))
       .at(-1)
       ?.focus({ preventScroll: true });
-  }, [suspendedRef]);
+  });
   return null;
 }
 
 /** Zastępnik popupu na czas pobierania fragmentu (zwykle niewidoczny dzięki prefetchowi). */
-function PopupLoading({ suspendedRef }: { readonly suspendedRef: RefObject<boolean> }) {
-  useEffect(() => {
-    suspendedRef.current = true;
-  }, [suspendedRef]);
+function PopupLoading(props: { readonly onShown: () => void }) {
+  onSettled(() => {
+    props.onShown();
+  });
   return (
-    <div className="hub__popup-loading">
+    <div class="hub__popup-loading">
       <Spinner size={24} label={t.hub.popupLoading} />
     </div>
   );
 }
 
+function PopupError() {
+  return (
+    <div class="hub__popup-loading hub__popup-error">
+      <Banner
+        variant="error"
+        action={
+          <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+            {t.hub.reload}
+          </Button>
+        }
+      >
+        {t.hub.popupError}
+      </Banner>
+    </div>
+  );
+}
+
 /** Pobiera fragment popupów w czasie bezczynności po pierwszym wyświetleniu huba. */
-function usePrefetchPopups() {
-  useEffect(() => {
-    const prefetch = () => void loadHubPopup().catch(() => undefined);
-    if ('requestIdleCallback' in window) {
-      const id = window.requestIdleCallback(prefetch, { timeout: 3000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = setTimeout(prefetch, 1500);
-    return () => clearTimeout(id);
-  }, []);
+function prefetchPopups() {
+  const prefetch = () => void loadHubPopup().catch(() => undefined);
+  if ('requestIdleCallback' in window) {
+    const id = window.requestIdleCallback(prefetch, { timeout: 3000 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = setTimeout(prefetch, 1500);
+  return () => clearTimeout(id);
 }

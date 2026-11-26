@@ -1,12 +1,12 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { t } from '../i18n';
 import { deleteOwnAccount, DeletionError, type DeletionFailure } from '../members/deletion';
-import { AuthContext, PopupsContext } from '../solid/context';
-import { PopupDialog } from '../solid/popups/PopupDialog';
-import { createMutation } from '../solid/query';
-import { Banner, Button, PasswordField } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { PopupDialog } from '../popups/PopupDialog';
+import { createMutation } from '../lib/query';
+import { Banner, Button, PasswordField } from '../ui';
 import './profile.css';
 
 const text = t.deleteAccount;

@@ -1,7 +1,5 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, Show } from 'solid-js';
-import { monogram } from '../solid/ui';
-import type { ClassValue } from '../solid/ui';
+import { monogram, type ClassValue } from '../ui';
 import './club.css';
 
 interface ClubLogoProps {

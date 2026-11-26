@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { PROFILE_COLUMNS, type Profile } from '../profile/profileQueries';
 import type { ThemePreference } from '../theme/theme';
 
@@ -19,8 +18,8 @@ export const OWN_PROFILE_COLUMNS = `${PROFILE_COLUMNS}, theme, password_change_s
  * Własny profil. `null` oznacza, że RLS go nie zwrócił: konto zostało usunięte (albo nie ma
  * profilu), a token dostępu jest jeszcze ważny (AUTH-7). Aplikacja kończy wtedy sesję.
  */
-export function useOwnProfile(client: SupabaseClient, userId: string) {
-  return useQuery({
+export function ownProfileQuery(client: SupabaseClient, userId: string) {
+  return {
     queryKey: ownProfileKey(userId),
     queryFn: async (): Promise<OwnProfile | null> => {
       const { data, error } = await client
@@ -31,5 +30,5 @@ export function useOwnProfile(client: SupabaseClient, userId: string) {
       if (error) throw error;
       return data;
     },
-  });
+  };
 }

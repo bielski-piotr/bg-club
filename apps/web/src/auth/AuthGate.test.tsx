@@ -6,13 +6,15 @@ import {
   type Session,
   type SupabaseClient,
 } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/query-core';
+import { QueryClientContext } from '../lib/queryClient';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
+import { act } from '../test/render';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthGate } from '../App';
 import { AuthProvider } from './AuthProvider';
 import { ToastProvider } from '../ui';
-import type { OwnProfile } from './useOwnProfile';
+import type { OwnProfile } from './ownProfile';
 
 const ADA: OwnProfile = {
   id: '00000000-0000-4000-a000-000000000001',
@@ -98,15 +100,15 @@ function fakeSupabase({ session = null, profile = ADA, signInError }: FakeOption
 
 function renderGate(fake: ReturnType<typeof fakeSupabase>) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
+  render(() => (
+    <QueryClientContext value={queryClient}>
       <ToastProvider>
         <AuthProvider client={fake.client}>
           <AuthGate />
         </AuthProvider>
       </ToastProvider>
-    </QueryClientProvider>,
-  );
+    </QueryClientContext>
+  ));
   return { queryClient };
 }
 
@@ -120,8 +122,8 @@ async function openFromMenu(item: 'Mój profil' | 'Ustawienia') {
 }
 
 async function submit(hook: string, password: string) {
-  fireEvent.change(screen.getByLabelText('Hook'), { target: { value: hook } });
-  fireEvent.change(screen.getByLabelText('Hasło'), { target: { value: password } });
+  fireEvent.input(screen.getByLabelText('Hook'), { target: { value: hook } });
+  fireEvent.input(screen.getByLabelText('Hasło'), { target: { value: password } });
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Zaloguj się' }));
   });
@@ -147,7 +149,7 @@ describe('logowanie hookiem (AUTH-1)', () => {
     expect(screen.getByLabelText('Hook')).toHaveFocus();
 
     // Poprawianie pola zdejmuje jego błąd jeszcze przed kolejną próbą.
-    fireEvent.change(screen.getByLabelText('Hasło'), { target: { value: 'h' } });
+    await act(() => fireEvent.input(screen.getByLabelText('Hasło'), { target: { value: 'h' } }));
     expect(screen.queryByText('Wpisz hasło.')).not.toBeInTheDocument();
     expect(screen.getByText('Wpisz swój hook.')).toBeInTheDocument();
 

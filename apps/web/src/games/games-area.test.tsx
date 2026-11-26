@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
@@ -12,7 +11,7 @@ import { allProfilesKey, type Profile } from '../profile/profileQueries';
 import { SheetPopup } from '../sheets/SheetPopup';
 import { gameSheetsKey, sheetKey, type SavedSheet } from '../sheets/sheets';
 import { SheetZoom } from '../sheets/SheetZoom';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { CollectionPopup } from './CollectionPopup';
 import { CollectionWidget } from './CollectionWidget';
 import { DeleteGameDialog } from './DeleteGameDialog';
@@ -22,7 +21,7 @@ import { collectionWidgetKey, expansionsKey, gameKey, gameSearchKey, type Game }
 import { gameStatsKey, type GameStats } from './gameStatsData';
 
 /*
- * Obszar Kolekcja, gry i karteczki w Solid (etap 5a, docs/solidjs-2-migration.md). Zachowanie
+ * Obszar Kolekcja, gry i karteczki. Zachowanie
  * w hubie sprawdzają `src/hub/Collection.test.tsx` i e2e (`games.spec.ts`, `game-stats.spec.ts`,
  * `sheet-history.spec.ts`); tu bramka bez kodów diagnostyki Solid dla renderu i interakcji
  * (skill agent-loops, pętla 1). Dane są fikcyjne.
@@ -173,13 +172,13 @@ describe('obszar Kolekcja bez diagnostyki Solid', () => {
   it('widżet, popup z wyszukiwaniem i menu, szczegóły gry i dodatku, usuwanie', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const widget = renderSolid(() => <CollectionWidget isAdmin />, host());
+        const widget = renderWithProviders(() => <CollectionWidget isAdmin />, host());
         await settle();
         expect(within(widget.container).getByText('2 gry')).toBeInTheDocument();
         expect(within(widget.container).getAllByRole('link')).toHaveLength(3);
         widget.unmount();
 
-        const popup = renderSolid(() => <CollectionPopup isAdmin />, host());
+        const popup = renderWithProviders(() => <CollectionPopup isAdmin />, host());
         await settle();
         const dialog = within(popup.container).getByRole('dialog');
         expect(within(dialog).getAllByRole('listitem')).toHaveLength(2);
@@ -191,7 +190,10 @@ describe('obszar Kolekcja bez diagnostyki Solid', () => {
         await settle();
         popup.unmount();
 
-        const details = renderSolid(() => <GameDetailsPopup id={AZUL.id} isAdmin />, host());
+        const details = renderWithProviders(
+          () => <GameDetailsPopup id={AZUL.id} isAdmin />,
+          host(),
+        );
         await settle();
         const view = within(details.container).getByRole('dialog');
         expect(view).toHaveTextContent('Azul: Dodatek');
@@ -199,12 +201,12 @@ describe('obszar Kolekcja bez diagnostyki Solid', () => {
         await vi.waitFor(() => expect(view).toHaveTextContent('3'));
         details.unmount();
 
-        const expansion = renderSolid(() => <GameDetailsPopup id={EXPANSION.id} />, host());
+        const expansion = renderWithProviders(() => <GameDetailsPopup id={EXPANSION.id} />, host());
         await settle();
         expect(within(expansion.container).getByRole('dialog')).toHaveTextContent('Azul');
         expansion.unmount();
 
-        const remove = renderSolid(() => <DeleteGameDialog id={ROOT.id} />, host());
+        const remove = renderWithProviders(() => <DeleteGameDialog id={ROOT.id} />, host());
         await settle();
         expect(within(remove.container).getByRole('dialog')).toHaveTextContent('Root');
         remove.unmount();
@@ -217,7 +219,7 @@ describe('obszar Kolekcja bez diagnostyki Solid', () => {
   it('formularz gry z walidacją, edytor okładki, karteczka z powiększeniem', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const add = renderSolid(() => <AddGamePopup />, host());
+        const add = renderWithProviders(() => <AddGamePopup />, host());
         await settle();
         const form = within(add.container).getByRole('dialog');
         fireEvent.input(within(form).getByLabelText('Tytuł'), { target: { value: 'Catan' } });
@@ -243,7 +245,7 @@ describe('obszar Kolekcja bez diagnostyki Solid', () => {
         expect(within(add.container).getByLabelText('Tytuł')).toHaveValue('Catan');
         add.unmount();
 
-        const edit = renderSolid(() => <EditGamePopup id={ROOT.id} />, host());
+        const edit = renderWithProviders(() => <EditGamePopup id={ROOT.id} />, host());
         await settle();
         expect(within(edit.container).getByLabelText('Tytuł')).toHaveValue('Root');
         expect(within(edit.container).getByRole('switch', { name: 'Dostępna' })).toHaveAttribute(
@@ -252,14 +254,14 @@ describe('obszar Kolekcja bez diagnostyki Solid', () => {
         );
         edit.unmount();
 
-        const sheet = renderSolid(() => <SheetPopup id={SHEET.id} isAdmin />, host());
+        const sheet = renderWithProviders(() => <SheetPopup id={SHEET.id} isAdmin />, host());
         await settle();
         const card = within(sheet.container).getByRole('dialog');
         expect(card).toHaveTextContent('Wieczór');
         expect(card).toHaveTextContent('Rekord klubu');
         sheet.unmount();
 
-        const zoom = renderSolid(() => <SheetZoom src="/s.png" alt="Karteczka" />, host());
+        const zoom = renderWithProviders(() => <SheetZoom src="/s.png" alt="Karteczka" />, host());
         await settle();
         const stage = within(zoom.container).getByRole('group');
         fireEvent.keyDown(stage, { key: '+' });

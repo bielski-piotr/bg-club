@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { screen, within } from '@solidjs/testing-library';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { QueryClient } from '@tanstack/query-core';
@@ -8,7 +7,7 @@ import type { AuthContextValue } from '../auth/authContext';
 import type { PopupApi } from '../popups/popupContext';
 import { stackSearch } from '../popups/routes';
 import type { Profile } from '../profile/profileQueries';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import type { LeaderboardEntry } from './leaderboard';
 
@@ -69,7 +68,7 @@ function renderBoard(
     closeAll: vi.fn(),
     hrefFor: (route) => `/${stackSearch('', [route])}`,
   };
-  const result = renderSolid(
+  const result = renderWithProviders(
     () => (
       <LeaderboardBoard
         entries={entries}

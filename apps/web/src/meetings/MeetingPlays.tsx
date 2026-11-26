@@ -1,13 +1,12 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, For, Match, Show, Switch, useContext } from 'solid-js';
 import { createGameTitlesById } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
 import { format, t } from '../i18n';
 import { avatarPerson, type Profile } from '../profile/profileQueries';
-import { PopupsContext } from '../solid/context';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createAllProfiles } from '../solid/profile/profiles';
-import { AvatarStack, Button, Icon } from '../solid/ui';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createAllProfiles } from '../profile/profiles';
+import { AvatarStack, Button, Icon } from '../ui';
 import '../sheets/sheets.css';
 import { localDateTime } from './datetime';
 import { createMeetingPlays, createMeetingRecords } from './meetingData';

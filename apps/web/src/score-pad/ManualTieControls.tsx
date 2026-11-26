@@ -1,7 +1,6 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, For, Show } from 'solid-js';
 import { format, t } from '../i18n';
-import { Select } from '../solid/ui';
+import { Select } from '../ui';
 import './manualTies.css';
 
 const text = t.scorepads.manual;

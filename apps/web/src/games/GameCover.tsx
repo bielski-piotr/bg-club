@@ -1,7 +1,6 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, Show } from 'solid-js';
-import { createCoverUrl } from '../solid/club';
-import type { ClassValue } from '../solid/ui/dom';
+import { createCoverUrl } from '../club/clubData';
+import type { ClassValue } from '../ui/dom';
 import { monogram, paletteColor, paletteIndex } from '../ui/avatarUtils';
 import './games.css';
 

@@ -1,6 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup as cleanupSolid } from '@solidjs/testing-library';
-import { cleanup, configure } from '@testing-library/react';
+import { cleanup, configure } from '@solidjs/testing-library';
 import { afterEach } from 'vitest';
 
 // Component tests import the real lazy popup modules, including scorepad code.
@@ -10,7 +9,6 @@ configure({ asyncUtilTimeout: 5_000 });
 
 afterEach(() => {
   cleanup();
-  cleanupSolid();
   // Popupy zapisują stos w adresie; każdy test zaczyna od czystego adresu.
   window.history.replaceState(null, '', '/');
 });

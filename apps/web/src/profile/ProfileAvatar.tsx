@@ -1,6 +1,5 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, omit } from 'solid-js';
-import { avatarPerson, type Profile } from '../../profile/profileQueries';
+import { avatarPerson, type Profile } from './profileQueries';
 import { Avatar, type AvatarProps } from '../ui/Avatar';
 import { createAvatarUrl } from './profiles';
 

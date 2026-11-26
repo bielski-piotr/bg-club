@@ -1,14 +1,8 @@
-import {
-  useId,
-  useState,
-  type InputHTMLAttributes,
-  type KeyboardEvent,
-  type ReactNode,
-  type Ref,
-} from 'react';
+import type { JSX } from '@solidjs/web';
+import { createSignal, createUniqueId, omit, Show } from 'solid-js';
 import { t } from '../i18n';
-import { cx } from './cx';
 import { hintId } from './fieldIds';
+import { ariaBool, ariaTrue, setRef, createSlot, type ClassValue } from './dom';
 import { Icon, type IconName } from './Icon';
 import './Button.css';
 import './Field.css';
@@ -23,39 +17,32 @@ export interface FieldFrameProps {
   readonly error?: string | undefined;
   /** Etykieta jest dla czytników ekranu, ale niewidoczna (np. wyszukiwarka). */
   readonly hideLabel?: boolean | undefined;
-  readonly children: ReactNode;
-  readonly className?: string | undefined;
+  readonly children: JSX.Element;
+  readonly class?: ClassValue;
 }
 
 /** Etykieta nad polem, podpowiedź lub błąd pod polem (DS §10). */
-export function FieldFrame({
-  id,
-  label,
-  optional = false,
-  hint,
-  error,
-  hideLabel = false,
-  children,
-  className,
-}: FieldFrameProps) {
-  const message = error || hint;
+export function FieldFrame(props: FieldFrameProps) {
+  const message = () => props.error || props.hint;
   return (
-    <div className={cx('field', className)}>
-      <label htmlFor={id} className={cx('field__label', hideLabel && 'sr-only')}>
-        {label}
-        {optional ? <span className="field__optional"> {t.ui.optional}</span> : null}
+    <div class={['field', props.class]}>
+      <label for={props.id} class={['field__label', { 'sr-only': !!props.hideLabel }]}>
+        {props.label}
+        <Show when={props.optional}>
+          <span class="field__optional"> {t.ui.optional}</span>
+        </Show>
       </label>
-      {children}
-      {message ? (
-        <p id={hintId(id)} className={cx('field__hint', error && 'field__hint--error')}>
-          {message}
+      {props.children}
+      <Show when={message()}>
+        <p id={hintId(props.id)} class={['field__hint', { 'field__hint--error': !!props.error }]}>
+          {message()}
         </p>
-      ) : null}
+      </Show>
     </div>
   );
 }
 
-export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+export interface TextFieldProps extends Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   readonly label: string;
   readonly optional?: boolean | undefined;
   readonly hint?: string | undefined;
@@ -64,72 +51,77 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   /** Ikona 16 px przed wartością (data, godzina, strefa). */
   readonly leadingIcon?: IconName | undefined;
   /** Element po wartości: jednostka („cm”) albo ikona. */
-  readonly trailing?: ReactNode | undefined;
+  readonly trailing?: JSX.Element | undefined;
   /** Wartość liczbowa Bricolage 16/20/700 (pole z jednostką, DS §18). */
   readonly numeric?: boolean | undefined;
   /** DM Mono (wygenerowany hook, DS §10). */
   readonly mono?: boolean | undefined;
-  readonly ref?: Ref<HTMLInputElement> | undefined;
+  readonly class?: ClassValue;
 }
 
 /**
- * Pole tekstowe h48 z etykietą (DS §10). `readOnly` daje wariant tylko do odczytu
- * (tło #F1F3F9 bez ramki), `error` ramkę 1,5 px #D63A3A i komunikat pod polem.
+ * Pole tekstowe h48 z etykietą (DS §10). `readonly` daje wariant tylko do odczytu
+ * (tło #F1F3F9 bez ramki; atrybut `readonly`), `error` ramkę 1,5 px #D63A3A i komunikat pod polem.
+ * Wartość jak w każdym polu Solid: `value` + `onInput` (szkic w sygnale rodzica).
  */
-export function TextField({
-  label,
-  optional,
-  hint,
-  error,
-  hideLabel,
-  leadingIcon,
-  trailing,
-  numeric = false,
-  mono = false,
-  id: idProp,
-  className,
-  readOnly,
-  disabled,
-  ref,
-  ...rest
-}: TextFieldProps) {
-  const autoId = useId();
-  const id = idProp ?? autoId;
-  const described = error || hint ? hintId(id) : undefined;
+export function TextField(props: TextFieldProps) {
+  const autoId = createUniqueId();
+  const id = () => (typeof props.id === 'string' ? props.id : autoId);
+  const trailing = createSlot(() => props.trailing);
+  const rest = omit(
+    props,
+    'label',
+    'optional',
+    'hint',
+    'error',
+    'hideLabel',
+    'leadingIcon',
+    'trailing',
+    'numeric',
+    'mono',
+    'id',
+    'class',
+    'readonly',
+    'disabled',
+    'ref',
+  );
   return (
     <FieldFrame
-      id={id}
-      label={label}
-      optional={optional ?? false}
-      hint={hint}
-      error={error}
-      hideLabel={hideLabel ?? false}
-      className={className}
+      id={id()}
+      label={props.label}
+      optional={props.optional}
+      hint={props.hint}
+      error={props.error}
+      hideLabel={props.hideLabel}
+      class={props.class}
     >
       <div
-        className={cx(
+        class={[
           'input',
-          error && 'input--error',
-          readOnly && 'input--readonly',
-          disabled && 'input--disabled',
-        )}
+          {
+            'input--error': !!props.error,
+            'input--readonly': !!props.readonly,
+            'input--disabled': !!props.disabled,
+          },
+        ]}
       >
-        {leadingIcon ? <Icon name={leadingIcon} className="input__icon" /> : null}
+        <Show when={props.leadingIcon}>{(icon) => <Icon name={icon()} class="input__icon" />}</Show>
         <input
-          ref={ref}
-          id={id}
-          className={cx(
+          ref={(el) => setRef(props.ref, el)}
+          id={id()}
+          class={[
             'input__control',
-            numeric && 'input__control--numeric',
-            mono && 'input__control--mono',
-          )}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={described}
-          readOnly={readOnly}
-          disabled={disabled}
+            { 'input__control--numeric': !!props.numeric, 'input__control--mono': !!props.mono },
+          ]}
+          aria-invalid={ariaTrue(!!props.error)}
+          aria-describedby={props.error || props.hint ? hintId(id()) : undefined}
+          readonly={props.readonly}
+          disabled={props.disabled}
           {...rest}
         />
-        {trailing ? <span className="input__trailing">{trailing}</span> : null}
+        <Show when={trailing()}>
+          <span class="input__trailing">{trailing()}</span>
+        </Show>
       </div>
     </FieldFrame>
   );
@@ -139,22 +131,22 @@ export type PasswordFieldProps = Omit<TextFieldProps, 'type' | 'trailing'>;
 
 /** Pole hasła z przyciskiem „oko” pokazującym wpisaną wartość. */
 export function PasswordField(props: PasswordFieldProps) {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = createSignal(false);
   return (
     <TextField
       {...props}
-      type={visible ? 'text' : 'password'}
-      autoComplete={props.autoComplete ?? 'current-password'}
+      type={visible() ? 'text' : 'password'}
+      autocomplete={props.autocomplete ?? 'current-password'}
       trailing={
         <button
           type="button"
-          className="input__toggle"
-          aria-label={visible ? t.ui.hidePassword : t.ui.showPassword}
-          aria-pressed={visible}
+          class="input__toggle"
+          aria-label={visible() ? t.ui.hidePassword : t.ui.showPassword}
+          aria-pressed={ariaBool(visible())}
           onClick={() => setVisible((v) => !v)}
           disabled={props.disabled}
         >
-          <Icon name={visible ? 'eye-off' : 'eye'} />
+          <Icon name={visible() ? 'eye-off' : 'eye'} />
         </button>
       }
     />
@@ -162,60 +154,55 @@ export function PasswordField(props: PasswordFieldProps) {
 }
 
 export interface SearchFieldProps extends Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  'size' | 'type' | 'value' | 'onChange'
+  JSX.InputHTMLAttributes<HTMLInputElement>,
+  'size' | 'type' | 'value' | 'onInput' | 'onChange'
 > {
   /** Etykieta dla czytnika ekranu (wizualnie zastępuje ją placeholder). */
   readonly label: string;
   readonly value: string;
   readonly onValueChange: (value: string) => void;
+  readonly class?: ClassValue;
 }
 
 /** Wyszukiwarka: pigułka h44 na tle #F1F3F9 z lupą (DS §10). Esc czyści wartość. */
-export function SearchField({
-  label,
-  value,
-  onValueChange,
-  className,
-  onKeyDown,
-  ...rest
-}: SearchFieldProps) {
-  const id = useId();
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Escape' && value !== '') {
+export function SearchField(props: SearchFieldProps) {
+  const id = createUniqueId();
+  const rest = omit(props, 'label', 'value', 'onValueChange', 'class', 'onKeyDown');
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && props.value !== '') {
       event.preventDefault();
       event.stopPropagation();
-      onValueChange('');
+      props.onValueChange('');
     }
-    onKeyDown?.(event);
+    (props.onKeyDown as ((event: KeyboardEvent) => void) | undefined)?.(event);
   };
   return (
-    <div className={cx('search', className)} role="search">
-      <label htmlFor={id} className="sr-only">
-        {label}
+    <div class={['search', props.class]} role="search">
+      <label for={id} class="sr-only">
+        {props.label}
       </label>
-      <Icon name="search" className="search__icon" />
+      <Icon name="search" class="search__icon" />
       <input
         id={id}
         type="search"
-        className="search__control"
-        value={value}
-        onChange={(event) => onValueChange(event.target.value)}
-        onKeyDown={handleKeyDown}
-        enterKeyHint="search"
-        autoComplete="off"
+        class="search__control"
+        value={props.value}
+        onInput={(event) => props.onValueChange(event.currentTarget.value)}
+        onKeyDown={onKeyDown}
+        enterkeyhint="search"
+        autocomplete="off"
         {...rest}
       />
-      {value !== '' ? (
+      <Show when={props.value !== ''}>
         <button
           type="button"
-          className="search__clear"
+          class="search__clear"
           aria-label={t.ui.clearSearch}
-          onClick={() => onValueChange('')}
+          onClick={() => props.onValueChange('')}
         >
           <Icon name="x" size={14} />
         </button>
-      ) : null}
+      </Show>
     </div>
   );
 }
@@ -233,44 +220,34 @@ export interface StepperProps {
   readonly disabled?: boolean | undefined;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 /**
  * Stepper liczbowy h48 z przyciskami − / + (DS §10). Wartość jest `role="spinbutton"`:
  * strzałki góra/dół, Home i End zmieniają ją z klawiatury.
  */
-export function Stepper({
-  label,
-  value,
-  onChange,
-  min = 0,
-  max = Number.MAX_SAFE_INTEGER,
-  step = 1,
-  hint,
-  error,
-  disabled = false,
-}: StepperProps) {
-  const message = error || hint;
-  const id = useId();
+export function Stepper(props: StepperProps) {
+  const id = createUniqueId();
   const labelId = `${id}-label`;
+  const min = () => props.min ?? 0;
+  const max = () => props.max ?? Number.MAX_SAFE_INTEGER;
+  const step = () => props.step ?? 1;
+  const message = () => props.error || props.hint;
   const set = (next: number) => {
-    const clamped = clamp(next, min, max);
-    if (clamped !== value) onChange(clamped);
+    const clamped = Math.min(max(), Math.max(min(), next));
+    if (clamped !== props.value) props.onChange(clamped);
   };
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (disabled) return;
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (props.disabled) return;
+    const value = props.value;
     const actions: Record<string, () => void> = {
-      ArrowUp: () => set(value + step),
-      ArrowRight: () => set(value + step),
-      ArrowDown: () => set(value - step),
-      ArrowLeft: () => set(value - step),
-      PageUp: () => set(value + step * 10),
-      PageDown: () => set(value - step * 10),
-      Home: () => set(min),
+      ArrowUp: () => set(value + step()),
+      ArrowRight: () => set(value + step()),
+      ArrowDown: () => set(value - step()),
+      ArrowLeft: () => set(value - step()),
+      PageUp: () => set(value + step() * 10),
+      PageDown: () => set(value - step() * 10),
+      Home: () => set(min()),
       End: () => {
-        if (max !== Number.MAX_SAFE_INTEGER) set(max);
+        if (max() !== Number.MAX_SAFE_INTEGER) set(max());
       },
     };
     const action = actions[event.key];
@@ -280,54 +257,58 @@ export function Stepper({
     }
   };
   return (
-    <div className="field">
-      <span id={labelId} className="field__label">
-        {label}
+    <div class="field">
+      <span id={labelId} class="field__label">
+        {props.label}
       </span>
       <div
-        className={cx('input', 'stepper', error && 'input--error', disabled && 'input--disabled')}
+        class={[
+          'input',
+          'stepper',
+          { 'input--error': !!props.error, 'input--disabled': !!props.disabled },
+        ]}
       >
         <button
           type="button"
-          className="icon-btn icon-btn--36"
+          class="icon-btn icon-btn--36"
           aria-label={t.ui.decrease}
-          onClick={() => set(value - step)}
-          disabled={disabled || value <= min}
-          tabIndex={-1}
+          onClick={() => set(props.value - step())}
+          disabled={props.disabled || props.value <= min()}
+          tabindex={-1}
         >
           <Icon name="minus" />
         </button>
         <div
           role="spinbutton"
-          tabIndex={disabled ? -1 : 0}
-          className="stepper__value tnum"
+          tabindex={props.disabled ? -1 : 0}
+          class="stepper__value tnum"
           aria-labelledby={labelId}
-          aria-describedby={message ? hintId(id) : undefined}
-          aria-invalid={error ? true : undefined}
-          aria-valuenow={value}
-          aria-valuemin={min}
-          aria-valuemax={max === Number.MAX_SAFE_INTEGER ? undefined : max}
-          aria-disabled={disabled || undefined}
+          aria-describedby={message() ? hintId(id) : undefined}
+          aria-invalid={ariaTrue(!!props.error)}
+          aria-valuenow={props.value}
+          aria-valuemin={min()}
+          aria-valuemax={max() === Number.MAX_SAFE_INTEGER ? undefined : max()}
+          aria-disabled={ariaTrue(props.disabled)}
           onKeyDown={onKeyDown}
         >
-          {value}
+          {props.value}
         </div>
         <button
           type="button"
-          className="icon-btn icon-btn--36"
+          class="icon-btn icon-btn--36"
           aria-label={t.ui.increase}
-          onClick={() => set(value + step)}
-          disabled={disabled || value >= max}
-          tabIndex={-1}
+          onClick={() => set(props.value + step())}
+          disabled={props.disabled || props.value >= max()}
+          tabindex={-1}
         >
           <Icon name="plus" />
         </button>
       </div>
-      {message ? (
-        <p id={hintId(id)} className={cx('field__hint', error && 'field__hint--error')}>
-          {message}
+      <Show when={message()}>
+        <p id={hintId(id)} class={['field__hint', { 'field__hint--error': !!props.error }]}>
+          {message()}
         </p>
-      ) : null}
+      </Show>
     </div>
   );
 }

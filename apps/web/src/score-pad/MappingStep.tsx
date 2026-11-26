@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type {
   ScorePadEditorMapping,
   ScorePadEditorMappingAction,
@@ -8,7 +7,7 @@ import type {
 } from '@bg-club/score-pad';
 import { For, Show } from 'solid-js';
 import { format, plural, t } from '../i18n';
-import { Banner, Button, IconButton, SegmentedControl, Stepper } from '../solid/ui';
+import { Banner, Button, IconButton, SegmentedControl, Stepper } from '../ui';
 import { fewerSeatsMessage } from './messages';
 import { ZoomButtons } from './ZoomButtons';
 

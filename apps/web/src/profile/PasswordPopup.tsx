@@ -1,13 +1,15 @@
-/** @jsxImportSource @solidjs/web */
 import { MIN_PASSWORD_LENGTH } from '@bg-club/accounts';
 import { createMemo, createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
-import { ownProfileKey, type OwnProfile } from '../auth/useOwnProfile';
+import { ownProfileKey, type OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { createMutation } from '../solid/query';
-import { ariaTrue } from '../solid/ui/dom';
-import { Banner, Button, PasswordField } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { createMutation } from '../lib/query';
+import { ariaTrue } from '../ui/dom';
+import { Banner, Button, PasswordField } from '../ui';
 import {
   changePassword,
   dismissPasswordSuggestion,

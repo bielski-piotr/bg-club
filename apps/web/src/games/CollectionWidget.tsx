@@ -1,9 +1,8 @@
-/** @jsxImportSource @solidjs/web */
 import { For, Match, Show, Switch, useContext } from 'solid-js';
 import { plural, t } from '../i18n';
-import { PopupsContext } from '../solid/context';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner, Tray } from '../solid/ui';
+import { PopupsContext } from '../popups/popupContext';
+import { PopupLink } from '../popups/PopupLink';
+import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner, Tray } from '../ui';
 import { GameCover } from './GameCover';
 import { createCollectionWidget } from './gameData';
 import { playersLabel } from './labels';

@@ -2,11 +2,11 @@ import type { JSX } from '@solidjs/web';
 import { children, type Accessor } from 'solid-js';
 
 /*
- * Pomocnicze typy i funkcje komponentów Solid (`src/solid/ui`): odpowiedniki tego, co w React
- * dawał sam renderer (liczby w `style` jako px, ref-obiekty, wywołanie handlera z propsów).
+ * Pomocnicze typy i funkcje komponentów `src/ui`: liczby w `style` jako px, refy i wywołanie
+ * handlera z propsów.
  */
 
-/** Wartość `class` w Solid: tekst, tablica albo obiekt przełączników. */
+/** Wartość `class`: tekst, tablica albo obiekt przełączników. */
 export type ClassValue = JSX.HTMLAttributes<HTMLElement>['class'];
 
 /**
@@ -23,7 +23,7 @@ export function createSlot(read: () => JSX.Element): Accessor<JSX.Element | unde
   };
 }
 
-/** Liczba jako px, jak w `style` Reacta (`width: 36` → `36px`). */
+/** Liczba jako px (`width: 36` → `36px`). */
 export function px(value: number | string | undefined): string | undefined {
   return typeof value === 'number' ? `${value}px` : value;
 }
@@ -53,7 +53,7 @@ export function ariaBool(value: boolean): 'true' | 'false' {
   return value ? 'true' : 'false';
 }
 
-/** `true` jako `"true"`, inaczej brak atrybutu (React: `aria-busy={loading || undefined}`). */
+/** `true` jako `"true"`, inaczej brak atrybutu (np. `aria-busy` tylko w trakcie). */
 export function ariaTrue(value: boolean | undefined): 'true' | undefined {
   return value ? 'true' : undefined;
 }

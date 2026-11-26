@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type { JSX } from '@solidjs/web';
 import { Show } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
@@ -13,9 +12,9 @@ import {
   type LeaderboardFilters,
 } from './filters';
 import { todayIn } from '../meetings/datetime';
-import { createClub } from '../solid/club';
-import { Button } from '../solid/ui/Button';
-import { createSlot } from '../solid/ui/dom';
+import { createClub } from '../club/clubData';
+import { Button } from '../ui/Button';
+import { createSlot } from '../ui/dom';
 import { DateRangeCalendar } from './DateRangeCalendar';
 import { FilterPopover } from './FilterPopover';
 import { GameFilterPanel } from './GameFilter';

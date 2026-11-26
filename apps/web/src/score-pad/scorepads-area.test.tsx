@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type { ScorePadEditorStatus } from '@bg-club/score-pad';
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, within } from '@solidjs/testing-library';
@@ -8,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
 import { gameKey, gameSearchKey, gamesKey, type Game } from '../games/games';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { AreaPanel, AreaToolbar } from './AreaStep';
 import { CategoriesPanel, CategoriesToolbar } from './CategoriesStep';
 import { ManualTieControls } from './ManualTieControls';
@@ -19,8 +18,7 @@ import { gameScorepadsKey, scorepadKey, type Scorepad } from './scorepads';
 import { ScorepadsPopup } from './ScorepadsPopup';
 
 /*
- * Obszar Notesy w Solid (etap 5b, docs/solidjs-2-migration.md). Zachowanie sprawdzają
- * `src/hub/Scorepads.test.tsx` (lista i dialogi w hoście React), `ScorepadWizard.test.tsx`
+ * Obszar Notesy. Zachowanie sprawdzają `src/hub/Scorepads.test.tsx` (lista i dialogi w hubie), `ScorepadWizard.test.tsx`
  * (kreator) i `ScorePadView.test.tsx` (notes i edytor); tu bramka bez kodów diagnostyki Solid
  * dla renderu i interakcji paneli kreatora, listy i dialogów (skill agent-loops, pętla 1).
  */
@@ -172,7 +170,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
   it('lista notesów i dialogi zmiany nazwy, przeniesienia i usunięcia', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const list = renderSolid(() => <ScorepadsPopup gameId={GAME.id} isAdmin />, host());
+        const list = renderWithProviders(() => <ScorepadsPopup gameId={GAME.id} isAdmin />, host());
         await settle();
         const dialog = within(list.container).getByRole('dialog');
         expect(dialog).toHaveTextContent('Turniejowy');
@@ -181,7 +179,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
         expect(within(dialog).getAllByRole('menuitem').length).toBeGreaterThan(0);
         list.unmount();
 
-        const rename = renderSolid(() => <RenameScorepadDialog id={PAD.id} />, host());
+        const rename = renderWithProviders(() => <RenameScorepadDialog id={PAD.id} />, host());
         await settle();
         const field = within(rename.container).getByLabelText('Nazwa notesu');
         expect(field).toHaveValue('Turniejowy');
@@ -191,7 +189,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
         expect(rename.container).toHaveTextContent('Wpisz nazwę notesu.');
         rename.unmount();
 
-        const move = renderSolid(() => <MoveScorepadPopup id={PAD.id} />, host());
+        const move = renderWithProviders(() => <MoveScorepadPopup id={PAD.id} />, host());
         await settle();
         fireEvent.click(within(move.container).getByRole('button', { name: /Gra albo dodatek/ }));
         await settle();
@@ -200,7 +198,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
         expect(within(move.container).getByRole('button', { name: 'Przenieś' })).toBeEnabled();
         move.unmount();
 
-        const remove = renderSolid(() => <DeleteScorepadDialog id={PAD.id} />, host());
+        const remove = renderWithProviders(() => <DeleteScorepadDialog id={PAD.id} />, host());
         await settle();
         expect(remove.container).toHaveTextContent('Turniejowy');
         remove.unmount();
@@ -213,7 +211,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
   it('panele kreatora: zdjęcie, obszar, mapowanie, kategorie, remisy', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const photo = renderSolid(
+        const photo = renderWithProviders(
           () => (
             <PhotoStep
               photoUrl=""
@@ -233,7 +231,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
         photo.unmount();
 
         const onArea = vi.fn();
-        const area = renderSolid(
+        const area = renderWithProviders(
           () => (
             <div>
               <AreaToolbar
@@ -258,7 +256,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
         area.unmount();
 
         const onMapping = vi.fn();
-        const mapping = renderSolid(
+        const mapping = renderWithProviders(
           () => (
             <div>
               <MappingToolbar
@@ -282,7 +280,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
         expect(mapping.container.querySelector('.wizard-panel, .wizard-toolbar')).not.toBeNull();
         mapping.unmount();
 
-        const categories = renderSolid(
+        const categories = renderWithProviders(
           () => (
             <div>
               <CategoriesToolbar
@@ -305,7 +303,7 @@ describe('obszar Notesy bez diagnostyki Solid', () => {
         categories.unmount();
 
         const onTies = vi.fn();
-        const ties = renderSolid(
+        const ties = renderWithProviders(
           () => (
             <ManualTieControls
               groups={[[0, 1]]}

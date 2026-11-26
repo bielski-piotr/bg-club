@@ -348,7 +348,7 @@ export function stackSearch(search: string, stack: readonly PopupRoute[]): strin
   return parts.length > 0 ? `?${parts.join('&')}` : '';
 }
 
-/** Stały klucz popupu na danym poziomie stosu (klucz Reacta, porównania). */
+/** Stały klucz popupu na danym poziomie stosu (klucz wpisu w `PopupHost`, porównania). */
 export function routeKey(route: PopupRoute, level: number): string {
   return `${level}:${serializeRoute(route)}`;
 }

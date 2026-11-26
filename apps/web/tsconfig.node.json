@@ -11,7 +11,6 @@
   },
   "include": [
     "vite.config.ts",
-    "solid-files.d.ts",
     "playwright.config.ts",
     "e2e",
     "src/config/secretKey.ts",

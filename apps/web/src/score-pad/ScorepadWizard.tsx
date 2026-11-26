@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type {
   ScorePadEditorCategoriesAction,
   ScorePadEditorMappingAction,
@@ -10,13 +9,15 @@ import type {
 import { createEffect, createMemo, createSignal, For, onSettled, Show, useContext } from 'solid-js';
 import type { Game } from '../games/games';
 import { format, t } from '../i18n';
-import type { LeaveGuard } from '../popups/popupContext';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { createLeaveGuard } from '../solid/popups/leaveGuard';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation } from '../solid/query';
-import { Banner, Button, Dialog, Icon, Spinner } from '../solid/ui';
+import { type LeaveGuard, PopupsContext } from '../popups/popupContext';
+import { AuthContext } from '../auth/authContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { createLeaveGuard } from '../popups/leaveGuard';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation } from '../lib/query';
+import { Banner, Button, Dialog, Icon, Spinner } from '../ui';
 import { AreaPanel, AreaToolbar } from './AreaStep';
 import { CategoriesPanel, CategoriesToolbar } from './CategoriesStep';
 import type { ScorePadLoadState } from './createScorePadElement';
@@ -661,7 +662,7 @@ function ConfirmDialog(props: {
   const destructive = () =>
     props.confirm.kind === 'leave' || props.confirm.kind === 'changeMapping';
   let cancel: HTMLButtonElement | undefined;
-  // Fokus na „Anuluj” po otwarciu (w React `autoFocus`; atrybut nie działa na wstawionym węźle).
+  // Fokus na „Anuluj” po otwarciu (`autofocus` nie działa na wstawionym węźle).
   onSettled(() => {
     cancel?.focus();
   });

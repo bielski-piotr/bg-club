@@ -1,23 +1,14 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, Show, useContext } from 'solid-js';
 import { format, plural, t } from '../i18n';
 import { fullName } from '../profile/profileQueries';
-import { AuthContext, PopupsContext } from '../solid/context';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { createMembers } from '../solid/profile/profiles';
-import {
-  Badge,
-  Button,
-  createChunks,
-  EmptyState,
-  Icon,
-  SearchField,
-  ShowMore,
-  Tray,
-} from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { PopupLink } from '../popups/PopupLink';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { createMembers } from '../profile/profiles';
+import { Badge, Button, createChunks, EmptyState, Icon, SearchField, ShowMore, Tray } from '../ui';
 import { filterMembers } from './search';
 import './members.css';
 

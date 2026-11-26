@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { format, plural, t } from '../i18n';
 import { isUuid } from '../popups/routes';
 import { todayIn, localDateTime } from './datetime';

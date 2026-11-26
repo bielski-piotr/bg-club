@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
@@ -9,7 +8,7 @@ import { gameSearchKey } from '../games/games';
 import { clubKey } from '../club/club';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, type Profile } from '../profile/profileQueries';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { NO_FILTERS } from './filters';
 import { leaderboardKey, type LeaderboardEntry } from './leaderboard';
 import { LeaderboardPopup } from './LeaderboardPopup';
@@ -17,7 +16,7 @@ import { RankingWidget } from './RankingWidget';
 import { TiesPopup } from './TiesPopup';
 
 /*
- * Obszar Ranking w Solid (etap 4, docs/solidjs-2-migration.md). Zachowanie w hubie sprawdzają
+ * Obszar Ranking. Zachowanie w hubie sprawdzają
  * `src/hub/Hub.test.tsx` i e2e `leaderboard.spec.ts`; tu bramka bez kodów diagnostyki Solid dla
  * renderu i interakcji (skill agent-loops, pętla 1).
  */
@@ -107,7 +106,7 @@ describe('obszar Ranking bez diagnostyki Solid', () => {
   it('widżet z zakładkami i filtrami, pełny ranking, remisy', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const widget = renderSolid(() => <RankingWidget me={ME} />, host());
+        const widget = renderWithProviders(() => <RankingWidget me={ME} />, host());
         await settle();
         const card = widget.container;
         expect(within(card).getByRole('list', { name: 'Podium' })).toHaveTextContent('Ada');
@@ -125,7 +124,7 @@ describe('obszar Ranking bez diagnostyki Solid', () => {
         expect(within(card).getByRole('button', { name: /Wyczyść filtry/ })).toBeInTheDocument();
         widget.unmount();
 
-        const popup = renderSolid(
+        const popup = renderWithProviders(
           () => <LeaderboardPopup me={ME} tab="wins" filters={undefined} />,
           host(),
         );
@@ -144,7 +143,7 @@ describe('obszar Ranking bez diagnostyki Solid', () => {
         await settle();
         popup.unmount();
 
-        const ties = renderSolid(() => <TiesPopup me={ME} tab="points" />, host());
+        const ties = renderWithProviders(() => <TiesPopup me={ME} tab="points" />, host());
         await settle();
         expect(within(ties.container).getByRole('dialog')).toHaveTextContent('Wieczór');
         ties.unmount();

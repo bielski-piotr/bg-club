@@ -1,14 +1,16 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, Match, Show, Switch, useContext } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { createGameSearch } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
 import { format, plural, t } from '../i18n';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { createMounted } from '../solid/popups/leaveGuard';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation } from '../solid/query';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { createMounted } from '../popups/leaveGuard';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation } from '../lib/query';
 import {
   Badge,
   Banner,
@@ -18,7 +20,7 @@ import {
   normalizeSearch,
   SearchField,
   Tray,
-} from '../solid/ui';
+} from '../ui';
 import { createMeeting, createMeetingVotes, createPublishedGames } from './meetingData';
 import { meetingsKey } from './meetings';
 import {

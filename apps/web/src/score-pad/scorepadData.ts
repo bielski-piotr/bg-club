@@ -1,7 +1,7 @@
 import { useContext, type Accessor } from 'solid-js';
 import { signedUrlQuery } from '../lib/storage';
-import { AuthContext } from '../solid/context';
-import { createQuery } from '../solid/query';
+import { AuthContext } from '../auth/authContext';
+import { createQuery } from '../lib/query';
 import {
   activeScorepadsQuery,
   gameScorepadsQuery,
@@ -12,7 +12,7 @@ import {
 } from './scorepads';
 
 /*
- * Zapytania o notesy w Solid: te same opcje co w React na wspólnym cache. Parametry jako
+ * Zapytania o notesy: opcje z `scorepads.ts` na wspólnym cache. Parametry jako
  * akcesory.
  */
 

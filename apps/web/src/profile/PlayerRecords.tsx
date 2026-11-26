@@ -1,18 +1,17 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, Match, Show, Switch, useContext } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { formatScore } from '../games/gameStatsData';
 import { format, t } from '../i18n';
 import { hasFilters, NO_FILTERS, type LeaderboardFilters } from '../leaderboard/filters';
 import { shortMeetingDate } from '../meetings/datetime';
-import { createClub } from '../solid/club';
-import { AuthContext } from '../solid/context';
+import { createClub } from '../club/clubData';
+import { AuthContext } from '../auth/authContext';
 import { GameCover } from '../games/GameCover';
 import { FilterBar } from '../leaderboard/FilterBar';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createQuery } from '../solid/query';
-import { EmptyState, Icon, Select, type SelectOption } from '../solid/ui';
+import { PopupLink } from '../popups/PopupLink';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createQuery } from '../lib/query';
+import { EmptyState, Icon, Select, type SelectOption } from '../ui';
 import {
   playerRecordsQuery,
   visibleRecords,

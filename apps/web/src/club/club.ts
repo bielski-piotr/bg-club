@@ -20,7 +20,7 @@ export const CLUB_NAME_MAX = 80;
 const CLUB_COLUMNS = 'name, logo_path, timezone';
 
 /**
- * Zapytanie o klub (bez frameworka): wspólne dla huba (React), wysp Solid (`createClub`)
+ * Zapytanie o klub (bez frameworka): wspólne dla huba i nagłówka (`createClub`)
  * i prefetchu w `SignedInScreen` (NFR-2). Klub albo `null`, gdy nie został założony (CLUB-1).
  */
 export function clubQuery(client: SupabaseClient) {

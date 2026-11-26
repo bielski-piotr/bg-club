@@ -1,7 +1,6 @@
-/** @jsxImportSource @solidjs/web */
 import type { ScorePadEditorStatus, ScorePadZoomAction } from '@bg-club/score-pad';
 import { t } from '../i18n';
-import { IconButton } from '../solid/ui';
+import { IconButton } from '../ui';
 
 const text = t.scorepads.wizard.zoom;
 

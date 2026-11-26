@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, Match, Switch, untrack } from 'solid-js';
 import { format, t } from '../i18n';
 import { monthName, pickDay, shortMonthName, YEARS_PAGE, yearsPageStart } from './rangeCalendar';
@@ -10,8 +9,8 @@ import {
   shiftMonth,
   type YearMonth,
 } from '../meetings/calendar';
-import { ariaBool } from '../solid/ui/dom';
-import { IconButton } from '../solid/ui/Button';
+import { ariaBool } from '../ui/dom';
+import { IconButton } from '../ui/Button';
 
 type View = 'days' | 'months' | 'years';
 
@@ -143,7 +142,7 @@ export function DateRangeCalendar(props: DateRangeCalendarProps) {
             <div class="range-calendar__weekdays" aria-hidden="true">
               <For each={t.meetings.calendar.weekdays}>{(day) => <span>{day}</span>}</For>
             </div>
-            {/* Klucze po dacie (jak `key` w React): dzień widoczny w obu miesiącach zostaje tym
+            {/* Klucze po dacie: dzień widoczny w obu miesiącach zostaje tym
                 samym przyciskiem po zmianie miesiąca, więc nie traci fokusu (Esc zamyka panel). */}
             <For each={monthGrid(month())} keyed={(week) => week[0]?.date}>
               {(week) => (

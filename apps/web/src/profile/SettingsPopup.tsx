@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { NAME_MAX_LENGTH } from '@bg-club/accounts';
 import {
   createMemo,
@@ -12,14 +11,17 @@ import {
   untrack,
   useContext,
 } from 'solid-js';
-import { ownProfileKey, type OwnProfile } from '../auth/useOwnProfile';
+import { ownProfileKey, type OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { createAvatarUrl } from '../solid/profile/profiles';
-import { createMutation } from '../solid/query';
-import { createTheme } from '../solid/theme';
-import { Avatar, Banner, Button, Icon, SegmentedControl, Spinner, TextField } from '../solid/ui';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { createAvatarUrl } from './profiles';
+import { createMutation } from '../lib/query';
+import { createTheme } from '../theme/createTheme';
+import { Avatar, Banner, Button, Icon, SegmentedControl, Spinner, TextField } from '../ui';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme';
 import { getThemePreference } from '../theme/themeStore';
 import { AvatarCropper, CROP_VIEW } from './AvatarCropper';

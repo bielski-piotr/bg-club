@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { fireEvent as fire, render, screen, within } from '@solidjs/testing-library';
 import { createSignal, flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';

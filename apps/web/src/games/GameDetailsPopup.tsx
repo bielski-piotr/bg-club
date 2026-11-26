@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { For, Match, Show, Switch, useContext } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, plural, t } from '../i18n';
@@ -6,13 +5,13 @@ import { formatMeetingDate } from '../meetings/datetime';
 import type { PopupRoute } from '../popups/routes';
 import { createGameSheets } from '../sheets/sheetData';
 import type { GallerySheet } from '../sheets/sheets';
-import { createClub } from '../solid/club';
-import { PopupsContext } from '../solid/context';
+import { createClub } from '../club/clubData';
+import { PopupsContext } from '../popups/popupContext';
 import { SheetThumbnail } from '../meetings/MeetingParts';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { Button, EmptyState, Icon, ListRow, Menu, Tray } from '../solid/ui';
+import { PopupLink } from '../popups/PopupLink';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { Button, EmptyState, Icon, ListRow, Menu, Tray } from '../ui';
 import { GameCover } from './GameCover';
 import { GameStatsSection } from './GameStats';
 import { createExpansions, createGame, createGameVoteTotal } from './gameData';

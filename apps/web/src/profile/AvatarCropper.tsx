@@ -1,8 +1,7 @@
-/** @jsxImportSource @solidjs/web */
 import { createEffect, createSignal, onSettled, Show } from 'solid-js';
 import { format, t } from '../i18n';
-import { px } from '../solid/ui/dom';
-import { Slider } from '../solid/ui';
+import { px } from '../ui/dom';
+import { Slider } from '../ui';
 import {
   clampCrop,
   imageBox,

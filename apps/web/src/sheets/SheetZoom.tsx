@@ -1,7 +1,6 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, onSettled } from 'solid-js';
 import { format, t } from '../i18n';
-import { IconButton } from '../solid/ui';
+import { IconButton } from '../ui';
 
 const text = t.sheets.zoom;
 

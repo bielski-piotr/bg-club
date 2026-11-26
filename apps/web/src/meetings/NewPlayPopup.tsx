@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import type { JSX } from '@solidjs/web';
 import {
   createEffect,
@@ -11,7 +10,7 @@ import {
   Switch,
   useContext,
 } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { GameCover } from '../games/GameCover';
 import { createAllExpansions, createGameSearch } from '../games/gameData';
 import { gamesKey, type Game } from '../games/games';
@@ -19,15 +18,18 @@ import { format, plural, t } from '../i18n';
 import { compareProfiles, fullName, type Profile } from '../profile/profileQueries';
 import { createActiveScorepads } from '../score-pad/scorepadData';
 import { scorepadsKey, type Scorepad } from '../score-pad/scorepads';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { createMounted } from '../solid/popups/leaveGuard';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { createAllProfiles } from '../solid/profile/profiles';
-import { createMutation } from '../solid/query';
-import { Banner, Button, EmptyState, Icon, SearchField, Tray } from '../solid/ui';
-import { ariaBool } from '../solid/ui/dom';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { createMounted } from '../popups/leaveGuard';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { createAllProfiles } from '../profile/profiles';
+import { createMutation } from '../lib/query';
+import { Banner, Button, EmptyState, Icon, SearchField, Tray } from '../ui';
+import { ariaBool } from '../ui/dom';
 import { createMeeting, createPublishedGames } from './meetingData';
 import { SheetThumbnail } from './MeetingParts';
 import { meetingsKey, type Meeting } from './meetings';

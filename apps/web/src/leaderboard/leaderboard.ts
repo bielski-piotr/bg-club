@@ -107,7 +107,7 @@ export function leaderboardArgs(kind: LeaderboardKind, filters: LeaderboardFilte
   };
 }
 
-/** Opcje zapytania rankingu (wspólny cache, `createQuery` w Solid). */
+/** Opcje zapytania rankingu (wspólny cache, `createQuery`). */
 export function leaderboardQuery(
   client: SupabaseClient,
   kind: LeaderboardKind,

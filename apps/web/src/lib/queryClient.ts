@@ -1,4 +1,5 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/query-core';
+import { createContext } from 'solid-js';
 
 /** Cache danych z Supabase (PRD §8.1, Q13). */
 export function createQueryClient(): QueryClient {
@@ -8,3 +9,6 @@ export function createQueryClient(): QueryClient {
     },
   });
 }
+
+/** Wspólny cache zapytań aplikacji (`createQuery`, `createMutation` w `lib/query.ts`). */
+export const QueryClientContext = createContext<QueryClient>();

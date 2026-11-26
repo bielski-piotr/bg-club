@@ -1,10 +1,9 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, Match, Show, Switch, untrack } from 'solid-js';
 import { plural, t } from '../i18n';
 import type { Profile } from '../profile/profileQueries';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { EmptyState, Tabs } from '../solid/ui';
-import { ariaBool } from '../solid/ui/dom';
+import { PopupModal } from '../popups/PopupModal';
+import { EmptyState, Tabs } from '../ui';
+import { ariaBool } from '../ui/dom';
 import { BoardError, BoardLoading } from './BoardStatus';
 import { FilterBar } from './FilterBar';
 import { LeaderboardBoard } from './LeaderboardBoard';

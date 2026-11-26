@@ -1,6 +1,5 @@
-/** @jsxImportSource @solidjs/web */
 import { For } from 'solid-js';
-import { notFocusable } from '../solid/ui/dom';
+import { notFocusable } from '../ui/dom';
 /**
  * Jedyna ilustracja aplikacji (DS §14, §17): stół z planszówkami widziany z góry. Płaskie
  * kształty, linie włosowe tylko w kolorze ramki. Stół, cień i ciemna kostka biorą kolory

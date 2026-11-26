@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, screen, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
@@ -7,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import type { Profile } from '../profile/profileQueries';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { AppHeader } from './AppHeader';
 import { clubKey, type Club } from './club';
 import { ClubLogo } from './ClubLogo';
@@ -15,8 +14,7 @@ import { ClubPopup } from './ClubPopup';
 import { FirstRun } from './FirstRun';
 
 /*
- * Klub i nagłówek w Solid (etap 7, docs/solidjs-2-migration.md). Zachowanie w hubie sprawdza
- * `src/hub/Hub.test.tsx` (wyspy w prawdziwym hoście React); tu bramka bez kodów diagnostyki
+ * Klub i nagłówek. Zachowanie w hubie sprawdza `src/hub/Hub.test.tsx`; tu bramka bez kodów diagnostyki
  * Solid dla renderu i interakcji (skill agent-loops, pętla 1).
  */
 
@@ -75,16 +73,16 @@ describe('obszar Klub bez diagnostyki Solid', () => {
   it('nagłówek, pierwsze uruchomienie, logo i formularz klubu', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const loading = renderSolid(() => <AppHeader club={undefined} me={ME} />, host());
+        const loading = renderWithProviders(() => <AppHeader club={undefined} me={ME} />, host());
         expect(within(loading.container).getByText('Ładowanie…')).toBeInTheDocument();
         loading.unmount();
 
-        const bare = renderSolid(() => <AppHeader club="none" me={ME} />, host());
+        const bare = renderWithProviders(() => <AppHeader club="none" me={ME} />, host());
         expect(bare.container.querySelector('.app-header--bare')).toBeInTheDocument();
         bare.unmount();
 
         const shared = host();
-        const header = renderSolid(() => <AppHeader club={CLUB} me={ME} />, shared);
+        const header = renderWithProviders(() => <AppHeader club={CLUB} me={ME} />, shared);
         expect(
           within(header.container).getByRole('heading', { level: 1, name: 'Planszówki' }),
         ).toBeInTheDocument();
@@ -97,12 +95,12 @@ describe('obszar Klub bez diagnostyki Solid', () => {
         expect(shared.auth.signOut).toHaveBeenCalled();
         header.unmount();
 
-        const firstRun = renderSolid(() => <FirstRun isAdmin />, host());
+        const firstRun = renderWithProviders(() => <FirstRun isAdmin />, host());
         expect(firstRun.container.querySelector('.first-run__art')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Dodaj klub' })).toBeInTheDocument();
         firstRun.unmount();
 
-        const logo = renderSolid(
+        const logo = renderWithProviders(
           () => <ClubLogo name="Planszówki" src="/zly.png" size={36} />,
           host(),
         );
@@ -114,7 +112,7 @@ describe('obszar Klub bez diagnostyki Solid', () => {
         expect(logo.container).toHaveTextContent('P');
         logo.unmount();
 
-        const popup = renderSolid(() => <ClubPopup />, host());
+        const popup = renderWithProviders(() => <ClubPopup />, host());
         const dialog = screen.getByRole('dialog', { name: 'Edytuj klub' });
         const name = within(dialog).getByLabelText('Nazwa klubu');
         expect(name).toHaveValue('Planszówki');

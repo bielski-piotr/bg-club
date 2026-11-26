@@ -1,10 +1,10 @@
 import { useContext, type Accessor } from 'solid-js';
-import { AuthContext } from '../solid/context';
-import { createQuery } from '../solid/query';
+import { AuthContext } from '../auth/authContext';
+import { createQuery } from '../lib/query';
 import { gameSheetsQuery, savedSheetQuery, sheetImageUrlQuery } from './sheets';
 
 /*
- * Zapytania o karteczki w Solid: opcje z `sheets.ts` na wspólnym cache. Parametry jako akcesory.
+ * Zapytania o karteczki: opcje z `sheets.ts` na wspólnym cache. Parametry jako akcesory.
  */
 
 /** Podpisany adres obrazu karteczki; bez ścieżki zapytanie jest wyłączone. */

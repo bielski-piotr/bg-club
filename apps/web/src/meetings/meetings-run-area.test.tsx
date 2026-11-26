@@ -1,17 +1,16 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
 import { flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { gameSearchKey, type Game } from '../games/games';
 import { clubKey } from '../club/club';
 import { format, t } from '../i18n';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, membersKey, type Profile } from '../profile/profileQueries';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { MeetingPopup } from './MeetingPopup';
 import { MeetingWidget } from './MeetingWidget';
 import { hubMeetingKey, meetingKey, type Meeting } from './meetings';
@@ -25,7 +24,7 @@ import { meetingGamesKey, meetingVotesKey } from './voting';
 
 // Sekcja terminów należy do innej części etapu 6; tu wystarczy pusta atrapa.
 /*
- * Obszar Spotkanie i przebieg spotkania w Solid (etap 6b, docs/solidjs-2-migration.md).
+ * Obszar Spotkanie i przebieg spotkania.
  * Zachowanie sprawdzają e2e (`meetings.spec.ts`, `meeting-run.spec.ts`, `voting.spec.ts`,
  * `hub.spec.ts`); tu bramka bez kodów diagnostyki Solid dla renderu i interakcji (skill
  * agent-loops, pętla 1). Dane są fikcyjne.
@@ -236,7 +235,7 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
   it('widżet w każdym stanie, menu i odliczanie', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const voting = renderSolid(() => <MeetingWidget me={ME} />, host(VOTING));
+        const voting = renderWithProviders(() => <MeetingWidget me={ME} />, host(VOTING));
         await settle();
         const card = within(voting.container);
         expect(card.getByRole('button', { name: VOTING.title })).toBeInTheDocument();
@@ -251,12 +250,12 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
         await settle();
         voting.unmount();
 
-        const chosen = renderSolid(() => <MeetingWidget me={ME} />, host(CHOSEN));
+        const chosen = renderWithProviders(() => <MeetingWidget me={ME} />, host(CHOSEN));
         await settle();
         expect(within(chosen.container).getByText(AZUL.title)).toBeInTheDocument();
         chosen.unmount();
 
-        const live = renderSolid(() => <MeetingWidget me={ME} />, host(LIVE));
+        const live = renderWithProviders(() => <MeetingWidget me={ME} />, host(LIVE));
         await settle();
         expect(within(live.container).getByText(t.hub.meeting.live)).toBeInTheDocument();
         const playsTray = within(live.container).getByRole('list', {
@@ -265,7 +264,7 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
         expect(within(playsTray).getAllByRole('listitem')).toHaveLength(2);
         live.unmount();
 
-        const empty = renderSolid(() => <MeetingWidget me={ME} />, host(null));
+        const empty = renderWithProviders(() => <MeetingWidget me={ME} />, host(null));
         await settle();
         fireEvent.click(within(empty.container).getByRole('button', { name: t.hub.meeting.plan }));
         empty.unmount();
@@ -278,7 +277,7 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
   it('popup spotkania: głosowanie, lista gier, partie i podsumowanie', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const voting = renderSolid(() => <MeetingPopup id={VOTING.id} me={ME} />, host());
+        const voting = renderWithProviders(() => <MeetingPopup id={VOTING.id} me={ME} />, host());
         await settle();
         const view = within(voting.container).getByRole('dialog');
         expect(view).toHaveTextContent(VOTING.title);
@@ -301,14 +300,14 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
         expect(within(view).getAllByRole('menuitem').length).toBeGreaterThan(0);
         voting.unmount();
 
-        const chosen = renderSolid(() => <MeetingPopup id={CHOSEN.id} me={ME} />, host());
+        const chosen = renderWithProviders(() => <MeetingPopup id={CHOSEN.id} me={ME} />, host());
         await settle();
         expect(
           within(chosen.container).getByRole('list', { name: t.meetings.voting.playingLabel }),
         ).toBeInTheDocument();
         chosen.unmount();
 
-        const live = renderSolid(() => <MeetingPopup id={LIVE.id} me={ME} />, host());
+        const live = renderWithProviders(() => <MeetingPopup id={LIVE.id} me={ME} />, host());
         await settle();
         const run = within(live.container).getByRole('dialog');
         expect(
@@ -322,14 +321,17 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
         );
         live.unmount();
 
-        const done = renderSolid(() => <MeetingPopup id={DONE.id} me={ME} />, host());
+        const done = renderWithProviders(() => <MeetingPopup id={DONE.id} me={ME} />, host());
         await settle();
         expect(within(done.container).getByRole('dialog')).toHaveTextContent(
           t.meetings.status.finished,
         );
         done.unmount();
 
-        const missing = renderSolid(() => <MeetingPopup id={id('d000', 99)} me={ME} />, host());
+        const missing = renderWithProviders(
+          () => <MeetingPopup id={id('d000', 99)} me={ME} />,
+          host(),
+        );
         await settle();
         missing.unmount();
       },
@@ -341,7 +343,10 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
   it('publikacja gier i dialogi przebiegu', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const publish = renderSolid(() => <PublishGamesPopup id={VOTING.id} me={ME} />, host());
+        const publish = renderWithProviders(
+          () => <PublishGamesPopup id={VOTING.id} me={ME} />,
+          host(),
+        );
         await settle();
         const form = within(publish.container).getByRole('dialog');
         const boxes = within(form).getAllByRole('checkbox');
@@ -356,7 +361,10 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
         await settle();
         publish.unmount();
 
-        const start = renderSolid(() => <StartMeetingDialog id={VOTING.id} me={ME} />, host());
+        const start = renderWithProviders(
+          () => <StartMeetingDialog id={VOTING.id} me={ME} />,
+          host(),
+        );
         await settle();
         expect(within(start.container).getByRole('dialog')).toHaveTextContent(
           t.meetings.run.startTitle,
@@ -367,7 +375,10 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
         await settle();
         start.unmount();
 
-        const finish = renderSolid(() => <FinishMeetingDialog id={LIVE.id} me={ME} />, host());
+        const finish = renderWithProviders(
+          () => <FinishMeetingDialog id={LIVE.id} me={ME} />,
+          host(),
+        );
         await settle();
         await vi.waitFor(() =>
           expect(within(finish.container).getByRole('dialog')).toHaveTextContent(
@@ -376,7 +387,7 @@ describe('obszar Spotkanie bez diagnostyki Solid', () => {
         );
         finish.unmount();
 
-        const reopen = renderSolid(() => <ReopenMeetingDialog id={DONE.id} />, host());
+        const reopen = renderWithProviders(() => <ReopenMeetingDialog id={DONE.id} />, host());
         await settle();
         expect(within(reopen.container).getByRole('dialog')).toHaveTextContent(
           t.meetings.run.reopenTitle,

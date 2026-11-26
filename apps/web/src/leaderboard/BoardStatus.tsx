@@ -1,6 +1,5 @@
-/** @jsxImportSource @solidjs/web */
 import { t } from '../i18n';
-import { Banner, Button, Skeleton, Spinner } from '../solid/ui';
+import { Banner, Button, Skeleton, Spinner } from '../ui';
 
 /** Stany rankingu wspólne dla widżetu i popupu: błąd z ponowieniem i wczytywanie. */
 export function BoardError(props: { readonly onRetry: () => void }) {

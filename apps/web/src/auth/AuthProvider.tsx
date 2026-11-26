@@ -1,14 +1,15 @@
 import { hookToEmail } from '@bg-club/accounts';
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
-import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AuthContext, type AuthNotice, type AuthState } from './authContext';
+import type { JSX } from '@solidjs/web';
+import { createSignal, onSettled, useContext } from 'solid-js';
+import { QueryClientContext } from '../lib/queryClient';
 import { clearPopupsFromUrl } from '../popups/url';
+import { AuthContext, type AuthContextValue, type AuthNotice, type AuthState } from './authContext';
 import { loginErrorKind } from './errors';
 
 interface AuthProviderProps {
   readonly client: SupabaseClient;
-  readonly children: ReactNode;
+  readonly children: JSX.Element;
 }
 
 /** Ta sama sesja (np. ponowne powiadomienie o niej) nie zmienia stanu ani nie renderuje aplikacji. */
@@ -35,79 +36,84 @@ function isExpired(session: Session): boolean {
  * - Zmiana użytkownika czyści cache zapytań i popupy z adresu, żeby dane poprzedniej sesji nie
  *   zostały na ekranie.
  */
-export function AuthProvider({ client, children }: AuthProviderProps) {
-  const queryClient = useQueryClient();
-  const [state, setState] = useState<AuthState>({ status: 'loading' });
+export function AuthProvider(props: AuthProviderProps) {
+  const queryClient = useContext(QueryClientContext);
+  const [state, setState] = createSignal<AuthState>({ status: 'loading' });
+  /** Ostatni stan zapisany w tej karcie (sygnał pokazuje go dopiero po flushu). */
+  let current: AuthState = { status: 'loading' };
   /** Powód najbliższego wylogowania zleconego przez aplikację (`null` = użytkownik sam). */
-  const pendingNotice = useRef<AuthNotice | null | undefined>(undefined);
-  const userId = useRef<string | null>(null);
+  let pendingNotice: AuthNotice | null | undefined;
+  let userId: string | null = null;
 
-  useEffect(() => {
+  const update = (next: AuthState) => {
+    if (next === current) return;
+    current = next;
+    setState(next);
+  };
+
+  onSettled(() => {
     const handle = (event: AuthChangeEvent, session: Session | null) => {
       const nextUser = session?.user.id ?? null;
-      if (nextUser !== userId.current) {
-        if (userId.current !== null) {
+      if (nextUser !== userId) {
+        if (userId !== null) {
           queryClient.clear();
           // Popupy poprzedniej sesji (np. jej profil) nie czekają na kolejną osobę.
           clearPopupsFromUrl();
         }
-        userId.current = nextUser;
+        userId = nextUser;
       }
 
       if (session) {
-        setState((prev) => (sameSession(prev, session) ? prev : { status: 'signedIn', session }));
+        if (!sameSession(current, session)) update({ status: 'signedIn', session });
         return;
       }
 
-      const requested = pendingNotice.current;
-      pendingNotice.current = undefined;
-      setState((prev) => {
-        if (requested !== undefined) return { status: 'signedOut', notice: requested };
-        if (prev.status === 'signedOut') return prev;
-        // Wylogowanie, którego ta karta nie zleciła. supabase-js usuwa sesję po odrzuconym
-        // odświeżeniu tylko wtedy, gdy token dostępu już wygasł; przy wciąż ważnym tokenie to
-        // wylogowanie w innej karcie, więc bez komunikatu o wygaśnięciu.
-        const expired = prev.status === 'signedIn' && isExpired(prev.session);
-        return {
-          status: 'signedOut',
-          notice: event === 'SIGNED_OUT' && expired ? 'sessionExpired' : null,
-        };
+      const requested = pendingNotice;
+      pendingNotice = undefined;
+      if (requested !== undefined) {
+        update({ status: 'signedOut', notice: requested });
+        return;
+      }
+      if (current.status === 'signedOut') return;
+      // Wylogowanie, którego ta karta nie zleciła. supabase-js usuwa sesję po odrzuconym
+      // odświeżeniu tylko wtedy, gdy token dostępu już wygasł; przy wciąż ważnym tokenie to
+      // wylogowanie w innej karcie, więc bez komunikatu o wygaśnięciu.
+      const expired = current.status === 'signedIn' && isExpired(current.session);
+      update({
+        status: 'signedOut',
+        notice: event === 'SIGNED_OUT' && expired ? 'sessionExpired' : null,
       });
     };
 
     // supabase-js zakazuje wywołań Auth wewnątrz tego callbacku; tu jest tylko zmiana stanu.
-    const { data } = client.auth.onAuthStateChange(handle);
+    const { data } = props.client.auth.onAuthStateChange(handle);
     return () => data.subscription.unsubscribe();
-  }, [client, queryClient]);
+  });
 
-  const signIn = useCallback(
-    async (hook: string, password: string) => {
-      const { error } = await client.auth.signInWithPassword({
+  const value: AuthContextValue = {
+    get state() {
+      return state();
+    },
+    get client() {
+      return props.client;
+    },
+    signIn: async (hook, password) => {
+      const { error } = await props.client.auth.signInWithPassword({
         email: hookToEmail(hook),
         password,
       });
       return error ? { ok: false as const, error: loginErrorKind(error) } : { ok: true as const };
     },
-    [client],
-  );
-
-  const signOut = useCallback(
-    async (notice?: AuthNotice) => {
-      pendingNotice.current = notice ?? null;
+    signOut: async (notice) => {
+      pendingNotice = notice ?? null;
       try {
         // Sesja lokalna jest usuwana przed żądaniem, więc błąd sieci nie zostawia zalogowanego
         // urządzenia; zdarzenie SIGNED_OUT przychodzi przed końcem tego wywołania.
-        await client.auth.signOut({ scope: 'local' });
+        await props.client.auth.signOut({ scope: 'local' });
       } finally {
-        pendingNotice.current = undefined;
+        pendingNotice = undefined;
       }
     },
-    [client],
-  );
-
-  const value = useMemo(
-    () => ({ state, client, signIn, signOut }),
-    [state, client, signIn, signOut],
-  );
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  };
+  return <AuthContext value={value}>{props.children}</AuthContext>;
 }

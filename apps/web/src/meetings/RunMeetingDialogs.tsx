@@ -1,17 +1,19 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, For, Show, useContext, type Accessor } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { GameCover } from '../games/GameCover';
 import { format, t } from '../i18n';
-import { createClub } from '../solid/club';
-import { AuthContext, PopupsContext, QueryClientContext, ToastContext } from '../solid/context';
-import { InvalidPopup } from '../solid/popups/InvalidPopup';
-import { createMounted } from '../solid/popups/leaveGuard';
-import { PopupDialog } from '../solid/popups/PopupDialog';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { createMutation } from '../solid/query';
-import { Banner, Button, Tray } from '../solid/ui';
+import { createClub } from '../club/clubData';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { InvalidPopup } from '../popups/InvalidPopup';
+import { createMounted } from '../popups/leaveGuard';
+import { PopupDialog } from '../popups/PopupDialog';
+import { QueryStatus } from '../popups/QueryStatus';
+import { createMutation } from '../lib/query';
+import { Banner, Button, Tray } from '../ui';
 import { localDateTime } from './datetime';
 import { createMeeting, createMeetingPlays } from './meetingData';
 import {

@@ -1,16 +1,10 @@
 import { useContext, type Accessor } from 'solid-js';
-import {
-  allProfilesQuery,
-  avatarUrlQuery,
-  membersQuery,
-  profileQuery,
-} from '../../profile/profileQueries';
-import { AuthContext } from '../context';
-import { createQuery } from '../query';
+import { allProfilesQuery, avatarUrlQuery, membersQuery, profileQuery } from './profileQueries';
+import { AuthContext } from '../auth/authContext';
+import { createQuery } from '../lib/query';
 
 /*
- * Profile graczy w Solid: te same zapytania co hooki React (`profile/profiles.ts`) na wspólnym
- * cache. Klient Supabase z `AuthContext`; parametry jako akcesory.
+ * Profile graczy: zapytania z `profileQueries.ts` na wspólnym cache. Klient Supabase z `AuthContext`; parametry jako akcesory.
  */
 
 /** Aktywni członkowie klubu (`membersQuery`). */

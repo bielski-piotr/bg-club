@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { captureArtifact, expectNoDiagnostics } from '@solidjs/diagnostics';
 import { fireEvent, screen, within } from '@solidjs/testing-library';
 import { QueryClient } from '@tanstack/query-core';
@@ -7,15 +6,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { membersKey, profileKey, type Profile } from '../profile/profileQueries';
-import { renderSolid } from '../solid/testing';
+import { renderWithProviders } from '../test/render';
 import { AddMemberPopup } from './AddMemberPopup';
 import { DeleteMemberDialog } from './DeleteMemberDialog';
 import { MembersPopup } from './MembersPopup';
 import { MembersWidget } from './MembersWidget';
 
 /*
- * Obszar Członkowie w Solid (etap 2, docs/solidjs-2-migration.md). Zachowanie w hubie sprawdza
- * `src/hub/Hub.test.tsx` (wyspy w prawdziwym hoście React); tu bramka bez kodów diagnostyki
+ * Obszar Członkowie. Zachowanie w hubie sprawdza `src/hub/Hub.test.tsx`; tu bramka bez kodów diagnostyki
  * Solid dla renderu i interakcji (skill agent-loops, pętla 1).
  */
 
@@ -75,11 +73,11 @@ describe('obszar Członkowie bez diagnostyki Solid', () => {
   it('widżet, lista z wyszukiwaniem i porcjami, formularz i dialog usuwania', async () => {
     const { artifact } = await captureArtifact(
       async () => {
-        const widget = renderSolid(() => <MembersWidget me={ME} />, host());
+        const widget = renderWithProviders(() => <MembersWidget me={ME} />, host());
         expect(within(widget.container).getByText('30 osób')).toBeInTheDocument();
         widget.unmount();
 
-        const list = renderSolid(() => <MembersPopup isAdmin />, host());
+        const list = renderWithProviders(() => <MembersPopup isAdmin />, host());
         expect(within(list.container).getAllByRole('listitem')).toHaveLength(24);
         fireEvent.click(screen.getByRole('button', { name: 'Pokaż więcej (6)' }));
         await settle();
@@ -89,14 +87,17 @@ describe('obszar Członkowie bez diagnostyki Solid', () => {
         expect(within(list.container).getAllByRole('listitem')).toHaveLength(1);
         list.unmount();
 
-        const form = renderSolid(() => <AddMemberPopup />, host());
+        const form = renderWithProviders(() => <AddMemberPopup />, host());
         fireEvent.input(screen.getByLabelText('Imię'), { target: { value: 'Ola' } });
         fireEvent.click(screen.getByRole('button', { name: 'Dodaj członka' }));
         await settle();
         expect(screen.getByText('Wpisz nazwisko.')).toBeInTheDocument();
         form.unmount();
 
-        const dialog = renderSolid(() => <DeleteMemberDialog id={MEMBERS[3]?.id ?? ''} />, host());
+        const dialog = renderWithProviders(
+          () => <DeleteMemberDialog id={MEMBERS[3]?.id ?? ''} />,
+          host(),
+        );
         expect(within(dialog.container).getByRole('dialog')).toHaveTextContent('Imię4 Nazwisko4');
         dialog.unmount();
       },

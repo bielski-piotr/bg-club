@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { createGame } from '../games/gameData';
 import { createScorepad, createScorepadTemplate } from './scorepadData';
 import { ScorepadWizard } from './ScorepadWizard';

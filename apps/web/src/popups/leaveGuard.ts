@@ -1,10 +1,9 @@
 import { createEffect, createMemo, onSettled, useContext, type Accessor } from 'solid-js';
-import type { LeaveGuard } from '../../popups/popupContext';
-import { PopupGuardsContext, PopupLevelContext } from '../context';
+import { type LeaveGuard, PopupGuardsContext, PopupLevelContext } from './popupContext';
 
 /**
  * Chroni bieżący popup przed zamknięciem (Esc, ←, ×, tło, Wstecz w przeglądarce), dopóki
- * `guard()` nie jest `null` (wersja Solid `useLeaveGuard`). Ochrona dostaje `leave`, które
+ * `guard()` nie jest `null`. Ochrona dostaje `leave`, które
  * zamyka popup mimo to (np. po potwierdzeniu „Odrzuć zmiany”). Przy aktywnej ochronie
  * zamknięcie lub odświeżenie karty pokazuje też pytanie przeglądarki (`beforeunload`).
  *
@@ -53,7 +52,7 @@ export function createLeaveGuard(guard: Accessor<LeaveGuard | null>): {
 }
 
 /**
- * Czy komponent jest nadal zamontowany (wersja Solid `useMounted`). Dialog zamknięty w trakcie
+ * Czy komponent jest nadal zamontowany. Dialog zamknięty w trakcie
  * żądania jest odmontowany: po sukcesie nie cofamy wtedy historii drugi raz.
  */
 export function createMounted(): Accessor<boolean> {

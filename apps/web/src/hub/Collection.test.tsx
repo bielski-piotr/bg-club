@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { complexityPoints } from '@bg-club/scoring';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/query-core';
+import { QueryClientContext } from '../lib/queryClient';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
-import { Hub } from '../hub/Hub';
+import { Hub } from './Hub';
 import { PopupRouter } from '../popups/PopupRouter';
 import type { Profile } from '../profile/profileQueries';
 import { normalizeSearch, ToastProvider } from '../ui';
@@ -180,17 +181,17 @@ function renderHub(games: Game[], me: Profile = ADA, search = '') {
     signOut: vi.fn(async () => undefined),
   } as unknown as AuthContextValue;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
+  render(() => (
+    <QueryClientContext value={queryClient}>
       <ToastProvider>
-        <AuthContext.Provider value={auth}>
+        <AuthContext value={auth}>
           <PopupRouter>
             <Hub me={{ ...me, theme: 'system', password_change_suggested: false }} />
           </PopupRouter>
-        </AuthContext.Provider>
+        </AuthContext>
       </ToastProvider>
-    </QueryClientProvider>,
-  );
+    </QueryClientContext>
+  ));
   return fake;
 }
 

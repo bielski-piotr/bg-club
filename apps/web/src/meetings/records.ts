@@ -49,7 +49,7 @@ export function topRecord(records: PlayRecords | undefined): RecordKind | null {
 /** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają rekordy (§5.6.5). */
 export const meetingRecordsKey = (id: string) => [...meetingsKey, 'records', id] as const;
 
-/** Rekordy ustanowione w partiach spotkania (opcje zapytania, wspólne dla React i Solid). */
+/** Rekordy ustanowione w partiach spotkania (opcje zapytania). */
 export function meetingRecordsQuery(client: SupabaseClient, meetingId: string, enabled = true) {
   return {
     queryKey: meetingRecordsKey(meetingId),

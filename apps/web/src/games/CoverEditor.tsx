@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { createSignal, Show, onSettled, untrack } from 'solid-js';
 import { IMAGE_ACCEPT, ImageScaleError } from '../club/image';
 import { t } from '../i18n';
@@ -10,8 +9,8 @@ import {
   toStoredCrop,
   type CropState,
 } from '../profile/crop';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { Banner, Button, Icon, Spinner } from '../solid/ui';
+import { PopupModal } from '../popups/PopupModal';
+import { Banner, Button, Icon, Spinner } from '../ui';
 import {
   canReadClipboard,
   clipboardImage,

@@ -1,14 +1,13 @@
-/** @jsxImportSource @solidjs/web */
 import { For, Match, Show, Switch } from 'solid-js';
 import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
 import { fullName, type Profile } from '../profile/profileQueries';
-import { PopupLink } from '../solid/popups/PopupLink';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { ProfileLink } from '../solid/profile/ProfileLink';
-import { createAllProfiles } from '../solid/profile/profiles';
-import { EmptyState, Icon, ListRow, Tray } from '../solid/ui';
+import { PopupLink } from '../popups/PopupLink';
+import { QueryStatus } from '../popups/QueryStatus';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { ProfileLink } from '../profile/ProfileLink';
+import { createAllProfiles } from '../profile/profiles';
+import { EmptyState, Icon, ListRow, Tray } from '../ui';
 import { createGameStats } from './gameData';
 import { formatScore, type GameRecord, type GameStats } from './gameStatsData';
 

@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { format, formatNumber, t } from '../i18n';
 import { gamesValue } from '../leaderboard/filterLabels';
@@ -6,10 +5,10 @@ import { FilterPopover } from '../leaderboard/FilterPopover';
 import { NO_FILTERS, normalizeGames } from '../leaderboard/filters';
 import { GameFilterPanel } from '../leaderboard/GameFilter';
 import { fullName } from '../profile/profileQueries';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { ProfileLink } from '../solid/profile/ProfileLink';
-import { createAllProfiles } from '../solid/profile/profiles';
+import { QueryStatus } from '../popups/QueryStatus';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { ProfileLink } from '../profile/ProfileLink';
+import { createAllProfiles } from '../profile/profiles';
 import { createMeetingPlays, createMeetingSummary } from './meetingData';
 import { splitPlays } from './plays';
 import { meetingGames, placeChange, placeChangeLabel, pointsBreakdown } from './summary';

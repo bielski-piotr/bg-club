@@ -1,4 +1,3 @@
-/** @jsxImportSource @solidjs/web */
 import {
   createEffect,
   createMemo,
@@ -9,7 +8,7 @@ import {
   Switch,
   useContext,
 } from 'solid-js';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { createGameSearch } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
@@ -17,19 +16,16 @@ import { gameVoteTotalKey } from '../games/gameVoteTotal';
 import { format, plural, t } from '../i18n';
 import { avatarPerson, compareProfiles, fullName, type Profile } from '../profile/profileQueries';
 import { claimOrphanSweep, sweepOrphanSheetImages } from '../sheets/sheetImages';
-import { createClub } from '../solid/club';
-import {
-  AuthContext,
-  PopupLevelContext,
-  PopupsContext,
-  QueryClientContext,
-  ToastContext,
-} from '../solid/context';
-import { PopupModal } from '../solid/popups/PopupModal';
-import { QueryStatus } from '../solid/popups/QueryStatus';
-import { ProfileAvatar } from '../solid/profile/ProfileAvatar';
-import { createAllProfiles, createMembers } from '../solid/profile/profiles';
-import { createMutation } from '../solid/query';
+import { createClub } from '../club/clubData';
+import { AuthContext } from '../auth/authContext';
+import { PopupLevelContext, PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { PopupModal } from '../popups/PopupModal';
+import { QueryStatus } from '../popups/QueryStatus';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { createAllProfiles, createMembers } from '../profile/profiles';
+import { createMutation } from '../lib/query';
 import {
   AvatarStack,
   Badge,
@@ -41,8 +37,8 @@ import {
   StatusChip,
   Tray,
   type MenuItem,
-} from '../solid/ui';
-import { ariaBool } from '../solid/ui/dom';
+} from '../ui';
+import { ariaBool } from '../ui/dom';
 import { DateVotingSection } from './DateVotingSection';
 import { formatMeetingDate, longMeetingDate } from './datetime';
 import {

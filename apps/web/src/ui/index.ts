@@ -1,6 +1,7 @@
 /**
- * Komponenty design systemu BG Club (DESIGN-SYSTEM.md). Galeria: /design-system.
- * Teksty wbudowane w komponenty są w `t.ui` (src/i18n/pl.ts).
+ * Komponenty design systemu BG Club (DESIGN-SYSTEM.md). Pola tekstowe: `value` + `onInput`
+ * (szkic w sygnale rodzica); slot `trigger` w `Menu` dostaje `open` jako akcesor, `Tabs` –
+ * funkcję treści. Toasty: `useContext(ToastContext)` z `./toastContext`.
  */
 export {
   Avatar,
@@ -13,7 +14,7 @@ export { monogram, paletteColor, paletteIndex, AVATAR_PALETTE_SIZE } from './ava
 export { Badge, MetaChip, StatusChip, type Tone } from './Badge';
 export { Button, IconButton, TextLink, type ButtonSize, type ButtonVariant } from './Button';
 export { Card, ListRow, Tray } from './Card';
-export { useChunks } from './chunks';
+export { createChunks } from './chunks';
 export { ShowMore } from './ShowMore';
 export {
   Checkbox,
@@ -37,4 +38,5 @@ export { normalizeSearch } from './search';
 export { Spinner } from './Spinner';
 export { Tabs, type TabItem } from './Tabs';
 export { Toast, ToastProvider } from './Toast';
-export { useToast, type ToastApi, type ToastVariant } from './toastContext';
+export { ToastContext, type ToastApi, type ToastVariant } from './toastContext';
+export type { ClassValue } from './dom';

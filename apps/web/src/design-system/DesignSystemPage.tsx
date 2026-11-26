@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import type { JSX } from '@solidjs/web';
+import { createSignal, For, useContext } from 'solid-js';
 import { t } from '../i18n';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme';
-import { useTheme } from '../theme/useTheme';
+import { createTheme } from '../theme/createTheme';
 import {
   AVATAR_PALETTE_SIZE,
   Avatar,
@@ -37,12 +38,13 @@ import {
   Tray,
   iconNames,
   paletteColor,
-  useToast,
+  ToastContext,
   type AvatarSize,
   type SelectOption,
 } from '../ui';
-import { ScorePadEditorView } from '../react-shared/ScorePadEditorView';
-import { ScorePadView } from '../react-shared/ScorePadView';
+import { ScorePadEditorView } from '../score-pad/ScorePadEditorView';
+import { ScorePadView } from '../score-pad/ScorePadView';
+import { ariaBool } from '../ui/dom';
 import { SAMPLE_SCORE_PAD } from './scorePadSample';
 import './DesignSystemPage.css';
 
@@ -55,6 +57,17 @@ const people = s.members.map((name, i) => ({ id: `member-${i}`, name }));
 function member(index: number) {
   return people[index] ?? { id: 'member-x', name: s.removedMember };
 }
+/** Przykładowy ranking w karcie (miejsce = kolejność). */
+const rankingSample: readonly {
+  person: ReturnType<typeof member>;
+  points: number;
+  me?: boolean;
+}[] = [
+  { person: member(1), points: 128 },
+  { person: member(0), points: 117, me: true },
+  { person: member(2), points: 96 },
+];
+
 const avatarSizes: readonly AvatarSize[] = [20, 24, 28, 32, 36, 40, 56, 64, 88];
 
 /** Kolory pokazane w galerii: rola → token. Nazwy ról to identyfikatory tokenów. */
@@ -100,42 +113,42 @@ const swatches = s.colorNames.map((label, i) => ({
   color: i < AVATAR_PALETTE_SIZE ? paletteColor(i) : 'var(--c-inverse)',
 }));
 
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function Section(props: { id: string; title: string; children: JSX.Element }) {
   return (
-    <section className="ds-section" aria-labelledby={`ds-${id}`}>
-      <h2 id={`ds-${id}`} className="ds-section__title">
-        {title}
+    <section class="ds-section" aria-labelledby={`ds-${props.id}`}>
+      <h2 id={`ds-${props.id}`} class="ds-section__title">
+        {props.title}
       </h2>
-      <div className="ds-section__body">{children}</div>
+      <div class="ds-section__body">{props.children}</div>
     </section>
   );
 }
 
-function Row({ children, column = false }: { children: ReactNode; column?: boolean }) {
-  return <div className={column ? 'ds-col' : 'ds-row'}>{children}</div>;
+function Row(props: { children: JSX.Element; column?: boolean }) {
+  return <div class={props.column ? 'ds-col' : 'ds-row'}>{props.children}</div>;
 }
 
 export default function DesignSystemPage() {
-  const theme = useTheme();
-  const toast = useToast();
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('sekret123');
-  const [repeat, setRepeat] = useState('sekret12');
-  const [query, setQuery] = useState('');
-  const [players, setPlayers] = useState(5);
-  const [year, setYear] = useState('all');
-  const [timezone, setTimezone] = useState('Europe/Warsaw');
-  const [forceTie, setForceTie] = useState(true);
-  const [optIn, setOptIn] = useState(false);
-  const [direction, setDirection] = useState<'more' | 'less'>('more');
-  const [range, setRange] = useState<'any' | 'minmax' | 'list'>('minmax');
-  const [summed, setSummed] = useState<string[]>(['0', '3']);
-  const [color, setColor] = useState('4');
-  const [tab, setTab] = useState<'points' | 'wins' | 'streak'>('points');
-  const [smooth, setSmooth] = useState(true);
-  const [strength, setStrength] = useState(4);
-  const [loading, setLoading] = useState(false);
-  const [scorePad, setScorePad] = useState<'none' | 'pad' | 'editor'>('none');
+  const theme = createTheme();
+  const toast = useContext(ToastContext);
+  const [name, setName] = createSignal('');
+  const [password, setPassword] = createSignal('sekret123');
+  const [repeat, setRepeat] = createSignal('sekret12');
+  const [query, setQuery] = createSignal('');
+  const [players, setPlayers] = createSignal(5);
+  const [year, setYear] = createSignal('all');
+  const [timezone, setTimezone] = createSignal('Europe/Warsaw');
+  const [forceTie, setForceTie] = createSignal(true);
+  const [optIn, setOptIn] = createSignal(false);
+  const [direction, setDirection] = createSignal<'more' | 'less'>('more');
+  const [range, setRange] = createSignal<'any' | 'minmax' | 'list'>('minmax');
+  const [summed, setSummed] = createSignal<string[]>(['0', '3']);
+  const [color, setColor] = createSignal('4');
+  const [tab, setTab] = createSignal<'points' | 'wins' | 'streak'>('points');
+  const [smooth, setSmooth] = createSignal(true);
+  const [strength, setStrength] = createSignal(4);
+  const [loading, setLoading] = createSignal(false);
+  const [scorePad, setScorePad] = createSignal<'none' | 'pad' | 'editor'>('none');
 
   const save = () => {
     setLoading(true);
@@ -143,50 +156,50 @@ export default function DesignSystemPage() {
   };
 
   return (
-    <main className="ds-page">
-      <header className="ds-header">
-        <div className="ds-header__text">
-          <p className="ds-eyebrow">{t.app.name}</p>
-          <h1 className="ds-title">{t.designSystem.title}</h1>
-          <p className="ds-intro">{t.designSystem.intro}</p>
+    <main class="ds-page">
+      <header class="ds-header">
+        <div class="ds-header__text">
+          <p class="ds-eyebrow">{t.app.name}</p>
+          <h1 class="ds-title">{t.designSystem.title}</h1>
+          <p class="ds-intro">{t.designSystem.intro}</p>
           <TextLink href="/">{t.designSystem.backToApp}</TextLink>
         </div>
         <SegmentedControl<ThemePreference>
           legend={t.theme.label}
           hideLegend={false}
           options={THEME_PREFERENCES.map((value) => ({ value, label: t.theme[value] }))}
-          value={theme.preference}
+          value={theme.preference()}
           onChange={theme.setPreference}
         />
       </header>
 
-      <div className="ds-grid">
+      <div class="ds-grid">
         <Section id="colors" title={sections.colors}>
-          <ul className="ds-swatches">
-            {colorTokens.map((token) => (
-              <li key={token} className="ds-swatch">
-                <span className="ds-swatch__chip" style={{ background: `var(--c-${token})` }} />
-                <code>--c-{token}</code>
-              </li>
-            ))}
+          <ul class="ds-swatches">
+            <For each={colorTokens}>
+              {(token) => (
+                <li class="ds-swatch">
+                  <span class="ds-swatch__chip" style={{ background: `var(--c-${token})` }} />
+                  <code>--c-{token}</code>
+                </li>
+              )}
+            </For>
           </ul>
-          <div className="ds-palette" aria-hidden="true">
+          <div class="ds-palette" aria-hidden="true">
             {Array.from({ length: AVATAR_PALETTE_SIZE }, (_, i) => (
-              <span key={i} style={{ background: paletteColor(i) }}>
-                AB
-              </span>
+              <span style={{ background: paletteColor(i) }}>AB</span>
             ))}
           </div>
         </Section>
 
         <Section id="typography" title={sections.typography}>
-          <p className="ds-type ds-type--title">{s.rankingTitle}</p>
-          <p className="ds-type ds-type--featured">{s.membersTitle}</p>
-          <p className="ds-type ds-type--number tnum">1 234</p>
-          <p className="ds-type ds-type--row">{s.members[0]}</p>
-          <p className="ds-type ds-type--meta">{s.metaDate}</p>
-          <p className="ds-type ds-type--body">{s.emptyHelper}</p>
-          <p className="ds-type ds-type--mono">{s.hookValue}</p>
+          <p class="ds-type ds-type--title">{s.rankingTitle}</p>
+          <p class="ds-type ds-type--featured">{s.membersTitle}</p>
+          <p class="ds-type ds-type--number tnum">1 234</p>
+          <p class="ds-type ds-type--row">{s.members[0]}</p>
+          <p class="ds-type ds-type--meta">{s.metaDate}</p>
+          <p class="ds-type ds-type--body">{s.emptyHelper}</p>
+          <p class="ds-type ds-type--mono">{s.hookValue}</p>
         </Section>
 
         <Section id="buttons" title={sections.buttons}>
@@ -204,8 +217,8 @@ export default function DesignSystemPage() {
             <Button size="sm" variant="secondary">
               {s.secondary}
             </Button>
-            <Button loading={loading} onClick={save} icon="check">
-              {loading ? s.saving : s.primary}
+            <Button loading={loading()} onClick={save} icon="check">
+              {loading() ? s.saving : s.primary}
             </Button>
             <Button disabled>{s.disabled}</Button>
           </Row>
@@ -226,48 +239,54 @@ export default function DesignSystemPage() {
             label={s.nameLabel}
             placeholder={s.namePlaceholder}
             hint={s.nameHint}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="given-name"
+            value={name()}
+            onInput={(e) => setName(e.currentTarget.value)}
+            autocomplete="given-name"
           />
           <PasswordField
             label={s.passwordLabel}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
+            value={password()}
+            onInput={(e) => setPassword(e.currentTarget.value)}
+            autocomplete="new-password"
           />
           <PasswordField
             label={s.repeatLabel}
-            value={repeat}
-            onChange={(e) => setRepeat(e.target.value)}
-            autoComplete="new-password"
-            error={repeat !== password ? s.passwordMismatch : undefined}
+            value={repeat()}
+            onInput={(e) => setRepeat(e.currentTarget.value)}
+            autocomplete="new-password"
+            error={repeat() !== password() ? s.passwordMismatch : undefined}
           />
-          <TextField label={s.hookLabel} value={s.hookValue} readOnly mono />
-          <div className="ds-row ds-row--fields">
+          <TextField label={s.hookLabel} value={s.hookValue} readonly mono />
+          <div class="ds-row ds-row--fields">
             <TextField
               label={s.widthLabel}
-              defaultValue="10,5"
-              inputMode="decimal"
+              value="10,5"
+              inputmode="decimal"
               numeric
               trailing={s.unitCm}
             />
-            <TextField label={s.noteLabel} optional disabled defaultValue="" />
+            <TextField label={s.noteLabel} optional disabled value="" />
           </div>
           <SearchField
             label={s.searchLabel}
             placeholder={s.searchPlaceholder}
-            value={query}
+            value={query()}
             onValueChange={setQuery}
           />
-          <Stepper label={s.stepperLabel} value={players} onChange={setPlayers} min={1} max={20} />
+          <Stepper
+            label={s.stepperLabel}
+            value={players()}
+            onChange={setPlayers}
+            min={1}
+            max={20}
+          />
         </Section>
 
         <Section id="selectors" title={sections.selectors}>
           <Select
             label={s.timezoneLabel}
             options={timezones}
-            value={timezone}
+            value={timezone()}
             onChange={setTimezone}
             leadingIcon="globe"
           />
@@ -276,13 +295,13 @@ export default function DesignSystemPage() {
             hideLabel
             appearance="pill"
             options={years}
-            value={year}
+            value={year()}
             onChange={setYear}
             leadingIcon="calendar"
           />
           <Row column>
-            <Checkbox label={s.checkboxLabel} checked={forceTie} onCheckedChange={setForceTie} />
-            <Checkbox label={s.switchDisabled} checked={optIn} onCheckedChange={setOptIn} />
+            <Checkbox label={s.checkboxLabel} checked={forceTie()} onCheckedChange={setForceTie} />
+            <Checkbox label={s.switchDisabled} checked={optIn()} onCheckedChange={setOptIn} />
             <Checkbox
               label={s.checkboxDisabled}
               checked={false}
@@ -296,7 +315,7 @@ export default function DesignSystemPage() {
               { value: 'more', label: s.directionMore },
               { value: 'less', label: s.directionLess },
             ]}
-            value={direction}
+            value={direction()}
             onChange={setDirection}
           />
           <SegmentedControl
@@ -307,19 +326,19 @@ export default function DesignSystemPage() {
               { value: 'minmax', label: s.rangeMinMax },
               { value: 'list', label: s.rangeList },
             ]}
-            value={range}
+            value={range()}
             onChange={setRange}
           />
           <ChipGroup
             legend={s.sumLegend}
             options={s.categories.map((label, i) => ({ value: String(i), label }))}
-            values={summed}
+            values={summed()}
             onChange={setSummed}
           />
           <ColorSwatches
             legend={s.colorLegend}
             options={swatches}
-            value={color}
+            value={color()}
             onChange={setColor}
           />
           <Menu
@@ -343,7 +362,7 @@ export default function DesignSystemPage() {
               <button
                 type="button"
                 {...props}
-                className="icon-btn icon-btn--36"
+                class="icon-btn icon-btn--36"
                 aria-label={s.menuTrigger}
               >
                 <Icon name="more" />
@@ -354,9 +373,7 @@ export default function DesignSystemPage() {
 
         <Section id="avatars" title={sections.avatars}>
           <Row>
-            {avatarSizes.map((size, i) => (
-              <Avatar key={size} {...member(i)} size={size} />
-            ))}
+            <For each={avatarSizes}>{(size, i) => <Avatar {...member(i())} size={size} />}</For>
           </Row>
           <Row>
             <Avatar name={s.removedMember} removed size={40} />
@@ -377,49 +394,51 @@ export default function DesignSystemPage() {
             title={s.rankingTitle}
             action={<TextLink href="#ds-cards">{t.ui.seeMore}</TextLink>}
           >
-            <div className="ds-card-body">
+            <div class="ds-card-body">
               <Tray label={s.rankingTitle}>
-                {[
-                  { person: member(1), points: 128 },
-                  { person: member(0), points: 117, me: true },
-                  { person: member(2), points: 96 },
-                ].map(({ person, points, me }, i) => (
-                  <ListRow
-                    key={person.id}
-                    highlighted={me ?? false}
-                    leading={
-                      <>
-                        <span className="rank">{i + 1}</span>
-                        <Avatar {...person} size={36} decorative ring={me ? 'white' : undefined} />
-                      </>
-                    }
-                    title={
-                      <span className="ds-name">
-                        {person.name}
-                        {me ? <Badge onAccent>{t.ui.youBadge}</Badge> : null}
-                      </span>
-                    }
-                    trailing={
-                      <span className="score">
-                        {points}
-                        <span className="score__unit">{s.points}</span>
-                      </span>
-                    }
-                  />
-                ))}
+                <For each={rankingSample}>
+                  {(row, i) => (
+                    <ListRow
+                      highlighted={row.me ?? false}
+                      leading={
+                        <>
+                          <span class="rank">{i() + 1}</span>
+                          <Avatar
+                            {...row.person}
+                            size={36}
+                            decorative
+                            ring={row.me ? 'white' : undefined}
+                          />
+                        </>
+                      }
+                      title={
+                        <span class="ds-name">
+                          {row.person.name}
+                          {row.me ? <Badge onAccent>{t.ui.youBadge}</Badge> : null}
+                        </span>
+                      }
+                      trailing={
+                        <span class="score">
+                          {row.points}
+                          <span class="score__unit">{s.points}</span>
+                        </span>
+                      }
+                    />
+                  )}
+                </For>
                 <ListRow
                   muted
                   leading={
                     <>
-                      <span className="rank">–</span>
+                      <span class="rank">–</span>
                       <Avatar name={s.removedMember} removed size={36} decorative />
                     </>
                   }
                   title={`${s.removedMember} ${t.ui.removedSuffix}`}
                   trailing={
-                    <span className="score">
+                    <span class="score">
                       41
-                      <span className="score__unit">{s.points}</span>
+                      <span class="score__unit">{s.points}</span>
                     </span>
                   }
                 />
@@ -427,19 +446,22 @@ export default function DesignSystemPage() {
             </div>
           </Card>
           <Card title={s.membersTitle} count={s.membersCount}>
-            <div className="ds-card-body">
+            <div class="ds-card-body">
               <Tray label={s.membersTitle}>
-                {people.slice(0, 2).map((person, i) => (
-                  <ListRow
-                    key={person.id}
-                    height={64}
-                    leading={<Avatar {...person} size={40} decorative />}
-                    title={person.name}
-                    meta={s.metaPlays}
-                    trailing={i === 0 ? <Badge tone="accent">{t.ui.adminBadge}</Badge> : undefined}
-                    onClick={() => toast.show(person.name, 'neutral')}
-                  />
-                ))}
+                <For each={people.slice(0, 2)}>
+                  {(person, i) => (
+                    <ListRow
+                      height={64}
+                      leading={<Avatar {...person} size={40} decorative />}
+                      title={person.name}
+                      meta={s.metaPlays}
+                      trailing={
+                        i() === 0 ? <Badge tone="accent">{t.ui.adminBadge}</Badge> : undefined
+                      }
+                      onClick={() => toast.show(person.name, 'neutral')}
+                    />
+                  )}
+                </For>
               </Tray>
             </div>
           </Card>
@@ -477,11 +499,11 @@ export default function DesignSystemPage() {
               { id: 'wins', label: s.tabWins },
               { id: 'streak', label: s.tabStreak },
             ]}
-            value={tab}
+            value={tab()}
             onChange={setTab}
           >
             {(value) => (
-              <p className="ds-type ds-type--body">
+              <p class="ds-type ds-type--body">
                 {value === 'points'
                   ? s.tabPanelPoints
                   : value === 'wins'
@@ -519,8 +541,8 @@ export default function DesignSystemPage() {
             <Toast variant="neutral">{s.toastNeutral}</Toast>
             <Toast variant="error">{s.toastError}</Toast>
           </Row>
-          <fieldset className="ds-fieldset">
-            <legend className="group__legend">{s.showToast}</legend>
+          <fieldset class="ds-fieldset">
+            <legend class="group__legend">{s.showToast}</legend>
             <Row>
               <Button size="sm" variant="secondary" onClick={() => toast.show(s.toastSuccess)}>
                 {s.showSuccess}
@@ -553,7 +575,7 @@ export default function DesignSystemPage() {
           >
             {s.error}
           </Banner>
-          <div className="ds-loading">
+          <div class="ds-loading">
             <Spinner label={s.loadingList} />
             <Skeleton height={54} radius={14} />
             <Skeleton height={54} radius={14} />
@@ -561,52 +583,54 @@ export default function DesignSystemPage() {
         </Section>
 
         <Section id="controls" title={sections.controls}>
-          <Switch label={s.switchLabel} checked={smooth} onCheckedChange={setSmooth} />
+          <Switch label={s.switchLabel} checked={smooth()} onCheckedChange={setSmooth} />
           <Switch label={s.switchDisabled} checked={false} onCheckedChange={() => {}} disabled />
           <Slider
             label={s.sliderLabel}
             min={0}
             max={10}
-            value={strength}
+            value={strength()}
             onValueChange={setStrength}
-            disabled={!smooth}
+            disabled={!smooth()}
           />
         </Section>
 
         <Section id="score-pad" title={sections.scorePad}>
-          <p className="ds-note">{s.scorePadIntro}</p>
+          <p class="ds-note">{s.scorePadIntro}</p>
           <Row>
             <Button
-              variant={scorePad === 'pad' ? 'primary' : 'secondary'}
+              variant={scorePad() === 'pad' ? 'primary' : 'secondary'}
               icon="pad"
-              aria-pressed={scorePad === 'pad'}
-              onClick={() => setScorePad(scorePad === 'pad' ? 'none' : 'pad')}
+              aria-pressed={ariaBool(scorePad() === 'pad')}
+              onClick={() => setScorePad(scorePad() === 'pad' ? 'none' : 'pad')}
             >
               {s.showScorePad}
             </Button>
             <Button
-              variant={scorePad === 'editor' ? 'primary' : 'secondary'}
+              variant={scorePad() === 'editor' ? 'primary' : 'secondary'}
               icon="pencil"
-              aria-pressed={scorePad === 'editor'}
-              onClick={() => setScorePad(scorePad === 'editor' ? 'none' : 'editor')}
+              aria-pressed={ariaBool(scorePad() === 'editor')}
+              onClick={() => setScorePad(scorePad() === 'editor' ? 'none' : 'editor')}
             >
               {s.showScorePadEditor}
             </Button>
           </Row>
-          {scorePad === 'pad' ? (
-            <ScorePadView config={SAMPLE_SCORE_PAD} className="ds-score-pad" />
+          {scorePad() === 'pad' ? (
+            <ScorePadView config={SAMPLE_SCORE_PAD} class="ds-score-pad" />
           ) : null}
-          {scorePad === 'editor' ? <ScorePadEditorView className="ds-score-pad" /> : null}
+          {scorePad() === 'editor' ? <ScorePadEditorView class="ds-score-pad" /> : null}
         </Section>
 
         <Section id="icons" title={sections.icons}>
-          <ul className="ds-icons">
-            {iconNames.map((icon) => (
-              <li key={icon}>
-                <Icon name={icon} size={20} />
-                <code>{icon}</code>
-              </li>
-            ))}
+          <ul class="ds-icons">
+            <For each={iconNames}>
+              {(icon) => (
+                <li>
+                  <Icon name={icon} size={20} />
+                  <code>{icon}</code>
+                </li>
+              )}
+            </For>
           </ul>
         </Section>
       </div>

@@ -1,16 +1,17 @@
-/** @jsxImportSource @solidjs/web */
-import type {
-  Direction,
-  Ranking,
-  ScorePadEditorCategories,
-  ScorePadEditorCategoriesAction,
-  ScorePadEditorCategory,
-  ScorePadEditorCategoryPatch,
-  ScorePadLineKind,
-  ScorePadRangeMode,
-  ScorePadEditorStatus,
-  ScorePadZoomAction,
-  TiebreakRule,
+import {
+  type Direction,
+  type Ranking,
+  type ScorePadEditorCategories,
+  type ScorePadEditorCategoriesAction,
+  type ScorePadEditorCategory,
+  type ScorePadEditorCategoryPatch,
+  type ScorePadLineKind,
+  type ScorePadRangeMode,
+  type ScorePadEditorStatus,
+  type ScorePadZoomAction,
+  type TiebreakRule,
+  FINAL_TOTAL,
+  isNumeric,
 } from '@bg-club/score-pad';
 import { createMemo, createSignal, createUniqueId, For, Show } from 'solid-js';
 import { format, t } from '../i18n';
@@ -25,8 +26,7 @@ import {
   TextField,
   Tray,
   type SelectOption,
-} from '../solid/ui';
-import { FINAL_TOTAL, isNumeric } from '@bg-club/score-pad';
+} from '../ui';
 import {
   categoryIssueMessages,
   issueMessages,
@@ -499,7 +499,7 @@ function RankingDetails(props: {
         <span class="field__label">{text.tiebreak}</span>
         <p class="wizard-hint">{text.tiebreakHint}</p>
         <Tray label={text.tiebreak} class="wizard-rules">
-          {/* Wiersze po indeksie, jak klucze `typ-indeks` w React: przesunięcie zostawia fokus na miejscu. */}
+          {/* Wiersze po indeksie: przesunięcie zostawia fokus na miejscu. */}
           <For each={rules()} keyed={false}>
             {(rule, index) => {
               const n = index + 1;

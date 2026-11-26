@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import type { JSX } from '@solidjs/web';
+import { createEffect, createUniqueId, Show } from 'solid-js';
 import { t } from '../i18n';
-import { IconButton } from './Button';
-import { Icon, type IconName } from './Icon';
-import { cx } from './cx';
 import { focusableIn } from './focusable';
+import { IconButton } from './Button';
+import { createSlot, type ClassValue } from './dom';
+import { Icon, type IconName } from './Icon';
 import './Modal.css';
 
 export interface ModalProps {
@@ -11,7 +12,7 @@ export interface ModalProps {
   /** Licznik obok tytułu na desktopie, np. „12 osób” (DS §7). */
   readonly count?: string | undefined;
   /** Akcje w nagłówku przed ×, np. przycisk „Dodaj” h36. */
-  readonly actions?: ReactNode | undefined;
+  readonly actions?: JSX.Element | undefined;
   /** Zamknięcie (×). */
   readonly onClose: () => void;
   /** Powrót do poprzedniego popupu (←); bez niego przycisku nie ma. */
@@ -29,17 +30,17 @@ export interface ModalProps {
   readonly blocked?: boolean | undefined;
   /** Poziom na stosie (atrybut `data-popup-level`, po nim host przenosi fokus). */
   readonly level?: number | undefined;
-  readonly children: ReactNode;
+  readonly children: JSX.Element;
   /**
    * Stopka formularza (DS §7, §17): na desktopie przyciski do prawej, na telefonie dwa
    * przyciski po równo na dole arkusza. Zostaje widoczna, gdy treść się przewija.
    */
-  readonly footer?: ReactNode | undefined;
-  readonly className?: string | undefined;
+  readonly footer?: JSX.Element | undefined;
+  readonly class?: ClassValue;
 }
 
 /** Tab i Shift+Tab krążą w oknie dialogu (NFR-6). */
-function trapFocus(event: KeyboardEvent, dialog: HTMLDivElement) {
+function trapFocus(event: KeyboardEvent, dialog: HTMLElement) {
   if (event.key !== 'Tab') return;
   const notifications = document.querySelector<HTMLElement>('.toast-region__toasts');
   const active = document.activeElement;
@@ -61,23 +62,31 @@ function trapFocus(event: KeyboardEvent, dialog: HTMLDivElement) {
   }
 }
 
-/** Toast z linkiem pozostaje osiągalny klawiaturą również nad otwartym popupem. */
-function useDialogFocus(inactive: boolean) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (inactive) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter(
-        (el) => !el.closest('[inert]'),
-      );
-      if (!event.defaultPrevented && ref.current && dialogs.at(-1) === ref.current) {
-        trapFocus(event, ref.current);
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [inactive]);
-  return ref;
+/**
+ * Pułapka fokusu górnego, aktywnego okna. Zwraca ref okna. Toast z linkiem pozostaje
+ * osiągalny klawiaturą również nad otwartym popupem.
+ */
+function createDialogFocus(inactive: () => boolean) {
+  let dialog: HTMLElement | undefined;
+  createEffect(
+    () => inactive(),
+    (isInactive) => {
+      if (isInactive) return;
+      const onKeyDown = (event: KeyboardEvent) => {
+        const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter(
+          (el) => !el.closest('[inert]'),
+        );
+        if (!event.defaultPrevented && dialog && dialogs.at(-1) === dialog) {
+          trapFocus(event, dialog);
+        }
+      };
+      document.addEventListener('keydown', onKeyDown);
+      return () => document.removeEventListener('keydown', onKeyDown);
+    },
+  );
+  return (element: HTMLElement) => {
+    dialog = element;
+  };
 }
 
 /**
@@ -85,59 +94,55 @@ function useDialogFocus(inactive: boolean) {
  * arkusz. Fokus nie wychodzi poza okno (Tab i Shift+Tab krążą w nim, NFR-6); resztę strony
  * wyłącza `inert` u rodzica. Esc, przewijanie tła i przywracanie fokusu obsługuje `PopupHost`.
  */
-export function Modal({
-  title,
-  count,
-  actions,
-  onClose,
-  onBack,
-  onScrimClick,
-  width = 560,
-  covered = false,
-  blocked = false,
-  level,
-  children,
-  footer,
-  className,
-}: ModalProps) {
-  const titleId = useId();
-  const dialogRef = useDialogFocus(covered || blocked);
-
+export function Modal(props: ModalProps) {
+  const titleId = createUniqueId();
+  const dialogRef = createDialogFocus(() => !!(props.covered || props.blocked));
+  const footer = createSlot(() => props.footer);
   return (
     <div
-      className={cx('popup-layer', covered && 'popup-layer--covered')}
-      inert={covered || blocked}
+      class={['popup-layer', { 'popup-layer--covered': !!props.covered }]}
+      inert={!!(props.covered || props.blocked)}
     >
-      <div className="popup-layer__scrim" aria-hidden="true" onClick={onScrimClick} />
+      <div class="popup-layer__scrim" aria-hidden="true" onClick={() => props.onScrimClick?.()} />
       <div
         role="dialog"
         ref={dialogRef}
         aria-modal="true"
         aria-labelledby={titleId}
-        tabIndex={-1}
-        data-popup-level={level}
-        className={cx('modal', `modal--${width}`, className)}
+        tabindex={-1}
+        data-popup-level={props.level}
+        class={['modal', `modal--${props.width ?? 560}`, props.class]}
       >
-        <header className="modal__header">
-          <div className="modal__heading">
-            {onBack ? <IconButton icon="chevron-left" label={t.ui.back} onClick={onBack} /> : null}
-            <div className="modal__title-group">
-              <h2 id={titleId} className="modal__title">
-                {title}
+        <header class="modal__header">
+          <div class="modal__heading">
+            <Show when={props.onBack}>
+              {(onBack) => (
+                <IconButton icon="chevron-left" label={t.ui.back} onClick={() => onBack()()} />
+              )}
+            </Show>
+            <div class="modal__title-group">
+              <h2 id={titleId} class="modal__title">
+                {props.title}
               </h2>
-              {count ? <span className="modal__count">{count}</span> : null}
+              <Show when={props.count}>
+                <span class="modal__count">{props.count}</span>
+              </Show>
             </div>
           </div>
-          <div className="modal__actions">
-            {actions}
-            <IconButton icon="x" label={t.ui.close} onClick={onClose} />
+          <div class="modal__actions">
+            {props.actions}
+            <IconButton icon="x" label={t.ui.close} onClick={() => props.onClose()} />
           </div>
         </header>
-        <div className="modal__body">
-          {count ? <p className="modal__count-line">{count}</p> : null}
-          {children}
+        <div class="modal__body">
+          <Show when={props.count}>
+            <p class="modal__count-line">{props.count}</p>
+          </Show>
+          {props.children}
         </div>
-        {footer ? <footer className="modal__footer">{footer}</footer> : null}
+        <Show when={footer()}>
+          <footer class="modal__footer">{footer()}</footer>
+        </Show>
       </div>
     </div>
   );
@@ -146,7 +151,7 @@ export function Modal({
 export interface DialogProps {
   readonly title: string;
   /** Opis pod tytułem (14/20, kolor pomocniczy). */
-  readonly description?: ReactNode | undefined;
+  readonly description?: JSX.Element | undefined;
   /**
    * Ikona w kółku 44 nad tytułem; `danger` dla działań nieodwracalnych, `warning` dla
    * przeszkody do usunięcia (np. partie w toku, DS §15 „Dialog variants”).
@@ -154,15 +159,15 @@ export interface DialogProps {
   readonly icon?: IconName | undefined;
   readonly tone?: 'accent' | 'danger' | 'warning' | undefined;
   /** Własny element nad tytułem zamiast ikony (np. okładka albo ilustracja); dekoracyjny. */
-  readonly media?: ReactNode | undefined;
+  readonly media?: JSX.Element | undefined;
   /** Kliknięcie tła poza oknem. Esc obsługuje `PopupHost`. */
   readonly onScrimClick?: (() => void) | undefined;
   readonly covered?: boolean | undefined;
   readonly level?: number | undefined;
   /** Treść między opisem a przyciskami, np. pole hasła. */
-  readonly children?: ReactNode | undefined;
+  readonly children?: JSX.Element | undefined;
   /** Dwa przyciski równej szerokości: Anuluj i działanie (DS §7). */
-  readonly footer: ReactNode;
+  readonly footer: JSX.Element;
 }
 
 /**
@@ -170,56 +175,60 @@ export interface DialogProps {
  * przyciemnionym tle na każdej szerokości ekranu, bez przycisku ×; zamyka go Anuluj, Esc albo
  * kliknięcie tła. Fokus zostaje w oknie jak w `Modal`.
  */
-export function Dialog({
-  title,
-  description,
-  icon,
-  tone = 'accent',
-  media,
-  onScrimClick,
-  covered = false,
-  level,
-  children,
-  footer,
-}: DialogProps) {
-  const titleId = useId();
-  const descriptionId = useId();
-  const dialogRef = useDialogFocus(covered);
+export function Dialog(props: DialogProps) {
+  const titleId = createUniqueId();
+  const descriptionId = createUniqueId();
+  const dialogRef = createDialogFocus(() => !!props.covered);
+  const media = createSlot(() => props.media);
+  const description = createSlot(() => props.description);
+  const body = createSlot(() => props.children);
   return (
     <div
-      className={cx('popup-layer', 'popup-layer--dialog', covered && 'popup-layer--covered')}
-      inert={covered}
+      class={['popup-layer', 'popup-layer--dialog', { 'popup-layer--covered': !!props.covered }]}
+      inert={!!props.covered}
     >
-      <div className="popup-layer__scrim" aria-hidden="true" onClick={onScrimClick} />
+      <div class="popup-layer__scrim" aria-hidden="true" onClick={() => props.onScrimClick?.()} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
-        tabIndex={-1}
-        data-popup-level={level}
-        className="dialog"
+        aria-describedby={description() ? descriptionId : undefined}
+        tabindex={-1}
+        data-popup-level={props.level}
+        class="dialog"
         ref={dialogRef}
       >
-        {media ? (
-          <span className="dialog__media" aria-hidden="true">
-            {media}
+        <Show
+          when={media()}
+          fallback={
+            <Show when={props.icon}>
+              {(icon) => (
+                <span
+                  class={['dialog__icon', `dialog__icon--${props.tone ?? 'accent'}`]}
+                  aria-hidden="true"
+                >
+                  <Icon name={icon()} size={20} />
+                </span>
+              )}
+            </Show>
+          }
+        >
+          <span class="dialog__media" aria-hidden="true">
+            {media()}
           </span>
-        ) : icon ? (
-          <span className={cx('dialog__icon', `dialog__icon--${tone}`)} aria-hidden="true">
-            <Icon name={icon} size={20} />
-          </span>
-        ) : null}
-        <h2 id={titleId} className="dialog__title">
-          {title}
+        </Show>
+        <h2 id={titleId} class="dialog__title">
+          {props.title}
         </h2>
-        {description ? (
-          <div id={descriptionId} className="dialog__description">
-            {description}
+        <Show when={description()}>
+          <div id={descriptionId} class="dialog__description">
+            {description()}
           </div>
-        ) : null}
-        {children ? <div className="dialog__body">{children}</div> : null}
-        <div className="dialog__footer">{footer}</div>
+        </Show>
+        <Show when={body()}>
+          <div class="dialog__body">{body()}</div>
+        </Show>
+        <div class="dialog__footer">{props.footer}</div>
       </div>
     </div>
   );
