@@ -10,7 +10,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       'supabase/.temp/**',
-      // Edge Functions działają w Deno: lint i typy przez `deno` (CI, README „Edge Functions”).
+      // Edge Functions działają w Deno: lint i typy przez `deno` (CI).
       'supabase/functions/**',
     ],
   },

@@ -291,7 +291,7 @@ max_frequency = "5s"
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # BG Club: odmawia logowania i odświeżenia sesji kontu usuniętemu lub bez profilu (AUTH-7).
 # Funkcja: supabase/migrations/20261113000500_accounts_and_login.sql. W projekcie Supabase hook
-# włącza się w panelu (Authentication → Hooks), patrz README.
+# włącza się w panelu (Authentication → Hooks).
 [auth.hook.custom_access_token]
 enabled = true
 uri = "pg-functions://postgres/public/custom_access_token_hook"

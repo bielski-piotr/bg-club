@@ -143,7 +143,7 @@ create trigger auth_users_guard_email before update of email, email_change on au
 -- logowania oznacza, że konto usunięte (MEM-4, USR-6) nie zaloguje się ponownie, a jego
 -- zapamiętana sesja wygaśnie przy najbliższym odświeżeniu. Claims zostają bez zmian.
 -- Lokalnie włącza go `supabase/config.toml`; w projekcie Supabase trzeba go włączyć w panelu
--- (README, sekcja „Wdrożenie”).
+-- (konfiguracja projektu Supabase).
 create function public.custom_access_token_hook(event jsonb)
 returns jsonb
 language plpgsql

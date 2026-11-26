@@ -1,5 +1,5 @@
 /**
- * Komponenty design systemu BG Club (DESIGN-SYSTEM.md). Pola tekstowe: `value` + `onInput`
+ * Komponenty design systemu BG Club. Pola tekstowe: `value` + `onInput`
  * (szkic w sygnale rodzica); slot `trigger` w `Menu` dostaje `open` jako akcesor, `Tabs` –
  * funkcję treści. Toasty: `useContext(ToastContext)` z `./toastContext`.
  */

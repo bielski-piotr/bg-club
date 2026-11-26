@@ -19,7 +19,7 @@
 --   a usuniętego notesu nie da się już zmieniać. Nowe partie go nie widzą (strażnik partii
 --   z migracji [003]), historia wskazuje dalej jego wersje.
 -- - Funkcja jest `security definer` (zapis mimo odebranych praw) i zaczyna od strażnika
---   `private.require_admin()`, jak każde takie RPC (README, „Uprawnienia”).
+--   `private.require_admin()`, jak każde takie RPC (access_control.sql).
 
 -- ---------------------------------------------------------------------------------------------
 -- scorepad_versions: szablon bez obrazu w JSON-ie (EDT-1, NFR-7)
