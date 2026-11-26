@@ -1,7 +1,7 @@
-// Ikony PWA (NFR-3) z public/favicon.svg: `node scripts/icons.mjs` (wymaga Playwright/Chromium).
+// Ikony PWA z public/favicon.svg: `node scripts/icons.mjs` (wymaga Playwright/Chromium).
 // Ikona „maskable” ma tło na całej powierzchni i znak w bezpiecznej strefie (80% środka).
 import { readFileSync } from 'node:fs';
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright';
 
 const svg = readFileSync(new URL('../public/favicon.svg', import.meta.url), 'utf8');
 const out = (name) => new URL(`../public/icons/${name}`, import.meta.url).pathname;

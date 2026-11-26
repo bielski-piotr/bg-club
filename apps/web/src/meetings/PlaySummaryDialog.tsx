@@ -41,7 +41,7 @@ export interface PlaySummaryDialogProps {
 }
 
 /**
- * Podsumowanie oderwanej karteczki (PAD-5): godzina rozpoczęcia, zakończenia (oderwanie
+ * Podsumowanie oderwanej karteczki: godzina rozpoczęcia, zakończenia (oderwanie
  * karteczki) i czas trwania, miejsca, wyniki kategorii decydującej z oznaczeniem rekordu klubu
  * albo osobistego oraz punkty leaderboardu (podgląd z tej samej reguły co w bazie). „Zapisz partię” kończy partię,
  * „Wróć do kartki”, Esc i tło kładą kartkę z powrotem na notes.

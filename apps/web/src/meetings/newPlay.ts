@@ -5,9 +5,8 @@ import type { Scorepad } from '../score-pad/scorepads';
 import { normalizeSearch } from '../ui/search';
 
 /*
- * Nowa partia (PRD RUN-2, RUN-3, PAD-2, PAD-3, PAD-9, DS §15 „Game / notes pick row”,
- * „Step pills”, „Seat row”): wybór gry, notesu i graczy w miejscach notesu. Te same reguły
- * sprawdza RPC `start_play` (migracja [027]); tu są po to, żeby niepasujące opcje były
+ * Nowa partia: wybór gry, notesu i graczy w miejscach notesu. Te same reguły
+ * sprawdza RPC `start_play` (migracja); tu są po to, żeby niepasujące opcje były
  * wyłączone z wyjaśnieniem, zanim ktoś je wybierze.
  */
 
@@ -64,13 +63,13 @@ export function scoringTitle<T extends ScoringCandidate>(
   });
 }
 
-/** Najmniej graczy partii: zawsze co najmniej 2, także gdy gra ma min = 1 (PAD-3, Q2). */
+/** Najmniej graczy partii: zawsze co najmniej 2, także gdy gra ma min = 1. */
 export function minPlayers(game: GameRange): number {
   return Math.max(2, game.min_players);
 }
 
 /**
- * max(2, min gry) ≤ n ≤ min(max gry, miejsca notesu) (PAD-3). W notesie z zespołami na miejscu
+ * max(2, min gry) ≤ n ≤ min(max gry, miejsca notesu). W notesie z zespołami na miejscu
  * może siedzieć kilku graczy, więc górną granicą jest tylko max gry.
  */
 export function playerBounds(game: GameRange, slots: number, teams = false): PlayerBounds {
@@ -91,7 +90,7 @@ export function scorepadTeams(pad: Scorepad): boolean {
 }
 
 /**
- * Dlaczego notesu nie można wybrać dla tej gry (PAD-3: „niedostępne, z wyjaśnieniem
+ * Dlaczego notesu nie można wybrać dla tej gry („niedostępne, z wyjaśnieniem
  * dlaczego”); `null` = pasuje.
  */
 export function scorepadReason(game: GameRange, pad: Scorepad): string | null {
@@ -115,7 +114,7 @@ export function fittingScorepads(game: GameRange, pads: readonly Scorepad[]): Sc
 }
 
 /**
- * Dlaczego gry nie można wybrać (RUN-2: „bez notesu partii nie da się rozpocząć”, PAD-3);
+ * Dlaczego gry nie można wybrać („bez notesu partii nie da się rozpocząć”);
  * `null` = można. `participants` to liczba aktywnych uczestników spotkania.
  */
 export function gameReason(
@@ -124,7 +123,7 @@ export function gameReason(
   participants: number,
 ): string | null {
   const text = t.meetings.newPlay.reasons;
-  // Partia ma co najmniej 2 graczy (Q2), więc gra jednoosobowa nie ma partii w klubie.
+  // Partia ma co najmniej 2 graczy, więc gra jednoosobowa nie ma partii w klubie.
   if (game.max_players < 2) return text.solo;
   if (pads.length === 0) return text.noScorepad;
   if (fittingScorepads(game, pads).length === 0) {
@@ -162,9 +161,9 @@ export function scorepadSubtitle(pad: Scorepad): string {
 }
 
 export interface GameGroups {
-  /** Gry opublikowane („Gramy w”, VOTE-5) w kolejności publikacji. */
+  /** Gry opublikowane („Gramy w”) w kolejności publikacji. */
   readonly published: readonly Game[];
-  /** Reszta kolekcji alfabetycznie (RUN-2: „najpierw opublikowane, potem reszta”). */
+  /** Reszta kolekcji alfabetycznie („najpierw opublikowane, potem reszta”). */
   readonly others: readonly Game[];
 }
 
@@ -204,7 +203,7 @@ export function scorepadsByGame(pads: readonly Scorepad[]): ReadonlyMap<string, 
 /**
  * Miejsca notesu: `seats[i]` to gracze na miejscu i + 1 (pusta lista = wolne; więcej niż jeden
  * tylko w notesie z zespołami). Długość = liczba miejsc notesu, więc kolejność odpowiada
- * kolumnom albo wierszom kartki (PAD-2).
+ * kolumnom albo wierszom kartki.
  */
 export type Seats = readonly (readonly string[])[];
 
@@ -305,7 +304,7 @@ const HINTS: Readonly<Record<string, StartPlayFailure>> = {
   plays_expansion_unavailable: 'expansionGone',
 };
 
-/** Błąd PostgREST → powód z polskim komunikatem (HINT z migracji [027]). */
+/** Błąd PostgREST → powód z polskim komunikatem (HINT). */
 export function startPlayFailure(error: PostgrestLikeError): StartPlayFailure {
   const byHint = error.hint ? HINTS[error.hint] : undefined;
   if (byHint) return byHint;
@@ -337,7 +336,7 @@ export function startPlayArgs(seats: Seats): {
   return { player_ids: seated.map((s) => s.id), seat_numbers: seated.map((s) => s.seat) };
 }
 
-/** Rozpoczyna partię (szkic) z bieżącą wersją notesu i graczami w miejscach (RUN-2). */
+/** Rozpoczyna partię (szkic) z bieżącą wersją notesu i graczami w miejscach. */
 export async function startPlay(client: SupabaseClient, play: NewPlay): Promise<void> {
   const { error } = await client.rpc('start_play', {
     play_id: play.playId,

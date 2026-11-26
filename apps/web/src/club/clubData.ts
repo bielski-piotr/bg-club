@@ -4,7 +4,7 @@ import { signedUrlQuery } from '../lib/storage';
 import { AuthContext } from '../auth/authContext';
 import { createQuery, ifEnabled } from '../lib/query';
 
-/** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1). */
+/** Klub albo `null`, gdy nie został jeszcze założony. */
 export function createClub() {
   const auth = useContext(AuthContext);
   return createQuery(() => clubQuery(auth.client));

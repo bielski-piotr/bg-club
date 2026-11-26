@@ -53,7 +53,7 @@ function lostGuardLevel(
 }
 
 /**
- * Stos popupów zapisany w adresie (PRD §4, `routes.ts`).
+ * Stos popupów zapisany w adresie (`routes.ts`).
  *
  * - Otwarcie popupu dodaje wpis historii, więc Wstecz (przeglądarka, gest na telefonie) zamyka
  *   górny popup, a Dalej otwiera go ponownie.

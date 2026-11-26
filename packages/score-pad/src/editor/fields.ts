@@ -1,8 +1,8 @@
-// Krok 3 edytora: mapowanie pól (EDT-11) — prostokąty ręczne albo tabela ustawiana ręcznie — i kategorie.
+// Krok 3 edytora: mapowanie pól — prostokąty ręczne albo tabela ustawiana ręcznie — i kategorie.
 //
 // Tryby się wykluczają: notes ma albo tabelę (wiersze i kolumny, gracze w kolumnach lub
 // wierszach), albo same prostokąty ręczne (pola kategorii dla kolejnych miejsc graczy). Zmiana
-// trybu kasuje pola i kategorie; w kreatorze aplikacji pyta o to wcześniej popup (DS §18).
+// trybu kasuje pola i kategorie; w kreatorze aplikacji pyta o to wcześniej popup.
 
 import type { Ranking, ScoringIssue, TiebreakRule } from '@bg-club/scoring';
 import { FINAL_TOTAL, isNumeric, parseRanking, validateScoring } from '@bg-club/scoring';
@@ -22,7 +22,7 @@ import type { SheetShape } from '../core/shape';
 import { shapeSvgPath } from '../core/shape';
 import { icon } from './icons';
 
-/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo tabela z liniami ustawianymi ręcznie. */
+/** Sposób mapowania pól: prostokąty rysowane ręcznie albo tabela z liniami ustawianymi ręcznie. */
 export type MappingMode = 'rects' | 'table';
 
 export interface Draft {
@@ -35,11 +35,11 @@ export interface Draft {
   /** Kategorie: w tabeli kolejne wiersze (albo kolumny), w prostokątach kategorie pól. */
   lines: LineDef[];
   fields: FreeField[];
-  /** Jawna reguła miejsc (EDT-7): z wczytanego notesu albo ustawiona w kroku „Kategorie”. */
+  /** Jawna reguła miejsc: z wczytanego notesu albo ustawiona w kroku „Kategorie”. */
   ranking?: Ranking;
 }
 
-/** Stan mapowania dla panelu kreatora (EDT-11, EDT-6). */
+/** Stan mapowania dla panelu kreatora. */
 export interface MappingState {
   readonly mode: MappingMode;
   /** Tabela: gracze w kolumnach albo w wierszach. */
@@ -90,13 +90,13 @@ export type MappingAction =
   | { readonly type: 'removeCategory' }
   | { readonly type: 'undo' };
 
-/** Zakładka kroku 4 kreatora: szczegóły kategorii albo wygrana i remisy (DS §18). */
+/** Zakładka kroku 4 kreatora: szczegóły kategorii albo wygrana i remisy. */
 export type CategoriesView = 'lines' | 'ranking';
 
-/** Zakres wartości punktacji (EDT-13): dowolny, od–do co krok albo lista wartości. */
+/** Zakres wartości punktacji: dowolny, od–do co krok albo lista wartości. */
 export type RangeMode = 'free' | 'range' | 'list';
 
-/** Kategoria w kroku 4 „Kategorie” (EDT-13). */
+/** Kategoria w kroku 4 „Kategorie”. */
 export interface CategoryState {
   readonly id: string;
   readonly label: string;
@@ -119,7 +119,7 @@ export interface CategoryState {
   readonly team: boolean;
 }
 
-/** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4). */
+/** Stan kroku 4 „Kategorie”. */
 export interface CategoriesState {
   readonly view: CategoriesView;
   /** Wybrana kategoria (indeks). */
@@ -156,7 +156,7 @@ export type CategoriesAction =
   | { readonly type: 'view'; readonly view: CategoriesView }
   | { readonly type: 'select'; readonly index: number }
   | { readonly type: 'update'; readonly index: number; readonly patch: CategoryPatch }
-  /** Reguła miejsc w formacie `template.ranking` (EDT-7). */
+  /** Reguła miejsc w formacie `template.ranking`. */
   | { readonly type: 'ranking'; readonly ranking: Ranking };
 
 /** To, czego krok potrzebuje od edytora. */
@@ -231,7 +231,7 @@ const UNDO_LIMIT = 60;
 /** Tabela startowa: do dopasowania liniami na kartce. */
 const FALLBACK_TABLE = { lines: 6, players: 4, labels: 1 };
 const FALLBACK_FRAME = { x0: 0.06, y0: 0.06, x1: 0.94, y1: 0.62 };
-/** Automatyczna nazwa kategorii (EDT-11): numer zmienia się razem z kolejnością. */
+/** Automatyczna nazwa kategorii: numer zmienia się razem z kolejnością. */
 const AUTO_LABEL = /^Kategoria \d+$/;
 
 export function freshDraft(): Draft {
@@ -273,7 +273,7 @@ export class FieldsStep {
   /** Tabela startowa jeszcze bez zmian: nie ma czego tracić. */
   private untouchedFallback = false;
   /**
-   * Krok 4 kreatora (EDT-13): kartka pokazuje kategorie (numery, wybór, reguła miejsc) zamiast
+   * Krok 4 kreatora: kartka pokazuje kategorie (numery, wybór, reguła miejsc) zamiast
    * narzędzi mapowania, a kliknięcie pola wybiera jego kategorię.
    */
   review = false;
@@ -554,7 +554,7 @@ export class FieldsStep {
       : this.draft.lines.length > 0 || this.draft.fields.length > 0;
   }
 
-  /** Zmienia tryb mapowania: dotychczasowe pola i kategorie są usuwane (EDT-11). */
+  /** Zmienia tryb mapowania: dotychczasowe pola i kategorie są usuwane. */
   setMode(m: MappingMode): void {
     if (m === this.mode) return;
     this.pushUndo();
@@ -824,7 +824,7 @@ export class FieldsStep {
     let l = this.draft.lines[this.sel];
     if (!l) {
       if (this.mode !== 'rects') return null;
-      // EDT-11: kategoria powstaje z pierwszym polem; ma tylko numer i automatyczną nazwę
+      // kategoria powstaje z pierwszym polem; ma tylko numer i automatyczną nazwę
       l = this.newLine(this.draft.lines.length);
       this.draft.lines.push(l);
       this.sel = this.draft.lines.length - 1;
@@ -886,7 +886,7 @@ export class FieldsStep {
   }
 
   /**
-   * Powiela pola bieżącego miejsca dla następnego (EDT-11). Ostatnie miejsce dostaje nowe miejsce
+   * Powiela pola bieżącego miejsca dla następnego. Ostatnie miejsce dostaje nowe miejsce
    * obok. Kopie są zaznaczone: przesunięcie ich poprawia też położenie kolejnych kopii.
    */
   private duplicateSeat(): void {
@@ -1326,7 +1326,7 @@ export class FieldsStep {
     this.h.changed();
   }
 
-  // ─────────────────────────────────────────────── krok 4: kategorie i reguła miejsc (EDT-13)
+  // ─────────────────────────────────────────────── krok 4: kategorie i reguła miejsc
 
   /** Wejście w krok 4 albo wyjście z niego (kartka z kategoriami zamiast narzędzi mapowania). */
   setReview(on: boolean): void {
@@ -1430,7 +1430,7 @@ export class FieldsStep {
         this.draft.ranking = {
           line: a.ranking.line,
           dir: a.ranking.dir,
-          // Za ostatnią regułą zawsze jest wspólne miejsce (EDT-4): jawne „shared” na końcu
+          // Za ostatnią regułą zawsze jest wspólne miejsce: jawne „shared” na końcu
           // nic nie zmienia, więc go nie zapisujemy.
           tiebreak: a.ranking.tiebreak
             .map((r): TiebreakRule => (r.type === 'line' ? { ...r } : { type: r.type }))
@@ -1520,7 +1520,7 @@ export class FieldsStep {
       this.draft.ranking = { line: r.line, dir: r.dir, tiebreak };
       return;
     }
-    // Domyślna reguła: suma, której nie sumuje żadna inna, więcej = lepiej (EDT-2, EDT-3).
+    // Domyślna reguła: suma, której nie sumuje żadna inna, więcej = lepiej.
     const line = padRanking({ ...this.tpl(), ranking: undefined }).line;
     if (line === FINAL_TOTAL) delete this.draft.ranking;
     else this.draft.ranking = { line, dir: 'desc', tiebreak };
@@ -1561,7 +1561,7 @@ export class FieldsStep {
   }
 
   /**
-   * Kartka w kroku 4 (DS §18 „Category badges”, „Ranking marks”): numer przy każdej kategorii,
+   * Kartka w kroku 4: numer przy każdej kategorii,
    * wybrana kategoria podświetlona i obrysowana; w zakładce „Wygrana i remisy” kategoria
    * decydująca z pucharem i kategorie reguł remisów z numerem reguły.
    */
@@ -1655,7 +1655,7 @@ export class FieldsStep {
       const fs = 11 * k;
       s += `<g pointer-events="none"><rect x="${bx}" y="${by}" width="${fs * 2}" height="${fs * 1.5}" rx="${4 * k}" fill="${c}"/><text x="${bx + fs}" y="${by + fs * 1.1}" font-size="${fs}" class="spe-num">${i + 1}</text></g>`;
     }
-    // linie tabeli; uchwyty 10 px na końcach przy górnej i lewej krawędzi (DS §18), z większą
+    // linie tabeli; uchwyty 10 px na końcach przy górnej i lewej krawędzi, z większą
     // strefą chwytu pod palcem
     const grab = (coarsePointer() ? 16 : 9) * k;
     const lineEl = (axis: 'x' | 'y', i: number, v: number): string => {
@@ -1929,7 +1929,7 @@ export class FieldsStep {
       if (f) {
         if (snap) this.pushUndo(snap);
         this.lastSize = { w: f.w, h: f.h };
-        // od razu następna kategoria tego samego miejsca — można rysować bez przerwy (EDT-11)
+        // od razu następna kategoria tego samego miejsca — można rysować bez przerwy
         this.sel = this.nextFor(this.activeP, Math.max(at, this.sel));
       }
       this.renderAll();

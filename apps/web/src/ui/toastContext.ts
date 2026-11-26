@@ -1,7 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import { createContext } from 'solid-js';
 
-/** Warianty toastu (DS §12): sukces (✓ #7CE0A3), neutralny (kopiuj, biały), błąd (⚠ #FFB4B4). */
+/** Warianty toastu: sukces (✓ #7CE0A3), neutralny (kopiuj, biały), błąd (⚠ #FFB4B4). */
 export type ToastVariant = 'success' | 'neutral' | 'error';
 
 export interface ToastApi {

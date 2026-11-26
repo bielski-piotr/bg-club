@@ -53,12 +53,12 @@ import './calendar.css';
 const COUNTDOWN_TICK_MS = 60_000;
 
 /**
- * Widżet spotkania (MTG-1, DS §15 „Widget meeting block”, „Widget header”, „Widget tray head”):
+ * Widżet spotkania:
  * trwające spotkanie, a gdy go nie ma, najbliższe zaplanowane, z datą w strefie klubu,
  * uczestnikami i stanem. W nagłówku odliczanie albo chip „Trwa”; pod spodem taca stanu:
  * najwięcej głosów (głosowanie otwarte), „Gramy w” (gry wybrane) albo partie (w trakcie).
- * Menu ma akcje zależne od roli (DS §15 „Meeting menus”), a pusty stan dla administratora
- * „Zaplanuj spotkanie” (CLUB-4, PLAN-1).
+ * Menu ma akcje zależne od roli, a pusty stan dla administratora
+ * „Zaplanuj spotkanie”.
  */
 export function MeetingWidget(props: { readonly me: Profile }) {
   const popups = useContext(PopupsContext);
@@ -81,7 +81,7 @@ export function MeetingWidget(props: { readonly me: Profile }) {
     const current = data();
     if (!current) return [];
     return [
-      // Kolejne spotkanie z menu widżetu (PLAN-1); kalendarz ma też własny przycisk (CAL-3).
+      // Kolejne spotkanie z menu widżetu; kalendarz ma też własny przycisk.
       ...(isAdmin()
         ? [
             {
@@ -269,7 +269,7 @@ function MeetingBlock(props: {
 const TRAY_ROWS = 3;
 
 /**
- * Taca stanu widżetu (MTG-1, DS §15 „Widget tray head”, „Voter mini-stack + count”): chip stanu
+ * Taca stanu widżetu: chip stanu
  * z notatką po prawej i najwyżej trzy wiersze h54.
  */
 function MeetingStateTray(props: {

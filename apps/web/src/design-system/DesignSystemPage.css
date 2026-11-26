@@ -246,7 +246,7 @@
   text-align: center;
 }
 
-/* Podgląd notesu i edytora (zadanie [013]): wysokość jak w popupie partii na telefonie. */
+/* Podgląd notesu i edytora : wysokość jak w popupie partii na telefonie. */
 .ds-score-pad {
   height: min(640px, 80vh);
 }

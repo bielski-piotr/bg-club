@@ -5,10 +5,10 @@ import { isUuid } from '../popups/routes';
 import { filterArgs, filtersKey } from './playerStatsData';
 
 /**
- * Rekordy osobiste gracza (PRD USR-4) z funkcji SQL
+ * Rekordy osobiste gracza z funkcji SQL
  * `player_records(profile_id, date_from, date_to, game_ids)`: najlepsza wartość kategorii
  * decydującej gracza w każdej grze kolekcji, z tymi samymi zasadami co rekord gry w statystykach
- * gry (GAME-11, Q25). Gra bez wyniku gracza też jest na liście (`value` `null`).
+ * gry. Gra bez wyniku gracza też jest na liście (`value` `null`).
  */
 export interface PlayerRecord {
   readonly game_id: string;
@@ -42,8 +42,8 @@ export function visibleRecords(
 }
 
 /**
- * Klucz w `gamesKey`: odświeża go zarówno zapis i usunięcie partii (`PLAY_DEPENDENT_KEYS`,
- * §5.6.5), jak i zmiany kolekcji (tytuł, okładka, nowa gra).
+ * Klucz w `gamesKey`: odświeża go zarówno zapis i usunięcie partii (`PLAY_DEPENDENT_KEYS`),
+ * jak i zmiany kolekcji (tytuł, okładka, nowa gra).
  */
 export const playerRecordsKey = (id: string, filters: LeaderboardFilters) =>
   [...gamesKey, 'player-records', id, ...filtersKey(filters)] as const;

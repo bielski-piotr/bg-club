@@ -31,7 +31,7 @@ export function issueLine(issue: ScoringIssue): number | null {
   return match ? Number(match[1]) : null;
 }
 
-/** Komunikat problemu walidatora (EDT-13) po polsku. */
+/** Komunikat problemu walidatora po polsku. */
 export function issueMessage(
   issue: ScoringIssue,
   lines: readonly Pick<ScorePadEditorCategory, 'label'>[],

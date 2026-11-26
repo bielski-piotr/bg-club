@@ -1,6 +1,5 @@
 node_modules/
 dist/
-coverage/
 *.tsbuildinfo
 .vite/
 
@@ -8,12 +7,6 @@ coverage/
 .env
 .env.*
 !.env.example
-
-# Playwright
-playwright-report/
-test-results/
-blob-report/
-playwright/.cache/
 
 # Supabase CLI
 supabase/.branches/

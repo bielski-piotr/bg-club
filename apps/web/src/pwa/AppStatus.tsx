@@ -11,10 +11,10 @@ export interface AppStatusProps {
 }
 
 /**
- * Stały stan aplikacji nad toastami (DS §12, standardowy ciemny toast): brak połączenia
+ * Stały stan aplikacji nad toastami (standardowy ciemny toast): brak połączenia
  * i nowa wersja. Bez sieci aplikacja nie udaje pracy offline: mówi, że potrzebuje internetu,
- * a wpisy notesu czekają na tym urządzeniu (PAD-4). „Odśwież” jest wstrzymane, póki otwarty
- * notes ma wpisy, których nie ma jeszcze w bazie (NFR-3).
+ * a wpisy notesu czekają na tym urządzeniu. „Odśwież” jest wstrzymane, póki otwarty
+ * notes ma wpisy, których nie ma jeszcze w bazie.
  */
 export function AppStatus(props: AppStatusProps) {
   const store = () => props.store ?? pwa;

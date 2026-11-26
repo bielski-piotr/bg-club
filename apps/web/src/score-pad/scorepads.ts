@@ -5,13 +5,13 @@ import { scaleImage } from '../club/image';
 import { isUuid } from '../popups/routes';
 
 /**
- * Notesy gry i ich wersje (PRD GAME-7, GAME-9, EDT-1, EDT-6…EDT-8, NFR-7, zadanie [015]).
+ * Notesy gry i ich wersje .
  *
  * - Każdy zapis (edytor albo import pliku `.json`) to nowa, niezmienna wersja w bazie: najpierw
  *   zdjęcie kartki trafia do Storage, potem RPC `save_scorepad` w jednej transakcji dodaje
  *   wersję i przestawia na nią notes. Gdy RPC się nie uda, wysłany plik jest usuwany, więc
  *   nieudany zapis nie zostawia ani wersji, ani pliku.
- * - Szablon w bazie jest bez zdjęcia (data URL). Aplikacja wstawia zdjęcie z powrotem przed
+ * - Szablon w bazie jest bez zdjęcia (data URL). Aplikacja wstawia zdjęcie z powrotem
  *   osadzeniem w edytorze i przy eksporcie, więc plik `.json` z eksportu jest przenośny.
  * - Zmiana nazwy i usunięcie (miękkie) nie zmieniają wersji: rozegrane partie zachowują
  *   swoją wersję i obraz (Storage nie pozwala usunąć pliku wskazanego przez wersję).
@@ -19,7 +19,7 @@ import { isUuid } from '../popups/routes';
 
 export const SCOREPADS_BUCKET = 'scorepads';
 
-/** Limit bucketu `scorepads` (migracja access_control): zdjęcie kartki 1–3 MB (NFR-7). */
+/** Limit bucketu `scorepads` (migracja access_control): zdjęcie kartki 1–3 MB. */
 export const SCOREPAD_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 /**
@@ -70,7 +70,7 @@ export const versionTemplateKey = (versionId: string) => ['scorepad-template', v
  * Opcje zapytań bez frameworka; wersje Solid w `score-pad/scorepadData.ts`.
  */
 
-/** Aktywne notesy gry w kolejności dodania (GAME-7). */
+/** Aktywne notesy gry w kolejności dodania. */
 export function gameScorepadsQuery(client: SupabaseClient, gameId: string) {
   return {
     queryKey: gameScorepadsKey(gameId),
@@ -91,7 +91,7 @@ export function gameScorepadsQuery(client: SupabaseClient, gameId: string) {
 }
 
 /**
- * Aktywne notesy wszystkich gier w kolejności dodania: kreator nowej partii (RUN-2) pokazuje
+ * Aktywne notesy wszystkich gier w kolejności dodania: kreator nowej partii pokazuje
  * przy każdej grze liczbę notesów i wyłącza gry bez pasującego notesu.
  */
 export function activeScorepadsQuery(client: SupabaseClient) {
@@ -252,9 +252,9 @@ function checked(result: ReadTemplateResult): { template: ScorePadTemplate; play
   return result;
 }
 
-/** Dłuższy bok miniatury kartki: galeria 36×46 przy `devicePixelRatio` do 3 (NFR-2). */
+/** Dłuższy bok miniatury kartki: galeria 36×46 przy `devicePixelRatio` do 3. */
 export const SCOREPAD_THUMB_MAX_SIDE = 160;
-/** Docelowy rozmiar miniatury: kilka KB zamiast 1–3 MB zdjęcia szablonu (NFR-7). */
+/** Docelowy rozmiar miniatury: kilka KB zamiast 1–3 MB zdjęcia szablonu. */
 export const SCOREPAD_THUMB_TARGET_BYTES = 12 * 1024;
 
 /**
@@ -321,8 +321,8 @@ export function scorepadName(name: string): string {
 }
 
 /**
- * Zapisuje nową wersję notesu (GAME-7, GAME-9, EDT-1). Szablon jest sprawdzany jak plik
- * notesu v2 (kształt, kategorie, reguła miejsc i liczba miejsc, EDT-7, EDT-8), zdjęcie kartki
+ * Zapisuje nową wersję notesu. Szablon jest sprawdzany jak plik
+ * notesu v2 (kształt, kategorie, reguła miejsc i liczba miejsc), zdjęcie kartki
  * idzie do Storage, a w bazie zostaje szablon bez zdjęcia.
  */
 export async function saveScorepad(
@@ -334,7 +334,7 @@ export async function saveScorepad(
   const name = scorepadName(draft.name ?? template.name);
   const { image, ...rest } = template;
 
-  // Edytor (EDT-1) otwiera tylko notes ze zdjęciem kartki, więc bez zdjęcia nie zapisujemy.
+  // Edytor otwiera tylko notes ze zdjęciem kartki, więc bez zdjęcia nie zapisujemy.
   if (image === undefined) throw new ScorepadError('image');
   const storage = client.storage.from(SCOREPADS_BUCKET);
   let imagePath: string;
@@ -347,7 +347,7 @@ export async function saveScorepad(
     if (!blob) throw new ScorepadError('image');
     if (blob.size > SCOREPAD_IMAGE_MAX_BYTES) throw new ScorepadError('imageSize');
     const path = newImagePath(draft.gameId, draft.scorepadId, IMAGE_TYPES[blob.type] ?? 'jpg');
-    // Miniatura skaluje się i wysyła równolegle ze zdjęciem: zapis nie czeka dłużej (NFR-2).
+    // Miniatura skaluje się i wysyła równolegle ze zdjęciem: zapis nie czeka dłużej.
     const [{ error }, thumbUploaded] = await Promise.all([
       storage.upload(path, blob, { contentType: blob.type, upsert: false }),
       uploadThumb(storage, path, blob),
@@ -384,7 +384,7 @@ export async function saveScorepad(
   return { name, version: data.version, playerSlots };
 }
 
-/** Szablon z pliku `.json` (EDT-1, EDT-9): format v2, reguła miejsc i liczba miejsc. */
+/** Szablon z pliku `.json`: format v2, reguła miejsc i liczba miejsc. */
 export async function readImportFile(file: Blob): Promise<unknown> {
   let raw: unknown;
   try {
@@ -455,7 +455,7 @@ export async function deleteScorepad(client: SupabaseClient, id: string): Promis
   if (error) throw new ScorepadError(error.code === '42501' ? 'forbidden' : 'save');
 }
 
-/** Plik notesu v2 ze zdjęciem w data URL: przenośny, wczytuje go edytor i notes (EDT-1). */
+/** Plik notesu v2 ze zdjęciem w data URL: przenośny, wczytuje go edytor i notes. */
 export function scorepadFile(template: ScorePadTemplate): ScorePadFile {
   return { format: 'score-pad', version: 2, template, active: template.id };
 }

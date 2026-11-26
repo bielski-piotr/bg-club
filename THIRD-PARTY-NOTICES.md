@@ -2,7 +2,7 @@
 
 ## Notes i edytor z POC
 
-Pochodzenie importu opisują PRD §8.5 i [README pakietu](packages/score-pad/README.md).
+Notes i edytor są w pakiecie `packages/score-pad`.
 Źródłem TypeScript jest `bielski-piotr/digital-scorepad-poc`, commit
 `e6b7dd29c05ca63c0b0dae5f3eceb1db8037cf10`, katalog `example/score-pad/score-pad/src`.
 Repo `digital-scorepad-editor-poc`, commit `7e6d3792686b6a6228fc168b7d4f201ff632bd56`,
@@ -10,7 +10,7 @@ zawiera zbudowany kod, nie jest drugim źródłem importu.
 
 Sprawdzenie drzew tych commitów 2026-11-16 nie znalazło plików LICENSE, COPYING ani NOTICE.
 Oba repozytoria są prywatne i mają tego samego właściciela GitHub co BG Club.
-Jest to dowód pochodzenia i zgodności importu z PRD, **nie dowód kompletu praw autorskich**.
+Jest to dowód pochodzenia importu, **nie dowód kompletu praw autorskich**.
 Nie nadano tutaj licencji open source kodowi POC ani całemu BG Club. Przed publiczną
 redystrybucją właściciel powinien udokumentować autorstwo/uprawnienia i wybrać licencję.
 Ta praca nie deklaruje brakujących praw jako zweryfikowanych i nie zmienia widoczności repo.

@@ -22,14 +22,14 @@ import {
 const text = t.profile.stats;
 
 /**
- * Statystyki gracza w profilu (PRD STAT-1–STAT-3, USR-4, DS „Profil / Popup”) w grupach:
+ * Statystyki gracza w profilu w grupach:
  * - **Statystyki profilu** z tymi samymi filtrami co ranking (zakres dat w strefie klubu i gry):
  *   spotkania, partie, wygrane, % wygranych;
  * - **Leaderboard** z całej historii: miejsce i punkty, miejsce i zwycięstwa, obecna i najwyższa
  *   seria;
  * - **Ulubione** z całej historii: ulubiona (najwięcej partii) i najlepsza gra;
  * - **Ostatnie spotkania**: 5 ostatnich spotkań z partiami gracza z linkami.
- * Usunięty członek ma te same statystyki z historii, tylko bez miejsc w rankingach (MEM-5, LB-7).
+ * Usunięty członek ma te same statystyki z historii, tylko bez miejsc w rankingach.
  */
 export function PlayerStatsSection(props: { readonly profileId: string }) {
   const auth = useContext(AuthContext);

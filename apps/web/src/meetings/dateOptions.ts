@@ -1,6 +1,6 @@
 /** Proponowane terminy spotkania w formularzu (głosowanie na termin, `dateVoting.ts`). */
 
-/** Propozycja terminu w formularzu: data i godzina w strefie klubu (NFR-10). */
+/** Propozycja terminu w formularzu: data i godzina w strefie klubu. */
 export interface DateOptionValue {
   /** `RRRR-MM-DD`. */
   readonly date: string;

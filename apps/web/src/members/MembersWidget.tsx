@@ -11,9 +11,9 @@ import { createMembers } from '../profile/profiles';
 import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui';
 
 /**
- * Widżet Członkowie (MEM-1, DS §6 „Widget members”): awatary członków prowadzące do profili,
+ * Widżet Członkowie: awatary członków prowadzące do profili,
  * przy ponad 5 osobach cztery i licznik „+N” otwierający listę. Bez innych członków pusty stan
- * z awatarem zalogowanego i, dla administratora, „Dodaj członka” (CLUB-4, MEM-3).
+ * z awatarem zalogowanego, dla administratora, „Dodaj członka”.
  */
 export function MembersWidget(props: { readonly me: Profile }) {
   const popups = useContext(PopupsContext);

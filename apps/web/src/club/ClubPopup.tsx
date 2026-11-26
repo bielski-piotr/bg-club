@@ -79,7 +79,7 @@ function nameError(name: string): string | undefined {
 }
 
 /**
- * Popup „Dodaj klub” / „Edytuj klub” (CLUB-2, DS §17). Otwiera go administrator z pierwszego
+ * Popup „Dodaj klub” / „Edytuj klub”. Otwiera go administrator z pierwszego
  * uruchomienia albo ołówkiem w nagłówku huba; dla gracza `HubPopup` pokazuje „Nie znaleziono”.
  * Jedno okno dla wczytywania i formularza (fokus zostaje na oknie).
  */
@@ -146,7 +146,7 @@ export function ClubPopup() {
     } catch (error) {
       const reason = error instanceof ClubSaveError ? error.reason : 'save';
       if (reason === 'exists') {
-        // Klub powstał w międzyczasie (np. równoległa próba, CLUB-2): drugiego nie ma, hub
+        // Klub powstał w międzyczasie (np. równoległa próba): drugiego nie ma, hub
         // pokazuje ten istniejący.
         void queryClient.invalidateQueries({ queryKey: clubKey });
         toast.show(SAVE_ERRORS.exists, 'error');
@@ -157,7 +157,7 @@ export function ClubPopup() {
       return;
     }
     queryClient.setQueryData(clubKey, saved);
-    // Strefa klubu wyznacza granice roku w rankingu (NFR-10).
+    // Strefa klubu wyznacza granice roku w rankingu.
     void queryClient.invalidateQueries({ queryKey: leaderboardRootKey });
     toast.show(change.existing === null ? t.club.toasts.created : t.club.toasts.updated, 'success');
     popups.back();

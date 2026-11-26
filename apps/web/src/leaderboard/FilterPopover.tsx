@@ -64,7 +64,7 @@ export interface FilterPopoverProps {
 }
 
 /**
- * Pigułka filtru z panelem (DS §10 „Select trigger” w wariancie pill). Panel to dialog
+ * Pigułka filtru z panelem (w wariancie pill). Panel to dialog
  * nie-modalny: Esc i kliknięcie poza nim zamykają go, fokus wraca na pigułkę.
  */
 export function FilterPopover(props: FilterPopoverProps) {

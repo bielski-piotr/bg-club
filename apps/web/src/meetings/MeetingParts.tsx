@@ -14,7 +14,7 @@ import type { ClassValue } from '../ui/dom';
 import '../sheets/sheets.css';
 
 /*
- * Wspólne elementy spotkań (DS §15.1, §15 „Play card”): mini kafelek daty, chip statusu,
+ * Wspólne elementy spotkań: mini kafelek daty, chip statusu,
  * zwycięzcy, miniatura karteczki, wyniki partii, rekordy i czasy partii. Używają ich też
  * kolekcja i karteczki.
  */
@@ -22,8 +22,8 @@ import '../sheets/sheets.css';
 const text = t.meetings.plays;
 
 /**
- * Miniatura oderwanej karteczki (DS §15 „Score-sheet thumbnail”): obraz karteczki z pismem
- * (PAD-6), a bez obrazu (np. przerwany upload) albo przed jego wczytaniem kartka w kolorze gry.
+ * Miniatura oderwanej karteczki: obraz karteczki z pismem,
+ * a bez obrazu (np. przerwany upload) albo przed jego wczytaniem kartka w kolorze gry.
  */
 export function SheetThumbnail(props: {
   readonly gameId: string;
@@ -89,7 +89,7 @@ export function RecordBadge(props: { readonly kind: RecordKind }) {
   );
 }
 
-/** Wiersze wyników partii (DS §15 „Play card”): miejsce, awatar, imię, wynik i punkty. */
+/** Wiersze wyników partii: miejsce, awatar, imię, wynik i punkty. */
 export function PlayResultRows(props: {
   readonly play: Pick<MeetingPlay, 'results'>;
   readonly profiles: ReadonlyMap<string, Profile>;
@@ -211,8 +211,8 @@ export function MiniDateTile(props: { readonly meeting: Meeting; readonly timeZo
 }
 
 /**
- * Chip stanu spotkania (DS §11, §15.1 „Agenda row”): głosowanie otwarte, gry wybrane,
- * w trakcie albo zakończone. `short`: „Trwa” zamiast „W trakcie” (widżet Spotkanie, DS §15).
+ * Chip stanu spotkania: głosowanie otwarte, gry wybrane,
+ * w trakcie albo zakończone. `short`: „Trwa” zamiast „W trakcie” (widżet Spotkanie).
  */
 export function MeetingStatusChip(props: {
   readonly meeting: Meeting;
@@ -233,7 +233,7 @@ export function MeetingStatusChip(props: {
 }
 
 /**
- * Zwycięzcy (DS §15.1 „Timeline row”): puchar, stos awatarów 20/6 i imiona. Bez czasownika,
+ * Zwycięzcy: puchar, stos awatarów 20/6 i imiona. Bez czasownika,
  * więc tekst nie zależy od rodzaju gramatycznego. Nieznane profile są pomijane.
  */
 export function WinnersLine(props: {

@@ -1,4 +1,4 @@
-// Leniwie ładowany moduł z narzędziami szablonu (import i zapis notesu w aplikacji, zadanie [015]).
+// Leniwie ładowany moduł z narzędziami szablonu (import i zapis notesu w aplikacji).
 // Ładuje kod modelu notesu bez web componentów; typy dla aplikacji są w `template.d.ts`.
 import { parseRanking, validateScoring } from '@bg-club/scoring';
 import type { PadTemplate } from './core/templates';
@@ -12,7 +12,7 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
- * Sprawdza szablon z pliku `.json` albo z edytora (EDT-7, EDT-8, EDT-13): kształt notesu
+ * Sprawdza szablon z pliku `.json` albo z edytora: kształt notesu
  * (`validateTemplate`), kategorie i regułę miejsc (`validateScoring`) oraz liczbę miejsc dla
  * graczy. Szablon z błędną regułą miejsc jest odrzucany, a nie naprawiany: zapis w bazie ma
  * zachowywać się dokładnie tak, jak zaprojektował go admin.
@@ -52,7 +52,7 @@ export function readScorePadFile(raw: unknown): ReadTemplateResult {
 }
 
 /**
- * Kartka testowa kreatora (EDT-14): imiona „Gracz 1…n” i opcjonalnie losowe wpisy zgodne
+ * Kartka testowa kreatora: imiona „Gracz 1…n” i opcjonalnie losowe wpisy zgodne
  * z zakresami kategorii, z wymuszonym remisem na kategorii decydującej. `null` dla złego szablonu.
  */
 export function testSheet(raw: unknown, opt?: TestSheetOptions): PackedSheet | null {
@@ -61,7 +61,7 @@ export function testSheet(raw: unknown, opt?: TestSheetOptions): PackedSheet | n
 }
 
 /**
- * Miejsca graczy kartki według reguły notesu, jak przy oderwaniu karteczki w partii (§5.6.1),
+ * Miejsca graczy kartki według reguły notesu, jak przy oderwaniu karteczki w partii,
  * oraz kategoria reguły remisu, która rozstrzygnęła remis. Pusta lista dla złego szablonu.
  */
 export function sheetResults(raw: unknown, sheet: ScorePadSheet): SheetResult[] {

@@ -60,7 +60,7 @@ const NEUTRAL_VALUES: MeetingFormValues = {
   dateVoting: false,
   dateOptions: [],
 };
-/** „Zaplanuj spotkanie” (PLAN-1, PLAN-2), opcjonalnie z wypełnioną datą (CAL-3). */
+/** „Zaplanuj spotkanie”, opcjonalnie z wypełnioną datą. */
 export function AddMeetingPopup(props: {
   readonly me: OwnProfile;
   readonly date?: string | undefined;
@@ -69,7 +69,7 @@ export function AddMeetingPopup(props: {
 }
 
 /**
- * „Edytuj spotkanie” (PLAN-3, PLAN-4). Zaplanowane: wszystkie pola. W trakcie: dopisanie
+ * „Edytuj spotkanie”. Zaplanowane: wszystkie pola. W trakcie: dopisanie
  * uczestnika i zmiana prowadzącego. Zakończone i nieistniejące mają czytelny stan.
  */
 export function EditMeetingPopup(props: { readonly id: string; readonly me: OwnProfile }) {
@@ -93,8 +93,8 @@ interface FormStart {
 }
 
 /**
- * Formularz spotkania (PLAN-1, DS §15 „Member selection row”, „Time dropdown”): tytuł, data
- * i godzina w strefie klubu, uczestnicy z aktywnych członków (bez limitu, Q12) i opcjonalny
+ * Formularz spotkania: tytuł, data
+ * i godzina w strefie klubu, uczestnicy z aktywnych członków (bez limitu) i opcjonalny
  * prowadzący spośród uczestników innych niż admin. Zapis to jedno RPC `save_meeting`.
  * Jedno okno na wczytywanie (strefa klubu, członkowie, w trakcie gracze z partiami, propozycje
  * terminu), formularz, „Nie znaleziono” i „Zakończone”: fokus ustawiony przez `PopupHost`
@@ -153,7 +153,7 @@ function MeetingFormPopup(props: PopupProps) {
   // Bez klubu nie ma strefy czasowej; widżety (i ten formularz) są dopiero po założeniu.
   const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
   const memberList = (): readonly Profile[] => members.current() ?? [];
-  /** Uczestnicy z partią w spotkaniu w trakcie: nie da się ich odznaczyć (PLAN-4). */
+  /** Uczestnicy z partią w spotkaniu w trakcie: nie da się ich odznaczyć. */
   const locked = () => players.current() ?? NO_PLAYERS;
 
   let first: FormStart | undefined;

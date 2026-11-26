@@ -1,9 +1,9 @@
-// Kamera notesu (PAD-11, PAD-12): stała orientacja (z góry albo pod lekkim kątem), zoom względem
+// Kamera notesu: stała orientacja (z góry albo pod lekkim kątem), zoom względem
 // punktu pod kursorem albo palcami, przesuwanie i płynne przejścia. Sama matematyka, bez sceny i DOM.
 
 import * as THREE from 'three';
 
-/** Najmocniejsze przybliżenie względem widoku domyślnego (PAD-11 wymaga co najmniej 6×). */
+/** Najmocniejsze przybliżenie względem widoku domyślnego (wymaga co najmniej 6×). */
 export const MAX_ZOOM = 8;
 /** Najdalsze oddalenie względem widoku domyślnego. */
 export const MIN_ZOOM = 0.8;

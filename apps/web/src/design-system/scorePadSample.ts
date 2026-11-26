@@ -1,6 +1,6 @@
 import type { ScorePadFile, ScorePadTemplate } from '@bg-club/score-pad';
 
-/** Liczba miejsc w przykładowym notesie: ponad dawny limit POC (`MAX_PLAYERS = 8`, EDT-8). */
+/** Liczba miejsc w przykładowym notesie: ponad dawny limit POC (`MAX_PLAYERS = 8`). */
 export const SAMPLE_SEATS = 10;
 
 const round = (v: number) => Math.round(v * 10000) / 10000;

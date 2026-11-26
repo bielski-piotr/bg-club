@@ -91,14 +91,14 @@ export interface ScorePadOptions {
   /** Tryb debugowania: true pokazuje przycisk panelu, "open" otwiera panel od razu. */
   debug?: boolean | 'open';
   /**
-   * Tryb klubowy BG Club (PAD-1): notesy przychodzą tylko z `templates` i `config` (z bazy aplikacji).
+   * Tryb klubowy BG Club: notesy przychodzą tylko z `templates` i `config` (z bazy aplikacji).
    * Notes nie czyta i nie zapisuje lokalnej biblioteki szablonów (IndexedDB) ani stanu i historii
    * (`localStorage`), nie pokazuje historii partii i domyślnie nie dołącza notesów wbudowanych.
    * Pliki notesu w formacie v2 nadal można wczytać, ale tylko do pamięci tego osadzenia.
    */
   club?: boolean;
   /**
-   * Notes testowy kreatora (EDT-14): podsumowanie po oderwaniu mówi, że karteczki testowej nie
+   * Notes testowy kreatora: podsumowanie po oderwaniu mówi, że karteczki testowej nie
    * zapisano. Zapisów i historii i tak nie prowadzi aplikacja dla zdarzeń z testu.
    */
   test?: boolean;
@@ -109,11 +109,11 @@ export interface ScorePadOptions {
   tear?: boolean;
   /**
    * `false`: po oderwaniu notes nie pokazuje własnej karteczki z wynikiem, bo podsumowanie
-   * z potwierdzeniem pokazuje aplikacja (partia, PAD-5). Domyślnie pokazuje.
+   * z potwierdzeniem pokazuje aplikacja (partia). Domyślnie pokazuje.
    */
   summary?: boolean;
   /**
-   * Podgląd zapisanej karteczki (PAD-6): kartki nie da się oderwać ani zmienić (pola nie
+   * Podgląd zapisanej karteczki: kartki nie da się oderwać ani zmienić (pola nie
    * przyjmują wpisów, notes nie wysyła `scorepad:change`); obrót, zoom i widok z góry działają.
    */
   readOnly?: boolean;
@@ -129,7 +129,7 @@ export interface PadChangeDetail {
 }
 
 /**
- * Pełny wynik gracza z oderwanej kartki (PAD-7): miejsce na kartce (od 0), wartości punktacji,
+ * Pełny wynik gracza z oderwanej kartki: miejsce na kartce (od 0), wartości punktacji,
  * sumy i miejsce według reguły notesu. Identyfikator gracza dopisuje aplikacja (miejsce → gracz).
  */
 export interface PadSaveResult {
@@ -144,13 +144,13 @@ export interface PadSaveResult {
   tiedWith: number[];
 }
 
-/** Szczegóły zdarzenia `scorepad:save`: wpis partii, pełne wpisy kartki i wyniki (PAD-7). */
+/** Szczegóły zdarzenia `scorepad:save`: wpis partii, pełne wpisy kartki i wyniki. */
 export interface PadSaveDetail extends HistoryEntry {
   sheet: NonNullable<PadConfig['sheet']>;
   /** Wyniki graczy w kolejności miejsc. */
   results: PadSaveResult[];
   /**
-   * Obraz oderwanej kartki z pismem (PAD-6), zrobiony w chwili oderwania: WebP (PNG, gdy
+   * Obraz oderwanej kartki z pismem, zrobiony w chwili oderwania: WebP (PNG, gdy
    * przeglądarka nie koduje WebP), dłuższy bok najwyżej `maxSide` px (domyślnie 1200),
    * jakość obniżana, aż plik zmieści się w `maxBytes` (domyślnie 150 KB). `null`, gdy
    * przeglądarka nie potrafi zakodować obrazu.
@@ -158,7 +158,7 @@ export interface PadSaveDetail extends HistoryEntry {
   image(options?: { maxSide?: number; maxBytes?: number }): Promise<Blob | null>;
 }
 
-/** Dłuższy bok obrazu karteczki zrobionego przy oderwaniu (PAD-6). */
+/** Dłuższy bok obrazu karteczki zrobionego przy oderwaniu. */
 const SHEET_IMAGE_MAX_SIDE = 1600;
 
 function canvasBlob(c: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> {
@@ -172,7 +172,7 @@ function canvasBlob(c: HTMLCanvasElement, type: string, quality?: number): Promi
 }
 
 /**
- * Obraz karteczki do historii (PAD-6, NFR-7 ≈ 150 KB): WebP o malejącej jakości, a gdy nadal
+ * Obraz karteczki do historii (≈ 150 KB): WebP o malejącej jakości, a gdy nadal
  * za duży, mniejszy wymiar. Przeglądarka bez WebP daje PNG (bez limitu rozmiaru, z wymiarem).
  */
 export async function encodeSheetImage(
@@ -209,7 +209,7 @@ export async function encodeSheetImage(
 const ROOM: Record<PadTheme, number> = { dark: 0x120d0a, light: 0xd6cec2 };
 
 /**
- * Three.js pochodzi z zależności npm (PRD §8.5) i trafia do tego samego leniwego chunka co notes,
+ * Three.js pochodzi z zależności npm i trafia do tego samego leniwego chunka co notes,
  * więc nie trzeba go doczytywać z CDN. Funkcja zostaje dla zgodności z API POC (`ScorePad.ensureThree`).
  */
 export function ensureThree(): Promise<void> {
@@ -312,13 +312,13 @@ export class ScorePad {
   private aniso = 8;
   private autoZoom = 1;
   private dragCam: THREE.PerspectiveCamera | null = null;
-  /** Widok zmieniony zoomem albo przesunięciem (PAD-11); `null` to widok domyślny. */
+  /** Widok zmieniony zoomem albo przesunięciem; `null` to widok domyślny. */
   private free: CameraPose | null = null;
   /** Widok domyślny pod lekkim kątem (`view.tilt`) zamiast prosto z góry. */
   private angled = false;
   /**
    * Płynne przejście kamery: do `to` (dojazd do pola wpisywania) albo, gdy `to` jest `null`,
-   * do widoku domyślnego (reset, zmiana kąta; PAD-12).
+   * do widoku domyślnego (reset, zmiana kąta).
    */
   private camAnim: { from: CameraPose; to: CameraPose | null; t0: number } | null = null;
   /** Palce na ekranie i gest dwoma palcami (szczypanie przybliża, środek przesuwa widok). */
@@ -327,10 +327,10 @@ export class ScorePad {
   /** Palce, które brały udział w geście: do podniesienia nie piszą i nie odrywają. */
   private gestureIds = new Set<number>();
   private maxSide = 4096;
-  /** Obniża gęstość renderu na słabym GPU (NFR-2); tekstura zostaje w pełnej rozdzielczości. */
+  /** Obniża gęstość renderu na słabym GPU; tekstura zostaje w pełnej rozdzielczości. */
   private budget: FrameBudget | null = null;
   /**
-   * Pole punktów, w które się wpisuje (PAD-13…PAD-15): kategoria, czy przyjmuje wartości
+   * Pole punktów, w które się wpisuje: kategoria, czy przyjmuje wartości
    * ujemne i tekst pola przed zmianą (Esc do niego wraca).
    */
   private entry: { spot: Spot; neg: boolean; orig: string } | null = null;
@@ -353,7 +353,7 @@ export class ScorePad {
   private pickerOpen = false;
   private pickerShownAt = 0;
   private annotTimer = 0;
-  /** Stan sprzed ostatniego oderwania (liczba kartek), dla `restoreSheet` (anulowanie, PAD-5). */
+  /** Stan sprzed ostatniego oderwania (liczba kartek), dla `restoreSheet` (anulowanie). */
   private lastTear: { tpl: string; left: number } | null = null;
   private rafId = 0;
   private last = 0;
@@ -391,7 +391,7 @@ export class ScorePad {
     this.baseCfg = mergeSettings(mergeSettings(DEFAULTS, fromOpts), options.settings);
     this.cfg = cloneSettings(this.baseCfg);
     this.root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
-    // tryb klubowy: szablony tylko w pamięci, bez odczytu stanu i historii z przeglądarki (PAD-1)
+    // tryb klubowy: szablony tylko w pamięci, bez odczytu stanu i historii z przeglądarki
     this.store = new TemplateStore(this.opts.storageKey, !club);
     const st = club ? {} : (loadState(this.opts.storageKey) ?? {});
     this.saved = {
@@ -815,7 +815,7 @@ export class ScorePad {
 
   private setupScene(): void {
     const r = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    // pełna gęstość ekranu, do 3 (PAD-16)
+    // pełna gęstość ekranu, do 3
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3));
     this.budget = new FrameBudget(r.getPixelRatio());
     r.outputEncoding = THREE.sRGBEncoding;
@@ -831,7 +831,7 @@ export class ScorePad {
     this.ui.stage.appendChild(r.domElement);
     this.renderer = r;
     this.aniso = r.capabilities.getMaxAnisotropy();
-    // tekstura kartki w rozdzielczości z edytora, do granicy urządzenia (PAD-16, EDT-12)
+    // tekstura kartki w rozdzielczości z edytora, do granicy urządzenia
     this.maxSide = Math.min(4096, r.capabilities.maxTextureSize || 4096);
     this.raycaster = new THREE.Raycaster();
     this.ndc = new THREE.Vector2();
@@ -914,7 +914,7 @@ export class ScorePad {
   }
 
   /**
-   * Ustawia kamerę: widok domyślny nad notesem (PAD-12; `autoZoom` odsuwa kamerę, gdy podniesiona
+   * Ustawia kamerę: widok domyślny nad notesem (`autoZoom` odsuwa kamerę, gdy podniesiona
    * kartka wychodzi poza kadr) albo widok zmieniony przez użytkownika (`free`).
    */
   private poseCamera(): void {
@@ -979,7 +979,7 @@ export class ScorePad {
     this.camAnim = null;
     if (!this.free) {
       this.free = this.homePose(this.autoZoom);
-      // autoZoom działa tylko w widoku domyślnym (PAD-12)
+      // autoZoom działa tylko w widoku domyślnym
       this.autoZoom = 1;
     }
     // okno imienia i chmurka stoją przy polu, które po ruchu kamery jest gdzie indziej;
@@ -989,7 +989,7 @@ export class ScorePad {
     return this.free;
   }
 
-  /** Zoom względem punktu ekranu (PAD-11); `k` < 1 przybliża. */
+  /** Zoom względem punktu ekranu; `k` < 1 przybliża. */
   private zoomView(cx: number, cy: number, k: number): void {
     const p = this.freePose();
     if (!p) return;
@@ -1042,7 +1042,7 @@ export class ScorePad {
     return this.raycaster.ray.intersectPlane(plane, out) ?? p.target.clone();
   }
 
-  /** Płynnie przywraca widok domyślny (przycisk „Resetuj widok”, klawisz 0; PAD-12). */
+  /** Płynnie przywraca widok domyślny (przycisk „Resetuj widok”, klawisz 0). */
   resetView(): void {
     if (!this.free || !this.spec) return;
     this.camAnim = { from: clonePose(this.free), to: null, t0: performance.now() };
@@ -1131,7 +1131,7 @@ export class ScorePad {
       this.saved.tpl = t.id;
       this.wrap.style.setProperty('--accent', t.accent ?? t.tape);
       this.host.style.setProperty('--accent', t.accent ?? t.tape);
-      // notes otwiera się zawsze w widoku z góry (PAD-12)
+      // notes otwiera się zawsze w widoku z góry
       this.free = null;
       this.camAnim = null;
       this.autoZoom = 1;
@@ -1207,7 +1207,7 @@ export class ScorePad {
   }
 
   /**
-   * Tryb klubowy: stan kartki zapisuje aplikacja (szkic partii, PAD-4), więc zamiast zapisu
+   * Tryb klubowy: stan kartki zapisuje aplikacja (szkic partii), więc zamiast zapisu
    * w `localStorage` notes wysyła wpisy wierzchniej kartki w zdarzeniu `scorepad:change`.
    * Wysyłane przy każdej zmianie stanu notesu, także bez zmiany wpisów (aplikacja porównuje).
    */
@@ -1351,7 +1351,7 @@ export class ScorePad {
       (e) => {
         e.preventDefault();
         if (this.drag || !this.spec) return;
-        // kółko myszy i przewijanie touchpada; szczypanie touchpada przychodzi z Ctrl (PAD-11)
+        // kółko myszy i przewijanie touchpada; szczypanie touchpada przychodzi z Ctrl
         const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
         const dy = clamp(e.deltaY * unit, -300, 300);
         this.zoomView(e.clientX, e.clientY, Math.exp(dy * (e.ctrlKey ? 0.01 : 0.0018)));
@@ -1366,7 +1366,7 @@ export class ScorePad {
         this.closeMenu();
         return;
       }
-      // skróty widoku, gdy fokus nie jest w polu wpisywania (PAD-12)
+      // skróty widoku, gdy fokus nie jest w polu wpisywania
       // (w oknie wpisywania, menu i dialogu klawisze należą do nich; w trakcie przewracania kartki
       // kamera stoi, bo przeciąganie liczy pozycję z jej kopii)
       const tgt = e.composedPath()[0] as HTMLElement | undefined;
@@ -1988,7 +1988,7 @@ export class ScorePad {
     st.left = st.left > 1 ? st.left - 1 : this.cfg.view.sheets;
     this.pad.setLeft(st.left);
     st.data = blankSheet(t, sheet.data.game + 1);
-    // notes testowy kreatora: fikcyjni gracze zostają na kolejnej kartce (EDT-14)
+    // notes testowy kreatora: fikcyjni gracze zostają na kolejnej kartce
     if (this.opts.test) st.data.names = sheet.data.names.map((n) => (n ? { ...n } : null));
     this.active = this.makeSheet(st.data);
     this.scene.add(this.active.mesh);
@@ -1996,11 +1996,11 @@ export class ScorePad {
     this.persist();
     this.sfx.whoosh();
     const data = sheet.data;
-    // obraz karteczki teraz: lecąca kartka jest potem usuwana razem z teksturą (PAD-6)
+    // obraz karteczki teraz: lecąca kartka jest potem usuwana razem z teksturą
     // (tylko partia w trybie klubowym; notes testowy kreatora i demo obrazu nie zapisują)
     const shot =
       entry && this.opts.club && !this.opts.test ? sheet.snapshot(SHEET_IMAGE_MAX_SIDE) : null;
-    // Partia: podsumowanie z potwierdzeniem pokazuje aplikacja (PAD-5).
+    // Partia: podsumowanie z potwierdzeniem pokazuje aplikacja.
     if (this.opts.summary !== false) window.setTimeout(() => this.showSaved(entry, data, t), 700);
     if (entry) {
       const detail: PadSaveDetail = {
@@ -2015,7 +2015,7 @@ export class ScorePad {
     }
   }
 
-  /** Wyniki graczy kartki (PAD-7): gracze z imieniem albo wpisem, w kolejności miejsc. */
+  /** Wyniki graczy kartki: gracze z imieniem albo wpisem, w kolejności miejsc. */
   private sheetResults(d: SheetData, t: PadTemplate): PadSaveResult[] {
     const seats: { seat: number; values: Record<string, number | null> }[] = [];
     for (let p = 0; p < playerCount(t); p++)
@@ -2047,7 +2047,7 @@ export class ScorePad {
       name: p.name,
       total: computePlayer(t, p.values).__total ?? 0,
     }));
-    // Zwycięzcy według reguły miejsc notesu (EDT-2…EDT-4): każdy na miejscu 1, także wspólnym.
+    // Zwycięzcy według reguły miejsc notesu: każdy na miejscu 1, także wspólnym.
     // Puste pole jest za każdą liczbą; bez żadnej wartości kategorii decydującej nikt nie wygrywa.
     const first = new Set(
       rankSheet(t, seats)
@@ -2149,7 +2149,7 @@ export class ScorePad {
     return b;
   }
 
-  // ═════════════════════════════════════════════════════ wpisywanie w pole (PAD-13…PAD-15)
+  // ═════════════════════════════════════════════════════ wpisywanie w pole
 
   private get enIn(): HTMLInputElement {
     return this.ui.enIn as HTMLInputElement;
@@ -2280,7 +2280,7 @@ export class ScorePad {
         this.enIn.focus({ preventScroll: true });
         return;
       }
-      // wpis spoza zakresu nie przechodzi dalej (PAD-15)
+      // wpis spoza zakresu nie przechodzi dalej
       if (!this.applyEntry()) return;
     }
     this.selectCell(sp);
@@ -2426,7 +2426,7 @@ export class ScorePad {
   }
 
   /**
-   * Następna albo poprzednia kategoria punktowa (PAD-15); bez niej wpisywanie się kończy. Gdy
+   * Następna albo poprzednia kategoria punktowa; bez niej wpisywanie się kończy. Gdy
    * kartka ma imiona graczy, fokus chodzi tylko po miejscach z imieniem (puste miejsca notesu
    * są pomijane).
    */
@@ -2554,7 +2554,7 @@ export class ScorePad {
 
   /**
    * Gdy zaznaczone pole (z paskiem) wychodzi poza kadr, kamera płynnie dojeżdża tak, żeby było
-   * widoczne (PAD-15). Przesunięcie liczone jest od celu trwającego dojazdu, więc szybkie
+   * widoczne. Przesunięcie liczone jest od celu trwającego dojazdu, więc szybkie
    * przechodzenie między polami nie gubi kroku.
    */
   private revealEntry(): void {
@@ -2901,7 +2901,7 @@ export class ScorePad {
   }
 
   /**
-   * Zastępuje wpisy na wierzchniej kartce (np. losowe wpisy testu w kreatorze, EDT-14); `null`
+   * Zastępuje wpisy na wierzchniej kartce (np. losowe wpisy testu w kreatorze); `null`
    * daje czystą kartkę. Numer partii zostaje, a niezatwierdzony wpis z klawiatury przepada.
    */
   setSheet(sheet: ScorePadSheet | null): void {
@@ -2913,7 +2913,7 @@ export class ScorePad {
     const raw = sheet ? ({ ...sheet, game: st.data.game } as PadConfig['sheet']) : null;
     const names = st.data.names;
     st.data = raw ? unpackSheet(raw, this.t) : blankSheet(this.t, st.data.game);
-    // notes testowy kreatora: czysta kartka zostawia fikcyjnych graczy (EDT-14)
+    // notes testowy kreatora: czysta kartka zostawia fikcyjnych graczy
     if (!raw && this.opts.test) st.data.names = names.map((n) => (n ? { ...n } : null));
     if (this.active) {
       this.scene.remove(this.active.mesh);
@@ -2925,7 +2925,7 @@ export class ScorePad {
   }
 
   /**
-   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania partii, PAD-5):
+   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania partii):
    * wpisy i numer partii z `sheet`, liczba kartek w bloku sprzed oderwania. `false`, gdy notes
    * nie jest gotowy (np. w trakcie zmiany szablonu) i kartki nie położył.
    */
@@ -3160,7 +3160,7 @@ export class ScorePad {
     }
 
     // kamera odsuwa się, gdy podniesiona kartka wychodzi poza kadr, i wraca, gdy kartka leży
-    // tylko w widoku domyślnym (PAD-12)
+    // tylko w widoku domyślnym
     let want = 1;
     if (
       !this.free &&
@@ -3226,62 +3226,10 @@ export class ScorePad {
     this.renderer.render(this.scene, this.camera);
   }
 
-  /** Odrywa wierzchnią kartkę bez gestu (przycisk „Oderwij kartkę” w kreatorze, EDT-14). */
+  /** Odrywa wierzchnią kartkę bez gestu (przycisk „Oderwij kartkę” w kreatorze). */
   tear(): void {
     if (!this.t || this.switching || this.opts.tear === false || this.opts.readOnly) return;
     this.completeTear();
-  }
-
-  /** Do testów: wymusza oderwanie bieżącej kartki. */
-  tearNow(): void {
-    this.completeTear();
-  }
-
-  /** Do testów: stan kartki i przeciągania. */
-  debug(): Record<string, unknown> {
-    const a = this.active;
-    return {
-      game: a?.data.game,
-      resting: a?.resting,
-      flipped: a?.cloth.flipped,
-      lift: a?.cloth.maxLift,
-      released: a?.cloth.releasedCount(),
-      excess: this.drag?.excess ?? null,
-      flyers: this.flyers.length,
-      tpl: this.t?.id,
-      view: this.free ? 'free' : 'home',
-      angled: this.angled,
-      moving: !!this.camAnim,
-      zoom: this.free && this.spec ? this.homePose(1).dist / this.free.dist : 1,
-      fps: Math.round(this.fps),
-      texture: this.ps ? [this.ps.CW, this.ps.CH] : null,
-      pixelRatio: this.renderer?.getPixelRatio(),
-      entry: this.entryDebug(),
-    };
-  }
-
-  /** Do testów: zaznaczone pole wpisywania, tekst, błąd i położenie pola na ekranie. */
-  private entryDebug(): Record<string, unknown> | null {
-    const en = this.entry;
-    if (!en || !this.t || !this.active) return null;
-    const r = this.wrap.getBoundingClientRect();
-    const b = this.cellBox(en.spot);
-    return {
-      line: this.t.lines[en.spot.li].id,
-      seat: en.spot.p,
-      text: this.enIn.value,
-      error: this.ui.enErr.textContent,
-      focused: this.root.activeElement === this.enIn,
-      box: { x: b.x + r.left, y: b.y + r.top, w: b.w, h: b.h },
-      visible: this.visibleBox(),
-    };
-  }
-
-  /** Do testów: punkt kartki na ekranie (współrzędne klienta). */
-  pointOnSheet(u: number, v: number): { x: number; y: number } {
-    const s = this.screenOf(u, v);
-    const r = this.wrap.getBoundingClientRect();
-    return { x: s.x + r.left, y: s.y + r.top };
   }
 }
 

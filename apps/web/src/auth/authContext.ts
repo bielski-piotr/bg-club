@@ -17,7 +17,7 @@ export interface AuthContextValue {
   /** Stan sesji; pole jest reaktywne (odczyt w JSX albo memo śledzi zmiany). */
   readonly state: AuthState;
   readonly client: SupabaseClient;
-  /** Logowanie hookiem i hasłem (AUTH-1). Hook musi być już poprawny (`isValidHook`). */
+  /** Logowanie hookiem i hasłem. Hook musi być już poprawny (`isValidHook`). */
   readonly signIn: (hook: string, password: string) => Promise<SignInResult>;
   /** Wylogowanie na tym urządzeniu; `notice` pokazuje powód na ekranie logowania. */
   readonly signOut: (notice?: AuthNotice) => Promise<void>;

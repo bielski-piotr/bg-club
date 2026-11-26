@@ -26,9 +26,9 @@ export function createTheme(): ThemeAccessors {
 }
 
 /**
- * Motyw z profilu jest źródłem prawdy (USR-8): działa na każdym urządzeniu. `localStorage` to
+ * Motyw z profilu jest źródłem prawdy: działa na każdym urządzeniu. `localStorage` to
  * tylko podręczna kopia, którą skrypt w `index.html` stosuje przed pierwszym renderem, żeby
- * motyw nie migał. Gdy profil ma inny motyw (zmiana na innym urządzeniu), stosujemy go i
+ * motyw nie migał. Gdy profil ma inny motyw (zmiana na innym urządzeniu), stosujemy go
  * zapisujemy kopię. Reaguje tylko na zmianę wartości w profilu (memo), więc lokalny wybór
  * w ustawieniach (zapisywany równolegle do profilu) nie jest cofany.
  */

@@ -62,7 +62,7 @@ export function createMeetingOverview(id: Accessor<string>) {
 
 /**
  * Partie spotkania (`meetingPlaysQuery`). `fresh`: pobiera je od nowa przy każdym otwarciu
- * (dialog zakończenia, RUN-4).
+ * (dialog zakończenia).
  */
 export function createMeetingPlays(
   meetingId: Accessor<string>,
@@ -128,7 +128,7 @@ export function createRecordPreview(
 }
 
 /**
- * „Otwórz głosowanie ponownie” (VOTE-6) z popupu i z menu widżetu: toast sukcesu albo błędu
+ * „Otwórz głosowanie ponownie” z popupu i z menu widżetu: toast sukcesu albo błędu
  * i odświeżenie spotkań (także po błędzie, bo stan mógł się zmienić gdzie indziej).
  */
 export function createReopenVoting() {

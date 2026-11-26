@@ -5,7 +5,7 @@ import type { DateOptionValue } from './dateOptions';
 import { meetingsKey } from './meetings';
 
 /*
- * Głosowanie na termin spotkania (migracja 20261125000000). Administrator włącza je
+ * Głosowanie na termin spotkania (`20261113001000_meeting_planning.sql`). Administrator włącza je
  * w formularzu spotkania (`save_meeting` z `date_voting`, opcjonalnie własne propozycje
  * `date_options`), uczestnicy proponują terminy (`propose_meeting_date`, bez limitu) i głosują
  * na dowolnie wiele z nich (`meeting_date_votes`, RLS), a termin ustala administrator
@@ -163,7 +163,7 @@ export async function withdrawDateVote(
 
 /**
  * Propozycja terminu od uczestnika (albo administratora) z jego głosem. Ten sam termin drugi
- * raz to sukces (baza go nie powiela). Data i godzina w strefie klubu (NFR-10).
+ * raz to sukces (baza go nie powiela). Data i godzina w strefie klubu.
  */
 export async function proposeMeetingDate(
   client: SupabaseClient,

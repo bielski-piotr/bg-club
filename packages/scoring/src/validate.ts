@@ -1,5 +1,5 @@
 /**
- * Walidacja kategorii i reguły miejsc notesu (PRD EDT-2…EDT-4, EDT-7, EDT-13).
+ * Walidacja kategorii i reguły miejsc notesu.
  *
  * Zwraca listę problemów z kodem i ścieżką w szablonie (np. `ranking.tiebreak[1].line`),
  * bez tekstów interfejsu: komunikaty dobiera aplikacja. Pusta lista = szablon poprawny.
@@ -116,7 +116,7 @@ export interface ParsedRanking {
 }
 
 /**
- * Sprawdza `template.ranking` wczytane z pliku albo z bazy (EDT-7). Brak reguły jest poprawny
+ * Sprawdza `template.ranking` wczytane z pliku albo z bazy. Brak reguły jest poprawny
  * (starszy format). Zwraca kopię reguły bez nadmiarowych pól.
  */
 export function parseRanking(raw: unknown, lines: readonly ScoringLine[]): ParsedRanking {

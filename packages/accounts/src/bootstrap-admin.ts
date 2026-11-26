@@ -1,12 +1,12 @@
 /**
- * Skrypt instalacyjny: konto pierwszego administratora ze zmiennych środowiskowych (AUTH-3).
+ * Skrypt instalacyjny: konto pierwszego administratora ze zmiennych środowiskowych.
  *
  *   pnpm bootstrap:admin          # SUPABASE_URL i SUPABASE_SERVICE_ROLE_KEY ze zmiennych
  *   pnpm bootstrap:admin:local    # adres i klucz lokalnego Supabase z `supabase status`
  *
  * Dane administratora: BOOTSTRAP_ADMIN_FIRST_NAME, BOOTSTRAP_ADMIN_LAST_NAME i opcjonalnie
  * BOOTSTRAP_ADMIN_PASSWORD (min. 12 znaków). Zmienne można zapisać w `supabase/seed/.env`
- * (wzór: `.env.example`, plik jest poza repozytorium). Bez hasła skrypt generuje losowe i
+ * (wzór: `.env.example`, plik jest poza repozytorium). Bez hasła skrypt generuje losowe
  * wypisuje je jeden raz. Ponowne uruchomienie niczego nie zmienia.
  */
 import { createClient } from '@supabase/supabase-js';

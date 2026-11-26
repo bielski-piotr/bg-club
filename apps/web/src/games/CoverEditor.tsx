@@ -79,7 +79,7 @@ function release(open: Editing | null) {
 }
 
 /**
- * Edytor okładki gry (GAME-6): jedno miejsce na podgląd obecnej okładki z kadrem, wybór
+ * Edytor okładki gry: jedno miejsce na podgląd obecnej okładki z kadrem, wybór
  * nowego pliku, wklejenie obrazu ze schowka (przycisk albo Ctrl+V / ⌘V, także przeciągnięcie
  * pliku) i usunięcie okładki. Podgląd pokazuje obraz także poza kadrem, a obraz można oddalić,
  * aż zmieści się w całości (tło wypełnia kolor jego brzegów).

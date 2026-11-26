@@ -1,8 +1,8 @@
 /**
- * Sumy notesu (PRD EDT-13): suma liczy się z wybranych kategorii, także z innych sum, bez cykli.
+ * Sumy notesu: suma liczy się z wybranych kategorii, także z innych sum, bez cykli.
  *
  * Reguły domyślne (kategoria sumy bez listy `of`) pochodzą z notesu POC 2.4.0 i są tu przeniesione
- * bez zmian zachowania, żeby notes, edytor i testy liczyły tak samo.
+ * bez zmian zachowania, żeby notes i edytor liczyły tak samo.
  */
 import type { LineValues, ScoringLine, ScoringTemplate } from './template';
 import { FINAL_TOTAL, isComputed } from './template';
@@ -50,7 +50,7 @@ export function inputLeaves(t: Lines, ids: readonly string[], seen = new Set<str
 
 /**
  * Suma końcowa (`total`), która domyślnie rozstrzyga o miejscu: ostatnia z sum, których nie
- * sumuje żadna inna suma (EDT-2). `-1`, gdy notes nie ma sumy `total`.
+ * sumuje żadna inna suma. `-1`, gdy notes nie ma sumy `total`.
  */
 export function finalTotalIndex(t: Lines): number {
   const totals = t.lines.flatMap((l, i) => (l.kind === 'total' ? [i] : []));

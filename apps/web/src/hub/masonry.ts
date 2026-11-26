@@ -1,18 +1,18 @@
-/** Szerokość, od której hub ma dwie kolumny po 520 px (1064 + marginesy, DS §17). */
+/** Szerokość, od której hub ma dwie kolumny po 520 px (1064 + marginesy). */
 export const TWO_COLUMNS_QUERY = '(min-width: 1112px)';
 
-/** Odstęp między kartami w kolumnie (DS §17: gap 24). */
+/** Odstęp między kartami w kolumnie (gap 24). */
 const GAP = 24;
 
 /**
- * Dwie kolumny o niezależnych wysokościach przy zachowanej kolejności dokumentu (PRD §4: czytnik
+ * Dwie kolumny o niezależnych wysokościach przy zachowanej kolejności dokumentu (czytnik
  * ekranu i Tab idą 1 Spotkanie, 2 Ranking, 3 Timeline, 4 Kolekcja, 5 Członkowie).
  *
  * Z klasą `hub__grid--masonry` siatka ma wiersze po 1 px (`grid-auto-rows: 1px`), a kolumnę
  * każdej karty ustala CSS. Funkcja mierzy karty (pierwsze dziecko każdego slotu) i ustawia
  * slotom `grid-row-end: span <wysokość + odstęp>`; siatka układa wtedy karty jednej kolumny
  * jedna pod drugą, niezależnie od drugiej kolumny. Poniżej progu (telefon, wąskie okno) style
- * są zdejmowane i karty tworzą jedną kolumnę. Bez ResizeObserver zostają zwykłe dwie kolumny ze
+ * są zdejmowane i karty tworzą jedną kolumnę. Bez ResizeObserver zostają zwykłe dwie kolumny
  * wspólnymi wierszami. Widżet może podmienić swój element (np. szkielet → karta): nowy element
  * jest mierzony od razu. Zwraca sprzątanie.
  */

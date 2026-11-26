@@ -26,10 +26,10 @@ function isExpired(session: Session): boolean {
 }
 
 /**
- * Sesja Supabase Auth dla całej aplikacji (AUTH-1, AUTH-5).
+ * Sesja Supabase Auth dla całej aplikacji.
  *
  * - Sesja jest zapamiętana w `localStorage` i odświeżana automatycznie przez supabase-js, więc
- *   trwa do wylogowania. Odrzucone odświeżenie (np. konto usunięte, AUTH-7) kończy sesję:
+ *   trwa do wylogowania. Odrzucone odświeżenie (np. konto usunięte) kończy sesję:
  *   użytkownik wraca do logowania z komunikatem „Sesja wygasła”.
  * - Wylogowanie dotyczy tylko tego urządzenia (`scope: 'local'`): sesja znika lokalnie także bez
  *   sieci, a serwer unieważnia jej token odświeżania.

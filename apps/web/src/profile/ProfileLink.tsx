@@ -16,7 +16,7 @@ interface ProfileLinkProps {
 }
 
 /**
- * Awatar gracza jako link do jego profilu (PRD §4: kliknięcie awatara w dowolnym miejscu
+ * Awatar gracza jako link do jego profilu (kliknięcie awatara w dowolnym miejscu
  * otwiera profil). Awatar w środku powinien być `decorative`, bo etykietę ma link.
  */
 export function ProfileLink(props: ProfileLinkProps) {

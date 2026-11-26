@@ -68,8 +68,7 @@ import './meetings.css';
 const text = t.meetings.newPlay;
 
 /**
- * Nowa partia (RUN-2, RUN-3, PAD-2, PAD-3, PAD-9): kreator w trzech krokach (DS §15 „Step
- * pills”). Gra: najpierw opublikowane, potem reszta kolekcji; gry bez pasującego notesu albo
+ * Nowa partia: kreator w trzech krokach. Gra: najpierw opublikowane, potem reszta kolekcji; gry bez pasującego notesu albo
  * z większym minimum niż liczba uczestników są wyłączone z wyjaśnieniem. Notes: gdy gra ma
  * jeden pasujący notes, krok jest pomijany. Gracze: uczestnicy spotkania w miejscach notesu,
  * każdy najwyżej raz. Rozpoczęcie tworzy szkic partii (`start_play`); kilka partii może trwać
@@ -168,7 +167,7 @@ function createWizard(data: WizardData) {
   const [seats, setSeats] = createSignal<Seats>([]);
   const [expansionIds, setExpansionIds] = createSignal<readonly string[]>([]);
 
-  // Gracze: aktywni uczestnicy (usunięty z klubu zostaje w historii, ale nie zagra, MEM-5).
+  // Gracze: aktywni uczestnicy (usunięty z klubu zostaje w historii, ale nie zagra).
   const participants = createMemo(() =>
     (data.meeting()?.participants ?? [])
       .map((id) => data.profiles().get(id))
@@ -218,7 +217,7 @@ function createWizard(data: WizardData) {
   });
   const hasExpansions = () => gameExpansions().some((expansion) => expansion.available);
   const steps = createMemo(() => newPlaySteps(hasExpansions()));
-  // Jeden notes gry, który pasuje: krok „Notes” jest pomijany (RUN-2: „gdy gra ma ich kilka”).
+  // Jeden notes gry, który pasuje: krok „Notes” jest pomijany („gdy gra ma ich kilka”).
   const singlePad = createMemo(() => {
     const players = range();
     const list = gamePads();
@@ -256,7 +255,7 @@ function createWizard(data: WizardData) {
     }
     setStarted(true);
     toast.show(format(t.meetings.toasts.playStarted, { title: game()?.title ?? '' }), 'success');
-    // Kreator ustępuje notesowi partii (PAD-4); Wstecz wraca do spotkania. Zmiana stosu nie
+    // Kreator ustępuje notesowi partii; Wstecz wraca do spotkania. Zmiana stosu nie
     // czeka na odświeżenie spotkań.
     if (mounted()) popups.replace({ kind: 'play', id });
     void queryClient.invalidateQueries({ queryKey: meetingsKey });
@@ -472,7 +471,7 @@ function createWizard(data: WizardData) {
 }
 
 /**
- * Pigułki kroków (DS §15 „Step pills”): bieżący „N. Nazwa” na ciemnym tle, ukończony
+ * Pigułki kroków: bieżący „N. Nazwa” na ciemnym tle, ukończony
  * z ptaszkiem w kolorze akcentu (przycisk powrotu do kroku), kolejny z obramowaniem.
  * Pominięty krok (jedyny pasujący notes) jest ukończony, ale bez powrotu.
  */
@@ -530,7 +529,7 @@ function StepPills(props: {
   );
 }
 
-/** Wiersz wyboru h64 (gra) albo h72 (notes) z radiem i powodem wyłączenia (DS §15). */
+/** Wiersz wyboru h64 (gra) albo h72 (notes) z radiem i powodem wyłączenia. */
 function PickRow(props: {
   readonly name: string;
   readonly value: string;
@@ -926,9 +925,9 @@ function PlayersStep(props: {
 }
 
 /**
- * Miejsce w notesie (DS §15 „Seat row”): numer i pole h48. Zajęte: awatar, imię i nazwisko,
+ * Miejsce w notesie: numer i pole h48. Zajęte: awatar, imię i nazwisko,
  * strzałka; wolne: przerywane obramowanie „Wybierz gracza”. Pole rozwija listę uczestników
- * (PAD-2: wybór zamiast wpisywania imion); gracz z innego miejsca przesiada się.
+ * (wybór zamiast wpisywania imion); gracz z innego miejsca przesiada się.
  */
 function SeatRow(props: {
   readonly index: number;

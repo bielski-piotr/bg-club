@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /*
- * Obraz oderwanej karteczki (PRD PAD-6, NFR-7, migracja [030]). Notes robi obraz kartki
+ * Obraz oderwanej karteczki (migracja). Notes robi obraz kartki
  * z pismem w chwili oderwania; aplikacja wgrywa go do bucketu `sheets` od razu, gdy
  * użytkownik ogląda podsumowanie, a po zapisie partii (`save_play`) dołącza go RPC
  * `attach_play_sheet_image`.
@@ -15,7 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const SHEETS_BUCKET = 'sheets';
 
-/** Dłuższy bok i rozmiar obrazu karteczki (NFR-7: karteczka ≈ 150 KB). */
+/** Dłuższy bok i rozmiar obrazu karteczki (karteczka ≈ 150 KB). */
 export const SHEET_IMAGE_MAX_SIDE = 1200;
 export const SHEET_IMAGE_MAX_BYTES = 150 * 1024;
 
@@ -25,8 +25,6 @@ export const SHEET_IMAGE_RETRY_DELAYS_MS: readonly number[] = [1000, 3000];
 export interface SheetImageOptions {
   readonly retryDelays?: readonly number[] | undefined;
   readonly sleep?: ((ms: number) => Promise<void>) | undefined;
-  /** Losowy sufiks nazwy (testy). */
-  readonly suffix?: (() => string) | undefined;
   /** Jak długo zapis partii czeka na trwający upload (ms). */
   readonly uploadWaitMs?: number | undefined;
 }
@@ -49,14 +47,9 @@ function randomSuffix(): string {
  * Nazwa pliku obrazu: `<meeting_id>/<play_id>-<losowy sufiks>.<webp|png>`. Każda próba ma
  * nową nazwę (bucket nie pozwala nadpisywać), więc ponowienie nie trafia na istniejący plik.
  */
-export function newSheetImagePath(
-  meetingId: string,
-  playId: string,
-  type: string,
-  suffix: () => string = randomSuffix,
-): string {
+export function newSheetImagePath(meetingId: string, playId: string, type: string): string {
   const extension = type === 'image/png' ? 'png' : 'webp';
-  return `${meetingId.toLowerCase()}/${playId.toLowerCase()}-${suffix()}.${extension}`;
+  return `${meetingId.toLowerCase()}/${playId.toLowerCase()}-${randomSuffix()}.${extension}`;
 }
 
 /** Wynik operacji z ponowieniami: `retry` = błąd sieci albo serwera, `stop` = ostateczny. */
@@ -107,7 +100,7 @@ export async function uploadSheetImage(
   const type = image.type === 'image/png' ? 'image/png' : 'image/webp';
   return withRetries(async () => {
     // Nowa nazwa przy każdej próbie: przerwany upload mógł jednak zapisać plik.
-    const path = newSheetImagePath(play.meeting_id, play.id, type, options.suffix);
+    const path = newSheetImagePath(play.meeting_id, play.id, type);
     const { error } = await client.storage
       .from(SHEETS_BUCKET)
       .upload(path, image, { contentType: type, upsert: false, cacheControl: '31536000' });

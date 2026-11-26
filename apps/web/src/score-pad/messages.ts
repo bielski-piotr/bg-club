@@ -9,7 +9,7 @@ export function scorepadErrorMessage(error: unknown): string {
 }
 
 /**
- * Ostrzeżenie EDT-6: notes ma mniej miejsc dla graczy niż max. liczba graczy gry, więc nadaje
+ * Ostrzeżenie notes ma mniej miejsc dla graczy niż max. liczba graczy gry, więc nadaje
  * się tylko do mniejszych partii. `undefined`, gdy miejsc wystarcza.
  */
 export function fewerSeatsMessage(seats: number, maxPlayers: number): string | undefined {

@@ -17,7 +17,7 @@ export interface MenuItem {
   readonly id: string;
   readonly label: string;
   readonly icon?: IconName | undefined;
-  /** Akcja niszcząca: ikona i tekst w kolorze błędu (DS §7). */
+  /** Akcja niszcząca: ikona i tekst w kolorze błędu. */
   readonly destructive?: boolean | undefined;
   readonly onSelect: () => void;
 }
@@ -48,7 +48,7 @@ export interface MenuProps {
 }
 
 /**
- * Menu kontekstowe (DS §7 „Dropdown/context menu”): panel 200 px, elementy h40 z ikoną 16.
+ * Menu kontekstowe: panel 200 px, elementy h40 z ikoną 16.
  * Wzorzec WAI-ARIA „menu button”: Enter, Spacja i ↓ otwierają menu na pierwszym elemencie,
  * ↑ na ostatnim; ↑ ↓ Home End przesuwają fokus, Esc zamyka i oddaje fokus przyciskowi, Tab
  * i kliknięcie poza menu je zamykają.

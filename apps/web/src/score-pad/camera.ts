@@ -1,4 +1,4 @@
-/** Powód, dla którego kamera nie działa; kreator pokazuje wtedy ścieżkę z plikiem (EDT-9). */
+/** Powód, dla którego kamera nie działa; kreator pokazuje wtedy ścieżkę z plikiem. */
 export type CameraProblem = 'unsupported' | 'denied' | 'missing' | 'failed';
 
 /** Rozpoznaje błąd `getUserMedia`. */

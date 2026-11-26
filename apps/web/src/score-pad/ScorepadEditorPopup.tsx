@@ -9,7 +9,7 @@ import './scorepads.css';
  * wczytania pokazuje `wait` pod `<QueryBoundary>` w treści kreatora.
  */
 
-/** „Dodaj notes” (GAME-7, EDT-1): pusty edytor; zapis tworzy notes i jego wersję 1. */
+/** „Dodaj notes”: pusty edytor; zapis tworzy notes i jego wersję 1. */
 export function AddScorepadPopup(props: { readonly gameId: string }) {
   const game = createGame(() => props.gameId);
   // Id nowego notesu od razu: ponowny zapis po błędzie trafia w ten sam notes, nie w nowy.
@@ -29,7 +29,7 @@ export function AddScorepadPopup(props: { readonly gameId: string }) {
 }
 
 /**
- * „Edytuj notes” (GAME-7, GAME-9): edytor z aktualną wersją (ze zdjęciem kartki). Zapis
+ * „Edytuj notes”: edytor z aktualną wersją (ze zdjęciem kartki). Zapis
  * tworzy kolejną wersję; partie zachowują wersję, od której się zaczęły.
  */
 export function EditScorepadPopup(props: { readonly id: string }) {

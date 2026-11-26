@@ -6,7 +6,7 @@ import { todayIn, localDateTime } from './datetime';
 import { meetingsKey, type Meeting } from './meetings';
 
 /*
- * Przebieg spotkania (PRD RUN-1, RUN-4, VIEW-3, MTG-1): partie spotkania, uprawnienia
+ * Przebieg spotkania: partie spotkania, uprawnienia
  * prowadzącego i teksty stanu. Partie tworzy i zapisuje notes (E4); tu jest tylko odczyt.
  */
 
@@ -14,7 +14,7 @@ import { meetingsKey, type Meeting } from './meetings';
 export interface PlayResult {
   readonly profile_id: string;
   readonly seat: number;
-  /** Wartość kategorii decydującej (EDT-2): wynik pokazywany przy graczu. */
+  /** Wartość kategorii decydującej: wynik pokazywany przy graczu. */
   readonly ranking_value: number | null;
   readonly place: number | null;
   readonly points: number | null;
@@ -28,9 +28,9 @@ export interface MeetingPlay {
   readonly started_at: string;
   readonly saved_at: string | null;
   readonly started_by: string;
-  /** Obraz oderwanej karteczki w buckecie `sheets` (PAD-6); `null` = brak (podgląd zastępczy). */
+  /** Obraz oderwanej karteczki w buckecie `sheets`; `null` = brak (podgląd zastępczy). */
   readonly sheet_image_path: string | null;
-  /** Gra partii; usunięta z kolekcji zostaje w historii (GAME-8). */
+  /** Gra partii; usunięta z kolekcji zostaje w historii. */
   readonly game: {
     readonly id: string;
     readonly title: string;
@@ -65,7 +65,7 @@ export function fromPlayRow(row: PlayRow): MeetingPlay {
 
 /**
  * Partie spotkania: zapisane i szkice (partie w toku). `fresh`: pobiera je od nowa przy każdym
- * otwarciu (dialog zakończenia nie może polegać na liście sprzed chwili, RUN-4).
+ * otwarciu (dialog zakończenia nie może polegać na liście sprzed chwili).
  */
 export function meetingPlaysQuery(
   client: SupabaseClient,
@@ -90,7 +90,7 @@ export function meetingPlaysQuery(
   };
 }
 
-/** Partia z kartką i szkicem (PAD-4): notes partii w toku i jej wznowienie. */
+/** Partia z kartką i szkicem: notes partii w toku i jej wznowienie. */
 export interface PlayDetail {
   readonly id: string;
   readonly meeting_id: string;
@@ -101,11 +101,11 @@ export interface PlayDetail {
   readonly draft_version: number;
   readonly draft_saved_at: string | null;
   readonly draft_saved_by: string | null;
-  /** Punktacja miejsc z chwili rozpoczęcia partii (GAME-9): podgląd punktów w podsumowaniu. */
+  /** Punktacja miejsc z chwili rozpoczęcia partii: podgląd punktów w podsumowaniu. */
   readonly points_snapshot: readonly number[];
   readonly scorepad_version_id: string;
   readonly game: MeetingPlay['game'];
-  /** Nazwa notesu i liczba miejsc wersji, z którą partia się zaczęła (GAME-9). */
+  /** Nazwa notesu i liczba miejsc wersji, z którą partia się zaczęła. */
   readonly scorepad: { readonly name: string; readonly slots: number };
   readonly seats: readonly { readonly profile_id: string; readonly seat: number }[];
 }
@@ -143,7 +143,7 @@ export function fromPlayDetailRow(row: PlayDetailRow): PlayDetail {
 }
 
 /**
- * Partia z kartką (PAD-4). `null` = nie ma jej (np. porzucona). Szkic czyta się z bazy przy
+ * Partia z kartką. `null` = nie ma jej (np. porzucona). Szkic czyta się z bazy przy
  * każdym otwarciu: na innym urządzeniu mógł się zmienić (wznowienie bez synchronizacji na żywo).
  */
 export function playQuery(client: SupabaseClient, id: string) {
@@ -166,7 +166,7 @@ export function playQuery(client: SupabaseClient, id: string) {
 }
 
 export interface SplitPlays {
-  /** Zapisane partie w kolejności rozegrania (`saved_at`, potem `id`, §5.6.6, Q24). */
+  /** Zapisane partie w kolejności rozegrania (`saved_at`, potem `id`). */
   readonly saved: readonly MeetingPlay[];
   /** Partie w toku (szkice) od najwcześniej rozpoczętej (`started_at`, potem `id`). */
   readonly drafts: readonly MeetingPlay[];
@@ -186,7 +186,7 @@ export function splitPlays(plays: readonly MeetingPlay[]): SplitPlays {
 
 /**
  * Zwycięzcy zapisanych partii spotkania według gry (miejsce 1, także wspólne): gra → gracze
- * w kolejności pierwszej wygranej (§5.6.6), bez powtórzeń.
+ * w kolejności pierwszej wygranej, bez powtórzeń.
  */
 export function gameWinners(plays: readonly MeetingPlay[]): ReadonlyMap<string, readonly string[]> {
   const byGame = new Map<string, string[]>();
@@ -221,15 +221,15 @@ export function sortedResults(play: Pick<MeetingPlay, 'results'>): PlayResult[] 
 }
 
 /**
- * Czy zalogowany prowadzi spotkanie (§2.1, `private.is_meeting_runner`): admin zawsze,
- * prowadzący (`host_id`) tylko w niezakończonym. Rozpoczyna i kończy spotkanie (RUN-1, RUN-4).
+ * Czy zalogowany prowadzi spotkanie (`private.is_meeting_runner`): admin zawsze,
+ * prowadzący (`host_id`) tylko w niezakończonym. Rozpoczyna i kończy spotkanie.
  */
 export function isMeetingRunner(meeting: Meeting, me: Pick<OwnProfile, 'id' | 'role'>): boolean {
   if (me.role === 'admin') return true;
   return meeting.host_id === me.id && meeting.status !== 'finished';
 }
 
-/** „2 rozegrane · 1 w toku” (DS §15 „Widget tray head”). Bez partii w toku: tylko rozegrane. */
+/** „2 rozegrane · 1 w toku”. Bez partii w toku: tylko rozegrane. */
 export function playsProgressLabel(saved: number, drafts: number): string {
   const text = t.meetings.plays;
   const done = plural(saved, text.saved);
@@ -237,7 +237,7 @@ export function playsProgressLabel(saved: number, drafts: number): string {
 }
 
 /**
- * Odliczanie w nagłówku widżetu (DS §15 „Widget header”): „dziś”, „jutro”, „za 16 dni”
+ * Odliczanie w nagłówku widżetu: „dziś”, „jutro”, „za 16 dni”
  * według dat w strefie klubu. Termin, który już minął (spotkanie nie rozpoczęło się), daje
  * `null`: widżet pokazuje wtedy tylko datę.
  */
@@ -257,7 +257,7 @@ export function countdownLabel(
   return plural(days, text.days);
 }
 
-/** „Partia 1 · 18:10 · 5 graczy” (DS §15 „Play card”). */
+/** „Partia 1 · 18:10 · 5 graczy”. */
 export function playSubtitle(play: MeetingPlay, index: number, timeZone: string): string {
   const text = t.meetings.plays;
   const at = localDateTime(play.saved_at ?? play.started_at, timeZone).time;

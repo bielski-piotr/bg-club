@@ -1,9 +1,9 @@
 /**
- * Publiczne API pakietu `@bg-club/score-pad` dla aplikacji (PRD §8.5).
+ * Publiczne API pakietu `@bg-club/score-pad` dla aplikacji.
  *
  * Ten moduł jest lekki: same typy, nazwy elementów i zdarzeń. Kod notesu i edytora (Three.js)
  * ładuje się leniwie przez `import('@bg-club/score-pad/pad')` i `import('@bg-club/score-pad/editor')`,
- * które rejestrują elementy `<score-pad>` i `<score-pad-editor>` (NFR-2).
+ * które rejestrują elementy `<score-pad>` i `<score-pad-editor>`.
  *
  * Źródła web componentów pochodzą z `digital-scorepad-poc` (wersja POC 2.4.0, commit `e6b7dd2`,
  * katalog `example/score-pad/score-pad/src/`): `core/` to notes, `editor/` to edytor.
@@ -49,7 +49,7 @@ export interface ScorePadLine extends ScoringLine {
 }
 
 /**
- * Szablon notesu (`PadTemplate` w `core/templates.ts`) w formacie v2 z regułą miejsc (EDT-7).
+ * Szablon notesu (`PadTemplate` w `core/templates.ts`) w formacie v2 z regułą miejsc.
  * Aplikacja zapisuje go w bazie (`scorepad_versions.template`) i przekazuje notesowi; wygląd
  * i pola zna tylko notes, a kategorie i `ranking` czyta też `@bg-club/scoring`.
  *
@@ -63,11 +63,11 @@ export interface ScorePadTemplate {
   readonly name: string;
   /**
    * Zdjęcie kartki (data URL albo adres obrazu). W bazie szablon jest bez niego: obraz leży
-   * w Storage (`scorepad_versions.image_path`, EDT-1), a aplikacja wstawia go przed osadzeniem
+   * w Storage (`scorepad_versions.image_path`), a aplikacja wstawia go przed osadzeniem
    * notesu i przy eksporcie do pliku.
    */
   readonly image?: string | undefined;
-  /** Kategorie: imiona, punktacje, sumy, premie i puste pola (EDT-13). */
+  /** Kategorie: imiona, punktacje, sumy, premie i puste pola. */
   readonly lines: readonly ScorePadLine[];
   /** Kategoria decydująca, kierunek i reguły remisów; brak = najwyższa suma końcowa. */
   readonly ranking?: Ranking | undefined;
@@ -98,7 +98,7 @@ export interface ScorePadFile {
  * Adapter ustawia je we właściwości `options` przed dołączeniem elementu do strony.
  */
 export interface ScorePadClubOptions {
-  /** Zawsze `true` w aplikacji: bez lokalnej biblioteki szablonów i historii POC (PAD-1). */
+  /** Zawsze `true` w aplikacji: bez lokalnej biblioteki szablonów i historii POC. */
   readonly club: true;
   /** Plik notesu (szablon z bazy, opcjonalnie z wpisami kartki). */
   readonly config?: ScorePadFile | undefined;
@@ -112,24 +112,24 @@ export interface ScorePadClubOptions {
   /** Karta wskazówek. */
   readonly help?: boolean | undefined;
   readonly sound?: boolean | undefined;
-  /** Notes testowy kreatora (EDT-14): podsumowanie oderwanej kartki mówi, że jej nie zapisano. */
+  /** Notes testowy kreatora: podsumowanie oderwanej kartki mówi, że jej nie zapisano. */
   readonly test?: boolean | undefined;
   /** `false`: kartki nie da się oderwać (gestem ani `tear()`); domyślnie można. */
   readonly tear?: boolean | undefined;
   /**
    * `false`: po oderwaniu notes nie pokazuje własnej karteczki z wynikiem; podsumowanie
-   * z potwierdzeniem pokazuje aplikacja (partia, PAD-5). Domyślnie pokazuje.
+   * z potwierdzeniem pokazuje aplikacja (partia). Domyślnie pokazuje.
    */
   readonly summary?: boolean | undefined;
   /**
-   * Podgląd zapisanej karteczki w 3D (PAD-6): bez wpisów i odrywania, bez `scorepad:change`;
+   * Podgląd zapisanej karteczki w 3D: bez wpisów i odrywania, bez `scorepad:change`;
    * zoom, reset widoku i widok z góry albo pod kątem działają.
    */
   readonly readOnly?: boolean | undefined;
 }
 
 /**
- * Pełny wynik gracza z oderwanej kartki (PAD-7). `seat` to miejsce na kartce od 0;
+ * Pełny wynik gracza z oderwanej kartki. `seat` to miejsce na kartce od 0;
  * identyfikator gracza dopisuje aplikacja z miejsc partii.
  */
 export interface ScorePadSaveResult {
@@ -146,7 +146,7 @@ export interface ScorePadSaveResult {
   readonly tiedWith: readonly number[];
 }
 
-/** Wynik po oderwaniu karteczki (`scorepad:save`), z pełnym wynikiem graczy (PAD-7). */
+/** Wynik po oderwaniu karteczki (`scorepad:save`), z pełnym wynikiem graczy. */
 export interface ScorePadSaveDetail {
   readonly id: string;
   readonly tpl: string;
@@ -159,7 +159,7 @@ export interface ScorePadSaveDetail {
   /** Wyniki graczy (z imieniem albo wpisem) w kolejności miejsc. */
   readonly results: readonly ScorePadSaveResult[];
   /**
-   * Obraz oderwanej kartki z pismem (PAD-6), zrobiony w chwili oderwania: WebP (PNG bez
+   * Obraz oderwanej kartki z pismem, zrobiony w chwili oderwania: WebP (PNG bez
    * kodera WebP), dłuższy bok do `maxSide` (domyślnie 1200 px), plik do `maxBytes`
    * (domyślnie 150 KB). `null`, gdy przeglądarka nie zakoduje obrazu.
    */
@@ -177,8 +177,8 @@ export interface ScorePadEventMap {
   /** Kartka oderwana (także pusta, bez `scorepad:save`); wysyłane przed `scorepad:save`. */
   'scorepad:tear': CustomEvent<null>;
   /**
-   * Tryb klubowy: zmiana stanu notesu z bieżącymi wpisami wierzchniej kartki (szkic partii,
-   * PAD-4). Także bez zmiany wpisów i po oderwaniu (czysta kolejna kartka).
+   * Tryb klubowy: zmiana stanu notesu z bieżącymi wpisami wierzchniej kartki (szkic partii).
+   * Także bez zmiany wpisów i po oderwaniu (czysta kolejna kartka).
    */
   'scorepad:change': CustomEvent<ScorePadChangeDetail>;
 }
@@ -191,10 +191,10 @@ export interface ScorePadChangeDetail {
 /** Rodzaj kategorii notesu. */
 export type ScorePadLineKind = ScorePadLine['kind'];
 
-/** Sposób wyznaczenia obszaru kartki (EDT-10). */
+/** Sposób wyznaczenia obszaru kartki. */
 export type ScorePadAreaMode = 'full' | 'manual';
 
-/** Ustawienia kroku 2 „Obszar kartki” (EDT-10) w stanie edytora. */
+/** Ustawienia kroku 2 „Obszar kartki” w stanie edytora. */
 export interface ScorePadEditorArea {
   readonly name: string;
   /** Kolor grzbietu `#rrggbb`. */
@@ -223,10 +223,10 @@ export interface ScorePadEditorAreaPatch {
   readonly binding?: 'top' | 'left';
 }
 
-/** Sposób mapowania pól (EDT-11): prostokąty rysowane ręcznie albo tabela ustawiana ręcznie. */
+/** Sposób mapowania pól: prostokąty rysowane ręcznie albo tabela ustawiana ręcznie. */
 export type ScorePadMappingMode = 'rects' | 'table';
 
-/** Stan kroku 3 „Mapowanie pól” (EDT-11, EDT-6). */
+/** Stan kroku 3 „Mapowanie pól”. */
 export interface ScorePadEditorMapping {
   readonly mode: ScorePadMappingMode;
   /** Tabela: gracze w kolumnach albo w wierszach. */
@@ -274,13 +274,13 @@ export type ScorePadEditorMappingAction =
   | { readonly type: 'undo' }
   | { readonly type: 'fit' };
 
-/** Zakładka kroku 4: szczegóły kategorii albo wygrana i remisy (DS §18). */
+/** Zakładka kroku 4: szczegóły kategorii albo wygrana i remisy. */
 export type ScorePadCategoriesView = 'lines' | 'ranking';
 
-/** Zakres wartości punktacji (EDT-13): dowolny, min–max–krok albo lista wartości. */
+/** Zakres wartości punktacji: dowolny, min–max–krok albo lista wartości. */
 export type ScorePadRangeMode = 'free' | 'range' | 'list';
 
-/** Kategoria w kroku 4 „Kategorie” (EDT-13). */
+/** Kategoria w kroku 4 „Kategorie”. */
 export interface ScorePadEditorCategory {
   readonly id: string;
   readonly label: string;
@@ -302,7 +302,7 @@ export interface ScorePadEditorCategory {
   readonly team: boolean;
 }
 
-/** Stan kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4). */
+/** Stan kroku 4 „Kategorie”. */
 export interface ScorePadEditorCategories {
   readonly view: ScorePadCategoriesView;
   /** Wybrana kategoria (indeks). */
@@ -347,7 +347,7 @@ export type ScorePadEditorCategoriesAction =
   | { readonly type: 'ranking'; readonly ranking: Ranking }
   | { readonly type: 'fit' };
 
-/** Stan `<score-pad-editor>` w trybie kreatora (EDT-9). */
+/** Stan `<score-pad-editor>` w trybie kreatora. */
 export interface ScorePadEditorStatus {
   /** Bieżący krok edytora: 1 zdjęcie, 2 obszar kartki, 3 pola, 4 kategorie na kartce. */
   readonly step: 1 | 2 | 3 | 4;
@@ -397,7 +397,7 @@ export interface ScorePadApi {
   exportConfig(opt?: { sheet?: boolean }): ScorePadFile;
   /** Wczytuje plik notesu v2; w trybie klubowym tylko do pamięci tego osadzenia. */
   importConfig(raw: unknown, persist?: boolean): Promise<string>;
-  /** Płynnie przywraca widok domyślny (z góry albo pod kątem) po zoomie lub przesunięciu (PAD-12). */
+  /** Płynnie przywraca widok domyślny (z góry albo pod kątem) po zoomie lub przesunięciu. */
   resetView(): void;
   /** Przełącza widok domyślny: `true` pod lekkim kątem, `false` prosto z góry (płynnie). */
   setAngled(on: boolean): void;
@@ -406,7 +406,7 @@ export interface ScorePadApi {
   /** Odrywa wierzchnią kartkę bez gestu (wynik w `scorepad:save`). */
   tear(): void;
   /**
-   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania, PAD-5): wpisy
+   * Kładzie oderwaną kartkę z powrotem na wierzch (anulowanie podsumowania): wpisy
    * i numer partii z `sheet`, liczba kartek sprzed oderwania. `false`: notes nie był gotowy.
    */
   restoreSheet(sheet: ScorePadSheet): boolean;
@@ -445,7 +445,7 @@ export interface ScorePadElement extends HTMLElement {
 export interface ScorePadEditorElement extends HTMLElement {
   /** Notes do poprawienia; ustawiany przed dołączeniem elementu do strony. */
   template: ScorePadTemplate | undefined;
-  /** Tryb kreatora aplikacji (EDT-9); ustawiany przed dołączeniem elementu do strony. */
+  /** Tryb kreatora aplikacji; ustawiany przed dołączeniem elementu do strony. */
   wizard: boolean;
   exportConfig(): ScorePadFile | null;
   /** Stan edytora; null przed dołączeniem do strony. */
@@ -459,7 +459,7 @@ export interface ScorePadEditorElement extends HTMLElement {
   loadTemplate(template: ScorePadTemplate): Promise<void>;
   /** Przechodzi do kroku edytora, jeśli jest dostępny (4: kategorie na kartce). */
   goStep(step: 1 | 2 | 3 | 4): void;
-  /** Zmienia ustawienia kroku 2 (EDT-10). */
+  /** Zmienia ustawienia kroku 2. */
   setArea(patch: ScorePadEditorAreaPatch): void;
   /** Obraca zdjęcie o 90° (1 w prawo, -1 w lewo). */
   rotatePhoto(dir: 1 | -1): void;
@@ -467,9 +467,9 @@ export interface ScorePadEditorElement extends HTMLElement {
   undoArea(): void;
   /** Powiększenie podglądu w krokach 2–4. */
   zoom(by: ScorePadZoomAction): void;
-  /** Zmienia mapowanie pól (krok 3, EDT-11); zmiana sposobu kasuje pola bez pytania. */
+  /** Zmienia mapowanie pól (krok 3); zmiana sposobu kasuje pola bez pytania. */
   editMapping(action: ScorePadEditorMappingAction): void;
-  /** Zmienia kategorie i regułę miejsc (krok 4, EDT-13, EDT-2…EDT-4). */
+  /** Zmienia kategorie i regułę miejsc (krok 4). */
   editCategories(action: ScorePadEditorCategoriesAction): void;
   addEventListener<K extends keyof ScorePadEditorElementEventMap>(
     type: K,

@@ -29,9 +29,9 @@ const ERRORS: Readonly<Record<DeletionFailure, string>> = {
 };
 
 /**
- * Potwierdzenie „Usuń członka” (PRD MEM-4, DS „Członkowie / Usuń członka – potwierdzenie”):
+ * Potwierdzenie „Usuń członka”:
  * mały dialog z ikoną kosza i przyciskiem destrukcyjnym. Otwiera go administrator z profilu
- * aktywnego gracza. Po usunięciu profil pod spodem pokazuje stan tylko do odczytu (MEM-5),
+ * aktywnego gracza. Po usunięciu profil pod spodem pokazuje stan tylko do odczytu,
  * a członek znika z listy i widżetu.
  *
  * Usunięcie jest idempotentne, więc po błędzie można je bezpiecznie ponowić.

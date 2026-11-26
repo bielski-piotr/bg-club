@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/query-core';
 import { createContext } from 'solid-js';
 
-/** Cache danych z Supabase (PRD §8.1, Q13). */
+/** Cache danych z Supabase. */
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {

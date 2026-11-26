@@ -16,8 +16,8 @@ import { ownProfileQuery } from './ownProfile';
 import './LoginScreen.css';
 
 /**
- * Widok po zalogowaniu: hub ze stosem popupów (PRD §4). Brak własnego profilu (konto usunięte,
- * a token jest jeszcze ważny, AUTH-7) kończy sesję z komunikatem na ekranie logowania.
+ * Widok po zalogowaniu: hub ze stosem popupów. Brak własnego profilu (konto usunięte,
+ * a token jest jeszcze ważny) kończy sesję z komunikatem na ekranie logowania.
  */
 export function SignedInScreen(props: { readonly userId: string }) {
   const auth = useContext(AuthContext);
@@ -31,7 +31,7 @@ export function SignedInScreen(props: { readonly userId: string }) {
 
   onSettled(() => {
     // Klub i dane widżetów pobieramy równolegle z profilem, nie dopiero po wyświetleniu huba
-    // (o jeden RTT szybszy widok Klubu, NFR-2). Odczyty i tak idą przez RLS zalogowanego.
+    // (o jeden RTT szybszy widok Klubu). Odczyty i tak idą przez RLS zalogowanego.
     const client = auth.client;
     for (const options of [
       clubQuery(client),

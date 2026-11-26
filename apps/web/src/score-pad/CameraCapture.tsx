@@ -5,7 +5,7 @@ import { cameraProblem, cameraSupported, type CameraProblem } from './camera';
 
 const text = t.scorepads.wizard.camera;
 
-/** Zdjęcie z kamery w pełnej rozdzielczości strumienia, JPEG 0,92 (EDT-12). */
+/** Zdjęcie z kamery w pełnej rozdzielczości strumienia, JPEG 0,92. */
 async function grabFrame(video: HTMLVideoElement): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
@@ -31,7 +31,7 @@ interface CameraCaptureProps {
 }
 
 /**
- * Kamera internetowa z podglądem na scenie kreatora (EDT-9, komputer). Prosi o tylny aparat,
+ * Kamera internetowa z podglądem na scenie kreatora (komputer). Prosi o tylny aparat,
  * jeśli urządzenie go ma, i o najwyższą rozdzielczość. Strumień jest zatrzymywany po zdjęciu,
  * anulowaniu i zamknięciu kreatora.
  */

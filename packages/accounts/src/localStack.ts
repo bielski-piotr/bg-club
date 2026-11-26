@@ -1,6 +1,6 @@
 /**
  * Adres i klucze lokalnego Supabase (`pnpm db:start`) odczytane z `supabase status`.
- * Tylko dla środowiska deweloperskiego i testów integracyjnych; produkcyjne klucze podaje się
+ * Tylko dla środowiska deweloperskiego; produkcyjne klucze podaje się
  * w zmiennych środowiskowych.
  */
 import { execFileSync } from 'node:child_process';

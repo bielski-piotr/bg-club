@@ -1,16 +1,14 @@
 /**
- * Pakiet `@bg-club/scoring`: logika wyników współdzielona przez notes, aplikację i testy
- * (PRD §5.6, §8.3).
+ * Pakiet `@bg-club/scoring`: logika wyników współdzielona przez notes i aplikację.
  *
- * - `template.ts`: kontrakt formatu notesu w części wyników (kategorie, `ranking`, EDT-7),
- * - `totals.ts`: sumy bez cykli (EDT-13),
- * - `ranking.ts`: miejsca z kierunkami i remisami hierarchicznymi (EDT-2…EDT-4, §5.6.1),
- * - `points.ts`: punkty leaderboardu z `floor` i wygrane (§5.6.2, §5.6.3),
+ * - `template.ts`: kontrakt formatu notesu w części wyników (kategorie, `ranking`),
+ * - `totals.ts`: sumy bez cykli,
+ * - `ranking.ts`: miejsca z kierunkami i remisami hierarchicznymi,
+ * - `points.ts`: punkty leaderboardu z `floor` i wygrane,
  * - `validate.ts`: walidacja referencji, cykli i zakresów,
  * - `save.ts`: wyniki partii dla RPC `save_play` (bez punktów, które liczy baza).
  *
- * Punkty liczy też baza (`public.play_points`). Obie implementacje przechodzą ten sam zestaw
- * przypadków `cases/play-cases.json`; test pgTAP jest z niego generowany (`sql.ts`).
+ * Punkty liczy też baza (`public.play_points`) według tych samych reguł.
  */
 export * from './template';
 export * from './totals';

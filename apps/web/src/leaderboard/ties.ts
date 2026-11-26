@@ -2,7 +2,7 @@ import type { LeaderboardEntry } from './leaderboard';
 
 /**
  * Rozstrzygnięcia równych wyników (baza: `leaderboard`, migracja
- * `20261123000000_leaderboard_ties_filters.sql`). Miejsc ex aequo nie ma; równy wynik
+ * `20261113001700_leaderboard.sql`). Miejsc ex aequo nie ma; równy wynik
  * rozstrzygają kolejno kryteria z {@link TIE_CRITERIA}. Tu tylko odtwarzamy, które z nich
  * zdecydowało o kolejności sąsiadów w grupie.
  */
@@ -30,7 +30,7 @@ export function decidingCriterion(above: LeaderboardEntry, below: LeaderboardEnt
 
 /**
  * Grupy aktywnych graczy z tym samym wynikiem (co najmniej dwie osoby), w kolejności rankingu.
- * Usunięci członkowie nie mają miejsc (LB-7), więc nie tworzą grup.
+ * Usunięci członkowie nie mają miejsc, więc nie tworzą grup.
  */
 export function tieGroups(entries: readonly LeaderboardEntry[]): TieGroup[] {
   const groups: TieGroup[] = [];

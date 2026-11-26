@@ -1,10 +1,10 @@
 /**
  * Pakiet `@bg-club/accounts`: konta graczy bez zależności od środowiska (przeglądarka, Node,
  * Deno). Używają go ekran logowania (SPA), skrypt bootstrapu administratora i Edge Function
- * tworząca członków ([009]).
+ * tworząca członków .
  *
- * - Hook (USR-1) jest loginem gracza, np. `jan-kowalski-3f9a`.
- * - Konto Supabase Auth ma techniczny e-mail `<hook>@users.bgclub.invalid` (AUTH-1), którego
+ * - Hook jest loginem gracza, np. `jan-kowalski-3f9a`.
+ * - Konto Supabase Auth ma techniczny e-mail `<hook>@users.bgclub.invalid`, którego
  *   użytkownik nigdy nie widzi. Tę samą domenę sprawdza baza
  *   (`private.hook_from_email`, migracja `20261113000500_accounts_and_login.sql`).
  *
@@ -20,10 +20,10 @@ export const HOOK_MAX_LENGTH = 64;
 /** Maksymalna długość imienia i nazwiska (CHECK `profiles_*_name_length`). */
 export const NAME_MAX_LENGTH = 50;
 
-/** Długość losowego sufiksu hooka (4 znaki szesnastkowe, USR-1). */
+/** Długość losowego sufiksu hooka (4 znaki szesnastkowe). */
 export const HOOK_SUFFIX_LENGTH = 4;
 
-/** Minimalna długość hasła generowanego dla nowego konta (AUTH-4). */
+/** Minimalna długość hasła generowanego dla nowego konta. */
 export const MIN_PASSWORD_LENGTH = 12;
 
 /** Domyślna długość generowanego hasła (ok. 92 bity entropii). */
@@ -48,7 +48,7 @@ export function isValidHook(hook: string): boolean {
   return hook.length <= HOOK_MAX_LENGTH && HOOK_PATTERN.test(hook);
 }
 
-/** Techniczny e-mail konta Auth dla hooka (AUTH-1). Rzuca wyjątek dla niepoprawnego hooka. */
+/** Techniczny e-mail konta Auth dla hooka. Rzuca wyjątek dla niepoprawnego hooka. */
 export function hookToEmail(hook: string): string {
   if (!isValidHook(hook)) {
     throw new Error(`Niepoprawny hook: "${hook}"`);
@@ -78,7 +78,7 @@ const TRANSLITERATION: Readonly<Record<string, string>> = {
 };
 
 /**
- * Część hooka z imienia i nazwiska (USR-1): małe litery, transliteracja polskich znaków,
+ * Część hooka z imienia i nazwiska: małe litery, transliteracja polskich znaków,
  * słowa rozdzielone myślnikami, np. „Łukasz Żółw” → `lukasz-zolw`.
  */
 export function slugifyName(...parts: readonly string[]): string {
@@ -94,7 +94,7 @@ export function slugifyName(...parts: readonly string[]): string {
 }
 
 /**
- * Hook z imienia, nazwiska i sufiksu (USR-1), np. `lukasz-zolw-7c1e`. Długa nazwa jest
+ * Hook z imienia, nazwiska i sufiksu, np. `lukasz-zolw-7c1e`. Długa nazwa jest
  * skracana tak, żeby hook mieścił się w {@link HOOK_MAX_LENGTH} znakach.
  */
 export function createHook(firstName: string, lastName: string, suffix: string): string {
@@ -119,12 +119,12 @@ export function randomHookSuffix(random: RandomSource = cryptoRandom): string {
 
 /**
  * Znaki hasła: litery i cyfry bez łatwych do pomylenia (0/O, 1/l/I), żeby hasło dało się
- * przepisać z ekranu admina (AUTH-4).
+ * przepisać z ekranu admina.
  */
 export const PASSWORD_ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 /**
- * Losowe hasło z generatora kryptograficznego (AUTH-4). Odrzucanie bajtów spoza
+ * Losowe hasło z generatora kryptograficznego. Odrzucanie bajtów spoza
  * wielokrotności alfabetu usuwa przewagę części znaków (bez błędu modulo).
  */
 export function generatePassword(

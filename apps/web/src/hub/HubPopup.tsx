@@ -62,30 +62,30 @@ function AdminOnly(props: { readonly me: OwnProfile; readonly children: JSX.Elem
 /** Popup każdego rodzaju adresu `?p=…` (`routes.ts`). Propsy są reaktywne (`p.me`, `p.route`). */
 const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) => JSX.Element } = {
   members: (p) => <MembersPopup isAdmin={isAdmin(p.me)} />,
-  // Członków dodaje tylko administrator (MEM-3); bazę i tak chroni Edge Function (403).
+  // Członków dodaje tylko administrator; bazę i tak chroni Edge Function (403).
   'add-member': (p) => (
     <AdminOnly me={p.me}>
       <AddMemberPopup />
     </AdminOnly>
   ),
   profile: (p) => <ProfilePopup id={p.route.id} isAdmin={isAdmin(p.me)} />,
-  // Członków usuwa tylko administrator (MEM-4); Edge Function i tak odrzuci gracza (403).
+  // Członków usuwa tylko administrator; Edge Function i tak odrzuci gracza (403).
   'delete-member': (p) => (
     <AdminOnly me={p.me}>
       <DeleteMemberDialog id={p.route.id} />
     </AdminOnly>
   ),
-  // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć (USR-7).
+  // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć.
   settings: (p) => <SettingsPopup me={p.me} />,
   'change-password': (p) => <PasswordPopup me={p.me} variant="change" />,
-  // Administrator nie usuwa swojego konta i nie widzi tej opcji (USR-6).
+  // Administrator nie usuwa swojego konta i nie widzi tej opcji.
   'delete-account': (p) => (
     <Show when={!isAdmin(p.me)} fallback={<InvalidPopup />}>
       <DeleteAccountDialog me={p.me} />
     </Show>
   ),
   'first-login': (p) => <PasswordPopup me={p.me} variant="first" />,
-  // Formularz klubu jest tylko dla administratora (CLUB-2); gracz z linku go nie zobaczy.
+  // Formularz klubu jest tylko dla administratora; gracz z linku go nie zobaczy.
   club: (p) => (
     <AdminOnly me={p.me}>
       <ClubPopup />
@@ -94,7 +94,7 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
   games: (p) => <CollectionPopup isAdmin={isAdmin(p.me)} />,
   game: (p) => <GameDetailsPopup id={p.route.id} isAdmin={isAdmin(p.me)} />,
   sheet: (p) => <SheetPopup id={p.route.id} isAdmin={isAdmin(p.me)} />,
-  // Gry dodaje, edytuje i usuwa tylko administrator (GAME-3); bazę chroni RLS.
+  // Gry dodaje, edytuje i usuwa tylko administrator; bazę chroni RLS.
   'add-game': (p) => (
     <AdminOnly me={p.me}>
       <AddGamePopup />
@@ -117,7 +117,7 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
     </AdminOnly>
   ),
   scorepads: (p) => <ScorepadsPopup gameId={p.route.gameId} isAdmin={isAdmin(p.me)} />,
-  // Notesy dodaje, zmienia i usuwa tylko administrator (GAME-7); bazę chroni RLS i RPC.
+  // Notesy dodaje, zmienia i usuwa tylko administrator; bazę chroni RLS i RPC.
   'add-scorepad': (p) => (
     <AdminOnly me={p.me}>
       <AddScorepadPopup gameId={p.route.gameId} />
@@ -144,17 +144,17 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
     </AdminOnly>
   ),
   meeting: (p) => <MeetingPopup id={p.route.id} me={p.me} />,
-  // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi (DS §15.1).
+  // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi.
   calendar: (p) => <CalendarPopup isAdmin={isAdmin(p.me)} />,
   leaderboard: (p) => <LeaderboardPopup me={p.me} tab={p.route.tab} filters={p.route.filters} />,
   'leaderboard-ties': (p) => <TiesPopup me={p.me} tab={p.route.tab} filters={p.route.filters} />,
-  // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
+  // Spotkania planuje, edytuje i usuwa tylko administrator; bazę chroni RPC.
   'add-meeting': (p) => (
     <AdminOnly me={p.me}>
       <AddMeetingPopup me={p.me} date={p.route.date} />
     </AdminOnly>
   ),
-  // Gry publikuje tylko administrator (VOTE-5, §2.1); bazę chroni RPC.
+  // Gry publikuje tylko administrator; bazę chroni RPC.
   'publish-games': (p) => (
     <AdminOnly me={p.me}>
       <PublishGamesPopup id={p.route.id} me={p.me} />
@@ -170,7 +170,7 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
       <DeleteMeetingDialog id={p.route.id} />
     </AdminOnly>
   ),
-  // Admin albo prowadzący (RUN-1, §2.1); dialog sam sprawdza rolę, bazę chroni RPC.
+  // Admin albo prowadzący; dialog sam sprawdza rolę, bazę chroni RPC.
   'start-meeting': (p) => <StartMeetingDialog id={p.route.id} me={p.me} />,
   'finish-meeting': (p) => <FinishMeetingDialog id={p.route.id} me={p.me} />,
   'reopen-meeting': (p) => (
@@ -178,12 +178,12 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
       <ReopenMeetingDialog id={p.route.id} />
     </AdminOnly>
   ),
-  // Admin albo prowadzący spotkania w trakcie (RUN-2, PAD-9); popup sprawdza rolę i status, bazę chroni RPC start_play.
+  // Admin albo prowadzący spotkania w trakcie; popup sprawdza rolę i status, bazę chroni RPC start_play.
   'new-play': (p) => <NewPlayPopup meetingId={p.route.meetingId} me={p.me} />,
-  // Notes tylko dla admina i prowadzącego trwającego spotkania, inni widzą „Trwa partia” (PAD-9); popup sprawdza rolę i status, bazę chroni RPC save_play_draft.
+  // Notes tylko dla admina i prowadzącego trwającego spotkania, inni widzą „Trwa partia”; popup sprawdza rolę i status, bazę chroni RPC save_play_draft.
   play: (p) => <PlayPopup id={p.route.id} me={p.me} />,
   'discard-play': (p) => <DiscardPlayDialog id={p.route.id} me={p.me} />,
-  // Tylko admin (VIEW-6); bazę chroni RPC delete_play.
+  // Tylko admin; bazę chroni RPC delete_play.
   'delete-play': (p) => (
     <AdminOnly me={p.me}>
       <DeletePlayDialog id={p.route.id} />

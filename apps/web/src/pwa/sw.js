@@ -1,5 +1,5 @@
 /*
- * Service worker BG Club (PRD NFR-3). Plik jest szablonem: plugin `pwaPlugin` (vite.config.ts)
+ * Service worker BG Club. Plik jest szablonem: plugin `pwaPlugin` (vite.config.ts)
  * podstawia przy buildzie wersję i listę plików powłoki i zapisuje go jako `dist/sw.js`.
  *
  * Zasady:
@@ -9,7 +9,7 @@
  *   więc po wylogowaniu na urządzeniu nie zostają dane poprzedniego konta.
  * - Nawigacja: najpierw sieć, bez sieci powłoka z cache. Aplikacja bez sieci nie udaje pracy
  *   offline: pokazuje komunikat o braku połączenia (src/pwa/AppStatus.tsx), a wpisy notesu
- *   chroni kopia szkicu w `localStorage` (PAD-4).
+ *   chroni kopia szkicu w `localStorage`.
  * - Nowa wersja instaluje się w tle i czeka. Aktywuje się dopiero na prośbę aplikacji
  *   (`SKIP_WAITING`), którą użytkownik wysyła przyciskiem „Odśwież” — nigdy w trakcie
  *   niezapisanego szkicu partii w tej karcie. Cache poprzedniej wersji zostaje (usuwamy tylko

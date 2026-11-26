@@ -3,7 +3,7 @@ import { isUuid } from '../popups/routes';
 import { meetingsKey } from './meetings';
 
 /**
- * Rekordy w partiach (migracja `20261125000000`): wynik partii, który w chwili rozegrania był
+ * Rekordy w partiach (`20261113001800_game_stats.sql`): wynik partii, który w chwili rozegrania był
  * lepszy od wszystkich wcześniejszych w tej grze (rekord klubu) albo od wcześniejszych wyników
  * gracza (rekord osobisty). Kierunek „lepiej” i porównywalne partie jak w statystykach gry.
  */
@@ -46,7 +46,7 @@ export function topRecord(records: PlayRecords | undefined): RecordKind | null {
   return [...records.values()].includes('club') ? 'club' : 'personal';
 }
 
-/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają rekordy (§5.6.5). */
+/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają rekordy. */
 export const meetingRecordsKey = (id: string) => [...meetingsKey, 'records', id] as const;
 
 /** Rekordy ustanowione w partiach spotkania (opcje zapytania). */

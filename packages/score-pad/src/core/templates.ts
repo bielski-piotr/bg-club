@@ -46,7 +46,7 @@ export interface LineDef {
   kind: LineKind;
   /** Jawna lista dozwolonych wartości (np. [25] albo wielokrotności). */
   values?: number[];
-  /** Zakres dozwolonych wartości (zamiast listy): od, do, co ile. */
+  /** Zakres dozwolonych wartości (zamiast listy): od,, co ile. */
   min?: number;
   max?: number;
   step?: number;
@@ -125,7 +125,7 @@ export interface PadTemplate {
   /** Krawędź klejona do grzbietu: u góry (domyślnie) albo z lewej — notes leży wtedy poziomo. */
   binding?: 'top' | 'left';
   /**
-   * Kategoria decydująca o miejscu, kierunek i reguły remisów (EDT-7). Brak = najwyższa suma
+   * Kategoria decydująca o miejscu, kierunek i reguły remisów. Brak = najwyższa suma
    * końcowa, jak w starszych plikach.
    */
   ranking?: Ranking;
@@ -186,7 +186,7 @@ export function playerTracks(t: PadTemplate): number[] {
 
 /**
  * Zabezpieczenie przed uszkodzonym plikiem (np. `players: 100000000` zamroziłoby kartę),
- * a nie limit produktu: EDT-8 nie ogranicza liczby graczy, a tylu miejsc nie ma żaden notes.
+ * a nie limit produktu: nie ogranicza liczby graczy, a tylu miejsc nie ma żaden notes.
  */
 export const SEAT_SANITY_LIMIT = 200;
 
@@ -308,19 +308,19 @@ export function uniform(a: number, b: number, n: number): number[] {
 
 // ─────────────────────────────────────────────────────────── liczenie
 
-// Sumy i kategoria decydująca liczą się w `@bg-club/scoring` (PRD §8.3, EDT-13): ten sam kod
-// liczy notes, edytor i testy wyników. Nazwy zostają z POC.
+// Sumy i kategoria decydująca liczą się w `@bg-club/scoring`: ten sam kod
+// liczy notes i edytor. Nazwy zostają z POC.
 export { effectiveOf, finalTotalIndex, inputLeaves, isComputed, isNumeric } from '@bg-club/scoring';
 
 /**
- * Reguła miejsc notesu (EDT-7): `ranking`, gdy jest poprawna, inaczej najwyższa suma końcowa.
+ * Reguła miejsc notesu: `ranking`, gdy jest poprawna, inaczej najwyższa suma końcowa.
  * `validateTemplate` usuwa błędną regułę, ale szablon mógł zostać zmieniony po wczytaniu.
  */
 export function padRanking(t: PadTemplate): Ranking {
   return (t.ranking && parseRanking(t.ranking, t.lines).ranking) || rankingOf({ lines: t.lines });
 }
 
-/** Miejsca graczy kartki według reguły notesu (PRD §5.6.1), w kolejności miejsc. */
+/** Miejsca graczy kartki według reguły notesu, w kolejności miejsc. */
 export function rankSheet(t: PadTemplate, players: PlayerEntry[]): RankedPlayer[] {
   return rankPlayers({ lines: t.lines, ranking: padRanking(t) }, players);
 }
@@ -514,7 +514,7 @@ export function validateTemplate(raw: unknown): PadTemplate | null {
   };
   // kategorii może być więcej niż pasów siatki: nadmiarowe mają tylko pola dowolne
   if (t.grid && lineCount(t) > t.lines.length) return null;
-  // bez limitu graczy (EDT-8): o liczbie miejsc decyduje sam notes; odrzucamy tylko uszkodzone pliki
+  // bez limitu graczy: o liczbie miejsc decyduje sam notes; odrzucamy tylko uszkodzone pliki
   if (playerCount(t) < 1 || playerCount(t) > SEAT_SANITY_LIMIT) return null;
   const ids = new Set(t.lines.map((l) => l.id));
   if (t.fields) t.fields = t.fields.filter((f) => ids.has(f.line));

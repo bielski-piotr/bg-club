@@ -430,7 +430,7 @@ export const MIN_TEX_SIDE = 1600;
 export const BACK_TEX_SIDE = 1600;
 
 /**
- * Rozmiar tekstury kartki (PAD-16): zdjęcie z edytora w pełnej rozdzielczości (EDT-12), bez
+ * Rozmiar tekstury kartki: zdjęcie z edytora w pełnej rozdzielczości, bez
  * zmniejszania przy uruchomieniu notesu. Ograniczeniem jest `maxSide` (`maxTextureSize`
  * urządzenia, najwyżej 4096). Proporcje z rozmiaru kartki, jak dotąd.
  */

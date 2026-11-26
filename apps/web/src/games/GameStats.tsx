@@ -14,8 +14,8 @@ import { formatScore, type GameRecord, type GameStats } from './gameStatsData';
 const text = t.games.details.stats;
 
 /**
- * Statystyki gry w szczegółach gry (GAME-10, GAME-11): liczba partii, najczęstszy zwycięzca,
- * średni wynik zwycięzcy, rekord gry (wszyscy rekordziści przy równej wartości, Q25; kto
+ * Statystyki gry w szczegółach gry: liczba partii, najczęstszy zwycięzca,
+ * średni wynik zwycięzcy, rekord gry (wszyscy rekordziści przy równej wartości; kto
  * i kiedy, z linkiem do spotkania) i ranking graczy w grze (wygrane, punkty). Datę ostatniej
  * partii pokazuje nagłówek szczegółów gry.
  */

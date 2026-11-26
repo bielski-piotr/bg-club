@@ -6,7 +6,7 @@ import {
 import { isLeaderboardKind, type LeaderboardKind } from '../leaderboard/kinds';
 
 /**
- * Adresy popupów (PRD §4). Każdy popup na stosie to jeden parametr `p` w adresie, od dołu
+ * Adresy popupów. Każdy popup na stosie to jeden parametr `p` w adresie, od dołu
  * stosu do góry, np. `/?p=members&p=profile/<uuid>`. Dzięki temu odświeżenie, link wysłany
  * komuś i przyciski Wstecz / Dalej odtwarzają cały stos.
  *
@@ -15,88 +15,88 @@ import { isLeaderboardKind, type LeaderboardKind } from '../leaderboard/kinds';
  */
 export type PopupRoute =
   | { readonly kind: 'members' }
-  /** Formularz „Dodaj członka” (MEM-3, admin), adres `members/new`. */
+  /** Formularz „Dodaj członka” (admin), adres `members/new`. */
   | { readonly kind: 'add-member' }
   | { readonly kind: 'profile'; readonly id: string }
-  /** Potwierdzenie „Usuń członka” (MEM-4, admin), adres `profile/<uuid>/delete`. */
+  /** Potwierdzenie „Usuń członka” (admin), adres `profile/<uuid>/delete`. */
   | { readonly kind: 'delete-member'; readonly id: string }
-  /** Ustawienia własnego profilu (USR-5), adres `settings`. Zawsze dotyczą zalogowanego. */
+  /** Ustawienia własnego profilu, adres `settings`. Zawsze dotyczą zalogowanego. */
   | { readonly kind: 'settings' }
-  /** Zmiana hasła (USR-5), adres `settings/password`. */
+  /** Zmiana hasła, adres `settings/password`. */
   | { readonly kind: 'change-password' }
-  /** Usunięcie własnego konta z potwierdzeniem hasłem (USR-6), adres `settings/delete`. */
+  /** Usunięcie własnego konta z potwierdzeniem hasłem, adres `settings/delete`. */
   | { readonly kind: 'delete-account' }
-  /** Propozycja własnego hasła przy pierwszym logowaniu (AUTH-6), adres `first-login`. */
+  /** Propozycja własnego hasła przy pierwszym logowaniu, adres `first-login`. */
   | { readonly kind: 'first-login' }
-  /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (CLUB-2, admin). */
+  /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (admin). */
   | { readonly kind: 'club' }
-  /** Popup kolekcji gier (GAME-2), adres `games`. */
+  /** Popup kolekcji gier, adres `games`. */
   | { readonly kind: 'games' }
-  /** Formularz „Dodaj grę” (GAME-3, admin), adres `games/new`. */
+  /** Formularz „Dodaj grę” (admin), adres `games/new`. */
   | { readonly kind: 'add-game' }
   /**
-   * Szczegóły gry z galerią oderwanych karteczek od najnowszej (GAME-10), adres `game/<uuid>`.
+   * Szczegóły gry z galerią oderwanych karteczek od najnowszej, adres `game/<uuid>`.
    */
   | { readonly kind: 'game'; readonly id: string }
   /**
-   * Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3): powiększenie, wyniki, link do spotkania
+   * Zapisana karteczka partii: powiększenie, wyniki, link do spotkania
    * i podgląd 3D tylko do odczytu, adres `sheet/<uuid partii>`.
    */
   | { readonly kind: 'sheet'; readonly id: string }
-  /** Formularz „Edytuj grę” (GAME-3, admin), adres `game/<uuid>/edit`. */
+  /** Formularz „Edytuj grę” (admin), adres `game/<uuid>/edit`. */
   | { readonly kind: 'edit-game'; readonly id: string }
-  /** Potwierdzenie „Usuń grę” (GAME-8, admin), adres `game/<uuid>/delete`. */
+  /** Potwierdzenie „Usuń grę” (admin), adres `game/<uuid>/delete`. */
   | { readonly kind: 'delete-game'; readonly id: string }
   /** Formularz „Dodaj dodatek” do gry podstawowej (admin), adres `game/<uuid>/expansions/new`. */
   | { readonly kind: 'add-expansion'; readonly baseId: string }
-  /** Notesy gry (GAME-7), adres `game/<uuid>/scorepads`. */
+  /** Notesy gry, adres `game/<uuid>/scorepads`. */
   | { readonly kind: 'scorepads'; readonly gameId: string }
-  /** Edytor nowego notesu gry (GAME-7, EDT-1, admin), adres `game/<uuid>/scorepads/new`. */
+  /** Edytor nowego notesu gry (admin), adres `game/<uuid>/scorepads/new`. */
   | { readonly kind: 'add-scorepad'; readonly gameId: string }
-  /** Edytor notesu: zapis tworzy nową wersję (GAME-9, admin), adres `scorepad/<uuid>/edit`. */
+  /** Edytor notesu: zapis tworzy nową wersję (admin), adres `scorepad/<uuid>/edit`. */
   | { readonly kind: 'edit-scorepad'; readonly id: string }
-  /** Zmiana nazwy notesu (GAME-7, admin), adres `scorepad/<uuid>/rename`. */
+  /** Zmiana nazwy notesu (admin), adres `scorepad/<uuid>/rename`. */
   | { readonly kind: 'rename-scorepad'; readonly id: string }
   /** Przeniesienie notesu do innej gry albo dodatku (admin), adres `scorepad/<uuid>/move`. */
   | { readonly kind: 'move-scorepad'; readonly id: string }
-  /** Potwierdzenie „Usuń notes” (GAME-7, admin), adres `scorepad/<uuid>/delete`. */
+  /** Potwierdzenie „Usuń notes” (admin), adres `scorepad/<uuid>/delete`. */
   | { readonly kind: 'delete-scorepad'; readonly id: string }
   /**
-   * „Zaplanuj spotkanie” (PLAN-1, admin), adres `meetings/new` albo `meetings/new/<RRRR-MM-DD>`
-   * z wypełnioną datą (np. pusty dzień w kalendarzu, CAL-3).
+   * „Zaplanuj spotkanie” (admin), adres `meetings/new` albo `meetings/new/<RRRR-MM-DD>`
+   * z wypełnioną datą (np. pusty dzień w kalendarzu).
    */
   | { readonly kind: 'add-meeting'; readonly date?: string | undefined }
   /**
-   * Popup spotkania z głosowaniem i opublikowanymi grami (VIEW-1, VIEW-2), otwierany też
-   * z timeline i kalendarza (MTG-3, CAL-1), adres `meeting/<uuid>`.
+   * Popup spotkania z głosowaniem i opublikowanymi grami, otwierany też
+   * z timeline i kalendarza, adres `meeting/<uuid>`.
    */
   | { readonly kind: 'meeting'; readonly id: string }
-  /** „Opublikuj gry” (VOTE-5, admin), adres `meeting/<uuid>/publish`. */
+  /** „Opublikuj gry” (admin), adres `meeting/<uuid>/publish`. */
   | { readonly kind: 'publish-games'; readonly id: string }
-  /** Potwierdzenie „Rozpocznij spotkanie” (RUN-1, admin lub prowadzący), `meeting/<uuid>/start`. */
+  /** Potwierdzenie „Rozpocznij spotkanie” (admin lub prowadzący), `meeting/<uuid>/start`. */
   | { readonly kind: 'start-meeting'; readonly id: string }
-  /** „Zakończ spotkanie” z listą partii w toku (RUN-4), adres `meeting/<uuid>/finish`. */
+  /** „Zakończ spotkanie” z listą partii w toku, adres `meeting/<uuid>/finish`. */
   | { readonly kind: 'finish-meeting'; readonly id: string }
-  /** Cofnięcie zakończenia (RUN-5, admin), adres `meeting/<uuid>/reopen`. */
+  /** Cofnięcie zakończenia (admin), adres `meeting/<uuid>/reopen`. */
   | { readonly kind: 'reopen-meeting'; readonly id: string }
   /**
-   * Nowa partia: gra, notes, gracze i miejsca (RUN-2, admin lub prowadzący spotkania w trakcie),
+   * Nowa partia: gra, notes, gracze i miejsca (admin lub prowadzący spotkania w trakcie),
    * adres `meeting/<uuid>/plays/new`.
    */
   | { readonly kind: 'new-play'; readonly meetingId: string }
   /**
-   * Partia w toku z notesem i szkicem (PAD-4, PAD-9): admin lub prowadzący wpisuje wyniki,
+   * Partia w toku z notesem i szkicem: admin lub prowadzący wpisuje wyniki,
    * także na innym urządzeniu; pozostali widzą „trwa partia”. Adres `play/<uuid>`.
    */
   | { readonly kind: 'play'; readonly id: string }
-  /** Potwierdzenie „Porzuć partię” (PAD-8, admin lub prowadzący), adres `play/<uuid>/discard`. */
+  /** Potwierdzenie „Porzuć partię” (admin lub prowadzący), adres `play/<uuid>/discard`. */
   | { readonly kind: 'discard-play'; readonly id: string }
-  /** Potwierdzenie „Usuń partię” zapisanej partii (VIEW-6, admin), adres `play/<uuid>/delete`. */
+  /** Potwierdzenie „Usuń partię” zapisanej partii (admin), adres `play/<uuid>/delete`. */
   | { readonly kind: 'delete-play'; readonly id: string }
-  /** Kalendarz spotkań (CAL-1…CAL-3), adres `calendar`. */
+  /** Kalendarz spotkań, adres `calendar`. */
   | { readonly kind: 'calendar' }
   /**
-   * Pełny ranking z filtrami dat i gier (LB-3, LB-4), adres `leaderboard` albo
+   * Pełny ranking z filtrami dat i gier, adres `leaderboard` albo
    * `leaderboard/<zakładka>` (`points`, `wins`) z opcjonalnymi segmentami filtrów
    * (`from:RRRR-MM-DD`, `to:RRRR-MM-DD`, `games:<uuid>,<uuid>`): stan, z którym otworzył go
    * widżet. Dalsze przełączanie zakładek i filtrów jest stanem popupu (bez wpisów historii).
@@ -115,9 +115,9 @@ export type PopupRoute =
       readonly tab: LeaderboardKind;
       readonly filters?: LeaderboardFilters | undefined;
     }
-  /** „Edytuj spotkanie” (PLAN-3, PLAN-4, admin), adres `meeting/<uuid>/edit`. */
+  /** „Edytuj spotkanie” (admin), adres `meeting/<uuid>/edit`. */
   | { readonly kind: 'edit-meeting'; readonly id: string }
-  /** Potwierdzenie „Usuń spotkanie” (PLAN-3, PLAN-5, admin), adres `meeting/<uuid>/delete`. */
+  /** Potwierdzenie „Usuń spotkanie” (admin), adres `meeting/<uuid>/delete`. */
   | { readonly kind: 'delete-meeting'; readonly id: string }
   /** Adres, którego aplikacja nie zna albo który jest uszkodzony. Popup pokazuje czytelny stan. */
   | { readonly kind: 'invalid'; readonly raw: string };

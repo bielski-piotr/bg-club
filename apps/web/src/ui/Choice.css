@@ -1,4 +1,4 @@
-/* Checkbox, radio, pigułki wyboru, chipy wielokrotnego wyboru, próbki kolorów (DS §10, §15, §18). */
+/* Checkbox, radio, pigułki wyboru, chipy wielokrotnego wyboru, próbki kolorów. */
 .group {
   min-width: 0;
   margin: 0;
@@ -168,7 +168,7 @@
   color: var(--c-ink);
 }
 
-/* Aktywna pigułka jest ciemna (#161A2B), nie w kolorze akcentu (DS §10). */
+/* Aktywna pigułka jest ciemna (#161A2B), nie w kolorze akcentu. */
 .choice__input:checked + .pill,
 .pill[aria-selected='true'] {
   background: var(--c-inverse);

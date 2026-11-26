@@ -3,9 +3,9 @@ import { isUuid } from '../popups/routes';
 import { gamesKey } from './games';
 
 /**
- * Statystyki gry (PRD GAME-11) z funkcji SQL `game_stats(game_id)` (migracja
+ * Statystyki gry z funkcji SQL `game_stats(game_id)` (migracja
  * `20261113001800_game_stats.sql`). Baza liczy wszystko z zapisanych partii (szkice się nie
- * liczą), więc zapis i usunięcie partii zmieniają je od razu (§5.6.5).
+ * liczą), więc zapis i usunięcie partii zmieniają je od razu.
  */
 
 /** Gracz z największą liczbą wygranych w tej grze (przy remisie wszyscy). */
@@ -14,7 +14,7 @@ export interface TopWinner {
   readonly wins: number;
 }
 
-/** Rekordzista z pierwszą partią, w której osiągnął rekord (kto i kiedy, Q25). */
+/** Rekordzista z pierwszą partią, w której osiągnął rekord (kto i kiedy). */
 export interface RecordHolder {
   readonly profile_id: string;
   readonly play_id: string;
@@ -25,7 +25,7 @@ export interface RecordHolder {
   readonly expansions?: readonly { readonly id: string; readonly title: string }[] | undefined;
 }
 
-/** Rekord gry: najlepsza wartość kategorii decydującej w kierunku notesu (EDT-2, Q6). */
+/** Rekord gry: najlepsza wartość kategorii decydującej w kierunku notesu. */
 export interface GameRecord {
   readonly value: number;
   /** `asc` = „mniej = lepiej”. */
@@ -57,7 +57,7 @@ export interface GameStats {
 
 /**
  * Klucz w `gamesKey`: zapis i usunięcie partii odświeżają statystyki razem z kolekcją
- * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
+ * (`PLAY_DEPENDENT_KEYS`).
  */
 export const gameStatsKey = (id: string) => [...gamesKey, 'stats', id] as const;
 

@@ -1,7 +1,7 @@
 /**
- * Edge Function `delete-own-account`: gracz usuwa własne konto po potwierdzeniu hasłem
- * (PRD USR-6, MEM-6). Profil zostaje w historii (miękkie usunięcie), konto Auth jest usuwane
- * miękko (`_shared/accountDeletion.ts`). Klucz service role jest tylko tutaj (PRD §6.1).
+ * Edge Function `delete-own-account`: gracz usuwa własne konto po potwierdzeniu hasłem.
+ * Profil zostaje w historii (miękkie usunięcie), konto Auth jest usuwane
+ * miękko (`_shared/accountDeletion.ts`). Klucz service role jest tylko tutaj.
  * Logika żądania: `handler.ts`.
  */
 import { hookToEmail } from '../../../packages/accounts/src/index.ts';

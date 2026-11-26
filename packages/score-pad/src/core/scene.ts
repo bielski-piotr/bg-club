@@ -90,7 +90,7 @@ export class Pad {
 
     this.topTex = new THREE.CanvasTexture(ps.print);
     this.topTex.encoding = THREE.sRGBEncoding;
-    // pełna rozdzielczość z mipmapami i maksymalną anizotropią (PAD-16)
+    // pełna rozdzielczość z mipmapami i maksymalną anizotropią
     this.topTex.generateMipmaps = true;
     this.topTex.minFilter = THREE.LinearMipmapLinearFilter;
     this.topTex.anisotropy = aniso;

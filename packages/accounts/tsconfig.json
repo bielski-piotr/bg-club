@@ -7,5 +7,5 @@
     "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true
   },
-  "include": ["src", "integration", "vitest.config.ts", "vitest.integration.config.ts"]
+  "include": ["src"]
 }

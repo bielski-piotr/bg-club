@@ -1,6 +1,6 @@
 /**
- * Konfiguracja frontendu ze zmiennych środowiskowych (NFR-1).
- * W repozytorium nie ma żadnych wartości (NFR-9); podaje się je w `.env.local`
+ * Konfiguracja frontendu ze zmiennych środowiskowych.
+ * W repozytorium nie ma żadnych wartości; podaje się je w `.env.local`
  * lub w ustawieniach Cloudflare Pages.
  */
 import { isSecretKey } from './secretKey';

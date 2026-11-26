@@ -1,4 +1,4 @@
-/* Wiersz członka w popupie (DS §7: wiersz h64, awatar 40). */
+/* Wiersz członka w popupie (wiersz h64, awatar 40). */
 .member-row {
   text-decoration: none;
 }
@@ -8,7 +8,7 @@
   font-size: 12px;
 }
 
-/* Wyszukiwarka i lista (DS §7: wyszukiwarka paddingTop 20 na desktopie, 4 na telefonie). */
+/* Wyszukiwarka i lista (wyszukiwarka paddingTop 20 na desktopie, 4 na telefonie). */
 .members-list {
   margin-top: 12px;
 }
@@ -19,7 +19,7 @@
   }
 }
 
-/* „Dodaj członka” w nagłówku: krótka etykieta na telefonie (DS §7). */
+/* „Dodaj członka” w nagłówku: krótka etykieta na telefonie. */
 .members-add__short {
   display: none;
 }
@@ -34,7 +34,7 @@
   }
 }
 
-/* Formularz „Dodaj członka” i dane logowania (DS §7, §10). */
+/* Formularz „Dodaj członka” i dane logowania. */
 .member-form {
   display: flex;
   flex-direction: column;

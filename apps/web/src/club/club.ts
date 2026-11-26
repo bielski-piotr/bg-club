@@ -1,12 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScaledImage } from './image';
 
-/** Jedyny klub instancji (PRD §1.1, CLUB-2). */
+/** Jedyny klub instancji. */
 export interface Club {
   readonly name: string;
   /** Ścieżka w buckecie `covers`; `null` = monogram nazwy. */
   readonly logo_path: string | null;
-  /** Strefa IANA do wyświetlania dat i granic roku (NFR-10). */
+  /** Strefa IANA do wyświetlania dat i granic roku. */
   readonly timezone: string;
 }
 
@@ -21,7 +21,7 @@ const CLUB_COLUMNS = 'name, logo_path, timezone';
 
 /**
  * Zapytanie o klub (bez frameworka): wspólne dla huba i nagłówka (`createClub`)
- * i prefetchu w `SignedInScreen` (NFR-2). Klub albo `null`, gdy nie został założony (CLUB-1).
+ * i prefetchu w `SignedInScreen`. Klub albo `null`, gdy nie został założony.
  */
 export function clubQuery(client: SupabaseClient) {
   return {
@@ -66,7 +66,7 @@ interface PostgrestLikeError {
 }
 
 function failureFor(error: PostgrestLikeError): ClubSaveFailure {
-  // 23505: klucz główny `club_pkey` (klub już jest, np. równoległa próba, CLUB-2).
+  // 23505: klucz główny `club_pkey` (klub już jest, np. równoległa próba).
   if (error.code === '23505') return 'exists';
   // 42501: RLS lub brak uprawnień; PGRST116: UPDATE nie objął wiersza (RLS ukrył klub).
   if (error.code === '42501' || error.code === 'PGRST116') return 'forbidden';
@@ -74,10 +74,10 @@ function failureFor(error: PostgrestLikeError): ClubSaveFailure {
 }
 
 /**
- * Zakłada klub (gdy `existing` = `null`) albo zapisuje zmiany (CLUB-2). Nowe logo trafia do
+ * Zakłada klub (gdy `existing` = `null`) albo zapisuje zmiany. Nowe logo trafia
  * Storage przed zapisem wiersza; gdy zapis wiersza się nie uda, wysłany plik jest usuwany,
  * a po udanym zapisie usuwany jest poprzedni plik logo. Drugi klub odrzuca baza (`23505`).
- * Zmiana strefy zmienia tylko wartość `club.timezone`, nie terminy spotkań (NFR-10).
+ * Zmiana strefy zmienia tylko wartość `club.timezone`, nie terminy spotkań.
  */
 export async function saveClub(
   client: SupabaseClient,

@@ -1,7 +1,7 @@
 import { pwa, type PwaStore } from './updates';
 
 /*
- * Leniwe fragmenty pakietu po wdrożeniu (NFR-3). Karta otwarta przed wdrożeniem ma stary
+ * Leniwe fragmenty pakietu po wdrożeniu. Karta otwarta przed wdrożeniem ma stary
  * `index.html` i prosi o pliki `/assets/…` ze starym hashem. Nowe wdrożenie ich już nie ma,
  * a hosting SPA odpowiada na brakujący plik stroną HTML, więc `import()` kończy się błędem
  * „Failed to fetch dynamically imported module”. Przeglądarka i `lazy` zapamiętują
@@ -24,7 +24,7 @@ export interface StaleChunkOptions {
 
 /**
  * Czy po nieudanym imporcie przeładować kartę. Nie przeładowujemy bez sieci (to nie stary
- * pakiet), przy niezapisanym szkicu partii (PAD-4) ani drugi raz w krótkim czasie.
+ * pakiet), przy niezapisanym szkicu partii ani drugi raz w krótkim czasie.
  */
 export function shouldReloadForStaleChunk(options: StaleChunkOptions = {}): boolean {
   const store = options.store ?? pwa;

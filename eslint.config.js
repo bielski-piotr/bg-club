@@ -9,11 +9,8 @@ export default tseslint.config(
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
-      '**/coverage/**',
-      '**/playwright-report/**',
-      '**/test-results/**',
       'supabase/.temp/**',
-      // Edge Functions działają w Deno: lint, typy i testy przez `deno` (CI, README „Edge Functions”).
+      // Edge Functions działają w Deno: lint i typy przez `deno` (CI).
       'supabase/functions/**',
     ],
   },
@@ -31,22 +28,12 @@ export default tseslint.config(
   },
   { files: ['apps/web/src/**/*.{ts,tsx}'], ...solid },
   {
-    // Testy Solid czytają sygnały imperatywnie po `flush()` (asercje), poza zakresem śledzenia.
-    // Atrapy notesów w kreatorze przekazują uchwyt przez `props.ref` jak prawdziwe widoki.
-    files: [
-      'apps/web/src/ui/components.test.tsx',
-      'apps/web/src/lib/query.test.tsx',
-      'apps/web/src/hub/ScorepadWizard.test.tsx',
-    ],
-    rules: { 'solid/reactivity': 'off' },
-  },
-  {
-    // Szablon service workera (NFR-3): kontekst workera, nie okna.
+    // Szablon service workera: kontekst workera, nie okna.
     files: ['apps/web/src/pwa/sw.js'],
     languageOptions: { globals: { ...globals.serviceworker } },
   },
   {
-    // Źródła notesu i edytora przeniesione z POC (PRD §8.5): bez przepisywania stylu kodu.
+    // Źródła notesu i edytora przeniesione z POC: bez przepisywania stylu kodu.
     files: ['packages/score-pad/src/core/**/*.ts', 'packages/score-pad/src/editor/**/*.ts'],
     rules: {
       '@typescript-eslint/no-dynamic-delete': 'off',

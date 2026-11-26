@@ -6,16 +6,16 @@ import type { AvatarImage } from './crop';
 import { AVATARS_BUCKET } from './profileQueries';
 
 /**
- * Zapis ustawień własnego profilu (PRD USR-3, USR-5, USR-8, AUTH-6). Wszystko idzie przez sesję
+ * Zapis ustawień własnego profilu. Wszystko idzie przez sesję
  * użytkownika: RLS (`profiles_update_own`) i polityki Storage pozwalają zmienić tylko własny
  * wiersz i własny folder w `avatars`, więc nikt, także administrator, nie edytuje cudzego
- * profilu (USR-7).
+ * profilu.
  */
 
 /** Co zrobić ze zdjęciem przy zapisie. */
 export type AvatarChange =
   | { readonly kind: 'keep' }
-  /** Powrót do monogramu (USR-3). */
+  /** Powrót do monogramu. */
   | { readonly kind: 'remove' }
   | { readonly kind: 'new'; readonly image: AvatarImage };
 
@@ -52,7 +52,7 @@ export function newAvatarPath(profileId: string, extension: string): string {
 /**
  * Zapisuje imię, nazwisko i zdjęcie. Nowe zdjęcie trafia do Storage przed zapisem wiersza;
  * nieudany zapis wiersza usuwa wysłany plik, a udany usuwa poprzedni plik (Storage nie zbiera
- * sierot). Hook się nie zmienia (USR-1), więc kolor monogramu też.
+ * sierot). Hook się nie zmienia, więc kolor monogramu też.
  */
 export async function saveProfile(
   client: SupabaseClient,
@@ -96,7 +96,7 @@ export async function saveProfile(
   return data;
 }
 
-/** Motyw w profilu (USR-8). Lokalnie stosuje go `setThemePreference` przed zapisem. */
+/** Motyw w profilu. Lokalnie stosuje go `setThemePreference` przed zapisem. */
 export async function saveTheme(
   client: SupabaseClient,
   profileId: string,
@@ -106,7 +106,7 @@ export async function saveTheme(
   if (error) throw error;
 }
 
-/** Gracz pominął propozycję zmiany hasła albo je zmienił (AUTH-6): nie pokazujemy jej więcej. */
+/** Gracz pominął propozycję zmiany hasła albo je zmienił: nie pokazujemy jej więcej. */
 export async function dismissPasswordSuggestion(
   client: SupabaseClient,
   profileId: string,
@@ -133,7 +133,7 @@ export interface PasswordProblems {
   readonly repeat?: PasswordProblem | undefined;
 }
 
-/** Walidacja formularza zmiany hasła (USR-5: stare hasło + nowe ×2). Pusty obiekt = poprawne. */
+/** Walidacja formularza zmiany hasła (stare hasło + nowe ×2). Pusty obiekt = poprawne. */
 export function passwordProblems(draft: PasswordDraft): PasswordProblems {
   const problems: { current?: PasswordProblem; next?: PasswordProblem; repeat?: PasswordProblem } =
     {};
@@ -177,7 +177,7 @@ export function passwordErrorKind(error: unknown): PasswordChangeFailure {
 /**
  * Zmienia hasło zalogowanego użytkownika. Obecne hasło sprawdza Auth (`current_password`,
  * `require_current_password` w konfiguracji Auth), więc samo przejęcie otwartej sesji nie
- * wystarczy do zmiany hasła. Po zmianie propozycja z AUTH-6 znika.
+ * wystarczy do zmiany hasła. Po zmianie propozycja z znika.
  */
 export async function changePassword(
   client: SupabaseClient,

@@ -1,6 +1,6 @@
-// Obszar kartki na zdjęciu (EDT-10): wielokąt w pikselach zdjęcia, z którego edytor wyznacza
+// Obszar kartki na zdjęciu: wielokąt w pikselach zdjęcia, z którego edytor wyznacza
 // cztery narożniki do prostowania perspektywy i kształt kartki (współrzędne kartki 0…1).
-// Czyste funkcje bez DOM, więc testy jednostkowe nie potrzebują przeglądarki.
+// Czyste funkcje bez DOM.
 
 import type { ShapePt, SheetShape } from '../core/shape';
 import { Persp, type Pt, type Quad } from './photo';
@@ -190,7 +190,7 @@ export const fullArea = (w: number, h: number): Pt[] => [
 ];
 
 /**
- * Cztery narożniki do prostowania perspektywy wyznaczone z obszaru (EDT-10). Narożniki prawie
+ * Cztery narożniki do prostowania perspektywy wyznaczone z obszaru. Narożniki prawie
  * w rogach zdjęcia (do 1,5% przekątnej) to całe zdjęcie: skan i kartka już wyprostowana nie są
  * prostowane drugi raz. Zdegenerowany obszar daje prostokąt opisany na punktach.
  */
@@ -272,7 +272,7 @@ const ringArea = (r: readonly ShapePt[]): number => {
 };
 
 /**
- * Wygładzanie krawędzi (EDT-10): punkty pośrednie metodą Chaikina. Siła 1…10 to długość cięcia
+ * Wygładzanie krawędzi: punkty pośrednie metodą Chaikina. Siła 1…10 to długość cięcia
  * przy każdym punkcie (do ćwierci boku), więc długie proste boki zostają proste, a rogi i wycięcia
  * przechodzą płynnie. Trzy przebiegi dają łuk bez widocznych załamań.
  */

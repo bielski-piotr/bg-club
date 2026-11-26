@@ -46,7 +46,7 @@ const text = t.meetings.publish;
 const voting = t.meetings.voting;
 
 /**
- * „Opublikuj gry” (VOTE-5, DS §15 „Publish-games row”): administrator zaznacza dowolne gry
+ * „Opublikuj gry”: administrator zaznacza dowolne gry
  * z kolekcji (także bez głosów), a zapis zamyka głosowanie w jednej transakcji z publikacją.
  * Jedno okno na wczytywanie, formularz i stan „nie da się opublikować”.
  */

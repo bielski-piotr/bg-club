@@ -19,7 +19,7 @@ import { masonry } from './masonry';
 import './Hub.css';
 
 // Popupy huba (z edytorem notesów, formularzami i statystykami) są osobnym fragmentem pakietu:
-// widok Klubu nie czeka na nie przy starcie (NFR-2). Fragment jest pobierany zaraz po
+// widok Klubu nie czeka na nie przy starcie. Fragment jest pobierany zaraz po
 // wyświetleniu huba (`prefetchPopups`), więc otwarcie popupu zwykle nie czeka na sieć.
 const loadHubPopup = () => import('./HubPopup');
 // Po wdrożeniu karta ze starym pakietem nie znajdzie fragmentu: przeładowujemy ją raz
@@ -29,15 +29,15 @@ const HubPopup = lazy(importOrReload(() => loadHubPopup().then((m) => ({ default
 const MAIN_ID = 'hub-main';
 
 /**
- * Widok Klubu (PRD §4, DS §17): jedyny pełnoekranowy widok po zalogowaniu. Desktop: nagłówek
+ * Widok Klubu: jedyny pełnoekranowy widok po zalogowaniu. Desktop: nagłówek
  * i dwie kolumny po 520 px (lewa: Spotkanie, Timeline, Członkowie; prawa: Ranking, Kolekcja).
- * Telefon: jedna kolumna w kolejności PRD. Przed założeniem klubu zamiast widżetów jest
- * pierwsze uruchomienie (CLUB-1, CLUB-3). Popupy ze stosu w adresie są nad hubem.
+ * Telefon: jedna kolumna w tej samej kolejności. Przed założeniem klubu zamiast widżetów jest
+ * pierwsze uruchomienie. Popupy ze stosu w adresie są nad hubem.
  */
 export function Hub(props: { readonly me: OwnProfile }) {
   const club = createClub();
   const popups = useContext(PopupsContext);
-  // Pierwsze logowanie kontem z wygenerowanym hasłem (AUTH-6): przy wejściu do aplikacji bez
+  // Pierwsze logowanie kontem z wygenerowanym hasłem: przy wejściu do aplikacji bez
   // popupów w adresie otwiera propozycję własnego hasła. Wejście z linku do popupu jej nie
   // przerywa (ani po jego zamknięciu). „Pomiń” zapisuje rezygnację w profilu, a zamknięcie
   // (×, Esc) tylko odkłada propozycję do kolejnego uruchomienia. Decyzja zapada raz, po
@@ -110,7 +110,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
   );
 }
 
-/** Pięć widżetów w kolejności PRD §4; każdy ma własny pusty stan (CLUB-4). */
+/** Pięć widżetów w kolejności; każdy ma własny pusty stan. */
 function Widgets(props: { readonly me: Profile }) {
   let grid: HTMLDivElement | undefined;
   onSettled(() => (grid ? masonry(grid) : undefined));
@@ -137,7 +137,7 @@ function Widgets(props: { readonly me: Profile }) {
 
 /**
  * Popup z leniwie ładowanego fragmentu. Gdy fragment jeszcze nie dotarł, `PopupHost` nie ma
- * dokąd przenieść fokusu; po wczytaniu przenosimy go do najwyższego okna (NFR-6). Błąd
+ * dokąd przenieść fokusu; po wczytaniu przenosimy go do najwyższego okna. Błąd
  * wczytania (np. stary pakiet po wdrożeniu, gdy przeładowanie nie pomogło) zostaje w popupie:
  * hub jest widoczny, a nad nim komunikat z przeładowaniem strony.
  */

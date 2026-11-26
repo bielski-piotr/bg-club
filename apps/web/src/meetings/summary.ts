@@ -8,7 +8,7 @@ import type { MeetingPlay } from './plays';
 
 /**
  * Podsumowanie spotkania: zmiany w klasyfikacji punktów z funkcji SQL
- * `meeting_leaderboard_changes(meeting_id, game_ids)` (migracja `20261125000000`). Baza liczy
+ * `meeting_leaderboard_changes(meeting_id, game_ids)` (`20261113001800_game_stats.sql`). Baza liczy
  * punkty zdobyte na spotkaniu i miejsca przed spotkaniem i po nim (jak ranking punktów, także
  * z filtrem gier); tu tylko teksty i lista gier spotkania do filtra.
  */
@@ -17,7 +17,7 @@ import type { MeetingPlay } from './plays';
 export interface SummaryGame {
   readonly game_id: string;
   readonly title: string;
-  /** Gra usunięta z kolekcji zostaje w historii z oznaczeniem (GAME-8). */
+  /** Gra usunięta z kolekcji zostaje w historii z oznaczeniem. */
   readonly deleted: boolean;
   readonly points: number;
 }
@@ -27,7 +27,7 @@ export interface SummaryEntry {
   readonly deleted: boolean;
   /** Punkty zdobyte na spotkaniu (w wybranych grach). */
   readonly points: number;
-  /** Gry w kolejności pierwszej partii gry w spotkaniu (§5.6.6). */
+  /** Gry w kolejności pierwszej partii gry w spotkaniu. */
   readonly games: readonly SummaryGame[];
   /** Suma i miejsce w klasyfikacji punktów przed spotkaniem; `null` = bez wcześniejszych partii. */
   readonly total_before: number | null;
@@ -37,7 +37,7 @@ export interface SummaryEntry {
   readonly place_after: number;
 }
 
-/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają podsumowanie (§5.6.5). */
+/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają podsumowanie. */
 export const meetingSummaryKey = (id: string, games: readonly string[] = []) =>
   [...meetingsKey, 'summary', id, normalizeGames(games).join(',')] as const;
 
@@ -62,7 +62,7 @@ export function meetingSummaryQuery(
   };
 }
 
-/** Gry zapisanych partii spotkania do filtra, w kolejności pierwszej partii (§5.6.6). */
+/** Gry zapisanych partii spotkania do filtra, w kolejności pierwszej partii. */
 export function meetingGames(
   saved: readonly Pick<MeetingPlay, 'game'>[],
 ): { readonly id: string; readonly title: string }[] {

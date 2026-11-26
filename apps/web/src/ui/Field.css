@@ -1,4 +1,4 @@
-/* Pola formularzy (DS §10, §18). */
+/* Pola formularzy. */
 .field {
   display: flex;
   flex-direction: column;
@@ -46,7 +46,7 @@
   border-color: var(--c-disabled);
 }
 
-/* DS §10: fokus = ramka 1,5 px #2F54EB; rozmiar zachowany przez cień w środku. */
+/* fokus = ramka 1,5 px #2F54EB; rozmiar zachowany przez cień w środku. */
 .input:focus-within {
   border-color: var(--c-accent-text);
   box-shadow: inset 0 0 0 0.5px var(--c-accent-text);

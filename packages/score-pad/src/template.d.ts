@@ -15,7 +15,7 @@ export type ReadTemplateResult =
       readonly ok: true;
       /** Szablon po walidacji, z uzupełnionymi wartościami domyślnymi. */
       readonly template: ScorePadTemplate;
-      /** Liczba miejsc dla graczy zdefiniowana w notesie (PAD-3, EDT-8). */
+      /** Liczba miejsc dla graczy zdefiniowana w notesie. */
       readonly playerSlots: number;
     }
   | {
@@ -30,7 +30,7 @@ export declare function readTemplate(raw: unknown): ReadTemplateResult;
 /** Sprawdza plik notesu v2 i zwraca jego szablon. */
 export declare function readScorePadFile(raw: unknown): ReadTemplateResult;
 
-/** Opcje kartki testowej kreatora (EDT-14). */
+/** Opcje kartki testowej kreatora. */
 export interface TestSheetOptions {
   /** Losowe wpisy zgodne z zakresami kategorii; bez tego kartka ma tylko imiona graczy. */
   readonly fill?: boolean | undefined;
@@ -52,7 +52,7 @@ export interface SheetResult {
   readonly decidedBy: string | null;
 }
 
-/** Kartka testowa z graczami „Gracz 1…n” (EDT-14); `null` dla złego szablonu. */
+/** Kartka testowa z graczami „Gracz 1…n”; `null` dla złego szablonu. */
 export declare function testSheet(raw: unknown, opt?: TestSheetOptions): ScorePadSheet | null;
 
 /** Miejsca graczy kartki według reguł notesu (jak w partii); pusta lista dla złego szablonu. */

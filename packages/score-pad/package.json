@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Web componenty <score-pad> i <score-pad-editor> w trybie klubowym (PRD §8.5).",
+  "description": "Web componenty <score-pad> i <score-pad-editor> w trybie klubowym.",
   "exports": {
     ".": "./src/index.ts",
     "./pad": {
@@ -20,9 +20,7 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@bg-club/scoring": "workspace:*",
@@ -32,8 +30,6 @@
     "three": "0.149.0"
   },
   "devDependencies": {
-    "@types/three": "0.149.0",
-    "jsdom": "^31.0.0",
-    "vitest": "5.1.0"
+    "@types/three": "0.149.0"
   }
 }

@@ -51,15 +51,15 @@ async function invoke(client: SupabaseClient, name: string, body: object): Promi
 }
 
 /**
- * Administrator usuwa członka (MEM-4): profil zostaje w historii, konto przestaje działać,
- * a członek znika z zaplanowanych spotkań (MEM-6, skutki w bazie).
+ * Administrator usuwa członka: profil zostaje w historii, konto przestaje działać,
+ * a członek znika z zaplanowanych spotkań (skutki w bazie).
  */
 export function deleteMember(client: SupabaseClient, memberId: string): Promise<void> {
   return invoke(client, DELETE_MEMBER_FUNCTION, { memberId });
 }
 
 /**
- * Gracz usuwa własne konto po potwierdzeniu hasłem (USR-6). Hasło idzie tylko w treści
+ * Gracz usuwa własne konto po potwierdzeniu hasłem. Hasło idzie tylko w treści
  * żądania; funkcja sprawdza je w Auth i go nie loguje.
  */
 export function deleteOwnAccount(client: SupabaseClient, password: string): Promise<void> {

@@ -1,14 +1,13 @@
 /**
- * Punkty leaderboardu za miejsca (PRD §5.6.2, §5.6.3). Te same reguły liczy w bazie
- * `public.play_points` (migracja `…_complexity_teams.sql`); obie wersje przechodzą
- * `cases/play-cases.json`.
+ * Punkty leaderboardu za miejsca. Te same reguły liczy w bazie
+ * `public.play_points` (`supabase/migrations`).
  *
  * - Punktacja gry ma pozycję dla każdego miejsca 1…max graczy. W partii z *n* stronami
  *   (graczami albo zespołami) liczą się jej **ostatnie** *n* pozycje: zwycięzca dostaje punkty
  *   za miejsce `max − n + 1`, ostatni za miejsce `max` (np. gra 2–6, partia 4 graczy: miejsca
  *   3…6 punktacji).
  * - Strona na miejscu k (bez remisu) dostaje `punktacja[k + max − n]`.
- * - Strony zremisowane na miejscach k…k+m−1 dostają średnią ich punktów zaokrągloną w dół do
+ * - Strony zremisowane na miejscach k…k+m−1 dostają średnią ich punktów zaokrągloną w dół
  *   setnych (`floor(100 · suma / m) / 100`).
  * - Punkty są liczbami ≥ 0 z najwyżej dwoma miejscami po przecinku.
  * - Wygraną dostaje każdy gracz na miejscu 1 (także każdy członek zwycięskiego zespołu).
@@ -37,7 +36,7 @@ export function isValidPlacing(places: readonly number[]): boolean {
 
 /**
  * Czy punktacja miejsc jest poprawna: liczby ≥ 0 z najwyżej dwoma miejscami po przecinku
- * (GAME-5, `is_valid_points`).
+ * (`is_valid_points`).
  */
 export function isValidPointsTable(points: readonly number[]): boolean {
   return points.every((p) => p >= 0 && hundredths(p) !== null);
@@ -64,10 +63,10 @@ export function placementPoints(places: readonly number[], points: readonly numb
   });
 }
 
-/** Wygrana: każdy gracz na miejscu 1, także przy wspólnym 1. miejscu (D8). */
+/** Wygrana: każdy gracz na miejscu 1, także przy wspólnym 1. miejscu. */
 export const isWin = (place: number): boolean => place === 1;
 
-/** Stałe wzoru punktacji ze skomplikowania gry (GAME-5). */
+/** Stałe wzoru punktacji ze skomplikowania gry. */
 export const COMPLEXITY_FORMULA = {
   /** Punkty zwycięzcy w grze o skomplikowaniu 1 przed premią za liczbę graczy. */
   base: 20,
@@ -98,7 +97,7 @@ function round1(value: number): number {
 /**
  * Punktacja miejsc 1…`maxPlayers` ze skomplikowania gry `w` (1…5):
  *
- *     points = round( M(w) × Z × [0.1 + 0.9 × (n − p) / (n − 1)] × (1 + bonus × (n − 2)), 1 )
+ *     points = round(M(w) × Z × [0.1 + 0.9 × (n − p) / (n − 1)] × (1 + bonus × (n − 2)), 1 )
  *     M(w)   = 1 + k × (w − 1) / 4
  *
  * gdzie Z = 20, k = 2, bonus = 0.03, n = max. liczba graczy, p = miejsce (1 = zwycięzca).
