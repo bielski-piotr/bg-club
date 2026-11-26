@@ -382,7 +382,6 @@ Ustalenia:
 
 - `AppHeader`, `ClubLogo`, `club` (`ClubPopup`), `FirstRun` (+ ilustracja).
 - Po tym etapie wszystkie widżety i popupy są w Solid; React zostaje tylko w powłoce.
-- e2e `club.spec.ts`, `smoke.spec.ts`.
 
 ### Etap 8 – powłoka i usunięcie Reacta
 
