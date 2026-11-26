@@ -1,4 +1,4 @@
-/* Klub: logo, pierwsze uruchomienie i formularz (DS §8, §17). */
+/* Klub: logo, pierwsze uruchomienie i formularz. */
 
 /* Kafelek logo: 36 (nagłówek, promień 12) albo 88 (formularz, promień 26). */
 .club-logo {
@@ -36,7 +36,7 @@
   background: var(--c-surface);
 }
 
-/* Pierwsze uruchomienie (CLUB-1, CLUB-3): wyśrodkowany blok, ilustracja 280 / 400. */
+/* Pierwsze uruchomienie: wyśrodkowany blok, ilustracja 280 / 400. */
 .first-run {
   display: flex;
   flex-direction: column;
@@ -83,7 +83,7 @@
   padding-top: 24px;
 }
 
-/* Formularz klubu (DS §17): pola co 20 px. */
+/* Formularz klubu: pola co 20 px. */
 .club-form {
   display: flex;
   flex-direction: column;
@@ -105,7 +105,7 @@
   flex-shrink: 0;
 }
 
-/* DS §8: kółko 30 z ramką w prawym dolnym rogu (-2, -2). */
+/* kółko 30 z ramką w prawym dolnym rogu (-2, -2). */
 .club-form__badge {
   position: absolute;
   right: -2px;

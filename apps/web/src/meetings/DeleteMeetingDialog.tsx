@@ -15,7 +15,7 @@ import { deleteMeeting, MeetingError, meetingsKey } from './meetings';
 const text = t.meetings.remove;
 
 /**
- * Potwierdzenie „Usuń spotkanie” (PLAN-3, PLAN-5, DS §15 „Dialog variants”). Usunięcie kasuje
+ * Potwierdzenie „Usuń spotkanie”. Usunięcie kasuje
  * głosy i uczestników. Trwającego spotkania nie usuwamy (najpierw trzeba je zakończyć),
  * a zakończonego z partiami nie usunie baza.
  */

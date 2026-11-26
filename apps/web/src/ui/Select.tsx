@@ -29,7 +29,7 @@ export interface SelectProps<T extends string> {
   readonly options: readonly SelectOption<T>[];
   readonly value: T | null;
   readonly onChange: (value: T) => void;
-  /** `field` = pole h48 (formularz), `pill` = pigułka h36 (filtr roku), DS §10. */
+  /** `field` = pole h48 (formularz), `pill` = pigułka h36 (filtr roku). */
   readonly appearance?: 'field' | 'pill' | undefined;
   readonly leadingIcon?: IconName | undefined;
   readonly placeholder?: string | undefined;
@@ -38,7 +38,7 @@ export interface SelectProps<T extends string> {
   readonly disabled?: boolean | undefined;
   readonly class?: ClassValue;
   /**
-   * Wyszukiwarka nad listą (DS §17, strefa czasowa): etykieta pola wyszukiwania. Z nią panel
+   * Wyszukiwarka nad listą (strefa czasowa): etykieta pola wyszukiwania. Z nią panel
    * jest pozycjonowany względem okna (`position: fixed`), więc nie przycina go przewijany popup.
    */
   readonly searchLabel?: string | undefined;
@@ -80,7 +80,7 @@ function placePanel(panel: HTMLElement, trigger: HTMLElement) {
 }
 
 /**
- * Lista rozwijana: przycisk + `role="listbox"` w panelu menu (DS §7, §10).
+ * Lista rozwijana: przycisk + `role="listbox"` w panelu menu.
  * Klawiatura: strzałki/Enter/Spacja otwierają, strzałki, Home, End i pierwsza litera
  * przesuwają zaznaczenie, Enter/Spacja wybiera, Esc i Tab zamykają.
  */

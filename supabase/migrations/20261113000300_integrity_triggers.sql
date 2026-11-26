@@ -1,12 +1,12 @@
--- [003] Wyzwalacze spójności danych.
+-- Wyzwalacze spójności danych.
 --
 -- Tu są reguły, których nie da się zapisać jako CHECK albo klucz obcy, bo dotyczą innych
--- wierszy: niezmienność, snapshoty w bazie (GAME-9), miękko usunięte encje (MEM-6, GAME-8),
--- przejścia statusów spotkania, liczba graczy partii (PAD-3). Uprawnienia (kto może pisać)
--- są w zadaniu [004].
+-- wierszy: niezmienność, snapshoty w bazie, miękko usunięte encje,
+-- przejścia statusów spotkania, liczba graczy partii. Uprawnienia (kto może pisać)
+-- są w zadaniu.
 --
 -- Strażnicy, którzy czytają inne tabele, są SECURITY DEFINER (właściciel tabel omija RLS):
--- polityki RLS z [004] nie mogą ukryć im wierszy, przez co reguła cicho by nie zadziałała,
+-- polityki RLS nie mogą ukryć im wierszy, przez co reguła cicho by nie zadziałała,
 -- a klient nie potrzebuje praw do funkcji pomocniczych. Wszystkie mają pusty search_path.
 -- Prawo EXECUTE do tych funkcji jest odebrane rolom klienta (wyzwalacz go nie potrzebuje).
 --
@@ -26,7 +26,7 @@ create trigger meetings_set_updated_at before update on public.meetings
   for each row execute function public.set_updated_at();
 
 -- ---------------------------------------------------------------------------------------------
--- club: strefa czasowa IANA (CLUB-2, NFR-10)
+-- club: strefa czasowa IANA
 -- ---------------------------------------------------------------------------------------------
 create function public.club_validate()
 returns trigger
@@ -46,7 +46,7 @@ create trigger club_validate before insert or update of timezone on public.club
   for each row execute function public.club_validate();
 
 -- ---------------------------------------------------------------------------------------------
--- profiles: niezmienny id i hook (USR-1, Q5)
+-- profiles: niezmienny id i hook
 -- ---------------------------------------------------------------------------------------------
 create function public.profiles_guard_update()
 returns trigger
@@ -67,7 +67,7 @@ $$;
 create trigger profiles_guard_update before update on public.profiles
   for each row execute function public.profiles_guard_update();
 
--- Skutki usunięcia członka (MEM-6, Q22), niezależnie od tego, czy usunął go admin, czy sam
+-- Skutki usunięcia członka, niezależnie od tego, czy usunął go admin, czy sam
 -- usunął konto: znika z zaplanowanych spotkań (razem z głosami, kaskada), a prowadzenie
 -- wszystkich niezakończonych spotkań, które prowadził, wraca do admina. W spotkaniu w trakcie
 -- jego uczestnictwo i szkice zostają. Zakończone spotkania zachowują prowadzącego.
@@ -99,7 +99,7 @@ create trigger profiles_after_soft_delete
   when (old.deleted_at is null and new.deleted_at is not null)
   execute function public.profiles_after_soft_delete();
 
--- Usunięcie konta Auth nie usuwa profilu, tylko oznacza go jako usunięty (MEM-4, AUTH-7).
+-- Usunięcie konta Auth nie usuwa profilu, tylko oznacza go jako usunięty.
 -- Profil administratora łamie wtedy CHECK profiles_admin_not_deleted, więc konta admina nie da
 -- się usunąć także bezpośrednio w Auth.
 create function public.handle_auth_user_deleted()
@@ -120,7 +120,7 @@ create trigger on_auth_user_deleted after delete on auth.users
   for each row execute function public.handle_auth_user_deleted();
 
 -- ---------------------------------------------------------------------------------------------
--- scorepads i scorepad_versions (GAME-7, GAME-9)
+-- scorepads i scorepad_versions
 -- ---------------------------------------------------------------------------------------------
 create function public.scorepads_guard_update()
 returns trigger
@@ -166,7 +166,7 @@ $$;
 create trigger scorepad_versions_before_insert before insert on public.scorepad_versions
   for each row execute function public.scorepad_versions_before_insert();
 
--- Wersje są niezmienne i trwałe (GAME-9): bez zmian i bez usuwania. Edycja notesu = nowa
+-- Wersje są niezmienne i trwałe: bez zmian i bez usuwania. Edycja notesu = nowa
 -- wersja + zmiana current_version_id; notes usuwa się miękko (scorepads.deleted_at).
 create function public.scorepad_versions_immutable()
 returns trigger
@@ -182,7 +182,7 @@ create trigger scorepad_versions_immutable before update or delete on public.sco
   for each row execute function public.scorepad_versions_immutable();
 
 -- ---------------------------------------------------------------------------------------------
--- Wspólny strażnik: gra usunięta z kolekcji znika z głosowań, publikacji i nowych partii (GAME-8)
+-- Wspólny strażnik: gra usunięta z kolekcji znika z głosowań, publikacji i nowych partii
 -- ---------------------------------------------------------------------------------------------
 create function public.require_active_game()
 returns trigger
@@ -226,7 +226,7 @@ begin
     select * into host from public.profiles where id = new.host_id;
     -- Brak profilu zgłosi klucz obcy do uczestników; tu sprawdzamy rolę i usunięcie.
     if found and host.role = 'admin' then
-      -- Admin prowadzi domyślnie, więc jako prowadzący jest zapisywany jako NULL (PLAN-1).
+      -- Admin prowadzi domyślnie, więc jako prowadzący jest zapisywany jako NULL.
       raise exception 'meetings.host_id must not be the admin (use NULL)'
         using errcode = '23514', constraint = 'meetings_host_not_admin';
     end if;
@@ -244,8 +244,8 @@ begin
     return new;
   end if;
 
-  -- Dozwolone przejścia (§5.8): planned → in_progress → finished oraz finished → in_progress
-  -- (RUN-5, dogranie zapomnianej partii). Powrotu do planned nie ma.
+  -- Dozwolone przejścia: planned → in_progress → finished oraz finished → in_progress
+  -- (dogranie zapomnianej partii). Powrotu do planned nie ma.
   if new.status is distinct from old.status
      and (old.status, new.status) not in (
        ('planned', 'in_progress'), ('in_progress', 'finished'), ('finished', 'in_progress')
@@ -254,7 +254,7 @@ begin
       using errcode = '23514', constraint = 'meetings_status_transition';
   end if;
 
-  -- Partie w toku trzeba dokończyć albo porzucić przed zakończeniem spotkania (RUN-4).
+  -- Partie w toku trzeba dokończyć albo porzucić przed zakończeniem spotkania.
   if new.status = 'finished' and old.status <> 'finished'
      and exists (select 1 from public.plays p where p.meeting_id = new.id and p.status = 'draft') then
     raise exception 'meeting has draft plays; save or discard them before finishing'
@@ -268,7 +268,7 @@ $$;
 create trigger meetings_validate before insert or update on public.meetings
   for each row execute function public.meetings_validate();
 
--- Usuniętego członka nie można dodać do spotkania (MEM-6).
+-- Usuniętego członka nie można dodać do spotkania.
 create function public.meeting_participants_validate()
 returns trigger
 language plpgsql
@@ -289,7 +289,7 @@ create trigger meeting_participants_validate
   for each row execute function public.meeting_participants_validate();
 
 -- ---------------------------------------------------------------------------------------------
--- plays: snapshot w bazie przy rozpoczęciu partii (GAME-9, Q23)
+-- plays: snapshot w bazie przy rozpoczęciu partii
 -- ---------------------------------------------------------------------------------------------
 create function public.plays_before_insert()
 returns trigger
@@ -302,7 +302,7 @@ declare
   points numeric[];
   pad public.scorepads;
 begin
-  -- Szkic powstaje zawsze jako szkic; zapis karteczki to osobny krok (save_play, [029]).
+  -- Szkic powstaje zawsze jako szkic; zapis karteczki to osobny krok (save_play).
   if new.status <> 'draft' or new.saved_at is not null then
     raise exception 'play must be created as a draft'
       using errcode = '23514', constraint = 'plays_created_as_draft';
@@ -373,8 +373,8 @@ create trigger plays_before_insert before insert on public.plays
   for each row execute function public.plays_before_insert();
 
 -- Po rozpoczęciu partii jej gra, notes, snapshot i spotkanie są stałe. Zapisana karteczka
--- jest niezmienna (PRD §1.2: bez edycji wpisów); można tylko dopisać ścieżkę obrazu (PAD-6)
--- albo usunąć partię (§5.6.5). Czas zapisu (klucz kolejności partii, §5.6.6) nadaje baza.
+-- jest niezmienna (bez edycji wpisów); można tylko dopisać ścieżkę obrazu
+-- albo usunąć partię. Czas zapisu (klucz kolejności partii) nadaje baza.
 create function public.plays_before_update()
 returns trigger
 language plpgsql
@@ -418,7 +418,7 @@ create trigger plays_before_update before update on public.plays
   for each row execute function public.plays_before_update();
 
 -- ---------------------------------------------------------------------------------------------
--- play_results: miejsca w notesie i liczba graczy (PAD-3, EDT-8)
+-- play_results: miejsca w notesie i liczba graczy
 -- ---------------------------------------------------------------------------------------------
 create function public.play_results_before_write()
 returns trigger
@@ -479,12 +479,12 @@ create trigger play_results_before_write before insert or update or delete on pu
   for each row execute function public.play_results_before_write();
 
 -- Sprawdzane na końcu transakcji, bo graczy dodaje się wierszami.
--- - Szkic: najwyżej tylu graczy, ilu mieści snapshot punktacji gry i notes (PAD-3, EDT-8);
+-- - Szkic: najwyżej tylu graczy, ilu mieści snapshot punktacji gry i notes;
 --   skład szkicu można zmieniać w osobnych żądaniach, także przez stan z 0 lub 1 graczem.
--- - Zapisana partia: dodatkowo co najmniej 2 graczy (Q2) i uzupełnione wyniki wszystkich.
--- Min. liczbę graczy gry sprawdza wybór graczy przy rozpoczęciu partii ([027]); baza nie
--- porównuje z bieżącym games.min_players, bo edycja gry nie może zmieniać rozpoczętej partii
--- (GAME-9), a snapshotem jest tylko punktacja (jej długość = max graczy).
+-- - Zapisana partia: dodatkowo co najmniej 2 graczy i uzupełnione wyniki wszystkich.
+-- Min. liczbę graczy gry sprawdza wybór graczy przy rozpoczęciu partii ; baza nie
+-- porównuje z bieżącym games.min_players, bo edycja gry nie może zmieniać rozpoczętej partii,
+-- a snapshotem jest tylko punktacja (jej długość = max graczy).
 create function public.check_play_players(target_play_id uuid)
 returns void
 language plpgsql
@@ -560,7 +560,7 @@ create constraint trigger plays_check_players
   for each row execute function public.plays_check_players();
 
 -- ---------------------------------------------------------------------------------------------
--- Funkcje z tej migracji nie są API. Supabase domyślnie nadaje EXECUTE rolom anon i
+-- Funkcje z tej migracji nie są API. Supabase domyślnie nadaje EXECUTE rolom anon
 -- authenticated, więc odbieramy je jawnie (wyzwalacze działają bez tego uprawnienia).
 -- ---------------------------------------------------------------------------------------------
 revoke execute on function

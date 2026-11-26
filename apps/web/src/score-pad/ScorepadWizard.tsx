@@ -89,7 +89,7 @@ interface ScorepadWizardProps {
 
 /**
  * Potwierdzenie w kreatorze: opuszczenie ze zmianami, zastąpienie bieżącej pracy albo zmiana
- * sposobu mapowania, która usuwa pola i kategorie (EDT-11).
+ * sposobu mapowania, która usuwa pola i kategorie.
  */
 interface Confirm {
   readonly kind: 'leave' | 'replacePhoto' | 'replaceFile' | 'changeMapping';
@@ -100,19 +100,19 @@ interface Confirm {
 const editorBusy = (error: unknown) => (error as { reason?: unknown }).reason === 'busy';
 
 /**
- * Kreator edytora notesu (PRD §5.5.2, EDT-1, EDT-9, DS §18): pięć kroków nad jednym edytorem
+ * Kreator edytora notesu: pięć kroków nad jednym edytorem
  * `<score-pad-editor>`, więc powrót do wcześniejszego kroku nie gubi danych. Na desktopie
  * modal 1120 px z pigułkami kroków, na telefonie arkusz z paskiem postępu.
  *
  * - Krok 1 (Zdjęcie) prowadzi aplikacja: plik, przeciągnięcie, schowek, aparat lub kamera
- *   i import `.json`. Krok 2 (Obszar kartki, EDT-10) to scena edytora z punktami obszaru
- *   i panel aplikacji. Krok 3 (Mapowanie pól, EDT-11) to scena edytora z polami i panel
+ *   i import `.json`. Krok 2 (Obszar kartki) to scena edytora z punktami obszaru
+ *   i panel aplikacji. Krok 3 (Mapowanie pól) to scena edytora z polami i panel
  *   aplikacji: prostokąty ręczne albo wykryta tabela; zmiana sposobu z polami pyta o zgodę.
- *   Krok 4 (Kategorie, EDT-13) to kartka z numerami kategorii i panel aplikacji: nazwa, typ,
+ *   Krok 4 (Kategorie) to kartka z numerami kategorii i panel aplikacji: nazwa, typ,
  *   zakres, sumy i opis kategorii oraz kategoria decydująca, kierunek i reguły remisów.
- *   Krok 5 (Test i zapis, EDT-14) to notes 3D z fikcyjnymi graczami, losowym wypełnieniem
- *   i wynikiem testu (`TestStep`); „Zapisz notes” zapisuje szablon w bazie i zdjęcie w Storage
- *   (EDT-1), także bez testu.
+ *   Krok 5 (Test i zapis) to notes 3D z fikcyjnymi graczami, losowym wypełnieniem
+ *   i wynikiem testu (`TestStep`); „Zapisz notes” zapisuje szablon w bazie i zdjęcie w Storage,
+ *   także bez testu.
  * - „Dalej” jest wyłączone, dopóki bieżący krok nie jest poprawny. Pigułki odwiedzonych kroków
  *   są klikalne; edycja notesu i import pliku otwierają kreator z wszystkimi krokami wykonanymi.
  * - Zmiany są chronione: zamknięcie (Esc, ←, ×, tło, Wstecz w przeglądarce) pyta o odrzucenie
@@ -158,7 +158,7 @@ export function ScorepadWizard(props: ScorepadWizardProps) {
   const [notice, setNotice] = createSignal<string | undefined>(undefined);
   const [saveError, setSaveError] = createSignal<string | undefined>(undefined);
   const [confirm, setConfirm] = createSignal<Confirm | undefined>(undefined);
-  // Szablon do testu w kroku 5 (EDT-14), pobrany z edytora przy wejściu w krok.
+  // Szablon do testu w kroku 5, pobrany z edytora przy wejściu w krok.
   // `undefined`: jeszcze nie pobrany, `null`: edytor nie oddał szablonu (zapis pokaże błąd).
   const [testTemplate, setTestTemplate] = createSignal<ScorePadTemplate | null | undefined>(
     undefined,
@@ -350,7 +350,7 @@ export function ScorepadWizard(props: ScorepadWizardProps) {
   const changeMapping = (mode: ScorePadMappingMode) => {
     const current = status();
     if (!current || mode === current.mapping.mode) return;
-    // EDT-11: tryby się wykluczają; z polami lub kategoriami najpierw pytamy.
+    // tryby się wykluczają; z polami lub kategoriami najpierw pytamy.
     if (!current.mapping.hasContent) {
       editMapping({ type: 'mode', mode });
       return;
@@ -603,7 +603,7 @@ export function ScorepadWizard(props: ScorepadWizardProps) {
   );
 }
 
-/** Pigułki kroków (desktop, DS §15) i pasek postępu „Krok 2 z 5” (telefon, DS §18). */
+/** Pigułki kroków (desktop) i pasek postępu „Krok 2 z 5” (telefon). */
 function WizardSteps(props: {
   readonly step: WizardStep;
   readonly reached: WizardStep;
@@ -665,7 +665,7 @@ function WizardSteps(props: {
   );
 }
 
-/** Dialog potwierdzenia nad kreatorem (DS §7 „Small dialog”); Esc i tło anulują. */
+/** Dialog potwierdzenia nad kreatorem; Esc i tło anulują. */
 function ConfirmDialog(props: {
   readonly confirm: Confirm;
   /** Zamyka dialog i oddaje fokus elementowi w kreatorze, z którego go otwarto. */

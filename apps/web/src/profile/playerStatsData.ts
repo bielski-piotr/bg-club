@@ -4,17 +4,17 @@ import { isUuid } from '../popups/routes';
 import { profilesKey } from './profileQueries';
 
 /**
- * Statystyki gracza w profilu (PRD STAT-1–STAT-3) z funkcji SQL
+ * Statystyki gracza w profilu z funkcji SQL
  * `player_stats(profile_id, date_from, date_to, game_ids)` (migracja
  * `20261113001800_game_stats.sql`). Baza liczy wszystko z zapisanych
- * partii (szkice się nie liczą), więc zapis i usunięcie partii zmieniają je od razu (§5.6.5).
+ * partii (szkice się nie liczą), więc zapis i usunięcie partii zmieniają je od razu.
  *
  * Trzy grupy: statystyki profilu z filtrami jak w rankingu (`meetings`, `plays`, `wins`),
  * ranking z całej historii (miejsca, punkty, wygrane, serie) i ulubione gry z całej historii;
  * do tego 5 ostatnich spotkań gracza.
  */
 
-/** Gra w statystykach gracza: ulubiona albo najlepsza (STAT-2, Q21). */
+/** Gra w statystykach gracza: ulubiona albo najlepsza. */
 export interface PlayerGame {
   readonly game_id: string;
   readonly title: string;
@@ -23,7 +23,7 @@ export interface PlayerGame {
   readonly wins: number;
 }
 
-/** Spotkanie z partiami gracza na liście ostatnich (od najnowszego, §5.6.6). */
+/** Spotkanie z partiami gracza na liście ostatnich (od najnowszego). */
 export interface RecentMeeting {
   readonly meeting_id: string;
   readonly title: string;
@@ -34,7 +34,7 @@ export interface RecentMeeting {
   readonly points: number;
 }
 
-/** Miejsca w dwóch rankingach (LB-1); `null` = gracz nie jest klasyfikowany (albo usunięty). */
+/** Miejsca w dwóch rankingach; `null` = gracz nie jest klasyfikowany (albo usunięty). */
 export interface PlayerPlaces {
   readonly points: number | null;
   readonly wins: number | null;
@@ -45,9 +45,9 @@ export interface PlayerStats {
   readonly meetings: number;
   /** Z filtrami. */
   readonly plays: number;
-  /** Z filtrami (także wspólne 1. miejsce, §5.6.3). */
+  /** Z filtrami (także wspólne 1. miejsce). */
   readonly wins: number;
-  /** Cała historia: punkty rankingu (§5.6.2). */
+  /** Cała historia: punkty rankingu. */
   readonly points: number;
   /** Cała historia: wszystkie wygrane. */
   readonly wins_total: number;
@@ -56,13 +56,13 @@ export interface PlayerStats {
   /** Cała historia. */
   readonly places: PlayerPlaces;
   readonly favorite_game: PlayerGame | null;
-  /** `null` = brak gry z ≥ 3 partiami gracza (pusty stan, Q21). */
+  /** `null` = brak gry z ≥ 3 partiami gracza (pusty stan). */
   readonly best_game: PlayerGame | null;
   /** Najwyżej 5 ostatnich spotkań z partiami gracza (bez filtrów). */
   readonly recent_meetings: readonly RecentMeeting[];
 }
 
-/** Próg partii gry do „najlepszej gry” (Q21). Baza stosuje ten sam próg. */
+/** Próg partii gry do „najlepszej gry”. Baza stosuje ten sam próg. */
 export const BEST_GAME_MIN_PLAYS = 3;
 
 /** Argumenty filtrów RPC: brak filtru to `null` (pusta lista gier też), jak w rankingu. */
@@ -80,7 +80,7 @@ export const filtersKey = (filters: LeaderboardFilters) =>
 
 /**
  * Klucz w `profilesKey`: zapis i usunięcie partii odświeżają statystyki razem z profilami
- * (`PLAY_DEPENDENT_KEYS`, §5.6.5).
+ * (`PLAY_DEPENDENT_KEYS`).
  */
 export const playerStatsKey = (id: string, filters: LeaderboardFilters) =>
   [...profilesKey, 'stats', id, ...filtersKey(filters)] as const;

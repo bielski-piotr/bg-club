@@ -1,5 +1,5 @@
 /**
- * Miejsca w partii (PRD §5.6.1, EDT-2…EDT-4, EDT-7).
+ * Miejsca w partii.
  *
  * 1. Gracze są sortowani po kategorii decydującej w wybranym kierunku.
  * 2. Remisy rozstrzygają reguły po kolei; reguła k+1 dotyczy tylko graczy nadal zremisowanych
@@ -25,7 +25,7 @@ export function compareByDirection(a: number | null, b: number | null, dir: Dire
 
 /**
  * Reguła miejsc notesu: jawna `template.ranking` albo, dla starszych plików, najwyższa suma
- * końcowa (EDT-7). Notes bez sumy `total` rozstrzyga sumą wszystkich punktacji i premii.
+ * końcowa. Notes bez sumy `total` rozstrzyga sumą wszystkich punktacji i premii.
  */
 export function rankingOf(t: ScoringTemplate): Ranking {
   if (t.ranking) return t.ranking;
@@ -39,7 +39,7 @@ export interface PlayerEntry {
   readonly values: LineValues;
 }
 
-/** Wynik gracza z miejscem (część `players` zdarzenia z PAD-7). */
+/** Wynik gracza z miejscem (część `players` zdarzenia). */
 export interface RankedPlayer {
   readonly seat: number;
   readonly values: LineValues;

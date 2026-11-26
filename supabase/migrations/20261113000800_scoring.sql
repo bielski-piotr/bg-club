@@ -1,4 +1,4 @@
--- [014] Punkty leaderboardu za miejsca (PRD §5.6.2, §5.6.3, §8.3).
+-- Punkty leaderboardu za miejsca.
 --
 -- Miejsca wyznacza notes (pakiet `@bg-club/scoring`), a punkty liczy baza: klient ich nie
 -- przysyła. `play_points` jest czystą funkcją dla RPC zapisu partii i liczy tak samo jak
@@ -63,7 +63,7 @@ end;
 $$;
 
 comment on function public.play_points(int[], numeric[]) is
-  'Punkty za miejsca stron partii: ostatnie n pozycji punktacji dla n stron, remis = średnia zaokrąglona w dół do setnych (PRD §5.6.2). Dla RPC zapisu partii.';
+  'Punkty za miejsca stron partii: ostatnie n pozycji punktacji dla n stron, remis = średnia zaokrąglona w dół do setnych. Dla RPC zapisu partii.';
 
 -- Nie jest API klienta: woła ją RPC `save_play` (SECURITY DEFINER).
 revoke execute on function public.play_points(int[], numeric[]) from public, anon, authenticated;

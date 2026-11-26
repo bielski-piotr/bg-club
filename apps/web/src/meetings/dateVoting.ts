@@ -163,7 +163,7 @@ export async function withdrawDateVote(
 
 /**
  * Propozycja terminu od uczestnika (albo administratora) z jego głosem. Ten sam termin drugi
- * raz to sukces (baza go nie powiela). Data i godzina w strefie klubu (NFR-10).
+ * raz to sukces (baza go nie powiela). Data i godzina w strefie klubu.
  */
 export async function proposeMeetingDate(
   client: SupabaseClient,

@@ -34,7 +34,7 @@ function revertRadios(input: HTMLInputElement, value: string | null | undefined)
   }
 }
 
-/** Pole wyboru 22×22, promień 7 (DS §15). Natywny `<input>` zachowuje obsługę klawiatury. */
+/** Pole wyboru 22×22, promień 7. Natywny `<input>` zachowuje obsługę klawiatury. */
 export function Checkbox(props: CheckboxProps) {
   const rest = omit(props, 'label', 'checked', 'onCheckedChange', 'class', 'disabled');
   return (
@@ -77,7 +77,7 @@ interface GroupProps<T extends string> {
   readonly class?: ClassValue;
 }
 
-/** Grupa przycisków radio 22×22 (DS §15) w pionie. */
+/** Grupa przycisków radio 22×22 w pionie. */
 export function RadioGroup<T extends string>(props: GroupProps<T>) {
   const autoName = createUniqueId();
   return (
@@ -108,7 +108,7 @@ export function RadioGroup<T extends string>(props: GroupProps<T>) {
 }
 
 /**
- * Wybór jednej z kilku opcji jako pigułki (DS §10 „segmented filter”, §18). Semantycznie to
+ * Wybór jednej z kilku opcji jako pigułki. Semantycznie to
  * grupa radio: strzałki przenoszą wybór, Tab przechodzi do następnej kontrolki.
  * Do przełączania widoków służy `Tabs`.
  */
@@ -154,7 +154,7 @@ export interface ChipGroupProps<T extends string> {
   readonly class?: ClassValue;
 }
 
-/** Wielokrotny wybór jako chipy h32 z ptaszkiem (DS §18, np. „Sumuje kategorie”). */
+/** Wielokrotny wybór jako chipy h32 z ptaszkiem (np. „Sumuje kategorie”). */
 export function ChipGroup<T extends string>(props: ChipGroupProps<T>) {
   const toggle = (value: T, on: boolean) => {
     const next = on ? [...props.values, value] : props.values.filter((v) => v !== value);
@@ -213,7 +213,7 @@ export interface ColorSwatchesProps<T extends string> {
   readonly class?: ClassValue;
 }
 
-/** Wybór koloru (DS §18 „Color swatches”): kółka 28, wybrane 22 w pierścieniu 2 px. */
+/** Wybór koloru: kółka 28, wybrane 22 w pierścieniu 2 px. */
 export function ColorSwatches<T extends string>(props: ColorSwatchesProps<T>) {
   const name = createUniqueId();
   return (

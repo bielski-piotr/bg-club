@@ -1,26 +1,26 @@
--- [024] Głosowanie, publikacja gier i ponowne otwarcie (PRD VOTE-1…VOTE-6, PLAN-2, PLAN-3).
+-- Głosowanie, publikacja gier i ponowne otwarcie.
 --
 -- Zasady:
--- - Głos to wiersz `game_votes`, który uczestnik dodaje i usuwa sam (RLS z migracji [003]):
+-- - Głos to wiersz `game_votes`, który uczestnik dodaje i usuwa sam (RLS):
 --   tylko własny, tylko przy otwartym głosowaniu, jeden na grę (klucz główny), bez limitu gier.
 --   Głos po zamknięciu odrzuca wyzwalacz `game_votes_require_open_voting` (blokuje wiersz
 --   spotkania FOR SHARE, więc czeka na równoległe zamknięcie), głos na usuniętą grę odrzuca
 --   `require_active_game`, a głos nie-uczestnika klucz obcy do `meeting_participants`.
 --   Usunięcie uczestnika (save_meeting), gry (games_after_soft_delete) albo spotkania kasuje
 --   głosy. Ta migracja tego nie zmienia; testy są w 140_voting.test.sql.
--- - Publikacja gier (`publish_meeting_games`, VOTE-5) zamyka głosowanie i zapisuje listę
+-- - Publikacja gier (`publish_meeting_games`) zamyka głosowanie i zapisuje listę
 --   „Gramy w:” w jednej transakcji. Admin wybiera dowolne aktywne gry z kolekcji, także bez
 --   głosów; kolejność tablicy to kolejność listy. Ponowna publikacja w zaplanowanym spotkaniu
---   zastępuje listę. Głosy zostają (jawna historia głosowania, Q18).
--- - Ponowne otwarcie (`reopen_voting`, VOTE-6) jest możliwe tylko przed rozpoczęciem
+--   zastępuje listę. Głosy zostają (jawna historia głosowania).
+-- - Ponowne otwarcie (`reopen_voting`) jest możliwe tylko przed rozpoczęciem
 --   spotkania. Usuwa opublikowaną listę: otwarte głosowanie i „Gramy w:” się wykluczają, a
---   rozpoczęcie przy otwartym głosowaniu (RUN-1) nie może pokazać nieaktualnej listy.
--- - Obie funkcje wywołuje tylko admin (§2.1, prowadzący nie publikuje). `authenticated` traci
+--   rozpoczęcie przy otwartym głosowaniu nie może pokazać nieaktualnej listy.
+-- - Obie funkcje wywołuje tylko admin (prowadzący nie publikuje). `authenticated` traci
 --   bezpośredni zapis `meeting_games`: lista zmienia się tylko razem z flagą głosowania.
--- - Błędy reguł mają SQLSTATE 23514 i nazwę reguły w HINT, jak w migracji [023].
+-- - Błędy reguł mają SQLSTATE 23514 i nazwę reguły w HINT.
 
 -- ---------------------------------------------------------------------------------------------
--- publish_meeting_games: zamknięcie głosowania z listą gier (VOTE-5)
+-- publish_meeting_games: zamknięcie głosowania z listą gier
 -- ---------------------------------------------------------------------------------------------
 create function public.publish_meeting_games(meeting_id uuid, game_ids uuid[])
 returns public.meetings
@@ -85,10 +85,10 @@ end;
 $$;
 
 comment on function public.publish_meeting_games(uuid, uuid[]) is
-  'Zamyka głosowanie i publikuje listę „Gramy w:” z dowolnych aktywnych gier (VOTE-5). Tylko admin, tylko zaplanowane spotkanie.';
+  'Zamyka głosowanie i publikuje listę „Gramy w:” z dowolnych aktywnych gier. Tylko admin, tylko zaplanowane spotkanie.';
 
 -- ---------------------------------------------------------------------------------------------
--- reopen_voting: ponowne otwarcie przed rozpoczęciem (VOTE-6)
+-- reopen_voting: ponowne otwarcie przed rozpoczęciem
 -- ---------------------------------------------------------------------------------------------
 create function public.reopen_voting(meeting_id uuid)
 returns public.meetings
@@ -126,7 +126,7 @@ end;
 $$;
 
 comment on function public.reopen_voting(uuid) is
-  'Otwiera ponownie głosowanie w zaplanowanym spotkaniu i usuwa opublikowaną listę gier (VOTE-6). Tylko admin.';
+  'Otwiera ponownie głosowanie w zaplanowanym spotkaniu i usuwa opublikowaną listę gier. Tylko admin.';
 
 revoke execute on function
   public.publish_meeting_games(uuid, uuid[]),
@@ -144,9 +144,9 @@ drop policy meeting_games_update_admin on public.meeting_games;
 drop policy meeting_games_delete_admin on public.meeting_games;
 
 -- ---------------------------------------------------------------------------------------------
--- Suma głosów na grę (GAME-12)
+-- Suma głosów na grę
 -- ---------------------------------------------------------------------------------------------
--- GAME-12: suma istniejących głosów ze wszystkich spotkań, także po publikacji.
+-- suma istniejących głosów ze wszystkich spotkań, także po publikacji.
 -- Cofnięcie głosu i kaskady usuwania zmniejszają wynik przy kolejnym odczycie.
 -- Publikacja zachowuje game_votes.
 create function public.game_vote_total(game_id uuid)
@@ -162,7 +162,7 @@ as $$
 $$;
 
 comment on function public.game_vote_total(uuid) is
-  'GAME-12: liczba istniejących głosów na grę we wszystkich spotkaniach. RLS aktywnego członka; NULL bez gry lub dostępu.';
+  'liczba istniejących głosów na grę we wszystkich spotkaniach. RLS aktywnego członka; NULL bez gry lub dostępu.';
 
 revoke execute on function public.game_vote_total(uuid) from public, anon;
 grant execute on function public.game_vote_total(uuid) to authenticated;

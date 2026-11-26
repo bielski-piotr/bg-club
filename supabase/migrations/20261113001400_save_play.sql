@@ -1,20 +1,20 @@
--- [029] Transakcyjny zapis wyników partii (PRD PAD-5, PAD-7, GAME-9, §5.6, §6).
+-- Transakcyjny zapis wyników partii.
 --
 -- Zasady:
 -- - Oderwanie karteczki kończy partię: aplikacja pokazuje podsumowanie, a po potwierdzeniu
 --   wywołuje `save_play(play_id, scorepad_version_id, sheet, results)`. Jedna transakcja zapisuje
 --   pełne wpisy kartki (`plays.sheet`), wyniki graczy (`play_results`) i status `saved`.
 -- - Uprawnienia jak przy szkicu: admin albo prowadzący (`private.require_meeting_runner`),
---   tylko spotkanie w trakcie (PAD-9), tylko partia w statusie `draft`.
+--   tylko spotkanie w trakcie, tylko partia w statusie `draft`.
 -- - `results` to tablica JSON z jednym obiektem na gracza szkicu:
---   `{ profile_id, seat, place, scores, ranking_value }` (`scores` = `values` z PAD-7: kategoria →
+--   `{ profile_id, seat, place, scores, ranking_value }` (`scores` = `values` z kategoria →
 --   liczba albo null; `ranking_value` = wartość kategorii decydującej). Inne klucze są błędem:
---   klient nie przysyła punktów, remisów ani wygranych (§5.6.2).
--- - Gracze i miejsca w notesie muszą być dokładnie te ze szkicu (rozpoczęcie partii, [027]).
+--   klient nie przysyła punktów, remisów ani wygranych.
+-- - Gracze i miejsca w notesie muszą być dokładnie te ze szkicu (rozpoczęcie partii).
 --   Miejsca w partii tworzą numerację z remisami („1, 1, 3”) i zgadzają się z kolejnością
 --   wartości kategorii decydującej w kierunku reguły notesu (`template.ranking.dir`; puste pole
 --   jest za każdą liczbą). Co najmniej jeden gracz ma wartość kategorii decydującej.
--- - Snapshoty z rozpoczęcia partii (GAME-9): klient podaje wersję notesu, według której liczył
+-- - Snapshoty z rozpoczęcia partii: klient podaje wersję notesu, według której liczył
 --   miejsca; inna niż `plays.scorepad_version_id` to błąd. Punktacja miejsc pochodzi wyłącznie
 --   z `plays.points_snapshot` i musi obejmować wszystkich graczy.
 -- - Baza liczy punkty (`public.play_points`, floor ze średniej przy remisie), `tied`
@@ -23,11 +23,10 @@
 --   duplikatu: blokada wiersza partii szereguje wywołania, a wywołanie na zapisanej już partii
 --   z tymi samymi wpisami i wynikami zwraca zapisaną partię. Inna treść to błąd
 --   `plays_already_saved`: zakończonej partii nie da się zapisać ponownie.
--- - Ręczne rozstrzygnięcie remisu (EDT-5, EDT-7) rozstrzyga tylko remisy, których nie rozstrzygnęły
+-- - Ręczne rozstrzygnięcie remisu rozstrzyga tylko remisy, których nie rozstrzygnęły
 --   wcześniejsze reguły kategorii notesu (`private.guard_manual_tiebreak`).
--- - Obraz karteczki dochodzi w [030].
--- - Błędy reguł mają SQLSTATE 23514 (brak partii: P0002) i nazwę reguły w HINT, jak
---   w migracjach [023], [024], [027] i [028].
+-- - Obraz karteczki dochodzi.
+-- - Błędy reguł mają SQLSTATE 23514 (brak partii: P0002) i nazwę reguły w HINT.
 
 -- Wynik gracza z żądania `save_play` po sprawdzeniu kształtu.
 create type private.play_result_input as (
@@ -55,7 +54,7 @@ begin
   end if;
   for item in select value from jsonb_array_elements(results) loop
     if jsonb_typeof(item) <> 'object'
-       -- Tylko znane klucze: punktów, remisu i wygranej klient nie podaje (§5.6.2).
+       -- Tylko znane klucze: punktów, remisu i wygranej klient nie podaje.
        or exists (
          select 1 from jsonb_object_keys(item) k
           where k not in ('profile_id', 'seat', 'place', 'scores', 'ranking_value')
@@ -89,7 +88,7 @@ $$;
 
 revoke execute on function private.play_results_input(jsonb) from public, anon, authenticated;
 
--- Reguła miejsc notesu tak, jak stosuje ją notes (`padRanking` → `parseRanking` w
+-- Reguła miejsc notesu tak, jak stosuje ją notes (`padRanking` → `parseRanking`
 -- `@bg-club/scoring`): `template.ranking` tylko wtedy, gdy jest w pełni poprawna (kategoria
 -- decydująca i kategorie reguł remisu to istniejące kategorie liczbowe, kierunki `asc`/`desc`,
 -- reguły `line`, `shared` albo `manual`); inaczej domyślna: suma końcowa, „więcej = lepiej”,
@@ -160,7 +159,7 @@ begin
   play_meeting_id := private.play_meeting(save_play.play_id);
   perform private.require_meeting_runner(play_meeting_id);
 
-  -- Blokada współdzielona: zakończenie spotkania czeka na zapis partii (RUN-4 widzi wynik).
+  -- Blokada współdzielona: zakończenie spotkania czeka na zapis partii (widzi wynik).
   -- Status sprawdzamy po ponowieniu: zapisana partia wraca także po zakończeniu spotkania.
   select m.status into meeting_status from public.meetings m where m.id = play_meeting_id for share;
 
@@ -232,7 +231,7 @@ begin
       using errcode = '23514', constraint = 'plays_min_players', hint = 'plays_results_players';
   end if;
 
-  -- Snapshot punktacji z rozpoczęcia partii obejmuje wszystkie strony (GAME-9).
+  -- Snapshot punktacji z rozpoczęcia partii obejmuje wszystkie strony.
   if cardinality(play.points_snapshot) < sides then
     raise exception 'points snapshot covers % places, play has % sides', cardinality(play.points_snapshot), sides
       using errcode = '23514', constraint = 'plays_max_players', hint = 'plays_points_snapshot';
@@ -266,9 +265,9 @@ begin
       using errcode = '23514', constraint = 'play_results_ranking', hint = 'plays_results_empty';
   end if;
 
-  -- Miejsca zgodne z kategorią decydującą (EDT-2, EDT-3): lepsze miejsce nie ma gorszej
+  -- Miejsca zgodne z kategorią decydującą: lepsze miejsce nie ma gorszej
   -- wartości, wspólne miejsce ma tę samą. Reguły remisów rozdzielają tylko równe wartości;
-  -- tego, jak je rozdzieliły, baza nie sprawdza (sumy i reguły liczy notes, §8.3).
+  -- tego, jak je rozdzieliły, baza nie sprawdza (sumy i reguły liczy notes).
   select r.dir, r.tiebreak into dir, tiebreak
     from public.scorepad_versions v
    cross join lateral private.scorepad_ranking(v.template) r
@@ -287,7 +286,7 @@ begin
       join unnest(input) b on a.place = b.place and a.profile_id <> b.profile_id
      where a.ranking_value is distinct from b.ranking_value
   ) or (not tiebreak and exists (
-    -- Bez reguł remisu równe wartości decydujące dają wspólne miejsce (EDT-4).
+    -- Bez reguł remisu równe wartości decydujące dają wspólne miejsce.
     select 1
       from unnest(input) a
       join unnest(input) b on a.place < b.place
@@ -297,7 +296,7 @@ begin
       using errcode = '23514', constraint = 'play_results_ranking', hint = 'plays_results_ranking';
   end if;
 
-  -- Punkty stron z snapshotu punktacji (§5.6.2); każdy członek zespołu dostaje punkty strony.
+  -- Punkty stron z snapshotu punktacji; każdy członek zespołu dostaje punkty strony.
   select array_agg(s.seat order by s.seat), array_agg(s.place order by s.seat)
     into seat_numbers, seat_places
     from (select distinct i.seat, i.place from unnest(input) i) s;
@@ -326,13 +325,13 @@ end;
 $$;
 
 comment on function public.save_play(uuid, uuid, jsonb, jsonb) is
-  'Kończy partię: zapisuje kartkę i wyniki graczy w jednej transakcji; punkty (po stronach: graczach albo zespołach), remisy i wygrane liczy baza (PAD-5, PAD-7, §5.6). Admin lub prowadzący, tylko spotkanie w trakcie; ponowienie z tą samą treścią zwraca zapisaną partię.';
+  'Kończy partię: zapisuje kartkę i wyniki graczy w jednej transakcji; punkty (po stronach: graczach albo zespołach), remisy i wygrane liczy baza. Admin lub prowadzący, tylko spotkanie w trakcie; ponowienie z tą samą treścią zwraca zapisaną partię.';
 
 revoke execute on function public.save_play(uuid, uuid, jsonb, jsonb) from public, anon;
 grant execute on function public.save_play(uuid, uuid, jsonb, jsonb) to authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- Ręczne rozstrzygnięcie remisu (EDT-5, EDT-7)
+-- Ręczne rozstrzygnięcie remisu
 -- ---------------------------------------------------------------------------------------------
 -- Decyzja ręczna rozstrzyga tylko remisy pozostawione przez wcześniejsze reguły kategorii.
 create function private.manual_score_of(template jsonb, line_id text)

@@ -1,4 +1,4 @@
-/* Karta widżetu, taca listy i wiersze (DS §6, §7). */
+/* Karta widżetu, taca listy i wiersze. */
 .card {
   min-width: 0;
   padding: 16px;
@@ -163,7 +163,7 @@
   color: var(--c-muted);
 }
 
-/* Wynik w wierszu: liczba Bricolage 16/20/700 + jednostka 12/16 (DS §6). */
+/* Wynik w wierszu: liczba Bricolage 16/20/700 + jednostka 12/16. */
 .score {
   display: inline-flex;
   align-items: baseline;

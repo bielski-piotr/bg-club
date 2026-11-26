@@ -19,7 +19,7 @@ export interface MountOptions {
   template?: PadTemplate;
   /** Wywoływane po „Zapisz do pliku” i „Kopiuj do schowka”. */
   onExport?(config: PadConfig, via: 'file' | 'clipboard'): void;
-  /** Tryb kreatora aplikacji (EDT-9): kroki i wczytywanie zdjęcia prowadzi aplikacja. */
+  /** Tryb kreatora aplikacji: kroki i wczytywanie zdjęcia prowadzi aplikacja. */
   wizard?: boolean;
 }
 
@@ -112,7 +112,7 @@ export class ScorePadEditorElement extends HTMLElement {
     this.editor?.goStep(step);
   }
 
-  /** Ustawienia kroku 2 (EDT-10): nazwa, kolor grzbietu, tryb obszaru, wygładzanie, rozmiar, grzbiet. */
+  /** Ustawienia kroku 2: nazwa, kolor grzbietu, tryb obszaru, wygładzanie, rozmiar, grzbiet. */
   setArea(patch: EditorAreaPatch): void {
     this.editor?.setArea(patch);
   }
@@ -133,7 +133,7 @@ export class ScorePadEditorElement extends HTMLElement {
   }
 
   /**
-   * Zmiana kroku 3 „Mapowanie pól” (EDT-11): sposób mapowania, gracze w kolumnach lub wierszach,
+   * Zmiana kroku 3 „Mapowanie pól”: sposób mapowania, gracze w kolumnach lub wierszach,
    * miejsca, kategorie, powielenie pól dla następnego miejsca, cofnięcie i dopasowanie widoku.
    * Zmiana sposobu mapowania kasuje pola i kategorie bez pytania (pyta aplikacja).
    */
@@ -142,7 +142,7 @@ export class ScorePadEditorElement extends HTMLElement {
   }
 
   /**
-   * Zmiana kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4): zakładka, wybór kategorii, nazwa, typ,
+   * Zmiana kroku 4 „Kategorie”: zakładka, wybór kategorii, nazwa, typ,
    * opis, zakres, sumowane kategorie, reguła miejsc i dopasowanie widoku.
    */
   editCategories(action: EditorCategoriesAction): void {

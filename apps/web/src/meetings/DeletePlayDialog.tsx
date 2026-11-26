@@ -32,7 +32,7 @@ interface DeleteTarget {
 }
 
 /**
- * Potwierdzenie „Usuń partię” (VIEW-6, §5.6.5, DS §15 „Dialog variants”): tylko admin trwale
+ * Potwierdzenie „Usuń partię”: tylko admin trwale
  * usuwa zapisaną partię z karteczką i wynikami; baza w tej samej transakcji przelicza zależne
  * dane, a aplikacja odświeża zależne widoki. Potem dialog usuwa obraz karteczki ze Storage.
  * Błąd Storage nie przywraca partii: dialog zostaje otwarty z ponowieniem, a obraz bez partii

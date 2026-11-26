@@ -1,5 +1,5 @@
 /**
- * Daty spotkań w strefie klubu (NFR-10). Baza trzyma chwilę (`timestamptz`), a formularz
+ * Daty spotkań w strefie klubu. Baza trzyma chwilę (`timestamptz`), a formularz
  * datę i godzinę w strefie `club.timezone`; zamianę w drugą stronę robi baza
  * (`save_meeting`), więc tu jest tylko odczyt i wyświetlanie.
  */
@@ -33,7 +33,7 @@ export function todayIn(timeZone: string, now: Date = new Date()): string {
   return localDateTime(now, timeZone).date;
 }
 
-/** Godziny co pół godziny (DS §15 „Time dropdown”): 00:00 … 23:30. */
+/** Godziny co pół godziny: 00:00 … 23:30. */
 export const TIME_SLOTS: readonly string[] = Array.from({ length: 48 }, (_, i) => {
   const hour = String(Math.floor(i / 2)).padStart(2, '0');
   return `${hour}:${i % 2 === 0 ? '00' : '30'}`;
@@ -48,7 +48,7 @@ export function isPast(date: string, time: string, timeZone: string, now: Date =
   return `${date} ${time}` < `${current.date} ${current.time}`;
 }
 
-/** „28 lis 2026” (bez kropki skrótu i bez „r.”, jak w DS). */
+/** „28 lis 2026” (bez kropki skrótu i bez „r.”). */
 export function shortMeetingDate(at: string | Date, timeZone: string): string {
   return new Intl.DateTimeFormat('pl-PL', {
     timeZone,
@@ -61,14 +61,14 @@ export function shortMeetingDate(at: string | Date, timeZone: string): string {
     .replace(/\s*r$/, '');
 }
 
-/** „sobota, 28 lis 2026 · 18:00” (DS §15 „Widget meeting block”). */
+/** „sobota, 28 lis 2026 · 18:00”. */
 export function formatMeetingDate(at: string, timeZone: string): string {
   const date = new Date(at);
   const weekday = new Intl.DateTimeFormat('pl-PL', { timeZone, weekday: 'long' }).format(date);
   return `${weekday}, ${shortMeetingDate(date, timeZone)} · ${localDateTime(date, timeZone).time}`;
 }
 
-/** Kafelek daty (DS §15 „Date tile”): skrót miesiąca wielkimi literami i dzień. */
+/** Kafelek daty: skrót miesiąca wielkimi literami i dzień. */
 export function dateTile(at: string, timeZone: string): { month: string; day: string } {
   const date = new Date(at);
   const month = new Intl.DateTimeFormat('pl-PL', { timeZone, month: 'short' })

@@ -18,7 +18,7 @@ import { isMeetingRunner } from './plays';
 const text = t.meetings.play.discardDialog;
 
 /**
- * Potwierdzenie „Porzuć partię” (PAD-8, DS §15 „Dialog variants”): usuwa szkic w bazie i kopię
+ * Potwierdzenie „Porzuć partię”: usuwa szkic w bazie i kopię
  * na tym urządzeniu. Szkice nie liczą się do statystyk, więc nic więcej się nie zmienia.
  * Otwarte nad notesem partii zamyka też notes.
  */

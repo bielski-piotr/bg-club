@@ -1,4 +1,4 @@
-/** Klasyfikacje rankingu (LB-1): bez zależności, bo używają ich też adresy popupów. */
+/** Klasyfikacje rankingu: bez zależności, bo używają ich też adresy popupów. */
 export const LEADERBOARD_KINDS = ['points', 'wins'] as const;
 export type LeaderboardKind = (typeof LEADERBOARD_KINDS)[number];
 

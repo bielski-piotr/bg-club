@@ -18,12 +18,11 @@ import { playsProgressLabel, sortedResults, splitPlays, type MeetingPlay } from 
 const text = t.meetings.plays;
 
 /**
- * Partie trwającego i zakończonego spotkania (VIEW-3): najpierw partie w toku (DS §15 „Live play
- * card”), potem zapisane w kolejności rozegrania jako same karteczki z notesu (PAD-6), jak
+ * Partie trwającego i zakończonego spotkania: najpierw partie w toku, potem zapisane w kolejności rozegrania jako same karteczki z notesu, jak
  * galeria gry. Kliknięcie otwiera karteczkę w powiększeniu z wynikami, czasem partii
- * i rekordami (`sheet/<uuid>`; tam admin usuwa partię, VIEW-6). Karteczka z rekordem klubu
+ * i rekordami (`sheet/<uuid>`; tam admin usuwa partię). Karteczka z rekordem klubu
  * albo osobistym ma znacznik. `runner` (admin albo prowadzący) dostaje przy partiach w toku
- * „Wróć do notesu” i „Porzuć” (PAD-4, PAD-8); pozostali widzą tylko, że partia trwa (PAD-9).
+ * „Wróć do notesu” i „Porzuć”; pozostali widzą tylko, że partia trwa.
  * Wyniki i zmiany w rankingu są w podsumowaniu spotkania. Miniatura karteczki i wiersze wyników
  * są w `MeetingParts`.
  */
@@ -186,8 +185,8 @@ function PlaySheet(props: {
 }
 
 /**
- * Partia w toku (DS §15 „Live play card”): gra, od kiedy trwa i gracze. Admin i prowadzący
- * wracają do notesu (także na innym urządzeniu, PAD-4) albo porzucają partię (PAD-8).
+ * Partia w toku: gra, od kiedy trwa i gracze. Admin i prowadzący
+ * wracają do notesu (także na innym urządzeniu) albo porzucają partię.
  */
 function LivePlayCard(props: {
   readonly play: MeetingPlay;

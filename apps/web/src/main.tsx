@@ -19,7 +19,7 @@ const view = viewForPath(window.location.pathname);
 const config = parseConfig(import.meta.env);
 if (view === 'app' && config.ok) getSupabase(config.config);
 
-// Service worker powłoki tylko w buildzie (NFR-3); w `vite dev` pliki zmieniają się na bieżąco.
+// Service worker powłoki tylko w buildzie; w `vite dev` pliki zmieniają się na bieżąco.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     registerServiceWorker().catch(() => {

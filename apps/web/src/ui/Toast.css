@@ -1,4 +1,4 @@
-/* Toasty (DS §12). */
+/* Toasty. */
 .toast {
   display: flex;
   align-items: center;
@@ -100,7 +100,7 @@
   margin-top: 12px;
 }
 
-/* Rich toast (DS §12). */
+/* Rich toast. */
 .toast--rich {
   align-items: flex-start;
   gap: 12px;

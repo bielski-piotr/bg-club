@@ -9,9 +9,9 @@ import { createCollectionWidget } from './gameData';
 import { playersLabel } from './labels';
 
 /**
- * Widżet kolekcji (GAME-1, DS §6 „Collection”): kilka gier w kolejności Q11 (ostatnio grane,
+ * Widżet kolekcji: kilka gier w kolejności (ostatnio grane,
  * potem ostatnio dodane). Pierwsza ma dużą okładkę, kolejne są wierszami tacy z miniaturą.
- * „Zobacz więcej” otwiera popup kolekcji; pusty stan administratora ma „Dodaj grę” (CLUB-4).
+ * „Zobacz więcej” otwiera popup kolekcji; pusty stan administratora ma „Dodaj grę”.
  */
 export function CollectionWidget(props: { readonly isAdmin: boolean }) {
   const popups = useContext(PopupsContext);

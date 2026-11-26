@@ -1,5 +1,4 @@
--- [023] Planowanie spotkań i reguły statusów (PRD PLAN-1…PLAN-5, MTG-2, RUN-1, RUN-4, §2.1,
--- §6, NFR-10).
+-- Planowanie spotkań i reguły statusów.
 --
 -- Zasady:
 -- - Zapis spotkania to jedna transakcja `save_meeting(...)`: spotkanie, pełna lista uczestników
@@ -7,10 +6,10 @@
 --   listy. To jedyna droga zapisu spotkania i uczestników z API: `authenticated` traci
 --   bezpośredni INSERT/UPDATE na `meetings` i INSERT/DELETE na `meeting_participants`.
 -- - Termin przychodzi jako data i godzina w strefie klubu (`club.timezone`) i baza zamienia je
---   na `timestamptz` (NFR-10). Godziny, której nie ma przez zmianę czasu (np. 02:30 w ostatnią
+--   na `timestamptz`. Godziny, której nie ma przez zmianę czasu (np. 02:30 w ostatnią
 --   niedzielę marca w Europie), funkcja odrzuca zamiast po cichu przesuwać. Godzina podwójna
 --   (jesienią) oznacza, jak zawsze w Postgresie, drugie wystąpienie, czyli już czas zimowy.
--- - Co wolno zmienić, zależy od statusu (PLAN-3, PLAN-4):
+-- - Co wolno zmienić, zależy od statusu:
 --   - zaplanowane: wszystko (tytuł, termin, uczestnicy, prowadzący), także po zamknięciu
 --     głosowania; usunięcie uczestnika kasuje jego głosy (kaskada);
 --   - w trakcie: tylko dopisanie uczestnika, zmiana prowadzącego i usunięcie uczestnika bez
@@ -18,14 +17,14 @@
 --   - zakończone: nic.
 --   Strażnik w wyzwalaczu `meetings_validate` pilnuje tytułu, terminu i prowadzącego także dla
 --   service_role.
--- - Rozpoczęcie i zakończenie (`start_meeting`, `finish_meeting`) mogą wywołać admin i
---   prowadzący spotkania (§2.1). Rozpoczęcie zamyka głosowanie (RUN-1). Drugie spotkanie w
---   trakcie odrzuca unikalny indeks `meetings_single_in_progress` (MTG-2), także przy
+-- - Rozpoczęcie i zakończenie (`start_meeting`, `finish_meeting`) mogą wywołać admin
+--   prowadzący spotkania. Rozpoczęcie zamyka głosowanie. Drugie spotkanie
+--   trakcie odrzuca unikalny indeks `meetings_single_in_progress`, także przy
 --   równoczesnych startach: druga transakcja czeka na pierwszą i dostaje ten sam błąd.
---   Zakończenie przy szkicach partii odrzuca wyzwalacz `meetings_validate` (RUN-4).
+--   Zakończenie przy szkicach partii odrzuca wyzwalacz `meetings_validate`.
 -- - Usunięcie spotkania zostaje zwykłym DELETE z RLS (tylko admin) i kasuje głosy,
---   uczestników i opublikowane gry kaskadą (PLAN-3). Spotkania w trakcie nie da się usunąć,
---   a zakończonego z partiami blokuje klucz obcy `plays_meeting_id_fkey` (PLAN-5, Q4).
+--   uczestników i opublikowane gry kaskadą. Spotkania w trakcie nie da się usunąć,
+--   a zakończonego z partiami blokuje klucz obcy `plays_meeting_id_fkey`.
 -- - Błędy reguł mają SQLSTATE 23514 (albo 23505 dla drugiego spotkania w trakcie) i nazwę
 --   reguły w polu HINT, które PostgREST przekazuje klientowi; SPA zamienia ją na polski
 --   komunikat (`apps/web/src/meetings/meetings.ts`).
@@ -47,7 +46,7 @@ begin
     select * into host from public.profiles where id = new.host_id;
     -- Brak profilu zgłosi klucz obcy do uczestników; tu sprawdzamy rolę i usunięcie.
     if found and host.role = 'admin' then
-      -- Admin prowadzi domyślnie, więc jako prowadzący jest zapisywany jako NULL (PLAN-1).
+      -- Admin prowadzi domyślnie, więc jako prowadzący jest zapisywany jako NULL.
       raise exception 'meetings.host_id must not be the admin (use NULL)'
         using errcode = '23514', constraint = 'meetings_host_not_admin', hint = 'meetings_host_not_admin';
     end if;
@@ -65,8 +64,8 @@ begin
     return new;
   end if;
 
-  -- Dozwolone przejścia (§5.8): planned → in_progress → finished oraz finished → in_progress
-  -- (RUN-5, dogranie zapomnianej partii). Powrotu do planned nie ma.
+  -- Dozwolone przejścia: planned → in_progress → finished oraz finished → in_progress
+  -- (dogranie zapomnianej partii). Powrotu do planned nie ma.
   if new.status is distinct from old.status
      and (old.status, new.status) not in (
        ('planned', 'in_progress'), ('in_progress', 'finished'), ('finished', 'in_progress')
@@ -75,20 +74,20 @@ begin
       using errcode = '23514', constraint = 'meetings_status_transition', hint = 'meetings_status_transition';
   end if;
 
-  -- Tytuł i termin zmienia się tylko w zaplanowanym spotkaniu (PLAN-3, PLAN-4).
+  -- Tytuł i termin zmienia się tylko w zaplanowanym spotkaniu.
   if old.status <> 'planned'
      and (new.title is distinct from old.title or new.starts_at is distinct from old.starts_at) then
     raise exception 'meeting % has started; title and date are locked', old.id
       using errcode = '23514', constraint = 'meetings_schedule_locked', hint = 'meetings_schedule_locked';
   end if;
 
-  -- Zakończone spotkanie zachowuje prowadzącego w historii (MEM-6).
+  -- Zakończone spotkanie zachowuje prowadzącego w historii.
   if old.status = 'finished' and new.status = 'finished' and new.host_id is distinct from old.host_id then
     raise exception 'meeting % is finished', old.id
       using errcode = '23514', constraint = 'meetings_finished_locked', hint = 'meetings_finished_locked';
   end if;
 
-  -- Partie w toku trzeba dokończyć albo porzucić przed zakończeniem spotkania (RUN-4).
+  -- Partie w toku trzeba dokończyć albo porzucić przed zakończeniem spotkania.
   if new.status = 'finished' and old.status <> 'finished'
      and exists (select 1 from public.plays p where p.meeting_id = new.id and p.status = 'draft') then
     raise exception 'meeting has draft plays; save or discard them before finishing'
@@ -101,7 +100,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------------------------
--- meetings_guard_delete: spotkania w trakcie nie usuwamy (PLAN-3, PLAN-5)
+-- meetings_guard_delete: spotkania w trakcie nie usuwamy
 -- ---------------------------------------------------------------------------------------------
 create function public.meetings_guard_delete()
 returns trigger
@@ -123,7 +122,7 @@ create trigger meetings_guard_delete before delete on public.meetings
 revoke execute on function public.meetings_guard_delete() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- meeting_local_start: data i godzina w strefie klubu → timestamptz (NFR-10)
+-- meeting_local_start: data i godzina w strefie klubu → timestamptz
 -- ---------------------------------------------------------------------------------------------
 create function private.meeting_local_start(local_date date, local_time time, timezone text)
 returns timestamptz
@@ -149,12 +148,12 @@ end;
 $$;
 
 comment on function private.meeting_local_start(date, time, text) is
-  'Termin spotkania z daty i godziny w strefie klubu; odrzuca godziny z luki zmiany czasu (NFR-10).';
+  'Termin spotkania z daty i godziny w strefie klubu; odrzuca godziny z luki zmiany czasu.';
 
 revoke all on function private.meeting_local_start(date, time, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- save_meeting: spotkanie, uczestnicy i prowadzący w jednej transakcji (PLAN-1…PLAN-4)
+-- save_meeting: spotkanie, uczestnicy i prowadzący w jednej transakcji
 -- ---------------------------------------------------------------------------------------------
 -- Rdzeń zapisu: spotkanie, uczestnicy i prowadzący. Woła go tylko `public.save_meeting`
 -- (security definer), więc sam nie potrzebuje praw właściciela.
@@ -188,7 +187,7 @@ begin
       using errcode = '23514', constraint = 'meetings_club_required', hint = 'meetings_club_required';
   end if;
   -- Edycja bez zmiany terminu wysyła NULL-e: termin zostaje, a formularz nie musi znać
-  -- aktualnej strefy klubu (mogła się zmienić, a zapisanej chwili to nie przesuwa, NFR-10).
+  -- aktualnej strefy klubu (mogła się zmienić, a zapisanej chwili to nie przesuwa).
   if save_meeting.is_new or save_meeting.local_date is not null or save_meeting.local_time is not null then
     starts := private.meeting_local_start(save_meeting.local_date, save_meeting.local_time, club_timezone);
   end if;
@@ -215,7 +214,7 @@ begin
   end if;
 
   if not found then
-    -- Nowe spotkanie: zaplanowane z otwartym głosowaniem (PLAN-2, domyślne wartości kolumn).
+    -- Nowe spotkanie: zaplanowane z otwartym głosowaniem (domyślne wartości kolumn).
     -- Ponowienie po błędzie sieci (is_new, a wiersz już jest) idzie ścieżką edycji niżej.
     -- Prowadzący po uczestnikach, więc kolejność działa także przy SET CONSTRAINTS IMMEDIATE.
     insert into public.meetings (id, title, starts_at, created_by)
@@ -241,7 +240,7 @@ begin
      and not (mp.profile_id = any (participants));
 
   if current_meeting.status = 'in_progress' then
-    -- W trakcie tytuł i termin są historią (PLAN-4). Termin porównujemy z dokładnością do
+    -- W trakcie tytuł i termin są historią. Termin porównujemy z dokładnością
     -- minuty (formularz zna tylko godzinę i minutę), o ile w ogóle przyszedł.
     if btrim(save_meeting.title) is distinct from btrim(current_meeting.title)
        or (starts is not null
@@ -249,7 +248,7 @@ begin
       raise exception 'meeting % has started; title and date are locked', current_meeting.id
         using errcode = '23514', constraint = 'meetings_schedule_locked', hint = 'meetings_schedule_locked';
     end if;
-    -- Uczestnika z partią (także szkicem) nie usuwamy (PLAN-4). Zapisane partie blokuje też
+    -- Uczestnika z partią (także szkicem) nie usuwamy. Zapisane partie blokuje też
     -- klucz obcy play_results → meeting_participants.
     if exists (
       select 1 from public.play_results r
@@ -264,7 +263,7 @@ begin
   -- (klucz obcy także bez odroczenia), a usunięcie starego prowadzącego nie wyzeruje nowego
   -- (on delete set null dotyczy tylko wiersza ze starym host_id).
   -- Tylko nowi: wyzwalacz uczestników działa przed ON CONFLICT, a w trwającym spotkaniu może
-  -- zostać uczestnik, który w międzyczasie usunął konto (MEM-6).
+  -- zostać uczestnik, który w międzyczasie usunął konto.
   insert into public.meeting_participants (meeting_id, profile_id)
   select current_meeting.id, p from unnest(participants) p
    where not exists (
@@ -288,7 +287,7 @@ end;
 $$;
 
 comment on function private.save_meeting(uuid, text, date, time, uuid[], uuid, boolean) is
-  'Planuje spotkanie (is_new) albo zapisuje zmiany: tytuł, termin w strefie klubu (NULL = bez zmiany), uczestnicy i prowadzący (PLAN-1…PLAN-4). Tylko admin.';
+  'Planuje spotkanie (is_new) albo zapisuje zmiany: tytuł, termin w strefie klubu (NULL = bez zmiany), uczestnicy i prowadzący. Tylko admin.';
 
 revoke all on function private.save_meeting(uuid, text, date, time, uuid[], uuid, boolean)
   from public, anon, authenticated;
@@ -365,7 +364,7 @@ comment on function public.save_meeting(uuid, text, date, time, uuid[], uuid, bo
   'Planuje spotkanie (is_new) albo zapisuje zmiany: tytuł, termin w strefie klubu (NULL = bez zmiany), uczestnicy, prowadzący, proponowane terminy (NULL = bez zmiany) i głosowanie na termin (NULL = bez zmiany). Tylko admin.';
 
 -- ---------------------------------------------------------------------------------------------
--- start_meeting / finish_meeting: admin albo prowadzący (RUN-1, RUN-4, MTG-2)
+-- start_meeting / finish_meeting: admin albo prowadzący
 -- ---------------------------------------------------------------------------------------------
 create function public.start_meeting(meeting_id uuid)
 returns public.meetings
@@ -391,7 +390,7 @@ begin
      where m.id = current_meeting.id
     returning * into saved;
   exception when unique_violation then
-    -- Inne spotkanie trwa (MTG-2): także gdy równoległa transakcja właśnie je rozpoczęła.
+    -- Inne spotkanie trwa: także gdy równoległa transakcja właśnie je rozpoczęła.
     raise exception 'another meeting is in progress'
       using errcode = '23505', constraint = 'meetings_single_in_progress', hint = 'meetings_single_in_progress';
   end;
@@ -400,7 +399,7 @@ end;
 $$;
 
 comment on function public.start_meeting(uuid) is
-  'Rozpoczyna zaplanowane spotkanie i zamyka głosowanie (RUN-1); jedno spotkanie w trakcie (MTG-2). Admin lub prowadzący.';
+  'Rozpoczyna zaplanowane spotkanie i zamyka głosowanie; jedno spotkanie w trakcie. Admin lub prowadzący.';
 
 create function public.finish_meeting(meeting_id uuid)
 returns public.meetings
@@ -420,7 +419,7 @@ begin
       using errcode = '23514', constraint = 'meetings_finish_in_progress', hint = 'meetings_finish_in_progress';
   end if;
 
-  -- Szkice blokuje wyzwalacz meetings_validate (RUN-4).
+  -- Szkice blokuje wyzwalacz meetings_validate.
   update public.meetings m
      set status = 'finished', finished_at = greatest(now(), m.started_at)
    where m.id = current_meeting.id
@@ -430,7 +429,7 @@ end;
 $$;
 
 comment on function public.finish_meeting(uuid) is
-  'Kończy spotkanie w trakcie; szkice partii trzeba wcześniej zapisać albo porzucić (RUN-4). Admin lub prowadzący.';
+  'Kończy spotkanie w trakcie; szkice partii trzeba wcześniej zapisać albo porzucić. Admin lub prowadzący.';
 
 revoke execute on function
   public.save_meeting(uuid, text, date, time, uuid[], uuid, boolean, jsonb, boolean),
@@ -453,7 +452,7 @@ drop policy meeting_participants_insert_admin on public.meeting_participants;
 drop policy meeting_participants_delete_admin on public.meeting_participants;
 
 -- ---------------------------------------------------------------------------------------------
--- reopen_meeting: cofnięcie zakończenia (RUN-5, Q10)
+-- reopen_meeting: cofnięcie zakończenia
 -- ---------------------------------------------------------------------------------------------
 -- Tylko admin cofa zakończenie, bez zmiany historii spotkania i partii. Indeks
 -- meetings_single_in_progress szereguje także równoległe starty i otwarcia. Podsumowania i serie
@@ -496,20 +495,20 @@ end;
 $$;
 
 comment on function public.reopen_meeting(uuid) is
-  'Cofa zakończenie spotkania (RUN-5, Q10). Tylko admin; bez usuwania partii, wyników i snapshotów. Jedno spotkanie w trakcie (MTG-2).';
+  'Cofa zakończenie spotkania. Tylko admin; bez usuwania partii, wyników i snapshotów. Jedno spotkanie w trakcie.';
 
 revoke execute on function public.reopen_meeting(uuid) from public, anon;
 grant execute on function public.reopen_meeting(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- Głosowanie na termin (DATE-1…DATE-3)
+-- Głosowanie na termin
 -- ---------------------------------------------------------------------------------------------
 -- Administrator włącza je w formularzu spotkania (`save_meeting`, parametr `date_voting`),
 -- a uczestnicy proponują terminy (`propose_meeting_date`, data i godzina w strefie klubu,
--- NFR-10, bez limitu) i głosują na dowolnie wiele z nich (`meeting_date_votes`, jawne jak głosy
+-- bez limitu) i głosują na dowolnie wiele z nich (`meeting_date_votes`, jawne jak głosy
 -- na gry). Głosowanie jest tylko opinią: termin ustala administrator, wybierając propozycję
 -- (`decide_meeting_date`) albo wpisując dowolny termin w formularzu. Zasady:
--- - ten sam termin raz na spotkanie. Uczestnik dodaje propozycję przy otwartym głosowaniu na
+-- - ten sam termin raz na spotkanie. Uczestnik dodaje propozycję przy otwartym głosowaniu
 --   termin (nie w przeszłości) i od razu na nią głosuje. Administrator może też zapisać listę
 --   propozycji w formularzu (`date_options`: tablica `{"date", "time"}`, NULL = bez zmiany);
 --   propozycja, która zostaje, zachowuje głosy, usunięta kasuje swoje;
@@ -583,7 +582,7 @@ create trigger meeting_date_votes_require_open_voting
 
 revoke execute on function public.meeting_date_votes_require_open_voting() from public, anon, authenticated;
 
--- Rozpoczęcie spotkania zamyka głosowanie na termin (jak głosowanie na gry, RUN-1).
+-- Rozpoczęcie spotkania zamyka głosowanie na termin (jak głosowanie na gry).
 create function public.meetings_close_date_voting()
 returns trigger
 language plpgsql

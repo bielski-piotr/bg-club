@@ -1,5 +1,5 @@
 /**
- * Filtry rankingu (LB-4): zakres dni w strefie klubu i zestaw gier. Każdy jest opcjonalny,
+ * Filtry rankingu: zakres dni w strefie klubu i zestaw gier. Każdy jest opcjonalny,
  * a razem się łączą; brak filtrów = cała historia i wszystkie gry. Bez zależności, bo filtry
  * są też częścią adresu popupu rankingu (`leaderboard/points/from:2026-01-01/to:2026-03-31/games:<uuid>,<uuid>`).
  */

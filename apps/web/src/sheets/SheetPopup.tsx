@@ -20,14 +20,14 @@ import './sheets.css';
 const text = t.sheets;
 
 /**
- * Zapisana karteczka partii (PAD-6, GAME-10, VIEW-3, DS „Kolekcja / Karteczka”): obraz
+ * Zapisana karteczka partii: obraz
  * oderwanej karteczki z powiększaniem (kółko, szczypanie, przyciski), czas partii (początek,
  * koniec, czas trwania), wyniki graczy z rekordami klubu i osobistymi ustanowionymi w tej partii
- * i link do spotkania. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
+ * i link do spotkania. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają.
  */
 export function SheetPopup(props: {
   readonly id: string;
-  /** Admin może stąd usunąć partię (VIEW-6, potwierdzenie `play/<uuid>/delete`). */
+  /** Admin może stąd usunąć partię (potwierdzenie `play/<uuid>/delete`). */
   readonly isAdmin?: boolean | undefined;
 }) {
   const sheet = createSavedSheet(() => props.id);

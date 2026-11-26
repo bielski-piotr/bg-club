@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Czysta logika wyników: miejsca, remisy, punkty (PRD §5.6, §8.3).",
+  "description": "Czysta logika wyników: miejsca, remisy, punkty.",
   "exports": {
     ".": "./src/index.ts"
   },

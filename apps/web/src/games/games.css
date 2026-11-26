@@ -1,6 +1,6 @@
-/* Kolekcja gier: okładki, widżet, popup i formularz (DS §6, §7, §14). */
+/* Kolekcja gier: okładki, widżet, popup i formularz. */
 
-/* Okładka (DS §14): kolor palety z białym monogramem albo wgrany obraz. */
+/* Okładka: kolor palety z białym monogramem albo wgrany obraz. */
 .game-cover {
   position: relative;
   display: grid;
@@ -28,7 +28,7 @@
   object-fit: cover;
 }
 
-/* Miniatura 36: promień 10, jedna biała litera Bricolage 16/20 (DS §14, §15). */
+/* Miniatura 36: promień 10, jedna biała litera Bricolage 16/20. */
 .game-cover--thumb {
   width: 36px;
   height: 36px;
@@ -38,7 +38,7 @@
   line-height: 20px;
 }
 
-/* Kafelek formularza 120 (DS §8 „upload affordance”, większy niż logo klubu: okładkę widać). */
+/* Kafelek formularza 120 (większy niż logo klubu: okładkę widać). */
 .game-cover--form {
   width: 120px;
   height: 120px;
@@ -47,7 +47,7 @@
   line-height: 42px;
 }
 
-/* Duża okładka: kwadrat, promień 18, koło #FFFFFF29 i kropka #FFFFFF99 u góry (DS §14). */
+/* Duża okładka: kwadrat, promień 18, koło #FFFFFF29 i kropka #FFFFFF99 u góry. */
 .game-cover--large {
   width: 100%;
   aspect-ratio: 1;
@@ -98,7 +98,7 @@
   padding: 12px;
 }
 
-/* Widżet (DS §6 „Collection”): blok wyróżnionej gry, potem taca. */
+/* Widżet: blok wyróżnionej gry, potem taca. */
 .collection-widget {
   display: flex;
   flex-direction: column;
@@ -163,7 +163,7 @@
   margin-top: 20px;
 }
 
-/* Popup kolekcji: wyszukiwarka i siatka okładek (DS §7). */
+/* Popup kolekcji: wyszukiwarka i siatka okładek. */
 .games-search {
   margin-top: 4px;
 }
@@ -206,7 +206,7 @@
   position: relative;
 }
 
-/* ⋯ admina w prawym górnym rogu okładki (DS §9: 32, tło #F1F3F9). */
+/* ⋯ admina w prawym górnym rogu okładki (32, tło #F1F3F9). */
 .game-tile__menu {
   position: absolute;
   top: 8px;
@@ -239,7 +239,7 @@
   color: var(--c-muted);
 }
 
-/* „Dodaj grę” w nagłówku: krótka etykieta na telefonie (DS §7). */
+/* „Dodaj grę” w nagłówku: krótka etykieta na telefonie. */
 .games-add__short {
   display: none;
 }
@@ -262,7 +262,7 @@
   color: var(--c-muted);
 }
 
-/* Formularz gry (DS §7, §10): pola co 20 px. */
+/* Formularz gry: pola co 20 px. */
 .game-form {
   display: flex;
   flex-direction: column;
@@ -306,7 +306,7 @@
   gap: 12px;
 }
 
-/* Okładka otwiera szczegóły gry z galerią karteczek (GAME-10). */
+/* Okładka otwiera szczegóły gry z galerią karteczek. */
 .game-tile__open {
   display: block;
   width: 100%;
@@ -322,7 +322,7 @@
   outline-offset: 2px;
 }
 
-/* Statystyki gry (GAME-11): kafle faktów, rekord i ranking graczy w grze. */
+/* Statystyki gry: kafle faktów, rekord i ranking graczy w grze. */
 .game-stats {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
@@ -510,7 +510,7 @@
   box-shadow: var(--focus-ring);
 }
 
-/* Edytor okładki (GAME-6): podgląd z kadrem albo pusty stan, pod nim akcje. */
+/* Edytor okładki: podgląd z kadrem albo pusty stan, pod nim akcje. */
 .cover-editor {
   display: flex;
   flex-direction: column;

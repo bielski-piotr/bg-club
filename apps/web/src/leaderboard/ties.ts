@@ -30,7 +30,7 @@ export function decidingCriterion(above: LeaderboardEntry, below: LeaderboardEnt
 
 /**
  * Grupy aktywnych graczy z tym samym wynikiem (co najmniej dwie osoby), w kolejności rankingu.
- * Usunięci członkowie nie mają miejsc (LB-7), więc nie tworzą grup.
+ * Usunięci członkowie nie mają miejsc, więc nie tworzą grup.
  */
 export function tieGroups(entries: readonly LeaderboardEntry[]): TieGroup[] {
   const groups: TieGroup[] = [];

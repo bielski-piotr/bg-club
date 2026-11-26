@@ -8,16 +8,16 @@ import type { AvatarPerson } from '../ui/Avatar';
  * są w `profiles.ts`.
  */
 
-/** Profil gracza widoczny dla członków klubu (PRD §5.2, RLS: odczyt dla aktywnych kont). */
+/** Profil gracza widoczny dla członków klubu (RLS: odczyt dla aktywnych kont). */
 export interface Profile {
   readonly id: string;
   readonly hook: string;
   readonly first_name: string;
   readonly last_name: string;
   readonly role: 'admin' | 'player';
-  /** Zdjęcie w buckecie `avatars` (`<id>/<plik>`, USR-3); `null` = monogram (USR-2). */
+  /** Zdjęcie w buckecie `avatars` (`<id>/<plik>`); `null` = monogram. */
   readonly avatar_path: string | null;
-  /** Usunięty członek (MEM-4, MEM-5); `null` = aktywny. */
+  /** Usunięty członek; `null` = aktywny. */
   readonly deleted_at: string | null;
 }
 
@@ -50,7 +50,7 @@ export function compareProfiles(
 }
 
 /**
- * Dane awatara (DS §8). Kolor monogramu wynika deterministycznie z hooka (USR-2): hook jest
+ * Dane awatara. Kolor monogramu wynika deterministycznie z hooka: hook jest
  * niezmienny, więc kolor nie zmienia się po zmianie imienia i jest ten sam na każdym urządzeniu.
  * `src` to adres zdjęcia (`avatarUrlQuery`); bez niego monogram.
  */
@@ -62,7 +62,7 @@ export function avatarPerson(
 }
 
 /**
- * Adres zdjęcia profilowego z prywatnego bucketu (USR-3). Każde wgranie ma nową nazwę pliku,
+ * Adres zdjęcia profilowego z prywatnego bucketu. Każde wgranie ma nową nazwę pliku,
  * więc adres z cache'u nigdy nie pokaże starego zdjęcia. Bez ścieżki: brak zapytania.
  */
 export function avatarUrlQuery(client: SupabaseClient, path: string | null) {
@@ -70,7 +70,7 @@ export function avatarUrlQuery(client: SupabaseClient, path: string | null) {
 }
 
 /**
- * Profil dowolnego gracza, także usuniętego (MEM-5). `null` = nie ma takiego profilu albo
+ * Profil dowolnego gracza, także usuniętego. `null` = nie ma takiego profilu albo
  * identyfikator nie jest poprawnym uuid (wtedy bez zapytania).
  */
 export function profileQuery(client: SupabaseClient, id: string) {
@@ -90,7 +90,7 @@ export function profileQuery(client: SupabaseClient, id: string) {
 }
 
 /**
- * Aktywni członkowie klubu (MEM-1, MEM-2, MEM-5: bez usuniętych), alfabetycznie.
+ * Aktywni członkowie klubu (bez usuniętych), alfabetycznie.
  * Kolejność ustala zapytanie, a remisy rozstrzyga `id`, więc lista jest stabilna.
  */
 export function membersQuery(client: SupabaseClient) {
@@ -111,7 +111,7 @@ export function membersQuery(client: SupabaseClient) {
 }
 
 /**
- * Wszystkie profile klubu, także usunięte (MEM-5: usunięty zostaje w historii, np. jako
+ * Wszystkie profile klubu, także usunięte (usunięty zostaje w historii, np. jako
  * zwycięzca spotkania w timeline albo uczestnik w kalendarzu), po `id`.
  */
 export function allProfilesQuery(client: SupabaseClient) {

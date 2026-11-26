@@ -15,7 +15,7 @@ import { ZoomButtons } from './ZoomButtons';
 const text = t.scorepads.wizard.area;
 
 /**
- * Pływający pasek sceny w kroku 2 (DS §18): obrót o 90° w lewo i w prawo, cofnij oraz
+ * Pływający pasek sceny w kroku 2: obrót o 90° w lewo i w prawo, cofnij
  * powiększenie zdjęcia (precyzyjne ustawianie punktów obszaru).
  */
 export function AreaToolbar(props: {
@@ -62,7 +62,7 @@ export function AreaToolbar(props: {
 }
 
 /**
- * Panel kroku 2 „Obszar kartki” (EDT-10, DS §18): nazwa notesu, kolor grzbietu, sposób
+ * Panel kroku 2 „Obszar kartki”: nazwa notesu, kolor grzbietu, sposób
  * wyznaczenia obszaru z podpowiedzią, wygładzanie krawędzi, rozmiar kartki w centymetrach
  * i strona grzbietu. Zmiany idą od razu do edytora (`onChange`), który trzyma stan.
  */

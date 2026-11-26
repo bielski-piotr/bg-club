@@ -1,4 +1,4 @@
-/* Notesy gry (GAME-7): lista z miniaturami kartek, edytor w popupie. */
+/* Notesy gry: lista z miniaturami kartek, edytor w popupie. */
 .scorepads {
   display: grid;
   gap: 16px;
@@ -42,7 +42,7 @@
 }
 
 /*
- * Miniatura kartki (DS „Score-sheet thumbnail”, 36×46 w wierszu notesu): papier jest papierem
+ * Miniatura kartki (36×46 w wierszu notesu): papier jest papierem
  * w obu motywach, jak kartka w notesie 3D.
  */
 .sheet-thumb {

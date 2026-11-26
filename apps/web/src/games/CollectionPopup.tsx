@@ -36,11 +36,11 @@ function createDebounced(value: Accessor<string>, delay: number): Accessor<strin
 }
 
 /**
- * Popup kolekcji (PRD GAME-2, GAME-3, DS „Kolekcja / Popup”): siatka okładek aktywnych gier
+ * Popup kolekcji: siatka okładek aktywnych gier
  * z wyszukiwaniem po tytule filtrowanym na bieżąco (zapytanie po krótkiej przerwie w pisaniu).
  * Porównanie bez wielkości liter i polskich znaków robi baza (`search_games`, unaccent).
- * Administrator ma „Dodaj grę”, a przy każdej grze menu z „Edytuj”, „Notesy” (GAME-7), „Dodaj
- * dodatek” i „Usuń”. Dodatków nie ma w kolekcji; formularz otwiera się w tym samym stosie, ze
+ * Administrator ma „Dodaj grę”, a przy każdej grze menu z „Edytuj”, „Notesy”, „Dodaj
+ * dodatek” i „Usuń”. Dodatków nie ma w kolekcji; formularz otwiera się w tym samym stosie,
  * strzałką „wstecz”.
  */
 export function CollectionPopup(props: { readonly isAdmin: boolean }) {
@@ -73,7 +73,7 @@ export function CollectionPopup(props: { readonly isAdmin: boolean }) {
       count={count()}
       actions={
         <Show when={props.isAdmin}>
-          {/* Na telefonie krótka etykieta „Dodaj” (DS §7); nazwa dostępna jest zawsze pełna. */}
+          {/* Na telefonie krótka etykieta „Dodaj”; nazwa dostępna jest zawsze pełna. */}
           <Button
             size="sm"
             icon="plus"

@@ -1,10 +1,10 @@
 /**
- * Obsługa żądania `POST /functions/v1/delete-own-account` (PRD USR-6, MEM-6, AUTH-7).
+ * Obsługa żądania `POST /functions/v1/delete-own-account`.
  * Bez zależności od Deno i supabase-js: dostęp do bazy i Auth podaje `index.ts`.
  *
  * Kontrakt:
  * - nagłówek `Authorization: Bearer <token sesji>` aktywnego gracza,
- * - treść `{ "password": "…" }`: obecne hasło konta (USR-6). Funkcja sprawdza je logowaniem
+ * - treść `{ "password": "…" }`: obecne hasło konta. Funkcja sprawdza je logowaniem
  *   w Auth, więc obowiązują te same limity prób co przy logowaniu,
  * - odpowiedź 200 `{ "deleted": true }`; sesje konta przestają działać,
  * - błędy: `{ error: kod }` z kodem `unauthorized` (401), `admin_protected` (403: administrator
@@ -58,7 +58,7 @@ export async function handleDeleteOwnAccount(
     const me = await store.findProfile(callerId);
     // Konto już usunięte z ważnym jeszcze tokenem nie ma czego usuwać.
     if (!me || me.deleted) return failure(401, 'unauthorized');
-    // Administrator nie widzi tej opcji (USR-6); żądanie z pominięciem aplikacji też odrzucamy.
+    // Administrator nie widzi tej opcji; żądanie z pominięciem aplikacji też odrzucamy.
     if (me.role === 'admin') {
       deps.log('delete-own-account.admin', { caller: callerId });
       return failure(403, 'admin_protected');

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Plugin } from 'vite';
 
-/** Pliki z `public/` należące do powłoki (manifest i ikony, NFR-3). */
+/** Pliki z `public/` należące do powłoki (manifest i ikony). */
 export const PUBLIC_SHELL = [
   '/manifest.webmanifest',
   '/favicon.svg',
@@ -64,7 +64,7 @@ export function renderServiceWorker(template: string, files: readonly string[], 
 }
 
 /**
- * Generuje `dist/sw.js` przy buildzie (PRD NFR-3). Wersja zależy od listy plików (nazwy
+ * Generuje `dist/sw.js` przy buildzie. Wersja zależy od listy plików (nazwy
  * z hashem treści), treści `index.html`, manifestu i ikon oraz szablonu workera, więc każde
  * wdrożenie ze zmianą daje nową wersję.
  */

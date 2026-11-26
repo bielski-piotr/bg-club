@@ -1,4 +1,4 @@
-/* Spinner, banery, puste stany i szkielety ładowania (DS §6, §10, §17). */
+/* Spinner, banery, puste stany i szkielety ładowania. */
 .spinner {
   flex-shrink: 0;
   animation: spin 800ms linear infinite;

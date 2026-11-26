@@ -1,4 +1,4 @@
-/* Popup profilu (PRD USR-4) i link awatara do profilu. */
+/* Popup profilu i link awatara do profilu. */
 .profile-link {
   display: inline-flex;
   border-radius: var(--r-pill);
@@ -72,12 +72,12 @@
   font: 700 18px/24px var(--font-display);
 }
 
-/* EmptyState ma własny odstęp od góry (DS §17: 20 px). */
+/* EmptyState ma własny odstęp od góry (20 px). */
 .profile__section .empty-state__row {
   padding-top: 12px;
 }
 
-/* Statystyki gracza (STAT-1–STAT-3, DS „Stat tile”: biały kafel w tacy, liczba 20/24/700,
+/* Statystyki gracza (biały kafel w tacy, liczba 20/24/700,
    etykieta 13/16/500). Na desktopie 4 kolumny, od 360 px 2 kolumny. */
 .player-stats__head {
   display: flex;
@@ -217,7 +217,7 @@
   }
 }
 
-/* Rekordy osobiste (USR-4): siatka kart z okładką gry, wynikiem i pieczątką rekordu klubu. */
+/* Rekordy osobiste: siatka kart z okładką gry, wynikiem i pieczątką rekordu klubu. */
 .records {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -336,7 +336,7 @@
   overflow-wrap: anywhere;
 }
 
-/* Ustawienia (USR-5): sekcje Profil, Wygląd, Konto. Pola jak w formularzu klubu (DS §10, §17). */
+/* Ustawienia: sekcje Profil, Wygląd, Konto. Pola jak w formularzu klubu. */
 .settings {
   display: flex;
   flex-direction: column;
@@ -377,7 +377,7 @@
   flex-shrink: 0;
 }
 
-/* DS §8: kółko 30 z ramką w prawym dolnym rogu (-2, -2). */
+/* kółko 30 z ramką w prawym dolnym rogu (-2, -2). */
 .settings__photo-badge {
   position: absolute;
   right: -2px;
@@ -458,7 +458,7 @@
   gap: 8px;
 }
 
-/* Usunięcie konta (USR-6): przycisk destrukcyjny z opisem skutków pod akcjami konta. */
+/* Usunięcie konta: przycisk destrukcyjny z opisem skutków pod akcjami konta. */
 .settings__danger {
   display: flex;
   flex-direction: column;
@@ -472,7 +472,7 @@
   gap: 16px;
 }
 
-/* Zmiana hasła i pierwsze logowanie (USR-5, AUTH-6). */
+/* Zmiana hasła i pierwsze logowanie. */
 .password-form {
   display: flex;
   flex-direction: column;
@@ -486,8 +486,8 @@
   color: var(--c-muted);
 }
 
-/* Działania usuwające (MEM-4, USR-6): obrys jak przycisk drugorzędny, tekst i ikona w kolorze
-   zagrożenia (DS §7: pozycja destrukcyjna #D63A3A). Wypełniony przycisk ma dopiero dialog. */
+/* Działania usuwające: obrys jak przycisk drugorzędny, tekst i ikona w kolorze
+   zagrożenia (pozycja destrukcyjna #D63A3A). Wypełniony przycisk ma dopiero dialog. */
 .btn.profile__delete,
 .btn.settings__delete {
   color: var(--c-danger-text);

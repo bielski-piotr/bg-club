@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Web componenty <score-pad> i <score-pad-editor> w trybie klubowym (PRD §8.5).",
+  "description": "Web componenty <score-pad> i <score-pad-editor> w trybie klubowym.",
   "exports": {
     ".": "./src/index.ts",
     "./pad": {

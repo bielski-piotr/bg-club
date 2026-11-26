@@ -27,7 +27,7 @@ export function App(props: AppProps) {
   );
 }
 
-/** Widok według stanu sesji: wczytywanie, logowanie albo aplikacja (AUTH-1, AUTH-5). */
+/** Widok według stanu sesji: wczytywanie, logowanie albo aplikacja. */
 export function AuthGate() {
   const auth = useContext(AuthContext);
   const signedOut = () => (auth.state.status === 'signedOut' ? auth.state : undefined);

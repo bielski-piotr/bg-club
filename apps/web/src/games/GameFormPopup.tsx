@@ -51,14 +51,14 @@ import './games.css';
 const form = t.games.form;
 
 /**
- * „Edytuj grę” (GAME-3): formularz zapisanej gry. Gra usunięta albo nieistniejąca (np. stary
+ * „Edytuj grę”: formularz zapisanej gry. Gra usunięta albo nieistniejąca (np. stary
  * link) daje czytelny stan „Nie znaleziono gry”.
  */
 export function EditGamePopup(props: { readonly id: string }) {
   return <GameFormPopup mode="edit" id={props.id} />;
 }
 
-/** „Dodaj grę” (GAME-3). */
+/** „Dodaj grę”. */
 export function AddGamePopup() {
   return <GameFormPopup mode="add" id="" />;
 }
@@ -102,7 +102,7 @@ const POINTS_ERRORS: Readonly<Record<PointsError, string>> = {
 };
 
 /**
- * Formularz gry (GAME-3…GAME-6, DS „Kolekcja / Edytuj grę”, „Dodaj grę”): okładka, tytuł,
+ * Formularz gry: okładka, tytuł,
  * min. i max. liczba graczy (1 ≤ min ≤ max, bez górnego limitu) oraz punkty za każde miejsce
  * 1…max. Zmiana „max” dodaje lub usuwa pola punktów. Rosnąca punktacja daje ostrzeżenie, ale
  * nie blokuje zapisu. Jedno okno na wczytywanie gry, formularz i „Nie znaleziono gry”: fokus

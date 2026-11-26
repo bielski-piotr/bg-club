@@ -1,4 +1,4 @@
-// Wpisywanie punktów bezpośrednio w pole kartki (PAD-13…PAD-15): logika bez DOM i sceny.
+// Wpisywanie punktów bezpośrednio w pole kartki: logika bez DOM i sceny.
 
 import type { LineDef, PadTemplate, Spot } from './templates';
 import { describeValues, isAllowed, playerCount, spots, stepValue } from './templates';
@@ -52,7 +52,7 @@ export function stepTyped(line: LineDef, text: string, dir: 1 | -1): string {
 /**
  * Następne (`dir` = 1) albo poprzednie pole kategorii punktowej tego samego gracza; po ostatnim
  * fokus przechodzi do pierwszego pola następnego gracza (Shift+Tab: do ostatniego poprzedniego).
- * Pomija pola imion, sumy, premie i pola bez wpisu (PAD-15), a z `seat` także miejsca, dla
+ * Pomija pola imion, sumy, premie i pola bez wpisu, a z `seat` także miejsca, dla
  * których zwraca `false` (np. puste miejsca notesu bez gracza).
  */
 export function nextInput(
@@ -86,7 +86,7 @@ export interface Box {
 
 /**
  * O ile przesunąć widok (w pikselach ekranu), żeby pole `cell` znalazło się w widocznym obszarze
- * `view` z marginesem `pad` (PAD-15: widok przewija się do zaznaczonego pola). Zero, gdy pole
+ * `view` z marginesem `pad` (widok przewija się do zaznaczonego pola). Zero, gdy pole
  * jest widoczne; pole większe niż obszar jest wyśrodkowane.
  */
 export function revealShift(cell: Box, view: Box, pad: number): { dx: number; dy: number } {

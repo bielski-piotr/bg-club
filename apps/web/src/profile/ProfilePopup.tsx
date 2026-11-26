@@ -13,12 +13,12 @@ import { fullName, type Profile } from './profileQueries';
 import './profile.css';
 
 /**
- * Popup profilu gracza (PRD USR-4, USR-5, MEM-5): awatar, imię i nazwisko, hook, statystyki
- * i rekordy osobiste w grach. Statystyki (§5.9) liczy `player_stats`, rekordy
- * `player_records`. Właściciel ma przycisk **Ustawienia** (USR-5); cudzy profil nie ma akcji edycji
- * także dla administratora (USR-7). Usunięty członek ma profil tylko do odczytu
- * (MEM-5) i zachowuje statystyki z historii.
- * Administrator ma w profilu aktywnego gracza przycisk **Usuń członka** (MEM-4); profilu
+ * Popup profilu gracza: awatar, imię i nazwisko, hook, statystyki
+ * i rekordy osobiste w grach. Statystyki liczy `player_stats`, rekordy
+ * `player_records`. Właściciel ma przycisk **Ustawienia**; cudzy profil nie ma akcji edycji
+ * także dla administratora. Usunięty członek ma profil tylko do odczytu
+ * i zachowuje statystyki z historii.
+ * Administrator ma w profilu aktywnego gracza przycisk **Usuń członka**; profilu
  * administratora nie da się usunąć.
  */
 export function ProfilePopup(props: { readonly id: string; readonly isAdmin: boolean }) {

@@ -1,5 +1,5 @@
 /**
- * Kontrakt formatu notesu w części, której potrzebuje liczenie wyników (PRD EDT-7, EDT-13).
+ * Kontrakt formatu notesu w części, której potrzebuje liczenie wyników.
  *
  * Pełny szablon (`PadTemplate` w `@bg-club/score-pad`) ma też zdjęcie, siatkę i pola. Tutaj są
  * tylko kategorie i reguła miejsc, więc pakiet działa na szablonie z bazy bez kodu notesu.
@@ -19,7 +19,7 @@ export interface ScoringLine {
   readonly of?: readonly string[] | undefined;
   /** Punktacja: lista dozwolonych wartości. */
   readonly values?: readonly number[] | undefined;
-  /** Punktacja: zakres od, do, co ile. */
+  /** Punktacja: zakres od,, co ile. */
   readonly min?: number | undefined;
   readonly max?: number | undefined;
   readonly step?: number | undefined;
@@ -29,25 +29,25 @@ export interface ScoringLine {
   readonly threshold?: number | undefined;
   readonly bonus?: number | undefined;
   /**
-   * Nazwa gracza: pole przyjmuje kilku graczy, którzy grają jako zespół (jedno miejsce na
+   * Nazwa gracza: pole przyjmuje kilku graczy, którzy grają jako zespół (jedno miejsce
    * kartce, wspólny wynik; każdy członek dostaje pełne punkty i wygraną, bez dzielenia).
    */
   readonly team?: boolean | undefined;
 }
 
-/** Kierunek kategorii: `desc` = więcej lepiej (domyślnie), `asc` = mniej lepiej (EDT-3). */
+/** Kierunek kategorii: `desc` = więcej lepiej (domyślnie), `asc` = mniej lepiej. */
 export type Direction = 'desc' | 'asc';
 
-/** Reguła rozstrzygania remisu (EDT-4, EDT-5). */
+/** Reguła rozstrzygania remisu. */
 export type TiebreakRule =
   | { readonly type: 'line'; readonly line: string; readonly dir: Direction }
-  /** „Rozstrzyga prowadzący” (EDT-5): kończy automatyczne reguły. */
+  /** „Rozstrzyga prowadzący”: kończy automatyczne reguły. */
   | { readonly type: 'manual' }
   | { readonly type: 'shared' };
 
-/** `template.ranking` z pliku notesu (EDT-7). */
+/** `template.ranking` z pliku notesu. */
 export interface Ranking {
-  /** Kategoria decydująca o miejscu: punktacja albo suma (EDT-2). */
+  /** Kategoria decydująca o miejscu: punktacja albo suma. */
   readonly line: string;
   readonly dir: Direction;
   /** Reguły stosowane hierarchicznie; za ostatnią jest niejawne wspólne miejsce. */

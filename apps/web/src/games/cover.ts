@@ -4,7 +4,7 @@ import { COVERS_BUCKET } from '../club/club';
 import { renderCropCanvas, type CropFit, type CropState, type StoredCrop } from '../profile/crop';
 
 /*
- * Okładka gry z kadrem (GAME-6): z wybranego pliku albo obrazu wklejonego ze schowka powstaje
+ * Okładka gry z kadrem: z wybranego pliku albo obrazu wklejonego ze schowka powstaje
  * oryginał (przeskalowany, w Storage jako `games.cover_source_path`), a z niego kwadratowa
  * okładka według kadru (`games.cover_crop`). Kadr widać w kształcie okładki z widoku gry;
  * ponowne kadrowanie zapisanej okładki zaczyna od oryginału i zapisanego kadru.
@@ -14,7 +14,7 @@ import { renderCropCanvas, type CropFit, type CropState, type StoredCrop } from 
 export const COVER_SOURCE_MAX_SIDE = 1600;
 /** Docelowy rozmiar oryginału (bucket przyjmuje do 2 MiB). */
 export const COVER_SOURCE_TARGET_BYTES = 400 * 1024;
-/** Bok okładki po kadrowaniu (jak dłuższy bok okładki bez kadru, GAME-6). */
+/** Bok okładki po kadrowaniu (jak dłuższy bok okładki bez kadru). */
 export const COVER_SIDE = 800;
 /** Okładkę można oddalić, aż cały obraz zmieści się w kadrze (tło: kolor brzegów obrazu). */
 export const COVER_FIT: CropFit = 'contain';

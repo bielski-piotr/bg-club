@@ -1,8 +1,8 @@
 /**
- * Motyw aplikacji (NFR-5, USR-5): jasny, ciemny albo systemowy.
+ * Motyw aplikacji: jasny, ciemny albo systemowy.
  *
  * Wybór trafia do atrybutu `data-theme` na <html>; brak atrybutu oznacza motyw systemowy
- * (`prefers-color-scheme`). Do czasu zapisu w profilu ([010]) preferencja jest pamiętana
+ * (`prefers-color-scheme`). Do czasu zapisu w profilu  preferencja jest pamiętana
  * w `localStorage`. Ten sam klucz czyta skrypt w `index.html`, żeby uniknąć mignięcia motywu.
  */
 export type ThemePreference = 'light' | 'dark' | 'system';

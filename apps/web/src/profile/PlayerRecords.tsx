@@ -28,9 +28,9 @@ const OPTIONS: readonly SelectOption<RecordsView>[] = VIEWS.map((value) => ({
 }));
 
 /**
- * Rekordy osobiste w profilu (PRD USR-4): każda gra kolekcji z okładką i najlepszym wynikiem
- * gracza w kategorii decydującej (jak rekord gry, GAME-11). Gra bez wyniku pokazuje „–”, a rekord
- * równy rekordowi klubu dostaje pieczątkę „Rekord klubu”. Filtry dat i gier jak w rankingu oraz
+ * Rekordy osobiste w profilu: każda gra kolekcji z okładką i najlepszym wynikiem
+ * gracza w kategorii decydującej (jak rekord gry). Gra bez wyniku pokazuje „–”, a rekord
+ * równy rekordowi klubu dostaje pieczątkę „Rekord klubu”. Filtry dat i gier jak w rankingu
  * widok: wszystkie gry, tylko z wynikiem, tylko rekordy klubu.
  */
 export function PlayerRecordsSection(props: { readonly profileId: string }) {

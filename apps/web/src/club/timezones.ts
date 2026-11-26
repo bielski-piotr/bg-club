@@ -1,6 +1,6 @@
 import type { SelectOption } from '../ui';
 
-/** Strefa, gdy przeglądarka nie podaje własnej albo podaje nieznaną (CLUB-2, NFR-10). */
+/** Strefa, gdy przeglądarka nie podaje własnej albo podaje nieznaną. */
 export const FALLBACK_TIMEZONE = 'Europe/Warsaw';
 
 /** Czy `Intl` zna strefę o tej nazwie (IANA). Baza sprawdza ją jeszcze raz (`club_validate`). */
@@ -14,7 +14,7 @@ export function isKnownTimezone(name: string): boolean {
   }
 }
 
-/** Strefa przeglądarki administratora, a gdy jej brak, `Europe/Warsaw` (CLUB-2). */
+/** Strefa przeglądarki administratora, a gdy jej brak, `Europe/Warsaw`. */
 export function browserTimezone(): string {
   let zone: string | undefined;
   try {
@@ -27,7 +27,7 @@ export function browserTimezone(): string {
 
 /**
  * Przesunięcie strefy względem UTC w chwili `at`, np. „UTC+01:00”, „UTC−05:00” (znak minus
- * U+2212, jak w DS), „UTC+05:45”. Zależy od daty (czas letni), więc liczymy je na teraz.
+ * U+2212), „UTC+05:45”. Zależy od daty (czas letni), więc liczymy je na teraz.
  */
 export function utcOffset(timeZone: string, at: Date = new Date()): string {
   let part: string | undefined;
@@ -71,7 +71,7 @@ function baseOptions(at: Date): readonly SelectOption<string>[] {
 }
 
 /**
- * Opcje listy stref (DS §17): nazwa IANA i przesunięcie, alfabetycznie. Zawsze zawiera `UTC`
+ * Opcje listy stref: nazwa IANA i przesunięcie, alfabetycznie. Zawsze zawiera `UTC`
  * i strefy z `include` (zapisaną w klubie, strefę przeglądarki), także gdy przeglądarka pomija
  * je na swojej liście (np. alias `Europe/Kiev`), żeby wybrana wartość była widoczna. Strefa
  * znana tylko bazie (Intl jej nie zna) jest na liście bez przesunięcia.

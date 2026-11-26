@@ -54,7 +54,7 @@ class Painter {
     this.skip = this.ig.createPattern(skipNoise(), 'repeat') as CanvasPattern;
     this.tex = new THREE.CanvasTexture(this.main);
     this.tex.encoding = THREE.sRGBEncoding;
-    // kartka i pismo w rozdzielczości tekstury, z mipmapami i anizotropią (PAD-16)
+    // kartka i pismo w rozdzielczości tekstury, z mipmapami i anizotropią
     this.tex.generateMipmaps = true;
     this.tex.minFilter = THREE.LinearMipmapLinearFilter;
     this.tex.anisotropy = aniso;
@@ -65,7 +65,7 @@ class Painter {
     const d = s.data;
     const { CW, CH } = this.ps;
     const k = CH / 1434;
-    // pismo w rozdzielczości tekstury (PAD-16): powyżej dawnych 1600 px limity grubości i wielkości rosną
+    // pismo w rozdzielczości tekstury: powyżej dawnych 1600 px limity grubości i wielkości rosną
     const res = Math.max(1, Math.max(CW, CH) / MIN_TEX_SIDE);
     const pen = clamp(3.4 * Math.max(k, CW / 1024) * 0.92, 2.2, 5.5 * res);
     const g = this.ig;
@@ -176,7 +176,7 @@ class Painter {
       }
     }
 
-    // zwycięzca (miejsce 1, także wspólne) zakreślony w kategorii decydującej (EDT-2), gdy każda
+    // zwycięzca (miejsce 1, także wspólne) zakreślony w kategorii decydującej, gdy każda
     // kategoria punktowa każdego grającego ma wartość
     const act = range(0, n - 1).filter((p) => playerActive(t, d, p));
     const inputs = t.lines.filter((l) => l.kind === 'input').map((l) => l.id);
@@ -236,7 +236,7 @@ class Painter {
     m.drawImage(this.ps.print, 0, 0);
     if (s.focus) {
       const r = px(s.focus.rect);
-      // wpis spoza zakresu kategorii: pole na czerwono (PAD-15)
+      // wpis spoza zakresu kategorii: pole na czerwono
       m.fillStyle = s.draft?.bad ? 'rgba(214, 64, 58, 0.3)' : 'rgba(255, 206, 84, 0.34)';
       if (s.focus.round) {
         m.beginPath();
@@ -448,7 +448,7 @@ export class PaperSheet {
   offscreen = 0;
   focus: Spot | null = null;
   /**
-   * Tekst wpisywany z klawiatury w zaznaczone pole (PAD-13, PAD-14): cyfry pojawiają się na
+   * Tekst wpisywany z klawiatury w zaznaczone pole: cyfry pojawiają się
    * kartce od razu, zanim wpis zostanie zatwierdzony; `bad` to wpis spoza zakresu kategorii.
    */
   draft: { key: string; text: string; bad: boolean; ink: Ink } | null = null;
@@ -575,7 +575,7 @@ export class PaperSheet {
   }
 
   /**
-   * Obraz kartki z pismem (PAD-6): tekstura kartki z ukończonym pismem (bez zaznaczenia pola
+   * Obraz kartki z pismem: tekstura kartki z ukończonym pismem (bez zaznaczenia pola
    * i niezatwierdzonego wpisu), zmniejszona tak, by dłuższy bok miał najwyżej `maxSide` px.
    * Kartka o niestandardowym kształcie ma przezroczyste wycięcia.
    */

@@ -1,22 +1,22 @@
--- [032] Rankingi i filtry (PRD LB-1, LB-4–LB-7, §5.6.3, §5.6.6, NFR-10).
+-- Rankingi i filtry.
 --
 -- Zasady:
--- - `leaderboard(kind, date_from, date_to, game_ids)` zwraca klasyfikację `points` (suma punktów,
---   §5.6.2) albo `wins` (liczba wygranych partii, także wspólne 1. miejsce, §5.6.3). Seria
+-- - `leaderboard(kind, date_from, date_to, game_ids)` zwraca klasyfikację `points` (suma punktów)
+--   albo `wins` (liczba wygranych partii, także wspólne 1. miejsce). Seria
 --   zwycięstw nie jest rankingiem: to statystyka profilu (`player_stats.streak_record` /
 --   `streak_current`) i podsumowania spotkania.
 -- - Liczą się tylko zapisane partie (`plays.status = 'saved'`), także w spotkaniu w trakcie.
 --   Wyniki są liczone z `play_results` przy odczycie, więc zapis i usunięcie partii (`save_play`,
---   `delete_play`) zmieniają ranking od razu, bez zapisanych agregatów (§5.6.5).
+--   `delete_play`) zmieniają ranking od razu, bez zapisanych agregatów.
 -- - Filtry łączą się ze sobą i każdy jest opcjonalny (NULL = bez ograniczenia):
---   `date_from` / `date_to` to dni (włącznie) w strefie klubu (`club.timezone`, NFR-10): liczą się
---   partie spotkań, których `starts_at` wypada w tych dniach lokalnie; `game_ids` zawęża do
---   partii wybranych gier (pusta tablica = wszystkie gry). Pusty zakres (od > do) to błąd 22023
+--   `date_from` / `date_to` to dni (włącznie) w strefie klubu (`club.timezone`): liczą się
+--   partie spotkań, których `starts_at` wypada w tych dniach lokalnie; `game_ids` zawęża
+--   partii wybranych gier (pusta tablica = wszystkie gry). Pusty zakres (od >) to błąd 22023
 --   z HINT `leaderboard_range_invalid`.
 -- - Nie ma remisów: każdy ma własne miejsce. Równy wynik rozstrzygają kolejno:
 --   1. spotkanie, na którym gracz osiągnął swój wynik (ostatnie spotkanie, które go zmieniło:
---      z punktami w `points`, z wygraną w `wins`) — późniejsze (`starts_at`, potem `id`,
---      §5.6.6) jest wyżej; gracz z wynikiem 0 takiego spotkania nie ma i jest niżej;
+--      z punktami w `points`, z wygraną w `wins`) — późniejsze (`starts_at`, potem `id`)
+--      jest wyżej; gracz z wynikiem 0 takiego spotkania nie ma i jest niżej;
 --   2. punkty zdobyte na tym spotkaniu — więcej jest wyżej;
 --   3. liczba wszystkich wygranych gracza w całej historii (bez względu na filtry dat i gier)
 --      — więcej jest wyżej;
@@ -24,12 +24,12 @@
 --   Wiersz zwraca dane tych kryteriów (`reached_*`, `wins`) i flagę `tied` (ten sam wynik
 --   co ktoś inny), z których aplikacja pokazuje szczegóły rozstrzygnięcia.
 -- - Usunięci członkowie są za aktywnymi (między sobą według tych samych kryteriów), z miejscami
---   liczonymi dalej, i nigdy nie stają na podium (LB-7). Klasyfikowani są gracze z ≥ 1 zapisaną
---   partią w zakresie filtrów (LB-5).
+--   liczonymi dalej, i nigdy nie stają na podium. Klasyfikowani są gracze z ≥ 1 zapisaną
+--   partią w zakresie filtrów.
 -- - Funkcje działają z prawami wywołującego (security invoker), więc RLS daje wynik tylko
 --   aktywnym członkom. Zły rodzaj to błąd 22023 z nazwą reguły w HINT.
 
--- Strefa klubu do granic roku (NFR-10). Przed założeniem klubu obowiązuje domyślna strefa
+-- Strefa klubu do granic roku. Przed założeniem klubu obowiązuje domyślna strefa
 -- kolumny `club.timezone`. Działa z prawami wywołującego (RLS), jak funkcje rankingów.
 create function private.club_timezone()
 returns text
@@ -42,7 +42,7 @@ as $$
 $$;
 
 comment on function private.club_timezone() is
-  'Strefa IANA klubu do granic roku leaderboardu (NFR-10); przed założeniem klubu Europe/Warsaw.';
+  'Strefa IANA klubu do granic roku leaderboardu; przed założeniem klubu Europe/Warsaw.';
 
 revoke all on function private.club_timezone() from public, anon;
 grant execute on function private.club_timezone() to authenticated;
@@ -89,7 +89,7 @@ begin
     raise exception 'leaderboard range % – % is empty', leaderboard.date_from, leaderboard.date_to
       using errcode = '22023', hint = 'leaderboard_range_invalid';
   end if;
-  -- Północ dnia w strefie klubu: granice uwzględniają przesunięcie strefy (także DST).
+  -- Północ dnia w strefie klubu: granice uwzględniają przesunięcie strefy (takżeT).
   if leaderboard.date_from is not null then
     range_starts := leaderboard.date_from::timestamp at time zone tz;
   end if;
@@ -166,7 +166,7 @@ end;
 $$;
 
 comment on function public.leaderboard(text, date, date, uuid[]) is
-  'Klasyfikacja punktów albo wygranych (LB-1) z opcjonalnym zakresem dni w strefie klubu i zestawem gier (LB-4, NFR-10). Bez remisów: rozstrzyga późniejsze spotkanie osiągnięcia wyniku, punkty na nim, liczba wygranych z całej historii, alfabet; usunięci na końcu, bez podium (LB-7).';
+  'Klasyfikacja punktów albo wygranych z opcjonalnym zakresem dni w strefie klubu i zestawem gier. Bez remisów: rozstrzyga późniejsze spotkanie osiągnięcia wyniku, punkty na nim, liczba wygranych z całej historii, alfabet; usunięci na końcu, bez podium.';
 
 revoke execute on function public.leaderboard(text, date, date, uuid[]) from public, anon;
 grant execute on function public.leaderboard(text, date, date, uuid[]) to authenticated;

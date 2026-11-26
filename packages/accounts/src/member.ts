@@ -1,5 +1,5 @@
 /**
- * Tworzenie konta członka klubu (PRD MEM-3, AUTH-2, AUTH-4, USR-1). Używa go Edge Function
+ * Tworzenie konta członka klubu. Używa go Edge Function
  * `create-member` (Deno), dlatego moduł nie zależy od supabase-js: dostęp do Auth
  * i bazy przekazuje wywołujący ({@link MemberAccounts}).
  *
@@ -62,7 +62,7 @@ export interface CreatedMember {
   readonly hook: string;
   readonly firstName: string;
   readonly lastName: string;
-  /** Wygenerowane hasło, pokazywane administratorowi jednorazowo (AUTH-4). */
+  /** Wygenerowane hasło, pokazywane administratorowi jednorazowo. */
   readonly password: string;
 }
 
@@ -100,8 +100,8 @@ export function validateMemberInput(input: MemberInput): MemberInputProblems {
 }
 
 /**
- * Zakłada konto gracza: hook, hasło, konto Auth i profil (MEM-3). Rola jest zawsze `player`;
- * drugiego administratora nie da się utworzyć (AUTH-3). Uprawnienia wywołującego sprawdza
+ * Zakłada konto gracza: hook, hasło, konto Auth i profil. Rola jest zawsze `player`;
+ * drugiego administratora nie da się utworzyć. Uprawnienia wywołującego sprawdza
  * Edge Function przed wywołaniem.
  */
 export async function createMember(

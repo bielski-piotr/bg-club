@@ -1,30 +1,30 @@
--- [027] Nowa partia: wybór gry, notesu, graczy i miejsc (PRD RUN-2, RUN-3, PAD-2, PAD-3, PAD-9).
+-- Nowa partia: wybór gry, notesu, graczy i miejsc.
 --
 -- Zasady:
 -- - Partię rozpoczyna `start_play(play_id, meeting_id, scorepad_id, player_ids, seat_numbers,
 --   expansion_ids)`: szkic partii
 --   (`plays.status = 'draft'`) i jego graczy w miejscach notesu w jednej transakcji. Wywołać
 --   go mogą tylko admin i prowadzący spotkania (`private.require_meeting_runner`), tylko
---   w spotkaniu w trakcie (PAD-9). Partii w toku może być kilka naraz (RUN-3): funkcja nie
+--   w spotkaniu w trakcie. Partii w toku może być kilka naraz: funkcja nie
 --   sprawdza innych szkiców.
--- - Gra wynika z notesu (bieżąca wersja aktywnego notesu aktywnej gry, GAME-9). Bez notesu
---   partii nie da się rozpocząć (RUN-2).
+-- - Gra wynika z notesu (bieżąca wersja aktywnego notesu aktywnej gry). Bez notesu
+--   partii nie da się rozpocząć.
 -- - Bez `seat_numbers`: `player_ids[i]` to gracz na miejscu i notesu (od 1); NULL = wolne
 --   miejsce. Z `seat_numbers`: płaska lista graczy i ich miejsc na kartce (kilku na jednym
 --   miejscu tylko w notesie z zespołami, `scorepad_versions.teams`). Gracze to aktywni
---   uczestnicy spotkania, każdy najwyżej raz (PAD-2).
+--   uczestnicy spotkania, każdy najwyżej raz.
 -- - Zespoły: strona (miejsce na kartce) zajmuje jedno miejsce w partii; każdy członek zespołu
 --   dostaje pełne punkty tego miejsca i wygraną przy 1. miejscu. Partia ma co najmniej 2 strony.
 -- - Dodatki (`expansion_ids`): prowadzący zaznacza aktywne, dostępne dodatki gry. Notes może
 --   należeć do gry podstawowej albo do jednego z zaznaczonych dodatków. Liczba graczy partii:
 --   max(2, najmniejsze min) … największe max spośród gry i dodatków (i nie więcej niż miejsc
---   notesu, PAD-3, Q2). Punktacja partii (`private.play_scoring_game`): tytuł o najwyższym
+--   notesu). Punktacja partii (`private.play_scoring_game`): tytuł o najwyższym
 --   skomplikowaniu, który mieści wszystkich graczy; remis wygrywa gra podstawowa.
 -- - Identyfikator partii nadaje klient: ponowienie po błędzie sieci (także równoległe) zwraca
 --   już utworzoną partię zamiast tworzyć drugą, ale tylko gdy to ta sama partia (autor,
 --   spotkanie, notes i gracze na miejscach). Inna treść pod tym samym id to błąd.
--- - Błędy reguł mają SQLSTATE 23514 (brak wiersza: P0002) i nazwę reguły w HINT, jak
---   w migracjach [023] i [024]. Wyzwalacze z [003] pilnują tych samych reguł także poza RPC.
+-- - Błędy reguł mają SQLSTATE 23514 (brak wiersza: P0002) i nazwę reguły w HINT.
+--   Wyzwalacze pilnują tych samych reguł także poza RPC.
 
 -- Tytuł, którego punktację stosuje partia: najwyższe skomplikowanie spośród gry podstawowej
 -- i dodatków, które mieszczą wszystkich graczy (brak skomplikowania = najniższe); remis wygrywa
@@ -128,7 +128,7 @@ begin
   end if;
 
   -- Blokada współdzielona: zakończenie spotkania (FOR UPDATE) czeka na rozpoczęcie partii
-  -- i widzi nowy szkic (RUN-4), a partia nie powstanie w spotkaniu, które się właśnie kończy.
+  -- i widzi nowy szkic, a partia nie powstanie w spotkaniu, które się właśnie kończy.
   select m.status into meeting_status from public.meetings m where m.id = start_play.meeting_id for share;
   if meeting_status is distinct from 'in_progress' then
     raise exception 'plays can be started only in an in-progress meeting'
@@ -236,7 +236,7 @@ begin
       using errcode = '23514', constraint = 'plays_players_count', hint = 'plays_players_count';
   end if;
 
-  -- Uczestnik usunięty z klubu zostaje w historii spotkania (MEM-5), ale nie zagra.
+  -- Uczestnik usunięty z klubu zostaje w historii spotkania, ale nie zagra.
   if exists (
     select 1 from unnest(players) p(id)
      where not exists (
@@ -282,7 +282,7 @@ end;
 $$;
 
 comment on function public.start_play(uuid, uuid, uuid, uuid[], int[], uuid[]) is
-  'Rozpoczyna partię (szkic) z bieżącą wersją notesu, graczami w miejscach notesu (RUN-2, PAD-2, PAD-3) i dodatkami gry (expansion_ids); punktacja z tytułu o najwyższym skomplikowaniu, który mieści wszystkich graczy. Admin lub prowadzący, tylko spotkanie w trakcie.';
+  'Rozpoczyna partię (szkic) z bieżącą wersją notesu, graczami w miejscach notesu i dodatkami gry (expansion_ids); punktacja z tytułu o najwyższym skomplikowaniu, który mieści wszystkich graczy. Admin lub prowadzący, tylko spotkanie w trakcie.';
 
 revoke execute on function public.start_play(uuid, uuid, uuid, uuid[], int[], uuid[]) from public, anon;
 grant execute on function public.start_play(uuid, uuid, uuid, uuid[], int[], uuid[]) to authenticated;

@@ -1,10 +1,10 @@
 import { createEffect, createMemo, createSignal, createUniqueId, type Accessor } from 'solid-js';
 
-/** Liczba pozycji długiej listy (kolekcja, członkowie) dorysowywanych naraz (NFR-2). */
+/** Liczba pozycji długiej listy (kolekcja, członkowie) dorysowywanych naraz. */
 const CHUNK_SIZE = 24;
 
 /**
- * Długa lista rysowana porcjami (NFR-2): najpierw `size` pozycji,
+ * Długa lista rysowana porcjami: najpierw `size` pozycji,
  * kolejne po „Pokaż więcej”. Zmiana `resetKey` (np. wyszukiwanej frazy) wraca do pierwszej
  * porcji. Po dorysowaniu fokus przechodzi na pierwszą nową pozycję (`data-chunk-start`).
  */

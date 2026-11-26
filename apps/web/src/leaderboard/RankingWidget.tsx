@@ -13,11 +13,11 @@ import type { LeaderboardKind } from './leaderboard';
 import { tieGroups } from './ties';
 
 /**
- * Widżet rankingu (LB-1…LB-4, DS §6): zakładki Punkty / Wygrane, filtry dat i gier, podium
+ * Widżet rankingu: zakładki Punkty / Wygrane, filtry dat i gier, podium
  * i miejsca 4–7. „Zobacz więcej” otwiera popup na tej samej zakładce i z tymi samymi filtrami,
  * „Remisy” — szczegóły rozstrzygnięcia równych wyników. Bez zapisanych partii pusty stan bez
- * CTA (CLUB-4); klasyfikowani są wszyscy z ≥ 1 partią, więc pusty ranking jest pusty we
- * wszystkich zakładkach naraz (LB-5).
+ * CTA; klasyfikowani są wszyscy z ≥ 1 partią, więc pusty ranking jest pusty
+ * wszystkich zakładkach naraz.
  */
 export function RankingWidget(props: { readonly me: Profile }) {
   const [kind, setKind] = createSignal<LeaderboardKind>('points');

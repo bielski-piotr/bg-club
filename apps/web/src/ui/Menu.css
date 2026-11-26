@@ -1,4 +1,4 @@
-/* Menu kontekstowe (DS §7): panel `.menu` z Select.css, elementy są przyciskami. */
+/* Menu kontekstowe: panel `.menu` z Select.css, elementy są przyciskami. */
 .menu-button {
   position: relative;
   display: inline-flex;

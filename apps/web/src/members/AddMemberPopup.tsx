@@ -48,8 +48,8 @@ function problemText(problem: FieldProblem | undefined, required: string): strin
 }
 
 /**
- * Popup „Dodaj członka” (MEM-3, DS §7 formularz 560 / arkusz na telefonie). Po zapisie pokazuje
- * hook i wygenerowane hasło jednorazowo (AUTH-4): hasło jest tylko w stanie tego popupu, nie
+ * Popup „Dodaj członka” (formularz 560 / arkusz na telefonie). Po zapisie pokazuje
+ * hook i wygenerowane hasło jednorazowo: hasło jest tylko w stanie tego popupu, nie
  * w adresie, cache'u zapytań ani `localStorage`, więc znika po zamknięciu okna.
  */
 export function AddMemberPopup() {

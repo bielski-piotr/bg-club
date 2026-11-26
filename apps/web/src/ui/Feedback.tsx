@@ -21,7 +21,7 @@ export interface BannerProps {
 }
 
 /**
- * Baner informacyjny lub ostrzegawczy (DS §10). Wariant `error` (tło danger, DS §3) służy
+ * Baner informacyjny lub ostrzegawczy. Wariant `error` (tło danger) służy
  * do błędów wczytywania i jest ogłaszany jako `role="alert"`.
  */
 export function Banner(props: BannerProps) {
@@ -49,11 +49,11 @@ export interface EmptyStateProps {
   readonly lead?: JSX.Element | undefined;
   readonly title: string;
   readonly helper?: string | undefined;
-  /** CTA pod treścią (pełnej szerokości przycisk główny, DS §6). */
+  /** CTA pod treścią (pełnej szerokości przycisk główny). */
   readonly action?: JSX.Element | undefined;
 }
 
-/** Pusty stan widżetu (DS §6, §17 CLUB-4). */
+/** Pusty stan widżetu. */
 export function EmptyState(props: EmptyStateProps) {
   const lead = createSlot(() => props.lead);
   const action = createSlot(() => props.action);

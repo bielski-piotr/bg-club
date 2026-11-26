@@ -70,16 +70,16 @@ import { PlaySummaryDialog } from './PlaySummaryDialog';
 
 const text = t.meetings.play;
 
-/** Oderwana kartka czekająca na decyzję (PAD-5): podsumowanie albo powrót na notes. */
+/** Oderwana kartka czekająca na decyzję: podsumowanie albo powrót na notes. */
 interface TornSheet {
   readonly sheet: ScorePadSheet;
   readonly summary: PlaySummary | null;
   readonly ranked: ScorePadSaveDetail['results'];
-  /** Obraz karteczki wgrywany w tle, zanim użytkownik potwierdzi zapis (PAD-6). */
+  /** Obraz karteczki wgrywany w tle, zanim użytkownik potwierdzi zapis. */
   readonly image: PendingSheetImage;
 }
 
-/** Start notesu z chwili otwarcia (wznowienie, PAD-4). */
+/** Start notesu z chwili otwarcia (wznowienie). */
 interface Opened {
   readonly start: DraftStart;
   /** Wpisy startowe z imionami graczy; `null` przy konflikcie. */
@@ -88,13 +88,13 @@ interface Opened {
 }
 
 /**
- * Partia w toku (PAD-4, PAD-8, PAD-9, RUN-3): notes 3D z szablonem wersji, z którą partia się
+ * Partia w toku: notes 3D z szablonem wersji, z którą partia się
  * zaczęła, i graczami na ich miejscach. Wpisy zapisują się jako szkic w bazie (po 1,5 s)
  * i w `localStorage`, więc odświeżenie, awaria i utrata sieci ich nie gubią, a admin albo
  * prowadzący może dokończyć partię na innym urządzeniu. Nowszy szkic z innego urządzenia daje
  * konflikt do rozstrzygnięcia zamiast cichego nadpisania.
  *
- * Oderwanie karteczki kończy partię (PAD-5): podsumowanie z miejscami i punktami, po
+ * Oderwanie karteczki kończy partię: podsumowanie z miejscami i punktami, po
  * potwierdzeniu zapis kartki i wyników w jednej transakcji (`save_play`), a „Wróć do kartki”
  * kładzie kartkę z powrotem na notes.
  *
@@ -138,7 +138,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
   const view = createMemo<'gone' | 'loading' | 'live' | 'pad'>(() => {
     if (gone() || (current() && meeting.current() === null)) return 'gone';
     // Notes zaczyna od świeżego szkicu z bazy, nie z pamięci podręcznej (inne urządzenie
-    // mogło go w międzyczasie zmienić, PAD-4).
+    // mogło go w międzyczasie zmienić).
     if (!current() || !play.state()?.isFetchedAfterMount || !meetingData() || !profileMap()) {
       return 'loading';
     }
@@ -166,7 +166,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
   });
 
   // Start notesu liczony raz, przy pierwszym wejściu w notes: wpisy z bazy, niezapisana kopia
-  // z tego urządzenia albo konflikt między nimi (wznowienie, PAD-4).
+  // z tego urządzenia albo konflikt między nimi (wznowienie).
   let first: Opened | undefined;
   const opened = createMemo(() => {
     if (first || !active()) return first;
@@ -251,7 +251,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
     },
   );
 
-  // Aktualizacja aplikacji czeka, aż wpisy będą w bazie (NFR-3, PAD-4).
+  // Aktualizacja aplikacji czeka, aż wpisy będą w bazie.
   // Po zamknięciu notesu blokadę zdejmuje dopiero koniec zapisu (efekt wyżej).
   createEffect(
     () => (active() ? { id: playId(), state: status().state } : null),
@@ -329,7 +329,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
     setInitial({ sheet: chosen, version: server.version, dirty: keep === 'local' });
   };
 
-  // Oderwana kartka czeka na decyzję (PAD-5): podsumowanie albo powrót na notes. Notes po
+  // Oderwana kartka czeka na decyzję: podsumowanie albo powrót na notes. Notes po
   // oderwaniu kładzie na wierzch czystą kartkę; jej wpisów nie zapisujemy jako szkicu.
   let tearing = false;
   let tornNow = false;
@@ -432,7 +432,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
     }
     setFinished(true);
     // Obraz karteczki dołączamy w tle: zapis wyników na niego nie czeka, a jego brak nie psuje
-    // historii (PAD-6). Po dołączeniu lista partii pokazuje miniaturę.
+    // historii. Po dołączeniu lista partii pokazuje miniaturę.
     void finishSheetImage(auth.client, input.play, input.image)
       .catch(() => null)
       .then(() => queryClient.invalidateQueries({ queryKey: meetingsKey }));
@@ -442,7 +442,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
     removeLocalDrafts(draftStorage(), input.play.id);
     release();
     toast.show(format(t.meetings.toasts.playSaved, { title: input.play.game.title }), 'success');
-    // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane” (§5.6.5).
+    // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane”.
     void invalidatePlayData(queryClient);
     if (mounted()) popups.back();
   });
@@ -587,7 +587,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
                         onChange={({ sheet }) => {
                           // Po oderwaniu na wierzchu jest czysta kartka: to nie są wpisy partii.
                           if (tearing) return;
-                          // Imiona graczy wynikają z miejsc partii (PAD-2), nie z klawiatury.
+                          // Imiona graczy wynikają z miejsc partii, nie z klawiatury.
                           const next = sheetWithPlayers(sheet, names());
                           lastSheet = next;
                           saver?.change(next);
@@ -646,7 +646,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
   );
 }
 
-/** PAD-9: zamiast notesu „Trwa partia: {gra}” z graczami i powodem. */
+/** zamiast notesu „Trwa partia: {gra}” z graczami i powodem. */
 function LiveInfo(props: {
   readonly play: PlayDetail;
   readonly profiles: ReadonlyMap<string, Profile>;

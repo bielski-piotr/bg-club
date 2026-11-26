@@ -6,17 +6,17 @@ import type { CroppedCover } from './cover';
 import { gameRow, type GameFormValues } from './form';
 
 /**
- * Gra z kolekcji (PRD §5.4) z widoku `game_collection`: tylko aktywne gry (GAME-8) i data
- * ostatniej zapisanej partii (kolejność widżetu, GAME-1).
+ * Gra z kolekcji z widoku `game_collection`: tylko aktywne gry i data
+ * ostatniej zapisanej partii (kolejność widżetu).
  */
 export interface Game {
   readonly id: string;
   readonly title: string;
-  /** Ścieżka w buckecie `covers` (`games/<plik>`); `null` = monogram tytułu (GAME-6). */
+  /** Ścieżka w buckecie `covers` (`games/<plik>`); `null` = monogram tytułu. */
   readonly cover_path: string | null;
   readonly min_players: number;
   readonly max_players: number;
-  /** Punkty za miejsca 1…max_players (GAME-5), do dwóch miejsc po przecinku. */
+  /** Punkty za miejsca 1…max_players, do dwóch miejsc po przecinku. */
   readonly placement_points: readonly number[];
   /** Skomplikowanie 1…5; `null` tylko w grach dodanych przed wprowadzeniem pola. */
   readonly complexity: number | null;
@@ -42,7 +42,7 @@ export const GAME_COLUMNS =
   'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at, last_played_at, ' +
   'base_game_id, cover_source_path, cover_crop, play_count, available';
 
-/** Ile gier pokazuje widżet (GAME-1: domyślnie 5). */
+/** Ile gier pokazuje widżet (domyślnie 5). */
 export const COLLECTION_WIDGET_SIZE = 5;
 
 /** Wszystkie zapytania o gry; zapis gry odświeża je razem. */
@@ -59,7 +59,7 @@ export interface CollectionWidgetData {
 }
 
 /**
- * Widżet kolekcji (GAME-1, Q11): najpierw gry z zapisanymi partiami według daty ostatniej
+ * Widżet kolekcji: najpierw gry z zapisanymi partiami według daty ostatniej
  * partii malejąco, potem pozostałe według daty dodania malejąco; remisy rozstrzyga `id`.
  */
 export function collectionWidgetQuery(client: SupabaseClient) {
@@ -86,7 +86,7 @@ export function collectionWidgetQuery(client: SupabaseClient) {
  */
 
 /**
- * Gry pasujące do wyszukiwania (GAME-2) według tytułu. Porównanie robi baza (`search_games`:
+ * Gry pasujące do wyszukiwania według tytułu. Porównanie robi baza (`search_games`:
  * unaccent + lower), więc „zolw” znajdzie „Żółwie”. Puste zapytanie = cała kolekcja. Przy
  * zmianie zapytania widać poprzednie wyniki, dopóki nie przyjdą nowe.
  */
@@ -106,7 +106,7 @@ export function gameSearchQuery(client: SupabaseClient, query: string, enabled =
   };
 }
 
-/** Aktywna gra; `null` = nie ma takiej gry albo została usunięta (GAME-8). */
+/** Aktywna gra; `null` = nie ma takiej gry albo została usunięta. */
 export function gameQuery(client: SupabaseClient, id: string) {
   return {
     queryKey: gameKey(id),
@@ -245,11 +245,11 @@ const SAVED_COLUMNS =
   'id, title, cover_path, min_players, max_players, placement_points, complexity, created_at';
 
 /**
- * Dodaje grę albo dodatek (gdy `existing` = `null`) albo zapisuje zmiany (GAME-3). Nowa okładka
+ * Dodaje grę albo dodatek (gdy `existing` = `null`) albo zapisuje zmiany. Nowa okładka
  * (wynik kadru) i jej oryginał trafiają do Storage przed zapisem wiersza; gdy zapis się nie
  * uda, wysłane pliki są usuwane, a po udanym zapisie usuwane są pliki poprzedniej okładki, których
  * nowa nie używa (ponowne kadrowanie zostawia oryginał). Zmiana punktacji dotyczy tylko kolejnych
- * partii: rozpoczęte mają snapshot w bazie (GAME-9).
+ * partii: rozpoczęte mają snapshot w bazie.
  */
 export async function saveGame(
   client: SupabaseClient,
@@ -320,7 +320,7 @@ export async function saveGame(
 }
 
 /**
- * Usuwa grę z kolekcji (GAME-8). Usunięcie jest miękkie: okładka i wiersz zostają dla historii
+ * Usuwa grę z kolekcji. Usunięcie jest miękkie: okładka i wiersz zostają dla historii
  * („usunięta z kolekcji”), a baza ustawia znacznik czasu i usuwa grę z głosowań zaplanowanych
  * spotkań. Ponowne usunięcie niczego nie zmienia (idempotentne).
  */

@@ -17,7 +17,7 @@ export interface CardProps {
 }
 
 /**
- * Karta widżetu (DS §6): biała, ramka #E4E7F0, promień 28/24, padding 28/16, cień karty.
+ * Karta widżetu: biała, ramka #E4E7F0, promień 28/24, padding 28/16, cień karty.
  * Szerokość wyznacza rodzic (520 desktop / 343 telefon).
  */
 export function Card(props: CardProps) {
@@ -59,7 +59,7 @@ export interface TrayProps {
   readonly class?: ClassValue;
 }
 
-/** Taca listy (DS §6): tło #F1F3F9, promień 22, padding 10, odstęp 6. Dzieci: `ListRow`. */
+/** Taca listy: tło #F1F3F9, promień 22, padding 10, odstęp 6. Dzieci: `ListRow`. */
 export function Tray(props: TrayProps) {
   return (
     <ul class={['tray', props.class]} aria-label={props.label}>
@@ -75,9 +75,9 @@ export interface ListRowProps {
   readonly meta?: JSX.Element | undefined;
   /** Element na końcu: wynik, badge, przycisk ⋯. */
   readonly trailing?: JSX.Element | undefined;
-  /** 54 (ranking, gry) albo 64 (członkowie w popupie), DS §6–§7. */
+  /** 54 (ranking, gry) albo 64 (członkowie w popupie). */
   readonly height?: 54 | 64 | undefined;
-  /** Wiersz bieżącego użytkownika: tło akcentu, biały tekst (DS §6). */
+  /** Wiersz bieżącego użytkownika: tło akcentu, biały tekst. */
   readonly highlighted?: boolean | undefined;
   /** Wyszarzony wiersz (np. usunięty członek). */
   readonly muted?: boolean | undefined;

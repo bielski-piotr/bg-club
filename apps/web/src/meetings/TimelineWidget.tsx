@@ -16,8 +16,8 @@ import './meetings.css';
 import './calendar.css';
 
 /**
- * Timeline (MTG-3, DS §15.1): najwyżej 2 najbliższe nadchodzące spotkania (od dalszego), divider
- * „Dziś” i najwyżej 4 ostatnie zakończone (od najnowszego), z datami w strefie klubu (NFR-10).
+ * Timeline: najwyżej 2 najbliższe nadchodzące spotkania (od dalszego), divider
+ * „Dziś” i najwyżej 4 ostatnie zakończone (od najnowszego), z datami w strefie klubu.
  * Zakończone mają liczbę partii i zwycięzców. Wiersz otwiera popup spotkania, a „Zobacz więcej”
  * kalendarz. Bez spotkań: pusty stan bez CTA (planowanie startuje z widżetu Spotkanie).
  */

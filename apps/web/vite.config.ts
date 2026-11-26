@@ -5,7 +5,7 @@ import { isSecretKey } from './src/config/secretKey';
 import { pwaPlugin } from './src/pwa/plugin';
 
 /**
- * Połączenie z Supabase (DNS, TLS) zestawiane równolegle z pobieraniem pakietu (NFR-2). Bez
+ * Połączenie z Supabase (DNS, TLS) zestawiane równolegle z pobieraniem pakietu. Bez
  * poprawnego adresu w buildzie nie dodaje nic (aplikacja i tak pokaże błąd konfiguracji).
  */
 function preconnectPlugin(url: string | undefined): Plugin {
@@ -32,7 +32,7 @@ function preconnectPlugin(url: string | undefined): Plugin {
 
 export default defineConfig(({ mode }) => {
   // Vite wbudowuje zmienne VITE_* w publiczny bundel. Sekretny klucz serwera w miejscu klucza
-  // anon zatrzymuje build, zanim trafi do plików JS (NFR-9, PRD §6.1).
+  // anon zatrzymuje build, zanim trafi do plików JS.
   const env = loadEnv(mode, import.meta.dirname, 'VITE_');
   if (isSecretKey(env.VITE_SUPABASE_ANON_KEY ?? '')) {
     throw new Error(
@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    // Service worker powłoki (NFR-3): `dist/sw.js` z listą plików tego buildu.
+    // Service worker powłoki: `dist/sw.js` z listą plików tego buildu.
     plugins: [
       solid(),
       pwaPlugin(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url))),

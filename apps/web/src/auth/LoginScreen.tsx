@@ -32,13 +32,13 @@ const NOTICE_TEXT: Readonly<Record<AuthNotice, string>> = {
 const NOTICE_VARIANT: Readonly<Record<AuthNotice, BannerVariant>> = {
   sessionExpired: 'warning',
   accountInactive: 'error',
-  // Gracz sam usunął konto (USR-6): to potwierdzenie, nie błąd.
+  // Gracz sam usunął konto: to potwierdzenie, nie błąd.
   accountDeleted: 'info',
 };
 
 /**
- * Ekran logowania hookiem i hasłem (PRD §4, AUTH-1). Techniczny e-mail konta nigdy nie pojawia
- * się w interfejsie. Brak samodzielnej rejestracji i resetu hasła (PRD §1.2): konto i hasło
+ * Ekran logowania hookiem i hasłem. Techniczny e-mail konta nigdy nie pojawia
+ * się w interfejsie. Brak samodzielnej rejestracji i resetu hasła: konto i hasło
  * daje administrator.
  */
 export function LoginScreen(props: { readonly notice: AuthNotice | null }) {

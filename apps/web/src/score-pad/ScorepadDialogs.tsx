@@ -36,7 +36,7 @@ import {
 } from './scorepads';
 
 /**
- * „Zmień nazwę” notesu (GAME-7): bez nowej wersji, partie zachowują swój szablon. Jedno okno
+ * „Zmień nazwę” notesu: bez nowej wersji, partie zachowują swój szablon. Jedno okno
  * na wczytywanie i formularz.
  */
 export function RenameScorepadDialog(props: { readonly id: string }) {
@@ -269,8 +269,8 @@ export function MoveScorepadPopup(props: { readonly id: string }) {
 }
 
 /**
- * Potwierdzenie „Usuń notes” (GAME-7). Usunięcie jest miękkie: notes znika z listy i z wyboru
- * przy nowej partii, a wersje, obrazy kartek i rozegrane partie zostają w historii (GAME-9).
+ * Potwierdzenie „Usuń notes”. Usunięcie jest miękkie: notes znika z listy i z wyboru
+ * przy nowej partii, a wersje, obrazy kartek i rozegrane partie zostają w historii.
  * Jest idempotentne, więc po błędzie można je bezpiecznie ponowić.
  */
 export function DeleteScorepadDialog(props: { readonly id: string }) {

@@ -14,9 +14,9 @@ import type { LeaderboardKind } from './leaderboard';
 import { tieGroups } from './ties';
 
 /**
- * Pełny ranking (LB-3, LB-4, DS §7): te same zakładki, filtry i podium co widżet oraz pełna
+ * Pełny ranking: te same zakładki, filtry i podium co widżet oraz pełna
  * lista. Filtry startowe (z widżetu albo adresu) można dalej zmieniać i czyścić; zakres dat
- * liczy się w strefie klubu (NFR-10).
+ * liczy się w strefie klubu.
  */
 export function LeaderboardPopup(props: {
   readonly me: Profile;

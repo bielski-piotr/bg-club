@@ -46,7 +46,7 @@ export function topRecord(records: PlayRecords | undefined): RecordKind | null {
   return [...records.values()].includes('club') ? 'club' : 'personal';
 }
 
-/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają rekordy (§5.6.5). */
+/** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają rekordy. */
 export const meetingRecordsKey = (id: string) => [...meetingsKey, 'records', id] as const;
 
 /** Rekordy ustanowione w partiach spotkania (opcje zapytania). */
