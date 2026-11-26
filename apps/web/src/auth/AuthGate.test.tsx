@@ -115,7 +115,7 @@ const hubHeading = () => screen.findByRole('heading', { level: 1, name: CLUB.nam
 /** Własny profil i ustawienia otwiera menu chipu użytkownika w nagłówku huba. */
 async function openFromMenu(item: 'Mój profil' | 'Ustawienia') {
   fireEvent.click(await screen.findByRole('button', { name: 'Twoje konto: Ada Adminowska' }));
-  fireEvent.click(screen.getByRole('menuitem', { name: item }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: item }));
   return screen.findByRole('dialog', { name: item === 'Mój profil' ? 'Profil' : 'Ustawienia' });
 }
 

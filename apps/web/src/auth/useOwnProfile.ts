@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
-import { PROFILE_COLUMNS, type Profile } from '../react-shared/profiles';
+import { PROFILE_COLUMNS, type Profile } from '../profile/profileQueries';
 import type { ThemePreference } from '../theme/theme';
 
 /** Profil zalogowanego użytkownika (PRD §5.2) z ustawieniami widocznymi tylko dla niego. */

@@ -6,7 +6,7 @@ import { flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
 import { gameSearchKey } from '../games/games';
-import { clubKey } from '../hub/club';
+import { clubKey } from '../club/club';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, type Profile } from '../profile/profileQueries';
 import { renderSolid } from '../solid/testing';

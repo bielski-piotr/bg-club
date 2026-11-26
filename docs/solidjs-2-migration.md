@@ -378,10 +378,36 @@ Ustalenia:
 - Bundle: początkowy JS 238,9 KB gzip (limit 240) – zapas się kończy; etap 7 może wymagać pomiaru i decyzji przed
   podniesieniem limitu.
 
-### Etap 7 – Klub i nagłówek
+### Etap 7 – Klub i nagłówek ✅
 
-- `AppHeader`, `ClubLogo`, `club` (`ClubPopup`), `FirstRun` (+ ilustracja).
-- Po tym etapie wszystkie widżety i popupy są w Solid; React zostaje tylko w powłoce.
+Zrobione (po tym etapie wszystkie widżety, popupy i nagłówek są w Solid; React zostaje tylko w powłoce):
+
+- `src/club/` w Solid (`SOLID_DIRS`): `ClubPopup`, `ClubLogo`, `FirstRun`, `FirstRunIllustration` i `AppHeader`
+  (przeniesiony z `hub/`: menu awatara, logo i nazwa klubu, ołówek edycji). `Hub` montuje nagłówek i pierwsze
+  uruchomienie, a `HubPopup` formularz klubu przez `SolidIsland`.
+- Dane bez frameworka: `hub/club.ts` → `club/club.ts` (`clubQuery` jako zwykły obiekt opcji, `saveClub`, typy; test
+  `club/club.test.ts`). Hooki `useClub` i `useCoverUrl` usunięte: `Hub` woła `useQuery(clubQuery(client))`, wyspy
+  `createClub` / `createCoverUrl` z `solid/club.ts`.
+- Usunięte `react-shared/ProfileAvatar.tsx` i `react-shared/profiles.ts` (bez konsumentów; typy i stałe z
+  `profile/profileQueries.ts`). W `react-shared/` zostają tylko notesy dla strony design systemu (etap 8).
+- `ClubPopup` ma jedno okno dla wczytywania i formularza; formularz startuje z pierwszych wczytanych danych (jak
+  `GameFormPopup`), więc odświeżenie klubu w cache nie nadpisuje wpisów.
+- Testy: `src/hub/Hub.test.tsx` i `src/auth/AuthGate.test.tsx` (zmiany tylko w sposobie wpisywania – `fireEvent.input` –
+  i czekaniu na DOM po otwarciu menu i listy stref), `club/club-area.test.tsx` (bramka bez diagnostyki). `pnpm check` zielone.
+  E2e club, hub, auth, profile, smoke, a11y-audit (4 projekty): 126 zielonych, 2 pominięte (jak w specyfikacjach).
+
+Ustalenia:
+
+- **Błąd z etapu 1 naprawiony:** `solid/ui/Select` porównywał każdą opcję z jednym sygnałem `active` (i `props.value`),
+  więc przy liście ≈ 420 stref czasowych każdy ruch zaznaczenia odświeżał wszystkie opcje (`HUGE_FAN_OUT` w bramce).
+  Zaznaczenie i wybór są teraz mapami z `createProjection` (`isActive[index]`, `isSelected[value]`): zmieniają się dwa
+  klucze. Wcześniejsze listy były krótkie, więc kod się nie ujawniał.
+- SVG w JSX Solid: atrybuty prezentacji z myślnikiem (`stroke-width`, `stroke-linecap`); `focusable="false"` przez
+  `notFocusable` z `solid/ui/dom.ts` (typy JSX go nie znają), jak w `Icon`.
+- `profile/profile.test.tsx` raz zgłosił `HOT_SCOPE_TIME` (8,1 ms przy budżecie 8 ms) w pełnym przebiegu pod obciążeniem;
+  w kolejnych przebiegach czysto – pomiar czasu, nie zmiana w obszarze. Do obserwacji.
+- Bundle: początkowy JS 239,4 KB gzip (limit 240) – zapasu praktycznie brak; kolejna zmiana przed etapem 8 wymaga
+  decyzji o limicie.
 
 ### Etap 8 – powłoka i usunięcie Reacta
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Profile } from '../react-shared/profiles';
+import type { Profile } from '../profile/profileQueries';
 import { filterMembers } from './search';
 
 const member = (first: string, last: string, hook: string): Profile => ({

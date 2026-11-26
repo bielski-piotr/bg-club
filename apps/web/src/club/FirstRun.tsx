@@ -1,6 +1,8 @@
+/** @jsxImportSource @solidjs/web */
+import { Show, useContext } from 'solid-js';
 import { t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
-import { Button } from '../ui';
+import { PopupsContext } from '../solid/context';
+import { Button } from '../solid/ui';
 import { FirstRunIllustration } from './FirstRunIllustration';
 import './club.css';
 
@@ -9,21 +11,21 @@ import './club.css';
  * powitanie i dla administratora przycisk „Dodaj klub”. Gracz widzi tę samą ilustrację bez
  * przycisku. Tytuł jest nagłówkiem strony (nagłówek aplikacji nie ma jeszcze nazwy klubu).
  */
-export function FirstRun({ isAdmin }: { readonly isAdmin: boolean }) {
-  const { open } = usePopups();
+export function FirstRun(props: { readonly isAdmin: boolean }) {
+  const popups = useContext(PopupsContext);
   const text = t.club.firstRun;
   return (
-    <div className="first-run">
-      <FirstRunIllustration className="first-run__art" />
-      <h1 className="first-run__title">{isAdmin ? text.adminTitle : text.playerTitle}</h1>
-      <p className="first-run__text">{isAdmin ? text.adminText : text.playerText}</p>
-      {isAdmin ? (
-        <div className="first-run__action">
-          <Button icon="plus" onClick={() => open({ kind: 'club' })}>
+    <div class="first-run">
+      <FirstRunIllustration class="first-run__art" />
+      <h1 class="first-run__title">{props.isAdmin ? text.adminTitle : text.playerTitle}</h1>
+      <p class="first-run__text">{props.isAdmin ? text.adminText : text.playerText}</p>
+      <Show when={props.isAdmin}>
+        <div class="first-run__action">
+          <Button icon="plus" onClick={() => popups.open({ kind: 'club' })}>
             {text.add}
           </Button>
         </div>
-      ) : null}
+      </Show>
     </div>
   );
 }

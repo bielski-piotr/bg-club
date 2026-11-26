@@ -87,7 +87,12 @@ export function HubPopup({ route, me }: HubPopupProps) {
       return <SolidIsland component={PasswordPopup} props={{ me, variant: 'first' }} />;
     case 'club':
       // Formularz klubu jest tylko dla administratora (CLUB-2); gracz z linku go nie zobaczy.
-      return me.role === 'admin' ? <ClubPopup /> : <InvalidPopup />;
+      // Klub i nagłówek są w Solid 2.0 (docs/solidjs-2-migration.md, etap 7).
+      return me.role === 'admin' ? (
+        <SolidIsland component={ClubPopup} props={{}} />
+      ) : (
+        <InvalidPopup />
+      );
     case 'games':
       // Kolekcja, gry i karteczki są w Solid 2.0 (docs/solidjs-2-migration.md, etap 5a).
       return <SolidIsland component={CollectionPopup} props={{ isAdmin: me.role === 'admin' }} />;

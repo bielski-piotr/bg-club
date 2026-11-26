@@ -1,10 +1,10 @@
 import { useContext, type Accessor } from 'solid-js';
-import { clubQuery, COVERS_BUCKET } from '../hub/club';
+import { clubQuery, COVERS_BUCKET } from '../club/club';
 import { signedUrlQuery } from '../lib/storage';
 import { AuthContext } from './context';
 import { createQuery } from './query';
 
-/** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1); wersja Solid `useClub`. */
+/** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1). */
 export function createClub() {
   const auth = useContext(AuthContext);
   return createQuery(() => clubQuery(auth.client));

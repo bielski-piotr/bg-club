@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { keepPreviousData } from '@tanstack/query-core';
-import { COVERS_BUCKET } from '../hub/club';
+import { COVERS_BUCKET } from '../club/club';
 import { isUuid } from '../popups/routes';
 import type { CroppedCover } from './cover';
 import { gameRow, type GameFormValues } from './form';

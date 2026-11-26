@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { IMAGE_ACCEPT, ImageScaleError, scaleImage, type ScaledImage } from '../club/image';
-import { COVERS_BUCKET } from '../hub/club';
+import { COVERS_BUCKET } from '../club/club';
 import { renderCropCanvas, type CropFit, type CropState, type StoredCrop } from '../profile/crop';
 
 /*

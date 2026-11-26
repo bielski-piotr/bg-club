@@ -10,17 +10,18 @@ import {
 } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
+import { useQuery } from '@tanstack/react-query';
+import { AppHeader } from '../club/AppHeader';
+import { clubQuery } from '../club/club';
 import { FirstRun } from '../club/FirstRun';
 import { t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { PopupHost } from '../popups/PopupHost';
 import type { PopupRoute } from '../popups/routes';
-import type { Profile } from '../react-shared/profiles';
+import type { Profile } from '../profile/profileQueries';
 import { importOrReload } from '../pwa/staleChunk';
 import { Banner, Button, Spinner } from '../ui';
-import { AppHeader } from './AppHeader';
 import { PopupErrorBoundary } from './PopupErrorBoundary';
-import { useClub } from './club';
 import { useMasonry } from './useMasonry';
 import { SolidIsland } from '../bridge/SolidIsland';
 import { MembersWidget } from '../members/MembersWidget';
@@ -48,7 +49,7 @@ const MAIN_ID = 'hub-main';
  */
 export function Hub({ me }: { readonly me: OwnProfile }) {
   const { client } = useAuth();
-  const club = useClub(client);
+  const club = useQuery(clubQuery(client));
   usePasswordSuggestion(me);
   usePrefetchPopups();
   const renderPopup = useCallback(
@@ -62,9 +63,10 @@ export function Hub({ me }: { readonly me: OwnProfile }) {
   return (
     <PopupHost renderPopup={renderPopup} fallbackFocusId={MAIN_ID}>
       <div className={firstRun ? 'hub hub--first-run' : 'hub'}>
-        <AppHeader
-          club={loaded ? (club.data ?? 'none') : club.isError ? null : undefined}
-          me={me}
+        {/* Solid 2.0 (docs/solidjs-2-migration.md, etap 7). */}
+        <SolidIsland
+          component={AppHeader}
+          props={{ club: loaded ? (club.data ?? 'none') : club.isError ? null : undefined, me }}
         />
         <main
           id={MAIN_ID}
@@ -74,7 +76,7 @@ export function Hub({ me }: { readonly me: OwnProfile }) {
         >
           {loaded ? (
             firstRun ? (
-              <FirstRun isAdmin={me.role === 'admin'} />
+              <SolidIsland component={FirstRun} props={{ isAdmin: me.role === 'admin' }} />
             ) : (
               <Widgets me={me} />
             )

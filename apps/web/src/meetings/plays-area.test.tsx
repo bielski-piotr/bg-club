@@ -8,7 +8,7 @@ import type { AuthContextValue } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { SAMPLE_SCORE_PAD } from '../design-system/scorePadSample';
 import { gameSearchKey, gamesKey, type Game } from '../games/games';
-import { clubKey } from '../hub/club';
+import { clubKey } from '../club/club';
 import { format, t } from '../i18n';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, type Profile } from '../profile/profileQueries';

@@ -1,5 +1,13 @@
 /** @jsxImportSource @solidjs/web */
-import { createEffect, createMemo, createSignal, createUniqueId, For, Show } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createProjection,
+  createSignal,
+  createUniqueId,
+  For,
+  Show,
+} from 'solid-js';
 import { t } from '../../i18n';
 import { hintId } from '../../ui/fieldIds';
 import { normalizeSearch } from '../../ui/search';
@@ -246,6 +254,24 @@ export function Select<T extends string>(props: SelectProps<T>) {
     }
   };
 
+  // Opcje czytają swój klucz zamiast porównywać się z jednym sygnałem: przy długiej liście
+  // (≈ 420 stref czasowych) ruch zaznaczenia odświeża dwie opcje, a nie wszystkie (HUGE_FAN_OUT).
+  // Klucz ustawiony ostatnio: przy zmianie gaśnie tylko on.
+  let lastActive = -1;
+  const isActive = createProjection<Record<number, boolean>>((draft) => {
+    const index = open() ? active() : -1;
+    if (lastActive >= 0) draft[lastActive] = false;
+    if (index >= 0) draft[index] = true;
+    lastActive = index;
+  }, {});
+  let lastSelected: string | null = null;
+  const isSelected = createProjection<Record<string, boolean>>((draft) => {
+    const value = props.value;
+    if (lastSelected !== null) draft[lastSelected] = false;
+    if (value !== null) draft[value] = true;
+    lastSelected = value;
+  }, {});
+
   const message = () => props.error || props.hint;
   const activeId = () => (active() >= 0 ? optionId(active()) : undefined);
 
@@ -263,13 +289,13 @@ export function Select<T extends string>(props: SelectProps<T>) {
           <li
             id={optionId(index())}
             role="option"
-            aria-selected={ariaBool(option.value === props.value)}
+            aria-selected={ariaBool(!!isSelected[option.value])}
             aria-disabled={ariaTrue(option.disabled)}
             class={[
               'menu__item',
               {
-                'menu__item--selected': option.value === props.value,
-                'menu__item--active': index() === active(),
+                'menu__item--selected': !!isSelected[option.value],
+                'menu__item--active': !!isActive[index()],
               },
             ]}
             onPointerMove={() => {
@@ -282,7 +308,7 @@ export function Select<T extends string>(props: SelectProps<T>) {
               <span class="menu__meta tnum">{option.meta}</span>
             </Show>
             <span class="menu__check">
-              <Show when={option.value === props.value}>
+              <Show when={isSelected[option.value]}>
                 <Icon name="check" />
               </Show>
             </span>

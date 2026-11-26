@@ -6,7 +6,7 @@ import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import type { Game } from '../games/games';
 import { Hub } from '../hub/Hub';
 import { PopupRouter } from '../popups/PopupRouter';
-import type { Profile } from '../react-shared/profiles';
+import type { Profile } from '../profile/profileQueries';
 import { ToastProvider } from '../ui';
 import type { Scorepad } from '../score-pad/scorepads';
 

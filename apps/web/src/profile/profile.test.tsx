@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { gameSearchKey } from '../games/games';
-import { clubKey } from '../hub/club';
+import { clubKey } from '../club/club';
 import { NO_FILTERS } from '../leaderboard/filters';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { renderSolid } from '../solid/testing';

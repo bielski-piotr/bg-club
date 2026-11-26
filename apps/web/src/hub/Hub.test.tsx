@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import { PopupRouter } from '../popups/PopupRouter';
-import type { Profile } from '../react-shared/profiles';
+import type { Profile } from '../profile/profileQueries';
 import { ToastProvider } from '../ui';
 import { Hub } from './Hub';
 import { visibleMembers } from './members';
@@ -268,19 +268,21 @@ describe('popupy huba', () => {
     const { auth } = renderHub([ADA]);
     const chip = await screen.findByRole('button', { name: 'Twoje konto: Ada Testowa' });
     fireEvent.click(chip);
-    const menu = screen.getByRole('menu', { name: 'Menu konta' });
+    const menu = await screen.findByRole('menu', { name: 'Menu konta' });
     expect(
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
     ).toEqual(['Mój profil', 'Ustawienia', 'Wyloguj się']);
-    expect(within(menu).getByRole('menuitem', { name: 'Mój profil' })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(menu).getByRole('menuitem', { name: 'Mój profil' })).toHaveFocus(),
+    );
     fireEvent.keyDown(menu, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
     expect(chip).toHaveFocus();
 
     fireEvent.click(chip);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Mój profil' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Mój profil' }));
     const profile = await screen.findByRole('dialog', { name: 'Profil' });
     expect(window.location.search).toBe(`?p=profile/${ADA.id}`);
     // Właściciel ma Ustawienia; bez partii statystyki i rekordy (pusta kolekcja) mają puste stany.
@@ -295,8 +297,8 @@ describe('popupy huba', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Zamknij' }).at(-1) as HTMLElement);
     await waitFor(() => expect(window.location.search).toBe(''));
     fireEvent.click(await screen.findByRole('button', { name: 'Twoje konto: Ada Testowa' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Wyloguj się' }));
-    expect(auth.signOut).toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Wyloguj się' }));
+    await waitFor(() => expect(auth.signOut).toHaveBeenCalled());
   });
 
   it('cudzy profil nie ma ustawień ani akcji edycji, także dla admina (USR-7)', async () => {
@@ -345,7 +347,7 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
     expect(await within(dialog).findByText('Wpisz nazwę klubu.')).toBeInTheDocument();
     expect(writes).toEqual([]);
 
-    fireEvent.change(within(dialog).getByLabelText('Nazwa klubu'), {
+    fireEvent.input(within(dialog).getByLabelText('Nazwa klubu'), {
       target: { value: '  Klub Planszówkowy  ' },
     });
     // Domyślnie strefa przeglądarki (w testach z `TZ`), a gdy jej brak, Europe/Warsaw.
@@ -378,7 +380,7 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
     });
     fireEvent.click(await screen.findByRole('button', { name: 'Dodaj klub' }));
     const dialog = await screen.findByRole('dialog', { name: 'Dodaj klub' });
-    fireEvent.change(within(dialog).getByLabelText('Nazwa klubu'), { target: { value: 'Drugi' } });
+    fireEvent.input(within(dialog).getByLabelText('Nazwa klubu'), { target: { value: 'Drugi' } });
     // Inna karta założyła klub w międzyczasie.
     db.club = PLANSZOWKI;
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
@@ -398,14 +400,16 @@ describe('zakładanie i edycja klubu (CLUB-2, CLUB-4)', () => {
     expect(within(dialog).getByLabelText('Nazwa klubu')).toHaveValue('Planszówki');
 
     fireEvent.click(within(dialog).getByRole('button', { name: /Strefa czasowa/ }));
-    const search = within(dialog).getByRole('combobox', { name: 'Szukaj strefy' });
-    expect(search).toHaveFocus();
-    fireEvent.change(search, { target: { value: 'new york' } });
-    expect(
-      within(dialog)
-        .getAllByRole('option')
-        .map((o) => o.textContent),
-    ).toEqual([expect.stringMatching(/^America\/New_York/)]);
+    const search = await within(dialog).findByRole('combobox', { name: 'Szukaj strefy' });
+    await waitFor(() => expect(search).toHaveFocus());
+    fireEvent.input(search, { target: { value: 'new york' } });
+    await waitFor(() =>
+      expect(
+        within(dialog)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual([expect.stringMatching(/^America\/New_York/)]),
+    );
     fireEvent.keyDown(search, { key: 'Enter' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
 

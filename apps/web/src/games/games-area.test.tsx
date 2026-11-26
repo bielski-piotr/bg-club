@@ -5,7 +5,7 @@ import { QueryClient } from '@tanstack/query-core';
 import { flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../auth/authContext';
-import { clubKey } from '../hub/club';
+import { clubKey } from '../club/club';
 import { meetingRecordsKey } from '../meetings/records';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, type Profile } from '../profile/profileQueries';

@@ -1,10 +1,10 @@
-import { membersQuery } from '../react-shared/profiles';
+import { membersQuery } from '../profile/profileQueries';
 import { collectionWidgetQuery } from '../games/games';
 import { hubMeetingQuery } from '../meetings/meetings';
 import { usePrefetchQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Hub } from '../hub/Hub';
-import { clubQuery } from '../hub/club';
+import { clubQuery } from '../club/club';
 import { t } from '../i18n';
 import { PopupRouter } from '../popups/PopupRouter';
 import { useProfileTheme } from '../theme/useProfileTheme';
