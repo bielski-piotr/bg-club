@@ -143,37 +143,41 @@ export function DateRangeCalendar(props: DateRangeCalendarProps) {
             <div class="range-calendar__weekdays" aria-hidden="true">
               <For each={t.meetings.calendar.weekdays}>{(day) => <span>{day}</span>}</For>
             </div>
-            <For each={monthGrid(month())}>
+            {/* Klucze po dacie (jak `key` w React): dzień widoczny w obu miesiącach zostaje tym
+                samym przyciskiem po zmianie miesiąca, więc nie traci fokusu (Esc zamyka panel). */}
+            <For each={monthGrid(month())} keyed={(week) => week[0]?.date}>
               {(week) => (
                 <div class="range-calendar__week">
-                  <For each={week}>
+                  <For each={week()} keyed={(day) => day.date}>
                     {(day) => {
                       const inside = () => {
                         const { start, end } = range();
-                        return start !== null && end !== null && day.date > start && day.date < end;
+                        return (
+                          start !== null && end !== null && day().date > start && day().date < end
+                        );
                       };
-                      const isStart = () => day.date === range().start;
-                      const isEnd = () => day.date === range().end;
+                      const isStart = () => day().date === range().start;
+                      const isEnd = () => day().date === range().end;
                       return (
                         <button
                           type="button"
                           class={[
                             'range-calendar__day tnum',
                             {
-                              'range-calendar__day--outside': !day.inMonth,
-                              'range-calendar__day--today': day.date === props.today,
+                              'range-calendar__day--outside': !day().inMonth,
+                              'range-calendar__day--today': day().date === props.today,
                               'range-calendar__day--inside': inside(),
                               'range-calendar__day--start': isStart(),
                               'range-calendar__day--end': isEnd(),
                             },
                           ]}
-                          aria-label={`${longDayLabel(day.date)}${day.date === props.today ? `, ${text.today}` : ''}`}
+                          aria-label={`${longDayLabel(day().date)}${day().date === props.today ? `, ${text.today}` : ''}`}
                           aria-pressed={ariaBool(isStart() || isEnd() || inside())}
-                          onPointerEnter={() => setHover(day.date)}
-                          onFocus={() => setHover(day.date)}
-                          onClick={() => choose(day.date)}
+                          onPointerEnter={() => setHover(day().date)}
+                          onFocus={() => setHover(day().date)}
+                          onClick={() => choose(day().date)}
                         >
-                          {dayNumber(day.date)}
+                          {dayNumber(day().date)}
                         </button>
                       );
                     }}

@@ -1,10 +1,19 @@
-import { useEffect, useId, useRef, useState, type DragEvent } from 'react';
+/** @jsxImportSource @solidjs/web */
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  For,
+  Match,
+  Show,
+  Switch,
+} from 'solid-js';
 import { t } from '../i18n';
-import { Banner, Button, Icon, Spinner, TextLink } from '../ui';
-import { cx } from '../ui/cx';
+import { Banner, Button, Icon, Spinner, TextLink } from '../solid/ui';
 import { cameraSupported, type CameraProblem } from './camera';
 import { CameraCapture } from './CameraCapture';
-import type { ScorePadLoadState } from './useScorePadElement';
+import type { ScorePadLoadState } from './createScorePadElement';
 import { imageFromClipboard } from './wizard';
 
 const text = t.scorepads.wizard;
@@ -38,35 +47,23 @@ interface PhotoStepProps {
  * z podglądem. Brak kamery albo odmowa dostępu zostawia ścieżkę z plikiem i komunikat. Tu jest
  * też import pliku notesu `.json`.
  */
-export function PhotoStep({
-  photoUrl,
-  busy,
-  editorState,
-  onRetryEditor,
-  error,
-  notice,
-  onFile,
-  onImport,
-}: PhotoStepProps) {
-  const fileInput = useRef<HTMLInputElement>(null);
-  const cameraInput = useRef<HTMLInputElement>(null);
-  const importInput = useRef<HTMLInputElement>(null);
-  const tipsId = useId();
-  const [dragging, setDragging] = useState(false);
-  const dragDepth = useRef(0);
-  const [camera, setCamera] = useState(false);
-  const [cameraIssue, setCameraIssue] = useState<CameraProblem | undefined>(undefined);
-  const [systemCamera] = useState(prefersSystemCamera);
-  const onFileRef = useRef(onFile);
-  const blocked = busy || editorState !== 'ready';
-
-  useEffect(() => {
-    onFileRef.current = onFile;
-  });
+export function PhotoStep(props: PhotoStepProps) {
+  let fileInput: HTMLInputElement | undefined;
+  let cameraInput: HTMLInputElement | undefined;
+  let importInput: HTMLInputElement | undefined;
+  const tipsId = createUniqueId();
+  const [dragging, setDragging] = createSignal(false);
+  // Licznik zdarzeń przeciągania: kilka przychodzi przed flushem, więc zwykła zmienna.
+  let dragDepth = 0;
+  const [camera, setCamera] = createSignal(false);
+  const [cameraIssue, setCameraIssue] = createSignal<CameraProblem | undefined>(undefined);
+  // Rodzaj wskaźnika sprawdzany raz przy wejściu w krok (jak `useState(prefersSystemCamera)`).
+  const systemCamera = prefersSystemCamera();
+  const blocked = createMemo(() => props.busy || props.editorState !== 'ready');
 
   // Wklejenie obrazu ze schowka w dowolnym miejscu (poza polami tekstowymi).
-  useEffect(() => {
-    if (blocked) return;
+  createEffect(blocked, (isBlocked) => {
+    if (isBlocked) return;
     const onPaste = (event: ClipboardEvent) => {
       if (event.defaultPrevented) return;
       const target = event.target;
@@ -77,23 +74,23 @@ export function PhotoStep({
       if (!file) return;
       event.preventDefault();
       setCamera(false);
-      onFileRef.current(file);
+      props.onFile(file);
     };
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-  }, [blocked]);
+  });
 
-  const pick = (input: HTMLInputElement | null) => {
-    if (!blocked) input?.click();
+  const pick = (input: HTMLInputElement | undefined) => {
+    if (!blocked()) input?.click();
   };
 
   const takePhoto = () => {
     setCameraIssue(undefined);
     if (systemCamera) {
-      pick(cameraInput.current);
+      pick(cameraInput);
     } else if (!cameraSupported()) {
       setCameraIssue('unsupported');
-    } else if (!blocked) {
+    } else if (!blocked()) {
       setCamera(true);
     }
   };
@@ -105,219 +102,228 @@ export function PhotoStep({
   };
 
   const dragEnter = (event: DragEvent) => {
-    if (!event.dataTransfer.types.includes('Files')) return;
+    if (!event.dataTransfer?.types.includes('Files')) return;
     event.preventDefault();
-    dragDepth.current += 1;
+    dragDepth += 1;
     setDragging(true);
   };
   const dragLeave = () => {
-    dragDepth.current = Math.max(0, dragDepth.current - 1);
-    if (dragDepth.current === 0) setDragging(false);
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) setDragging(false);
   };
   const drop = (event: DragEvent) => {
     event.preventDefault();
-    dragDepth.current = 0;
+    dragDepth = 0;
     setDragging(false);
-    const file = event.dataTransfer.files[0];
-    if (file && !blocked) {
+    const file = event.dataTransfer?.files[0];
+    if (file && !blocked()) {
       setCamera(false);
-      onFile(file);
+      props.onFile(file);
     }
   };
 
-  const chooseButton = (
+  const chooseButton = () => (
     <Button
       variant={systemCamera ? 'secondary' : 'primary'}
       icon="upload"
       fullWidth={systemCamera}
-      disabled={blocked}
-      onClick={() => pick(fileInput.current)}
+      disabled={blocked()}
+      onClick={() => pick(fileInput)}
     >
       {text.stage.choose}
     </Button>
   );
-  const cameraButton = (
+  const cameraButton = () => (
     <Button
       variant={systemCamera ? 'primary' : 'secondary'}
       icon="camera"
       fullWidth={systemCamera}
-      disabled={blocked}
+      disabled={blocked()}
       onClick={takePhoto}
     >
       {text.stage.takePhoto}
     </Button>
   );
 
-  let stage;
-  if (camera) {
-    stage = (
-      <CameraCapture
-        onCapture={(photo) => {
-          setCamera(false);
-          onFile(photo);
-        }}
-        onCancel={() => setCamera(false)}
-        onProblem={(problem) => {
-          setCamera(false);
-          setCameraIssue(problem);
-        }}
-      />
-    );
-  } else if (photoUrl) {
-    stage = (
-      <>
-        <img className="wizard-photo__preview" src={photoUrl} alt={text.stage.preview} />
-        <div className="wizard-toolbar" role="toolbar" aria-label={text.stage.change}>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon="upload"
-            disabled={blocked}
-            onClick={() => pick(fileInput.current)}
-          >
-            {text.stage.choose}
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon="camera"
-            disabled={blocked}
-            onClick={takePhoto}
-          >
-            {text.stage.takePhoto}
-          </Button>
-        </div>
-      </>
-    );
-  } else {
-    stage = (
-      <div className="wizard-drop">
-        <span className="wizard-drop__icon" aria-hidden="true">
-          <Icon name="image" size={22} />
-        </span>
-        <p className="wizard-drop__title">{dragging ? text.stage.dragging : text.stage.title}</p>
-        <p className="wizard-drop__helper">{text.stage.helper}</p>
-        <div className={cx('wizard-drop__actions', systemCamera && 'wizard-drop__actions--stack')}>
-          {systemCamera ? (
-            <>
-              {cameraButton}
-              {chooseButton}
-            </>
-          ) : (
-            <>
-              {chooseButton}
-              {cameraButton}
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="wizard-body">
+    <div class="wizard-body">
       <div
-        className={cx(
+        class={[
           'wizard-stage',
           'wizard-photo',
-          !photoUrl && !camera && 'wizard-photo--empty',
-          dragging && 'wizard-photo--dragging',
-        )}
+          {
+            'wizard-photo--empty': !props.photoUrl && !camera(),
+            'wizard-photo--dragging': dragging(),
+          },
+        ]}
         onDragEnter={dragEnter}
         onDragOver={(event) => {
-          if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+          if (event.dataTransfer?.types.includes('Files')) event.preventDefault();
         }}
         onDragLeave={dragLeave}
         onDrop={drop}
       >
-        {stage}
-        {busy ? (
-          <div className="wizard-stage__busy">
+        <Switch
+          fallback={
+            <div class="wizard-drop">
+              <span class="wizard-drop__icon" aria-hidden="true">
+                <Icon name="image" size={22} />
+              </span>
+              <p class="wizard-drop__title">
+                {dragging() ? text.stage.dragging : text.stage.title}
+              </p>
+              <p class="wizard-drop__helper">{text.stage.helper}</p>
+              <div
+                class={['wizard-drop__actions', { 'wizard-drop__actions--stack': systemCamera }]}
+              >
+                {systemCamera ? (
+                  <>
+                    {cameraButton()}
+                    {chooseButton()}
+                  </>
+                ) : (
+                  <>
+                    {chooseButton()}
+                    {cameraButton()}
+                  </>
+                )}
+              </div>
+            </div>
+          }
+        >
+          <Match when={camera()}>
+            <CameraCapture
+              onCapture={(photo) => {
+                setCamera(false);
+                props.onFile(photo);
+              }}
+              onCancel={() => setCamera(false)}
+              onProblem={(problem) => {
+                setCamera(false);
+                setCameraIssue(problem);
+              }}
+            />
+          </Match>
+          <Match when={props.photoUrl}>
+            <img class="wizard-photo__preview" src={props.photoUrl} alt={text.stage.preview} />
+            <div class="wizard-toolbar" role="toolbar" aria-label={text.stage.change}>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="upload"
+                disabled={blocked()}
+                onClick={() => pick(fileInput)}
+              >
+                {text.stage.choose}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="camera"
+                disabled={blocked()}
+                onClick={takePhoto}
+              >
+                {text.stage.takePhoto}
+              </Button>
+            </div>
+          </Match>
+        </Switch>
+        <Show when={props.busy}>
+          <div class="wizard-stage__busy">
             <Spinner size={24} label={text.stage.loading} />
           </div>
-        ) : null}
+        </Show>
       </div>
-      <div className="wizard-panel">
-        {editorState === 'error' ? (
+      <div class="wizard-panel">
+        <Show when={props.editorState === 'error'}>
           <Banner
             variant="error"
             action={
-              <Button size="sm" variant="secondary" icon="refresh" onClick={onRetryEditor}>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="refresh"
+                onClick={() => props.onRetryEditor()}
+              >
                 {t.scorePad.retry}
               </Button>
             }
           >
             {t.scorePad.loadError}
           </Banner>
-        ) : null}
-        {error ? <Banner variant="error">{error}</Banner> : null}
-        {cameraIssue ? (
-          <Banner
-            variant="warning"
-            action={
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="upload"
-                disabled={blocked}
-                onClick={() => pick(fileInput.current)}
-              >
-                {text.stage.choose}
-              </Button>
-            }
-          >
-            {text.camera[cameraIssue]}
-          </Banner>
-        ) : null}
-        {notice ? <Banner variant="info">{notice}</Banner> : null}
-        <section className="wizard-tips" aria-labelledby={tipsId}>
-          <h3 id={tipsId} className="wizard-panel__title">
+        </Show>
+        <Show when={props.error}>{(error) => <Banner variant="error">{error()}</Banner>}</Show>
+        <Show when={cameraIssue()}>
+          {(issue) => (
+            <Banner
+              variant="warning"
+              action={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon="upload"
+                  disabled={blocked()}
+                  onClick={() => pick(fileInput)}
+                >
+                  {text.stage.choose}
+                </Button>
+              }
+            >
+              {text.camera[issue()]}
+            </Banner>
+          )}
+        </Show>
+        <Show when={props.notice}>{(notice) => <Banner variant="info">{notice()}</Banner>}</Show>
+        <section class="wizard-tips" aria-labelledby={tipsId}>
+          <h3 id={tipsId} class="wizard-panel__title">
             {text.tips.title}
           </h3>
-          <ol className="wizard-tips__list">
-            {text.tips.items.map((tip, index) => (
-              <li key={tip} className="wizard-tips__item">
-                <span className="wizard-tips__number" aria-hidden="true">
-                  {index + 1}
-                </span>
-                <span>{tip}</span>
-              </li>
-            ))}
+          <ol class="wizard-tips__list">
+            <For each={text.tips.items}>
+              {(tip, index) => (
+                <li class="wizard-tips__item">
+                  <span class="wizard-tips__number" aria-hidden="true">
+                    {index() + 1}
+                  </span>
+                  <span>{tip}</span>
+                </li>
+              )}
+            </For>
           </ol>
         </section>
         <TextLink
           chevron={false}
-          className="wizard-photo__import"
-          disabled={blocked}
-          onClick={() => pick(importInput.current)}
+          class="wizard-photo__import"
+          disabled={blocked()}
+          onClick={() => pick(importInput)}
         >
           {text.import}
         </TextLink>
       </div>
       <input
-        ref={fileInput}
+        ref={(element) => (fileInput = element)}
         type="file"
         accept="image/*"
         hidden
         aria-label={text.stage.choose}
-        onChange={(event) => takeFrom(event.currentTarget, onFile)}
+        onChange={(event) => takeFrom(event.currentTarget, props.onFile)}
       />
       <input
-        ref={cameraInput}
+        ref={(element) => (cameraInput = element)}
         type="file"
         accept="image/*"
         capture="environment"
         hidden
         aria-label={text.stage.takePhoto}
-        onChange={(event) => takeFrom(event.currentTarget, onFile)}
+        onChange={(event) => takeFrom(event.currentTarget, props.onFile)}
       />
       <input
-        ref={importInput}
+        ref={(element) => (importInput = element)}
         type="file"
         accept=".json,application/json"
         hidden
         aria-label={text.importLabel}
-        onChange={(event) => takeFrom(event.currentTarget, onImport)}
+        onChange={(event) => takeFrom(event.currentTarget, props.onImport)}
       />
     </div>
   );

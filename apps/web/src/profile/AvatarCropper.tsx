@@ -52,7 +52,7 @@ interface AvatarCropperProps {
 
 /**
  * Kadr zdjęcia (USR-3, DS „Profil / Kadrowanie awatara”): kwadratowy kadr z okrągłą maską
- * (awatar) albo maską okładki gry. Wersja Solid `react-shared/AvatarCropper.tsx` (ten sam DOM).
+ * (awatar) albo maską okładki gry (edytor okładek, `games/CoverEditor.tsx`).
  * Zdjęcie przesuwa się przeciągnięciem (mysz, palec) albo strzałkami, a powiększa suwakiem,
  * kółkiem myszy albo klawiszami + i −. Przy `fit="cover"` zdjęcie zawsze pokrywa cały kadr.
  */

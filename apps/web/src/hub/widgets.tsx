@@ -4,9 +4,8 @@ import { usePopups } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { ProfileAvatar } from '../react-shared/ProfileAvatar';
 import { avatarPerson, useAllProfiles, useMembers, type Profile } from '../react-shared/profiles';
-import { GameCover } from '../games/GameCover';
-import { useCollectionWidget, useGameSearch } from '../games/games';
-import { playersLabel } from '../games/labels';
+import { GameCover } from '../react-shared/GameCover';
+import { useGameSearch } from '../react-shared/games';
 import { useClub } from './club';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import {
@@ -56,7 +55,8 @@ import '../meetings/calendar.css';
 /*
  * Widżety huba (PRD §4, DS §6, §17): Spotkanie (MTG-1, od [023], przebieg w [026]), Ranking
  * (LB-1…LB-7, [033], moduł `leaderboard`), Timeline (MTG-3, [025]), Kolekcja (GAME-1)
- * i Członkowie (MEM-1).
+ * i Członkowie (MEM-1). Ranking, Kolekcja i Członkowie są już w Solid (`leaderboard/`, `games/`,
+ * `members/`).
  */
 
 /**
@@ -626,111 +626,5 @@ function TimelineRow({
         </span>
       </PopupLink>
     </li>
-  );
-}
-
-/**
- * Widżet kolekcji (GAME-1, DS §6 „Collection”): kilka gier w kolejności Q11 (ostatnio grane,
- * potem ostatnio dodane). Pierwsza ma dużą okładkę, kolejne są wierszami tacy z miniaturą.
- * „Zobacz więcej” otwiera popup kolekcji; pusty stan administratora ma „Dodaj grę” (CLUB-4).
- */
-export function CollectionWidget({ isAdmin }: { readonly isAdmin: boolean }) {
-  const { client } = useAuth();
-  const { open } = usePopups();
-  const collection = useCollectionWidget(client);
-  const data = collection.data;
-  const count = data ? plural(data.total, t.games.count) : undefined;
-  const action =
-    data && data.total > 0 ? (
-      <PopupLink to={{ kind: 'games' }} className="text-link">
-        <span>{t.ui.seeMore}</span>
-        <Icon name="chevron-right" />
-      </PopupLink>
-    ) : undefined;
-  const [featured, ...rest] = data?.games ?? [];
-
-  return (
-    <Card title={t.hub.collection.title} count={count} action={action}>
-      {collection.isPending ? (
-        <div className="collection-widget__loading">
-          <Skeleton width={148} height={148} radius={18} />
-          <Spinner label={t.hub.collection.loading} className="sr-only" />
-        </div>
-      ) : collection.isError ? (
-        <Banner
-          variant="error"
-          className="collection-widget__error"
-          action={
-            <Button
-              size="sm"
-              variant="secondary"
-              icon="refresh"
-              onClick={() => void collection.refetch()}
-            >
-              {t.hub.retry}
-            </Button>
-          }
-        >
-          {t.hub.loadError}
-        </Banner>
-      ) : !featured ? (
-        <EmptyState
-          icon="dice"
-          title={t.hub.collection.emptyTitle}
-          helper={isAdmin ? t.hub.collection.emptyHelperAdmin : t.hub.collection.emptyHelper}
-          action={
-            isAdmin ? (
-              <Button icon="plus" fullWidth onClick={() => open({ kind: 'add-game' })}>
-                {t.hub.collection.add}
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="collection-widget">
-          <PopupLink to={{ kind: 'games' }} className="collection-widget__featured">
-            <GameCover
-              id={featured.id}
-              title={featured.title}
-              coverPath={featured.cover_path}
-              size="large"
-              className="collection-widget__cover"
-              unavailable={!featured.available}
-            />
-            <span className="collection-widget__text">
-              <span className="collection-widget__title">{featured.title}</span>
-              <span className="collection-widget__meta">{playersLabel(featured)}</span>
-            </span>
-          </PopupLink>
-          {rest.length > 0 ? (
-            <Tray label={t.hub.collection.listLabel}>
-              {rest.map((game) => (
-                <li key={game.id} className="tray__item">
-                  <PopupLink
-                    to={{ kind: 'games' }}
-                    className="row row--54 row--interactive collection-widget__row"
-                  >
-                    <span className="row__leading">
-                      <GameCover
-                        id={game.id}
-                        title={game.title}
-                        coverPath={game.cover_path}
-                        size="thumb"
-                        unavailable={!game.available}
-                      />
-                    </span>
-                    <span className="row__text">
-                      <span className="row__title">{game.title}</span>
-                      <span className="row__meta">{playersLabel(game)}</span>
-                    </span>
-                    <Icon name="chevron-right" className="row__chevron" />
-                  </PopupLink>
-                </li>
-              ))}
-            </Tray>
-          ) : null}
-        </div>
-      )}
-    </Card>
   );
 }

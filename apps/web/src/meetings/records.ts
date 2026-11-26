@@ -50,8 +50,9 @@ export function topRecord(records: PlayRecords | undefined): RecordKind | null {
 /** Klucz w `meetingsKey`: zapis i usunięcie partii odświeżają rekordy (§5.6.5). */
 export const meetingRecordsKey = (id: string) => [...meetingsKey, 'records', id] as const;
 
-export function useMeetingRecords(client: SupabaseClient, meetingId: string, enabled = true) {
-  return useQuery({
+/** Rekordy ustanowione w partiach spotkania (opcje zapytania, wspólne dla React i Solid). */
+export function meetingRecordsQuery(client: SupabaseClient, meetingId: string, enabled = true) {
+  return {
     queryKey: meetingRecordsKey(meetingId),
     enabled,
     queryFn: async (): Promise<ReadonlyMap<string, PlayRecords>> => {
@@ -60,7 +61,11 @@ export function useMeetingRecords(client: SupabaseClient, meetingId: string, ena
       if (error) throw error;
       return groupRecords((data ?? []) as PlayRecord[]);
     },
-  });
+  };
+}
+
+export function useMeetingRecords(client: SupabaseClient, meetingId: string, enabled = true) {
+  return useQuery(meetingRecordsQuery(client, meetingId, enabled));
 }
 
 /** Wynik do podglądu przed zapisem: gracz i jego wartość kategorii decydującej. */

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/authContext';
 import type { OwnProfile } from '../auth/useOwnProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { GameCover } from '../games/GameCover';
+import { GameCover } from '../react-shared/GameCover';
 import { useClub } from '../hub/club';
 import { format, t } from '../i18n';
 import { InvalidPopup } from '../popups/InvalidPopup';

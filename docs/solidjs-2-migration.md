@@ -243,19 +243,87 @@ Ustalenia:
   Wartość startowa stanu lokalnego z propsa = `createSignal(untrack(() => …))`, nie `createSignal(() => …)`. Test jednostkowy
   ze statycznymi propsami tego nie łapał; nowy przypadek steruje zakresem sygnałem.
 - Bundle: początkowy JS 232,7 KB gzip (limit 240).
-- **Nie dokończone:** pełny przebieg e2e po poprawce kalendarza przerwany; przed poprawką padał tylko
-  `leaderboard.spec.ts:171` (kalendarz, przyczyna wyżej) oraz `new-play.spec.ts:332` i `perf.spec.ts` (poza obszarem, do sprawdzenia).
-  Do powtórzenia: e2e leaderboard, player-stats, profile, hub, a11y-audit, smoke, meetings.
+- E2e po poprawce kalendarza (sprawdzone w etapie 5a): `leaderboard.spec.ts:171` padał dalej, bo siatka dni
+  w Solid tworzyła nowe przyciski przy zmianie miesiąca (fokus wypadał z panelu i Esc go nie zamykał). Naprawione
+  w 5a: `<For keyed>` po dacie, jak `key` w React.
 
 ### Etap 5 – Kolekcja, gry, arkusze i notesy
 
-Największy obszar techniczny (≈11 tys. linii z `score-pad/` i `sheets/`), więc dwa PR-y:
+Największy obszar techniczny (≈11 tys. linii z `score-pad/` i `sheets/`), więc dwa PR-y.
 
-- 5a: widżet `CollectionWidget`; popupy `games`, `game`, `add-game`, `add-expansion`, `edit-game`, `delete-game`, `sheet` (`CollectionPopup`, `GameDetailsPopup`, `GameFormPopup`, `CoverEditor`, `GameStats`, `DeleteGameDialog`, `SheetPopup`, `SheetZoom`); współdzielone `GameCover`.
-- 5b: `scorepads`, `add-scorepad`, `edit-scorepad`, `rename-scorepad`, `move-scorepad`, `delete-scorepad` (`ScorepadsPopup`, `ScorepadEditorPopup`, `ScorepadWizard` i kroki, `ScorepadDialogs`, `ZoomButtons`).
-  `useScorePadElement` → `createScorePadElement(part, theme, create)`: element tworzony w efekcie, którego compute czyta wejście, a apply montuje/niszczy element (cleanup = usunięcie z DOM → `destroy()`); zmiana motywu osobnym efektem przez atrybut. `useDraft` → store.
-- `ScorePadView` (notes partii) zostaje w React do etapu 6, ale jako komponent współdzielony dostaje wersję Solid już w 5b.
-- Testy: `Collection.test.tsx`, `Scorepads.test.tsx`, `ScorepadWizard.test.tsx`, `ScorePadView.test.tsx`; e2e `games.spec.ts`, `game-stats.spec.ts`, `game-vote-totals.spec.ts`, `sheet-history.spec.ts`, wszystkie `scorepad-*.spec.ts` i `score-pad*.spec.ts`.
+#### 5a – Kolekcja, gry i karteczki ✅
+
+Zrobione:
+
+- `src/games/` i `src/sheets/` w Solid (`SOLID_DIRS`): `CollectionWidget` (przeniesiony z `hub/widgets.tsx`),
+  `CollectionPopup`, `GameDetailsPopup`, `GameFormPopup` (`AddGamePopup`, `AddExpansionPopup`, `EditGamePopup`),
+  `CoverEditor`, `GameStats`, `DeleteGameDialog`, `SheetPopup`, `SheetZoom`; `GameCover` przeniesiony z `src/solid/games/`.
+  `Hub` i `HubPopup` montują obszar przez `SolidIsland`.
+- Dane bez frameworka: `games.ts` (`gameQuery`, `expansionsQuery`, `allExpansionsQuery`, `gameTitlesQuery`,
+  `collectionWidgetQuery`, `gameSearchQuery`), `gameStatsQuery`, `gameVoteTotalQuery`, `sheets.ts` (`savedSheetQuery`,
+  `gameSheetsQuery`, `sheetImageUrlQuery`), `meetings/records.ts` (`meetingRecordsQuery`); `queryOptions` z React zastąpione
+  zwykłymi obiektami (`query-core` go nie eksportuje). Wersje Solid: `games/gameData.ts` (`createGame`, `createGameSearch`…),
+  `sheets/sheetData.ts`, `solid/meetings/records.ts`.
+- `react-shared/`: `GameCover`, `games.ts` (`useGameSearch`, `useGame`, `useAllExpansions`, `useGameTitles`) i `sheets.ts`
+  (`useSheetImageUrl`) dla spotkań i notesów (etapy 5b, 6). React `AvatarCropper` usunięty (edytor okładek używa
+  `profile/AvatarCropper`).
+- `src/solid/meetings/MeetingParts.tsx`: wersje Solid `SheetThumbnail`, `PlayResultRows`, `RecordBadge`, `PlayTimes`
+  (spotkania zostają w React do etapu 6); zgodność DOM z React w `solid/shared-parity.test.tsx`.
+- Testy: `src/hub/Collection.test.tsx` (przeniesiony z `games/`; zmiany tylko w sposobie wpisywania – `fireEvent.input` –
+  i czekaniu na DOM), `src/games/games-area.test.tsx` (bramka bez diagnostyki). E2e games, game-stats, game-vote-totals,
+  sheet-history, hub, smoke, a11y-audit, leaderboard, player-stats, profile, meetings: zielone.
+
+Ustalenia:
+
+- **Formularz z danymi z zapytania w jednym oknie:** `GameFormPopup` renderuje jeden `PopupModal` dla wczytywania,
+  formularza i „Nie znaleziono”. Stan formularza startuje z pierwszych wczytanych danych: `createMemo(() => (first ??= target()))`
+  zamraża pierwszą wartość, a `createSignal(() => initial(ctx()))` daje szkic, który odświeżenie cache'u nie nadpisuje.
+- **Odczyt w `blur`/`submit` po wpisie z tego samego zadania:** sygnał pokazuje wpis dopiero po flushu, więc `onBlur` czyta
+  wartość z pola (`event.currentTarget.value`), a `submit` zaczyna od `flush()` (jak w etapie 2).
+- **Listy z nowymi obiektami przy każdym obliczeniu** (siatka dni, wyniki): `keyed` po stabilnym id, inaczej przyciski powstają
+  od nowa i tracą fokus (błąd kalendarza z etapu 4).
+- Stan zdarzeń wskaźnika i kółka (`SheetZoom`, `CoverEditor`) trzymamy w zwykłych zmiennych obok sygnału: kilka zdarzeń
+  przychodzi przed flushem (odpowiednik `useRef` z wartością bieżącą w React).
+- `lint` przechodzi bez ostrzeżeń: test sterowanego zakresu w `DateRangeCalendar.test.tsx` nie czyta już sygnału poza
+  śledzonym zasięgiem; `wrangler.jsonc` sformatowany (przecinki końcowe; `prettier --check` padał już na `master`).
+- Bundle: początkowy JS 234,5 KB gzip (limit 240).
+
+#### 5b – Notesy ✅
+
+Zrobione:
+
+- `src/score-pad/` w Solid (`SOLID_DIRS`): `ScorepadsPopup` (z `ScorepadThumb`), `ScorepadEditorPopup` (`AddScorepadPopup`,
+  `EditScorepadPopup`), `ScorepadWizard` i kroki (`PhotoStep`, `CameraCapture`, `AreaStep`, `MappingStep`, `CategoriesStep`,
+  `TestStep`), `ScorepadDialogs` (`RenameScorepadDialog`, `MoveScorepadPopup`, `DeleteScorepadDialog`), `ZoomButtons`,
+  `ManualTieControls`, `ScorePadView`, `ScorePadEditorView`, `ScorePadStatus`. `HubPopup` montuje obszar przez `SolidIsland`.
+- `useScorePadElement` → `createScorePadElement(part, theme, create, input)`: efekt, którego compute czyta wejście (zmiana =
+  nowy element), a apply ładuje moduł, tworzy element i montuje go w kontenerze; cleanup usuwa element (→ `destroy()`). Motyw
+  osobnym efektem przez atrybut. Uchwyt notesu i edytora idzie przez `ref` komponentu jako funkcja (`ref={(h) => (pad = h)}`).
+- `useDraft` → `createDraft(() => wartość)`: memo przesuwa „widzianą” wartość tylko bez fokusu w polu, a szkic to sygnał
+  pochodny od tego memo (bez zapisów w obliczeniach).
+- Dane: `gameScorepadsQuery`, `activeScorepadsQuery`, `scorepadQuery`, `scorepadTemplateQuery` w `scorepads.ts`; wersje Solid
+  w `score-pad/scorepadData.ts`.
+- `react-shared/`: `ScorePadView`, `ScorePadEditorView`, `ScorePadStatus`, `useScorePadElement`, `ManualTieControls` i hook
+  `useActiveScorepads` dla partii i podsumowania (spotkania, etap 6) oraz strony design systemu (etap 8).
+- Jedno okno: `ScorepadWizard` dostaje stan wczytywania od popupu (`source`, `notFound`, `isError`) i renderuje jeden
+  `PopupModal` dla wczytywania, kreatora i „Nie znaleziono”; `ScorepadsPopup` i `RenameScorepadDialog` tak samo.
+- Testy: `src/hub/Scorepads.test.tsx` (przeniesiony; `fireEvent.input` w polach tekstowych, czekanie na odblokowany przycisk
+  po wyborze w `Select`), `score-pad/ScorePadView.test.tsx` (wersja Solid; wersja React w `react-shared/`),
+  `src/hub/ScorepadWizard.test.tsx` (przeniesiony: kreator w prawdziwym hoście React przez `SolidIsland`; atrapy edytora i notesu jako komponenty Solid; po każdym zdarzeniu `flush()`), `score-pad/scorepads-area.test.tsx` (bramka bez diagnostyki).
+- **E2e nie były uruchamiane** w 5b (ani pełny przebieg po 5a poza obszarem 5a) – na prośbę, do zrobienia przed scaleniem:
+  wszystkie `scorepad-*.spec.ts` i `score-pad*.spec.ts`, `new-play`, `play-*`, `meeting-run`, `voting`, `design-system`.
+
+Ustalenia:
+
+- **Apply efektu bez wartości zwracanej:** `createEffect(s, (v) => props.onX?.(v))` zwraca wynik callbacku (np. setter
+  sygnału zwraca wartość), a Solid traktuje go jak cleanup i rzuca „invalid cleanup value”. Apply z wywołaniem zawsze w klamrach.
+- **`autofocus` na wstawionym węźle nie działa:** fokus startowy w dialogu (React `autoFocus`) ustawiamy w `onSettled` przez `ref`.
+- **Błąd w `solid/ui/Choice.tsx` naprawiony:** `RadioGroup`, `SegmentedControl` i `ColorSwatches` nie cofały natywnego
+  zaznaczenia, gdy rodzic odrzucił zmianę (np. zmiana sposobu mapowania anulowana w potwierdzeniu). Po kliknięciu grupa wraca
+  do `value` (`revertRadios`), jak `Checkbox`; nowy wybór pokazuje dopiero zmiana propsa. Wykrył to test kreatora.
+- Bundle: początkowy JS 235,1 KB gzip (limit 240).
+- `Show when` z pustym tekstem jest fałszywe: do „klucza” komponentu (React `key`) z wartością, która może być pusta,
+  używamy krotki (`when={[path()] as const} keyed`).
 
 ### Etap 6 – Spotkania i Timeline
 

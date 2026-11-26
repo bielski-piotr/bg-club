@@ -1,59 +1,62 @@
-import { useState } from 'react';
+/** @jsxImportSource @solidjs/web */
+import { createSignal, For, Show } from 'solid-js';
 import { format, t } from '../i18n';
-import { Select } from '../ui';
+import { Select } from '../solid/ui';
 import './manualTies.css';
 
 const text = t.scorepads.manual;
 
-/** Each select ranks a player only within the original unresolved group. */
-export function ManualTieControls({
-  groups,
-  nameOf,
-  onChange,
-  disabled = false,
-}: {
+/**
+ * Ręczne rozstrzygnięcie remisów: każdy wybór ustawia gracza tylko w obrębie jego pierwotnej
+ * grupy. Wersja React dla podsumowania partii (etap 6): `react-shared/ManualTieControls.tsx`.
+ */
+export function ManualTieControls(props: {
   readonly groups: readonly (readonly number[])[];
   readonly nameOf: (seat: number) => string;
   readonly onChange: (decisions: number[][][]) => void;
   readonly disabled?: boolean;
 }) {
-  const [positions, setPositions] = useState<Record<number, string>>({});
-  if (!groups.length) return null;
+  const [positions, setPositions] = createSignal<Record<number, string>>({});
+  let current: Record<number, string> = {};
+  const choose = (seat: number, value: string) => {
+    current = { ...current, [seat]: value };
+    setPositions(current);
+    props.onChange(
+      props.groups.map((seats) => {
+        const orders = [...new Set(seats.map((s) => Number(current[s] ?? 1)))].sort(
+          (a, b) => a - b,
+        );
+        return orders.map((order) => seats.filter((s) => Number(current[s] ?? 1) === order));
+      }),
+    );
+  };
   return (
-    <section className="manual-ties" aria-label={text.title}>
-      <h3 className="manual-ties__title">{text.title}</h3>
-      <p className="manual-ties__hint">{text.hint}</p>
-      {groups.map((group, index) => (
-        <fieldset className="manual-ties__group" key={group.join(',')}>
-          <legend>{format(text.group, { n: index + 1 })}</legend>
-          {group.map((seat) => (
-            <Select
-              key={seat}
-              label={format(text.position, { name: nameOf(seat) })}
-              value={positions[seat] ?? '1'}
-              disabled={disabled}
-              options={group.map((_, i) => ({
-                value: String(i + 1),
-                label: format(text.order, { n: i + 1 }),
-              }))}
-              onChange={(value) => {
-                const next = { ...positions, [seat]: value };
-                setPositions(next);
-                onChange(
-                  groups.map((seats) => {
-                    const orders = [...new Set(seats.map((s) => Number(next[s] ?? 1)))].sort(
-                      (a, b) => a - b,
-                    );
-                    return orders.map((order) =>
-                      seats.filter((s) => Number(next[s] ?? 1) === order),
-                    );
-                  }),
-                );
-              }}
-            />
-          ))}
-        </fieldset>
-      ))}
-    </section>
+    <Show when={props.groups.length > 0}>
+      <section class="manual-ties" aria-label={text.title}>
+        <h3 class="manual-ties__title">{text.title}</h3>
+        <p class="manual-ties__hint">{text.hint}</p>
+        <For each={props.groups} keyed={(group) => group.join(',')}>
+          {(group, index) => (
+            <fieldset class="manual-ties__group">
+              <legend>{format(text.group, { n: index() + 1 })}</legend>
+              <For each={group()}>
+                {(seat) => (
+                  <Select
+                    label={format(text.position, { name: props.nameOf(seat) })}
+                    value={positions()[seat] ?? '1'}
+                    disabled={props.disabled ?? false}
+                    options={group().map((_, i) => ({
+                      value: String(i + 1),
+                      label: format(text.order, { n: i + 1 }),
+                    }))}
+                    onChange={(value) => choose(seat, value)}
+                  />
+                )}
+              </For>
+            </fieldset>
+          )}
+        </For>
+      </section>
+    </Show>
   );
 }

@@ -64,18 +64,29 @@ describe('kalendarz zakresu dat', () => {
       from: null,
       to: null,
     });
+    // Ostatni zakres z `onChange` (asercja bez odczytu sygnału poza śledzonym zasięgiem).
+    let chosen: { from: string | null; to: string | null } | undefined;
     render(() => (
       <DateRangeCalendar
         from={range().from}
         to={range().to}
         today="2026-11-23"
-        onChange={(from, to) => setRange({ from, to })}
+        onChange={(from, to) => {
+          chosen = { from, to };
+          setRange(chosen);
+        }}
       />
     ));
     flush();
     fireEvent.click(day(/10 listopada 2026/));
-    fireEvent.click(day(/6 grudnia 2026/));
-    expect(range()).toEqual({ from: '2026-11-10', to: '2026-12-06' });
+    const next = day(/6 grudnia 2026/);
+    next.focus();
+    fireEvent.click(next);
+    flush();
+    expect(chosen).toEqual({ from: '2026-11-10', to: '2026-12-06' });
+    // Ten sam przycisk dnia po przejściu na grudzień: fokus zostaje w kalendarzu.
+    expect(next).toBeInTheDocument();
+    expect(document.activeElement).toBe(next);
     expect(
       screen.getByRole('button', { name: /Wybierz miesiąc \(Grudzień\)/ }),
     ).toBeInTheDocument();

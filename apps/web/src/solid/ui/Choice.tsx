@@ -21,6 +21,20 @@ export interface CheckboxProps extends Omit<
   readonly class?: ClassValue;
 }
 
+/**
+ * Grupa radio jest sterowana propsem: po kliknięciu natywny wybór wraca do `value`, a nowy
+ * pojawia się dopiero, gdy rodzic go przyjmie (może odrzucić zmianę, np. po pytaniu
+ * o potwierdzenie). Przeglądarka sama zaznacza kliknięte pole i odznacza poprzednie.
+ */
+function revertRadios(input: HTMLInputElement, value: string | null | undefined): void {
+  const group = input.closest('fieldset') ?? input.parentElement;
+  for (const radio of group?.querySelectorAll<HTMLInputElement>(
+    `input[type="radio"][name="${CSS.escape(input.name)}"]`,
+  ) ?? []) {
+    radio.checked = radio.value === value;
+  }
+}
+
 /** Pole wyboru 22×22, promień 7 (DS §15). Natywny `<input>` zachowuje obsługę klawiatury. */
 export function Checkbox(props: CheckboxProps) {
   const rest = omit(props, 'label', 'checked', 'onCheckedChange', 'class', 'disabled');
@@ -80,7 +94,10 @@ export function RadioGroup<T extends string>(props: GroupProps<T>) {
               value={option.value}
               checked={props.value === option.value}
               disabled={option.disabled}
-              onChange={() => props.onChange(option.value)}
+              onChange={(event) => {
+                revertRadios(event.currentTarget, props.value);
+                props.onChange(option.value);
+              }}
             />
             <span class="radio" aria-hidden="true" />
             <span class="choice__label">{option.label}</span>
@@ -114,7 +131,10 @@ export function SegmentedControl<T extends string>(props: GroupProps<T>) {
                 value={option.value}
                 checked={props.value === option.value}
                 disabled={option.disabled}
-                onChange={() => props.onChange(option.value)}
+                onChange={(event) => {
+                  revertRadios(event.currentTarget, props.value);
+                  props.onChange(option.value);
+                }}
               />
               <span class="pill">{option.label}</span>
             </label>
@@ -210,7 +230,10 @@ export function ColorSwatches<T extends string>(props: ColorSwatchesProps<T>) {
                 name={name}
                 value={option.value}
                 checked={props.value === option.value}
-                onChange={() => props.onChange(option.value)}
+                onChange={(event) => {
+                  revertRadios(event.currentTarget, props.value);
+                  props.onChange(option.value);
+                }}
                 aria-label={option.label}
               />
               <span class="swatch__dot" style={{ background: option.color }} aria-hidden="true" />

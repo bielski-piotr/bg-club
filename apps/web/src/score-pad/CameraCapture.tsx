@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+/** @jsxImportSource @solidjs/web */
+import { createSignal, onSettled, Show } from 'solid-js';
 import { t } from '../i18n';
-import { Button, Spinner } from '../ui';
+import { Button, Spinner } from '../solid/ui';
 import { cameraProblem, cameraSupported, type CameraProblem } from './camera';
 
 const text = t.scorepads.wizard.camera;
@@ -35,19 +36,16 @@ interface CameraCaptureProps {
  * jeśli urządzenie go ma, i o najwyższą rozdzielczość. Strumień jest zatrzymywany po zdjęciu,
  * anulowaniu i zamknięciu kreatora.
  */
-export function CameraCapture({ onCapture, onCancel, onProblem }: CameraCaptureProps) {
-  const video = useRef<HTMLVideoElement>(null);
-  const [ready, setReady] = useState(false);
-  const [capturing, setCapturing] = useState(false);
-  const onProblemRef = useRef(onProblem);
+export function CameraCapture(props: CameraCaptureProps) {
+  let video: HTMLVideoElement | undefined;
+  const [ready, setReady] = createSignal(false);
+  const [capturing, setCapturing] = createSignal(false);
+  // Bieżąca wartość obok sygnału: drugie kliknięcie przed flushem nie zrobi drugiego zdjęcia.
+  let busy = false;
 
-  useEffect(() => {
-    onProblemRef.current = onProblem;
-  });
-
-  useEffect(() => {
+  onSettled(() => {
     if (!cameraSupported()) {
-      onProblemRef.current('unsupported');
+      props.onProblem('unsupported');
       return;
     }
     let stream: MediaStream | null = null;
@@ -68,57 +66,59 @@ export function CameraCapture({ onCapture, onCancel, onProblem }: CameraCaptureP
             return;
           }
           stream = granted;
-          const element = video.current;
+          const element = video;
           if (!element) return;
           element.srcObject = granted;
           await element.play().catch(() => undefined);
           if (!cancelled) setReady(true);
         },
         (error: unknown) => {
-          if (!cancelled) onProblemRef.current(cameraProblem(error));
+          if (!cancelled) props.onProblem(cameraProblem(error));
         },
       );
     return () => {
       cancelled = true;
       stream?.getTracks().forEach((track) => track.stop());
     };
-  }, []);
+  });
 
   const capture = async () => {
-    const element = video.current;
-    if (!element || capturing) return;
+    const element = video;
+    if (!element || busy) return;
+    busy = true;
     setCapturing(true);
     try {
-      onCapture(await grabFrame(element));
+      props.onCapture(await grabFrame(element));
     } catch {
+      busy = false;
       setCapturing(false);
-      onProblem('failed');
+      props.onProblem('failed');
     }
   };
 
   return (
-    <div className="wizard-camera">
+    <div class="wizard-camera">
       <video
-        ref={video}
-        className="wizard-camera__video"
+        ref={(element) => (video = element)}
+        class="wizard-camera__video"
         aria-label={text.label}
-        playsInline
+        playsinline
         muted
       />
-      {ready ? null : (
-        <div className="wizard-camera__status">
+      <Show when={!ready()}>
+        <div class="wizard-camera__status">
           <Spinner size={24} label={text.starting} />
         </div>
-      )}
-      <div className="wizard-toolbar" role="toolbar" aria-label={text.label}>
-        <Button size="sm" variant="secondary" onClick={onCancel}>
+      </Show>
+      <div class="wizard-toolbar" role="toolbar" aria-label={text.label}>
+        <Button size="sm" variant="secondary" onClick={() => props.onCancel()}>
           {text.cancel}
         </Button>
         <Button
           size="sm"
           icon="camera"
-          disabled={!ready}
-          loading={capturing}
+          disabled={!ready()}
+          loading={capturing()}
           onClick={() => void capture()}
         >
           {text.capture}

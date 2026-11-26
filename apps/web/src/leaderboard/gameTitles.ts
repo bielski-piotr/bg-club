@@ -1,5 +1,5 @@
 import { createMemo, type Accessor } from 'solid-js';
-import { createGameSearch } from '../solid/games/games';
+import { createGameSearch } from '../games/gameData';
 
 /**
  * Tytuły gier z kolekcji do opisów filtrów. Kolekcję pobieramy dopiero, gdy jest potrzebna

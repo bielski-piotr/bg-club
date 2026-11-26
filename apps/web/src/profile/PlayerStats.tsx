@@ -6,7 +6,7 @@ import { NO_FILTERS, type LeaderboardFilters } from '../leaderboard/filters';
 import { shortMeetingDate } from '../meetings/datetime';
 import { createClub } from '../solid/club';
 import { AuthContext } from '../solid/context';
-import { GameCover } from '../solid/games/GameCover';
+import { GameCover } from '../games/GameCover';
 import { FilterBar } from '../leaderboard/FilterBar';
 import { PopupLink } from '../solid/popups/PopupLink';
 import { QueryStatus } from '../solid/popups/QueryStatus';

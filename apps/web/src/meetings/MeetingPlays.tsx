@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/authContext';
-import { GameCover } from '../games/GameCover';
-import { useGameTitles } from '../games/games';
+import { GameCover } from '../react-shared/GameCover';
+import { useGameTitles } from '../react-shared/games';
 import { format, t } from '../i18n';
 import { usePopups } from '../popups/popupContext';
 import { QueryStatus } from '../popups/QueryStatus';
@@ -10,7 +10,7 @@ import { ProfileLink } from '../react-shared/ProfileLink';
 import { avatarPerson, fullName, useAllProfiles, type Profile } from '../react-shared/profiles';
 import { AvatarStack, Button, Icon, paletteColor, paletteIndex } from '../ui';
 import { cx } from '../ui/cx';
-import { useSheetImageUrl } from '../sheets/sheets';
+import { useSheetImageUrl } from '../react-shared/sheets';
 import '../sheets/sheets.css';
 import { localDateTime } from './datetime';
 import { RecordBadge } from './MeetingParts';

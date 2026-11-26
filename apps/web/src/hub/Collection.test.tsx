@@ -8,7 +8,7 @@ import { Hub } from '../hub/Hub';
 import { PopupRouter } from '../popups/PopupRouter';
 import type { Profile } from '../react-shared/profiles';
 import { normalizeSearch, ToastProvider } from '../ui';
-import type { Game } from './games';
+import type { Game } from '../games/games';
 
 /*
  * Kolekcja gier w hubie (PRD GAME-1…GAME-6, GAME-8): widżet, popup z wyszukiwaniem,
@@ -244,12 +244,12 @@ describe('popup kolekcji (GAME-2, GAME-3)', () => {
 
     // Szybkie pisanie: zapytanie idzie dopiero po przerwie, więc bez „Z” i „ZO”.
     const box = within(dialog).getByRole('searchbox', { name: 'Szukaj gry' });
-    for (const value of ['Z', 'ZO', 'ZOLW']) fireEvent.change(box, { target: { value } });
+    for (const value of ['Z', 'ZO', 'ZOLW']) fireEvent.input(box, { target: { value } });
     await waitFor(() => expect(within(dialog).getAllByRole('listitem')).toHaveLength(1));
     expect(within(dialog).getByText('Żółwie Wyścigi')).toBeInTheDocument();
     expect(searches).toEqual(['', 'ZOLW']);
 
-    fireEvent.change(within(dialog).getByRole('searchbox', { name: 'Szukaj gry' }), {
+    fireEvent.input(within(dialog).getByRole('searchbox', { name: 'Szukaj gry' }), {
       target: { value: 'szachy' },
     });
     expect(await within(dialog).findByText('Żadna gra nie pasuje do „szachy”')).toBeInTheDocument();
@@ -288,34 +288,37 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
       .getAllByRole('spinbutton')
       .map((element) => element as HTMLElement);
     fireEvent.keyDown(maxStepper as HTMLElement, { key: 'ArrowDown' });
-    expect(within(dialog).getAllByLabelText(/\. miejsce$/)).toHaveLength(3);
+    await waitFor(() => expect(within(dialog).getAllByLabelText(/\. miejsce$/)).toHaveLength(3));
     fireEvent.keyDown(minStepper as HTMLElement, { key: 'ArrowUp' });
+    await waitFor(() => expect(minStepper).toHaveAttribute('aria-valuenow', '2'));
     fireEvent.keyDown(minStepper as HTMLElement, { key: 'ArrowUp' });
     expect(
-      within(dialog).getByText('Max. liczba graczy nie może być mniejsza niż min.'),
+      await within(dialog).findByText('Max. liczba graczy nie może być mniejsza niż min.'),
     ).toBeInTheDocument();
     fireEvent.keyDown(minStepper as HTMLElement, { key: 'ArrowDown' });
+    await waitFor(() => expect(minStepper).toHaveAttribute('aria-valuenow', '3'));
     fireEvent.keyDown(minStepper as HTMLElement, { key: 'ArrowDown' });
+    await waitFor(() => expect(minStepper).toHaveAttribute('aria-valuenow', '2'));
 
-    fireEvent.change(within(dialog).getByLabelText('Tytuł'), {
+    fireEvent.input(within(dialog).getByLabelText('Tytuł'), {
       target: { value: '  Kolejka Górska ' },
     });
     // Skomplikowanie przelicza punkty ze wzoru (GAME-5); można je potem poprawić.
-    fireEvent.change(within(dialog).getByLabelText('Skomplikowanie'), { target: { value: '1' } });
-    expect(within(dialog).getByLabelText('1. miejsce')).toHaveValue('20,6');
+    fireEvent.input(within(dialog).getByLabelText('Skomplikowanie'), { target: { value: '1' } });
+    await waitFor(() => expect(within(dialog).getByLabelText('1. miejsce')).toHaveValue('20,6'));
     expect(within(dialog).getByLabelText('3. miejsce')).toHaveValue('2,1');
-    fireEvent.change(within(dialog).getByLabelText('1. miejsce'), { target: { value: '5' } });
-    fireEvent.change(within(dialog).getByLabelText('2. miejsce'), { target: { value: '-1' } });
-    fireEvent.change(within(dialog).getByLabelText('3. miejsce'), { target: { value: '7' } });
+    fireEvent.input(within(dialog).getByLabelText('1. miejsce'), { target: { value: '5' } });
+    fireEvent.input(within(dialog).getByLabelText('2. miejsce'), { target: { value: '-1' } });
+    fireEvent.input(within(dialog).getByLabelText('3. miejsce'), { target: { value: '7' } });
     expect(
-      within(dialog).getByText(
+      await within(dialog).findByText(
         'Wpisz liczbę 0 lub większą, najwyżej z dwoma miejscami po przecinku.',
       ),
     ).toBeInTheDocument();
     expect(within(dialog).getByText(/różnią się od wyliczonych ze wzoru/)).toBeInTheDocument();
     // Rosnąca punktacja: ostrzeżenie bez blokady (GAME-5).
     expect(within(dialog).getByText(/Niższe miejsce ma więcej punktów/)).toBeInTheDocument();
-    fireEvent.change(within(dialog).getByLabelText('2. miejsce'), { target: { value: '3' } });
+    fireEvent.input(within(dialog).getByLabelText('2. miejsce'), { target: { value: '3' } });
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
     expect(await screen.findByText('Dodano grę Kolejka Górska')).toBeInTheDocument();
@@ -340,12 +343,12 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     renderHub([], ADA, '?p=games/new');
     const dialog = await screen.findByRole('dialog', { name: 'Dodaj grę' });
     const title = within(dialog).getByLabelText('Tytuł');
-    fireEvent.change(title, { target: { value: 'Catan' } });
+    fireEvent.input(title, { target: { value: 'Catan' } });
     fireEvent.blur(title);
     expect(within(dialog).queryByText('Wpisz punkty.')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('Popraw zaznaczone pola.')).not.toBeInTheDocument();
-    fireEvent.change(title, { target: { value: '   ' } });
-    expect(within(dialog).getByText('Wpisz tytuł gry.')).toBeInTheDocument();
+    fireEvent.input(title, { target: { value: '   ' } });
+    expect(await within(dialog).findByText('Wpisz tytuł gry.')).toBeInTheDocument();
   });
 
   it('admin edytuje starszą grę z menu ⋯: max dodaje puste pole, skomplikowanie przelicza punkty', async () => {
@@ -354,8 +357,8 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     fireEvent.click(
       await within(dialog).findByRole('button', { name: 'Akcje gry Żółwie Wyścigi' }),
     );
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Edytuj' }));
-    // Po wczytaniu gry formularz zastępuje stan ładowania (nowe okno), więc szukamy go po polu.
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Edytuj' }));
+    // Formularz pojawia się po wczytaniu gry, więc szukamy go po polu.
     expect(await screen.findByLabelText('Tytuł')).toHaveValue('Żółwie Wyścigi');
     const form = screen.getByRole('dialog', { name: 'Edytuj grę' });
     expect(window.location.search).toBe(`?p=games&p=game/${ZOLWIE.id}/edit`);
@@ -364,11 +367,11 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
 
     const maxStepper = within(form).getAllByRole('spinbutton')[1] as HTMLElement;
     fireEvent.keyDown(maxStepper as HTMLElement, { key: 'ArrowUp' });
-    expect(within(form).getByLabelText('5. miejsce')).toHaveValue('');
+    expect(await within(form).findByLabelText('5. miejsce')).toHaveValue('');
     // Gra bez skomplikowania: zapis wymaga jego uzupełnienia.
     expect(within(form).getByText(/nie ma jeszcze skomplikowania/)).toBeInTheDocument();
-    fireEvent.change(within(form).getByLabelText('Skomplikowanie'), { target: { value: '1' } });
-    expect(within(form).getByLabelText('1. miejsce')).toHaveValue('21,8');
+    fireEvent.input(within(form).getByLabelText('Skomplikowanie'), { target: { value: '1' } });
+    await waitFor(() => expect(within(form).getByLabelText('1. miejsce')).toHaveValue('21,8'));
     expect(within(form).getByLabelText('5. miejsce')).toHaveValue('2,2');
     fireEvent.click(within(form).getByRole('button', { name: 'Zapisz' }));
 
@@ -396,7 +399,7 @@ describe('formularz gry (GAME-3…GAME-5)', () => {
     const toggle = within(form).getByRole('switch', { name: 'Dostępna' });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'));
     fireEvent.click(within(form).getByRole('button', { name: 'Zapisz' }));
     expect(await screen.findByText('Zapisano zmiany w grze Żółwie Wyścigi')).toBeInTheDocument();
     expect(writes).toMatchObject([{ op: 'update', row: { available: false } }]);
@@ -429,7 +432,7 @@ describe('usuwanie gry (GAME-8)', () => {
     fireEvent.click(
       await within(dialog).findByRole('button', { name: 'Akcje gry Łąka i Pszczoły' }),
     );
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Usuń' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Usuń' }));
     const confirm = await screen.findByRole('dialog', { name: 'Usunąć grę?' });
     expect(
       await within(confirm).findByText(/„Łąka i Pszczoły” zniknie z kolekcji/),

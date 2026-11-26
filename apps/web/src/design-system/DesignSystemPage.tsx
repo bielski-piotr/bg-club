@@ -41,8 +41,8 @@ import {
   type AvatarSize,
   type SelectOption,
 } from '../ui';
-import { ScorePadEditorView } from '../score-pad/ScorePadEditorView';
-import { ScorePadView } from '../score-pad/ScorePadView';
+import { ScorePadEditorView } from '../react-shared/ScorePadEditorView';
+import { ScorePadView } from '../react-shared/ScorePadView';
 import { SAMPLE_SCORE_PAD } from './scorePadSample';
 import './DesignSystemPage.css';
 

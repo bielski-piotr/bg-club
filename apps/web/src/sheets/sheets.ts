@@ -1,7 +1,5 @@
 import type { ScorePadSheet } from '@bg-club/score-pad';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '../auth/authContext';
 import { SIGNED_URL_SECONDS, signedUrlQuery } from '../lib/storage';
 import { t } from '../i18n';
 import { meetingsKey } from '../meetings/meetings';
@@ -16,10 +14,14 @@ import { SHEETS_BUCKET } from './sheetImages';
  * a usunięta gra i notes zostają w historii (miękkie usunięcie, GAME-8).
  */
 
+/*
+ * Opcje zapytań bez frameworka: wspólne dla hooków React (`react-shared/sheets.ts`, do etapu 8
+ * migracji) i kodu Solid (`sheets/sheetData.ts`) na tym samym cache.
+ */
+
 /** Podpisany adres obrazu karteczki; bez ścieżki zapytanie jest wyłączone. */
-export function useSheetImageUrl(path: string | null | undefined) {
-  const { client } = useAuth();
-  return useQuery(signedUrlQuery(client, SHEETS_BUCKET, path ?? null));
+export function sheetImageUrlQuery(client: SupabaseClient, path: string | null | undefined) {
+  return signedUrlQuery(client, SHEETS_BUCKET, path ?? null);
 }
 
 /** Zapisana karteczka partii: powiększenie, wyniki, spotkanie i podgląd 3D. */
@@ -92,8 +94,8 @@ export function fromSheetRow(row: SheetRow): SavedSheet | null {
 export const sheetKey = (id: string) => [...meetingsKey, 'sheet', id] as const;
 
 /** Karteczka zapisanej partii; `null` = nie ma takiej partii albo jeszcze trwa. */
-export function useSavedSheet(client: SupabaseClient, id: string) {
-  return useQuery({
+export function savedSheetQuery(client: SupabaseClient, id: string) {
+  return {
     queryKey: sheetKey(id),
     queryFn: async (): Promise<SavedSheet | null> => {
       if (!isUuid(id)) return null;
@@ -105,7 +107,7 @@ export function useSavedSheet(client: SupabaseClient, id: string) {
       if (error) throw error;
       return data ? fromSheetRow(data) : null;
     },
-  });
+  };
 }
 
 /** Karteczka w galerii gry (GAME-10). */
@@ -136,8 +138,8 @@ export const gameSheetsKey = (gameId: string) => [...meetingsKey, 'game-sheets',
  * Wszystkie oderwane karteczki gry od najnowszej (GAME-10, §5.6.6: `saved_at`, potem `id`).
  * Także po edycji i usunięciu notesu: partie wskazują niezmienne wersje szablonu.
  */
-export function useGameSheets(client: SupabaseClient, gameId: string) {
-  return useQuery({
+export function gameSheetsQuery(client: SupabaseClient, gameId: string) {
+  return {
     queryKey: gameSheetsKey(gameId),
     staleTime: (SIGNED_URL_SECONDS - 10 * 60) * 1000,
     queryFn: async (): Promise<GallerySheet[]> => {
@@ -174,5 +176,5 @@ export function useGameSheets(client: SupabaseClient, gameId: string) {
         winners: row.play_results.filter((r) => r.is_win).map((r) => r.profile_id),
       }));
     },
-  });
+  };
 }

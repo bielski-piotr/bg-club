@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { useAuth } from '../auth/authContext';
-import { useCoverUrl } from '../hub/club';
-import { monogram, paletteColor, paletteIndex } from '../ui';
-import { cx } from '../ui/cx';
+/** @jsxImportSource @solidjs/web */
+import { createSignal, Show } from 'solid-js';
+import { createCoverUrl } from '../solid/club';
+import type { ClassValue } from '../solid/ui/dom';
+import { monogram, paletteColor, paletteIndex } from '../ui/avatarUtils';
 import './games.css';
 
 interface GameCoverProps {
@@ -18,62 +18,60 @@ interface GameCoverProps {
    * `large` = okładka w siatce i w widżecie (promień 18, motyw i monogram, DS §14).
    */
   readonly size: 'thumb' | 'form' | 'large';
-  readonly className?: string | undefined;
+  readonly class?: ClassValue;
   /** Niedostępna gra: okładka wyszarzona (kolekcja, wybór w głosowaniu i partii). */
   readonly unavailable?: boolean | undefined;
 }
 
 /**
  * Okładka gry (GAME-6, DS §14): wgrany obraz albo kafelek w kolorze palety z białym
- * monogramem tytułu. Dekoracyjna: tytuł jest zawsze obok w tekście.
+ * monogramem tytułu. Dekoracyjna: tytuł jest zawsze obok w tekście. Wersja React dla obszarów
+ * jeszcze w React: `react-shared/GameCover.tsx` (ten sam DOM).
  */
-export function GameCover({
-  id,
-  title,
-  coverPath,
-  src,
-  size,
-  className,
-  unavailable = false,
-}: GameCoverProps) {
-  const { client } = useAuth();
-  const saved = useCoverUrl(client, src === undefined ? coverPath : null);
-  const url = src ?? saved.data;
-  const [failed, setFailed] = useState<string | undefined>(undefined);
-  const showImage = url !== undefined && url !== failed;
-  const text = title.trim() === '' ? '?' : title;
-  const letters = size === 'thumb' ? (Array.from(monogram(text))[0] ?? '?') : monogram(text);
+export function GameCover(props: GameCoverProps) {
+  const saved = createCoverUrl(() => (props.src === undefined ? props.coverPath : null));
+  const [failed, setFailed] = createSignal<string | undefined>(undefined);
+  const url = () => {
+    const value = props.src ?? saved().data;
+    return value !== undefined && value !== failed() ? value : undefined;
+  };
+  const letters = () => {
+    const text = props.title.trim() === '' ? '?' : props.title;
+    return props.size === 'thumb' ? (Array.from(monogram(text))[0] ?? '?') : monogram(text);
+  };
   return (
     <span
-      className={cx(
+      class={[
         'game-cover',
-        `game-cover--${size}`,
-        showImage && 'game-cover--image',
-        unavailable && 'game-cover--unavailable',
-        className,
-      )}
-      style={{ background: showImage ? undefined : paletteColor(paletteIndex(id)) }}
+        `game-cover--${props.size}`,
+        { 'game-cover--image': !!url(), 'game-cover--unavailable': !!props.unavailable },
+        props.class,
+      ]}
+      style={{ background: url() ? undefined : paletteColor(paletteIndex(props.id)) }}
       aria-hidden="true"
     >
-      {showImage ? (
-        <img
-          className="game-cover__img"
-          src={url}
-          alt=""
-          loading="lazy"
-          onError={() => setFailed(url)}
-        />
-      ) : (
-        <>
-          {size === 'thumb' ? null : (
-            <>
-              <span className="game-cover__circle" />
-              <span className="game-cover__dot" />
-            </>
-          )}
-          <span className="game-cover__monogram">{letters}</span>
-        </>
-      )}
+      <Show
+        when={url()}
+        fallback={
+          <>
+            <Show when={props.size !== 'thumb'}>
+              <span class="game-cover__circle" />
+              <span class="game-cover__dot" />
+            </Show>
+            <span class="game-cover__monogram">{letters()}</span>
+          </>
+        }
+      >
+        {(src) => (
+          <img
+            class="game-cover__img"
+            src={src()}
+            alt=""
+            loading="lazy"
+            onError={() => setFailed(src())}
+          />
+        )}
+      </Show>
     </span>
   );
 }

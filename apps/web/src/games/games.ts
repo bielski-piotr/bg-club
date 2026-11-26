@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
+import { keepPreviousData } from '@tanstack/query-core';
 import { COVERS_BUCKET } from '../hub/club';
 import { isUuid } from '../popups/routes';
 import type { CroppedCover } from './cover';
@@ -63,7 +63,7 @@ export interface CollectionWidgetData {
  * partii malejąco, potem pozostałe według daty dodania malejąco; remisy rozstrzyga `id`.
  */
 export function collectionWidgetQuery(client: SupabaseClient) {
-  return queryOptions({
+  return {
     queryKey: collectionWidgetKey,
     queryFn: async (): Promise<CollectionWidgetData> => {
       const { data, error, count } = await client
@@ -78,19 +78,19 @@ export function collectionWidgetQuery(client: SupabaseClient) {
       if (error) throw error;
       return { games: data, total: count ?? data.length };
     },
-  });
+  };
 }
 
-export function useCollectionWidget(client: SupabaseClient) {
-  return useQuery(collectionWidgetQuery(client));
-}
+/*
+ * Opcje zapytań o gry bez frameworka: wspólne dla hooków React (`react-shared/games.ts`, do
+ * etapu 8 migracji) i kodu Solid (`games/gameData.ts`) na tym samym cache.
+ */
 
 /**
  * Gry pasujące do wyszukiwania (GAME-2) według tytułu. Porównanie robi baza (`search_games`:
  * unaccent + lower), więc „zolw” znajdzie „Żółwie”. Puste zapytanie = cała kolekcja. Przy
  * zmianie zapytania widać poprzednie wyniki, dopóki nie przyjdą nowe.
  */
-/** Wyszukiwanie w kolekcji (opcje zapytania, wspólne dla React i Solid). */
 export function gameSearchQuery(client: SupabaseClient, query: string, enabled = true) {
   const normalized = query.trim();
   return {
@@ -107,13 +107,9 @@ export function gameSearchQuery(client: SupabaseClient, query: string, enabled =
   };
 }
 
-export function useGameSearch(client: SupabaseClient, query: string, enabled = true) {
-  return useQuery(gameSearchQuery(client, query, enabled));
-}
-
 /** Aktywna gra; `null` = nie ma takiej gry albo została usunięta (GAME-8). */
-export function useGame(client: SupabaseClient, id: string) {
-  return useQuery({
+export function gameQuery(client: SupabaseClient, id: string) {
+  return {
     queryKey: gameKey(id),
     queryFn: async (): Promise<Game | null> => {
       if (!isUuid(id)) return null;
@@ -125,15 +121,15 @@ export function useGame(client: SupabaseClient, id: string) {
       if (error) throw error;
       return data;
     },
-  });
+  };
 }
 
 /**
  * Aktywne dodatki gry (widok gry podstawowej): alfabetycznie. Dodatków nie ma w kolekcji,
  * filtrach ani głosowaniu.
  */
-export function useExpansions(client: SupabaseClient, baseId: string, enabled = true) {
-  return useQuery({
+export function expansionsQuery(client: SupabaseClient, baseId: string, enabled = true) {
+  return {
     queryKey: expansionsKey(baseId),
     enabled,
     queryFn: async (): Promise<Game[]> => {
@@ -148,12 +144,12 @@ export function useExpansions(client: SupabaseClient, baseId: string, enabled = 
       if (error) throw error;
       return data;
     },
-  });
+  };
 }
 
 /** Wszystkie aktywne dodatki (kreator partii i przenoszenie notesu), alfabetycznie. */
-export function useAllExpansions(client: SupabaseClient, enabled = true) {
-  return useQuery({
+export function allExpansionsQuery(client: SupabaseClient, enabled = true) {
+  return {
     queryKey: [...gamesKey, 'expansions', 'all'] as const,
     enabled,
     queryFn: async (): Promise<Game[]> => {
@@ -167,13 +163,13 @@ export function useAllExpansions(client: SupabaseClient, enabled = true) {
       if (error) throw error;
       return data;
     },
-  });
+  };
 }
 
 /** Tytuły gier i dodatków (także usuniętych) po id: dodatki partii w historii spotkań. */
-export function useGameTitles(client: SupabaseClient, ids: readonly string[]) {
+export function gameTitlesQuery(client: SupabaseClient, ids: readonly string[]) {
   const sorted = [...new Set(ids)].filter(isUuid).sort();
-  return useQuery({
+  return {
     queryKey: [...gamesKey, 'titles', sorted.join(',')] as const,
     enabled: sorted.length > 0,
     queryFn: async (): Promise<ReadonlyMap<string, string>> => {
@@ -185,7 +181,7 @@ export function useGameTitles(client: SupabaseClient, ids: readonly string[]) {
       if (error) throw error;
       return new Map(data.map((row) => [row.id, row.title]));
     },
-  });
+  };
 }
 
 /** Co zrobić z okładką przy zapisie formularza. */

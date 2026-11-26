@@ -6,19 +6,25 @@ import { createElement, type ReactElement } from 'react';
 import { flush } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
-import { GameCover as ReactGameCover } from '../games/GameCover';
+import { GameCover as ReactGameCover } from '../react-shared/GameCover';
 import { gameSearchKey } from '../games/games';
 import { clubKey } from '../hub/club';
-import { AvatarCropper as SolidCropper } from '../profile/AvatarCropper';
-import { AvatarCropper as ReactCropper } from '../react-shared/AvatarCropper';
-import { GameCover } from './games/GameCover';
+import { GameCover } from '../games/GameCover';
+import {
+  PlayTimes as ReactPlayTimes,
+  RecordBadge as ReactRecordBadge,
+} from '../meetings/MeetingParts';
+import { SheetThumbnail as ReactSheetThumbnail } from '../meetings/MeetingPlays';
+import { t } from '../i18n';
+import { PlayTimes, RecordBadge, SheetThumbnail } from './meetings/MeetingParts';
 import { renderSolid as renderWithHost } from './testing';
 import { normalize } from './ui/normalizeDom';
 
 /*
- * Zgodność DOM elementów współdzielonych z etapu 3 (docs/solidjs-2-migration.md) z wersjami
- * React, które zostają w obszarach jeszcze niezmigrowanych (Gry). Pasek filtrów i kalendarz rankingu
- * są od etapu 4 tylko w Solid (`leaderboard/`).
+ * Zgodność DOM elementów współdzielonych (docs/solidjs-2-migration.md) z wersjami React, które
+ * zostają w obszarach jeszcze niezmigrowanych: okładka gry (spotkania, notesy) i elementy spotkań
+ * używane przez kolekcję i karteczkę (etap 5a). Pasek filtrów i kalendarz rankingu są od etapu 4
+ * tylko w Solid (`leaderboard/`), kadr zdjęcia od etapu 5a (`profile/AvatarCropper`).
  */
 
 const h = (type: unknown, props?: unknown, ...children: unknown[]): ReactElement =>
@@ -51,7 +57,6 @@ interface Case {
   readonly act?: (container: HTMLElement) => void;
 }
 
-const noop = () => undefined;
 const cases: Case[] = [
   {
     name: 'GameCover: miniatura, duża, podgląd, niedostępna',
@@ -94,54 +99,56 @@ const cases: Case[] = [
     ),
   },
   {
-    name: 'AvatarCropper: koło i okładka z tłem',
+    name: 'SheetThumbnail: kartka zastępcza, mała, z obrazem',
+    react: () =>
+      withReact(
+        h(
+          'div',
+          null,
+          h(ReactSheetThumbnail, { gameId: 'g1', imageUrl: null }),
+          h(ReactSheetThumbnail, { gameId: 'g2', imageUrl: null, small: true, className: 'c' }),
+          h(ReactSheetThumbnail, { gameId: 'g3', imageUrl: '/s.png' }),
+        ),
+      ),
+    solid: () => (
+      <div>
+        <SheetThumbnail gameId="g1" imageUrl={null} />
+        <SheetThumbnail gameId="g2" imageUrl={null} small class="c" />
+        <SheetThumbnail gameId="g3" imageUrl="/s.png" />
+      </div>
+    ),
+  },
+  {
+    name: 'PlayTimes i RecordBadge',
     react: () =>
       h(
         'div',
         null,
-        h(ReactCropper, {
-          src: '/a.png',
-          image: { width: 800, height: 600 },
-          crop: { zoom: 1.2, x: 10, y: -5 },
-          onCropChange: noop,
+        h(ReactPlayTimes, {
+          startedAt: '2026-11-06T18:00:00Z',
+          endedAt: '2026-11-06T19:25:00Z',
+          timeZone: 'Europe/Warsaw',
+          labels: t.sheets,
         }),
-        h(ReactCropper, {
-          src: '/b.png',
-          image: { width: 400, height: 900 },
-          crop: { zoom: 1, x: 0, y: 0 },
-          onCropChange: noop,
-          shape: 'cover',
-          fit: 'contain',
-          fill: '#fff',
-          margin: 0.1,
-          maxSize: 320,
-        }),
+        h(ReactRecordBadge, { kind: 'club' }),
+        h(ReactRecordBadge, { kind: 'personal' }),
       ),
     solid: () => (
       <div>
-        <SolidCropper
-          src="/a.png"
-          image={{ width: 800, height: 600 }}
-          crop={{ zoom: 1.2, x: 10, y: -5 }}
-          onCropChange={noop}
+        <PlayTimes
+          startedAt="2026-11-06T18:00:00Z"
+          endedAt="2026-11-06T19:25:00Z"
+          timeZone="Europe/Warsaw"
+          labels={t.sheets}
         />
-        <SolidCropper
-          src="/b.png"
-          image={{ width: 400, height: 900 }}
-          crop={{ zoom: 1, x: 0, y: 0 }}
-          onCropChange={noop}
-          shape="cover"
-          fit="contain"
-          fill="#fff"
-          margin={0.1}
-          maxSize={320}
-        />
+        <RecordBadge kind="club" />
+        <RecordBadge kind="personal" />
       </div>
     ),
   },
 ];
 
-describe('zgodność DOM elementów współdzielonych (etap 3)', () => {
+describe('zgodność DOM elementów współdzielonych', () => {
   it.each(cases)('$name', (c) => {
     const react = renderReact(c.react());
     if (c.act) act(() => c.act?.(react.container));

@@ -6,7 +6,7 @@ import {
   type ScoringTemplate,
 } from '@bg-club/scoring';
 import { useAuth } from '../auth/authContext';
-import { ManualTieControls } from '../score-pad/ManualTieControls';
+import { ManualTieControls } from '../react-shared/ManualTieControls';
 import { format, formatNumber, t } from '../i18n';
 import { ProfileAvatar } from '../react-shared/ProfileAvatar';
 import { fullName, type Profile } from '../react-shared/profiles';

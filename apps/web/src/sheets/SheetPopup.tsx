@@ -1,20 +1,21 @@
-import { useState } from 'react';
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import { createSignal, Match, Show, Switch, useContext } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { useGameTitles } from '../games/games';
-import { useClub } from '../hub/club';
+import { createGameTitlesById } from '../games/gameData';
 import { format, t } from '../i18n';
 import { formatMeetingDate } from '../meetings/datetime';
-import { PlayTimes } from '../meetings/MeetingParts';
-import { PlayResultRows, SheetThumbnail } from '../meetings/MeetingPlays';
-import { useMeetingRecords } from '../meetings/records';
-import { usePopups } from '../popups/popupContext';
-import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { useAllProfiles } from '../react-shared/profiles';
-import { Button, Icon } from '../ui';
+import type { Profile } from '../profile/profileQueries';
+import { createClub } from '../solid/club';
+import { PopupsContext } from '../solid/context';
+import { PlayResultRows, PlayTimes, SheetThumbnail } from '../solid/meetings/MeetingParts';
+import { createMeetingRecords } from '../solid/meetings/records';
+import { PopupModal } from '../solid/popups/PopupModal';
+import { QueryStatus } from '../solid/popups/QueryStatus';
+import { createAllProfiles } from '../solid/profile/profiles';
+import { Button, Icon } from '../solid/ui';
+import { createSavedSheet, createSheetImageUrl } from './sheetData';
 import { SheetZoom } from './SheetZoom';
-import { useSavedSheet, useSheetImageUrl, type SavedSheet } from './sheets';
+import type { SavedSheet } from './sheets';
 import './sheets.css';
 
 const text = t.sheets;
@@ -25,159 +26,176 @@ const text = t.sheets;
  * koniec, czas trwania), wyniki graczy z rekordami klubu i osobistymi ustanowionymi w tej partii
  * i link do spotkania. Edycja i usunięcie gry albo notesu niczego tu nie zmieniają (GAME-9).
  */
-export function SheetPopup({
-  id,
-  isAdmin = false,
-}: {
+export function SheetPopup(props: {
   readonly id: string;
   /** Admin może stąd usunąć partię (VIEW-6, potwierdzenie `play/<uuid>/delete`). */
   readonly isAdmin?: boolean | undefined;
 }) {
-  const { client } = useAuth();
-  const sheet = useSavedSheet(client, id);
-  const profiles = useAllProfiles(client);
-  const club = useClub(client);
+  const sheet = createSavedSheet(() => props.id);
+  const profiles = createAllProfiles();
+  const club = createClub();
+  const gone = () => sheet().isSuccess && sheet().data === null;
+  const data = () => sheet().data ?? undefined;
+  const ready = () => (profiles().data ? data() : undefined);
+  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
 
-  if (sheet.isSuccess && sheet.data === null) {
-    return (
-      <PopupModal title={text.goneTitle}>
-        <p className="meeting-form__state">{text.gone}</p>
-      </PopupModal>
-    );
-  }
-  if (!sheet.data || !profiles.data) {
-    return (
-      <PopupModal title={text.loading} width={880}>
-        <QueryStatus
-          isError={sheet.isError || profiles.isError}
-          onRetry={() => {
-            if (sheet.isError) void sheet.refetch();
-            if (profiles.isError) void profiles.refetch();
-          }}
-        />
-      </PopupModal>
-    );
-  }
-  const data = sheet.data;
-  const timeZone = club.data?.timezone ?? FALLBACK_TIMEZONE;
+  // Jedno okno na wszystkie stany (wczytywanie, karteczka, brak partii): fokus z `PopupHost`
+  // zostaje na oknie po wczytaniu danych.
   return (
-    <PopupModal title={data.game.title} width={880}>
-      <SheetView sheet={data} profiles={profiles.data} timeZone={timeZone} isAdmin={isAdmin} />
+    <PopupModal
+      title={gone() ? text.goneTitle : (ready()?.game.title ?? text.loading)}
+      width={gone() ? undefined : 880}
+    >
+      <Switch>
+        <Match when={gone()}>
+          <p class="meeting-form__state">{text.gone}</p>
+        </Match>
+        <Match when={ready()}>
+          {(shown) => (
+            <SheetView
+              sheet={shown()}
+              profiles={profiles().data ?? new Map()}
+              timeZone={timeZone()}
+              isAdmin={props.isAdmin ?? false}
+            />
+          )}
+        </Match>
+        <Match when={true}>
+          <QueryStatus
+            isError={sheet().isError || profiles().isError}
+            onRetry={() => {
+              if (sheet().isError) void sheet().refetch();
+              if (profiles().isError) void profiles().refetch();
+            }}
+          />
+        </Match>
+      </Switch>
     </PopupModal>
   );
 }
 
-function SheetView({
-  sheet,
-  profiles,
-  timeZone,
-  isAdmin,
-}: {
+function SheetView(props: {
   readonly sheet: SavedSheet;
-  readonly profiles: Parameters<typeof PlayResultRows>[0]['profiles'];
+  readonly profiles: ReadonlyMap<string, Profile>;
   readonly timeZone: string;
   readonly isAdmin: boolean;
 }) {
-  const { client } = useAuth();
-  const { open } = usePopups();
-  const records = useMeetingRecords(client, sheet.meeting.id).data?.get(sheet.id);
-  const expansions = useGameTitles(client, sheet.expansion_ids);
-  const date = formatMeetingDate(sheet.saved_at, timeZone);
+  const popups = useContext(PopupsContext);
+  const records = createMeetingRecords(() => props.sheet.meeting.id);
+  const expansions = createGameTitlesById(() => props.sheet.expansion_ids);
+  const date = () => formatMeetingDate(props.sheet.saved_at, props.timeZone);
+  const expansionTitles = () => {
+    const titles = expansions().data;
+    if (!titles || props.sheet.expansion_ids.length === 0) return undefined;
+    return props.sheet.expansion_ids
+      .map((id) => titles.get(id) ?? '')
+      .filter((title) => title !== '')
+      .sort((a, b) => a.localeCompare(b, 'pl'))
+      .join(', ');
+  };
+  const resultsId = () => `${props.sheet.id}-results`;
   return (
-    <div className="sheet-view">
-      <div className="sheet-view__main">
-        <SheetImage sheet={sheet} label={format(text.image, { title: sheet.game.title, date })} />
+    <div class="sheet-view">
+      <div class="sheet-view__main">
+        <SheetImage
+          sheet={props.sheet}
+          label={format(text.image, { title: props.sheet.game.title, date: date() })}
+        />
       </div>
-      <div className="sheet-view__side">
-        <p className="sheet-view__meta">
-          {format(text.played, { date })}
-          {sheet.scorepad_name ? (
-            <>
-              <br />
-              {format(text.scorepad, { name: sheet.scorepad_name })}
-            </>
-          ) : null}
-          {expansions.data && sheet.expansion_ids.length > 0 ? (
-            <>
-              <br />
-              {format(text.expansions, {
-                titles: sheet.expansion_ids
-                  .map((id) => expansions.data.get(id) ?? '')
-                  .filter((title) => title !== '')
-                  .sort((a, b) => a.localeCompare(b, 'pl'))
-                  .join(', '),
-              })}
-            </>
-          ) : null}
+      <div class="sheet-view__side">
+        <p class="sheet-view__meta">
+          {format(text.played, { date: date() })}
+          <Show when={props.sheet.scorepad_name}>
+            <br />
+            {format(text.scorepad, { name: props.sheet.scorepad_name })}
+          </Show>
+          <Show when={expansionTitles() !== undefined}>
+            <br />
+            {format(text.expansions, { titles: expansionTitles() ?? '' })}
+          </Show>
         </p>
         <PlayTimes
-          startedAt={sheet.started_at}
-          endedAt={sheet.saved_at}
-          timeZone={timeZone}
+          startedAt={props.sheet.started_at}
+          endedAt={props.sheet.saved_at}
+          timeZone={props.timeZone}
           labels={text}
         />
-        <section className="meeting-view__section" aria-labelledby={`${sheet.id}-results`}>
-          <h3 id={`${sheet.id}-results`} className="meeting-view__head">
+        <section class="meeting-view__section" aria-labelledby={resultsId()}>
+          <h3 id={resultsId()} class="meeting-view__head">
             {text.results}
           </h3>
           <PlayResultRows
-            play={sheet}
-            profiles={profiles}
-            label={format(text.resultsLabel, { title: sheet.game.title })}
-            records={records}
+            play={props.sheet}
+            profiles={props.profiles}
+            label={format(text.resultsLabel, { title: props.sheet.game.title })}
+            records={records().data?.get(props.sheet.id)}
           />
         </section>
         <button
           type="button"
-          className="sheet-view__meeting"
-          aria-label={format(text.meetingLabel, { title: sheet.meeting.title })}
-          onClick={() => open({ kind: 'meeting', id: sheet.meeting.id })}
+          class="sheet-view__meeting"
+          aria-label={format(text.meetingLabel, { title: props.sheet.meeting.title })}
+          onClick={() => popups.open({ kind: 'meeting', id: props.sheet.meeting.id })}
         >
-          <span className="sheet-view__meeting-icon" aria-hidden="true">
+          <span class="sheet-view__meeting-icon" aria-hidden="true">
             <Icon name="calendar" />
           </span>
-          <span className="sheet-view__meeting-text">
-            <span className="sheet-view__meeting-title">{sheet.meeting.title || text.meeting}</span>
-            <span className="sheet-view__meeting-sub">
+          <span class="sheet-view__meeting-text">
+            <span class="sheet-view__meeting-title">
+              {props.sheet.meeting.title || text.meeting}
+            </span>
+            <span class="sheet-view__meeting-sub">
               {format(text.meetingSub, {
-                date: formatMeetingDate(sheet.meeting.starts_at, timeZone).replace(' · ', ', '),
+                date: formatMeetingDate(props.sheet.meeting.starts_at, props.timeZone).replace(
+                  ' · ',
+                  ', ',
+                ),
               })}
             </span>
           </span>
-          <Icon name="chevron-right" className="sheet-view__chevron" />
+          <Icon name="chevron-right" class="sheet-view__chevron" />
         </button>
-        {isAdmin ? (
+        <Show when={props.isAdmin}>
           <Button
             size="sm"
             variant="secondary"
             icon="trash"
-            className="sheet-view__delete"
-            onClick={() => open({ kind: 'delete-play', id: sheet.id })}
+            class="sheet-view__delete"
+            onClick={() => popups.open({ kind: 'delete-play', id: props.sheet.id })}
           >
             {t.meetings.plays.delete}
           </Button>
-        ) : null}
+        </Show>
       </div>
     </div>
   );
 }
 
 /** Obraz karteczki z powiększaniem; bez obrazu (przerwany upload) kartka zastępcza z wyjaśnieniem. */
-function SheetImage({ sheet, label }: { readonly sheet: SavedSheet; readonly label: string }) {
-  const signed = useSheetImageUrl(sheet.sheet_image_path);
-  const url = signed.data;
-  const [failed, setFailed] = useState<string | undefined>(undefined);
+function SheetImage(props: { readonly sheet: SavedSheet; readonly label: string }) {
+  const signed = createSheetImageUrl(() => props.sheet.sheet_image_path);
+  const [failed, setFailed] = createSignal<string | undefined>(undefined);
   // Bez adresu (np. plik usunięty, błąd Storage) karteczka zastępcza zamiast wczytywania.
-  if (sheet.sheet_image_path && url === undefined && !signed.isError) {
-    return <div className="sheet-view__stage sheet-view__stage--loading" aria-busy="true" />;
-  }
-  if (!url || url === failed) {
-    return (
-      <div className="sheet-view__stage sheet-view__stage--empty">
-        <SheetThumbnail gameId={sheet.game.id} className="sheet-view__placeholder" />
-        <p className="sheet-view__hint">{text.noImage}</p>
-      </div>
-    );
-  }
-  return <SheetZoom key={url} src={url} alt={label} onError={() => setFailed(url)} />;
+  const loading = () =>
+    !!props.sheet.sheet_image_path && signed().data === undefined && !signed().isError;
+  const url = () => {
+    const value = signed().data;
+    return value && value !== failed() ? value : undefined;
+  };
+  return (
+    <Switch>
+      <Match when={loading()}>
+        <div class="sheet-view__stage sheet-view__stage--loading" aria-busy="true" />
+      </Match>
+      <Match when={url()} keyed>
+        {(src) => <SheetZoom src={src} alt={props.label} onError={() => setFailed(src)} />}
+      </Match>
+      <Match when={true}>
+        <div class="sheet-view__stage sheet-view__stage--empty">
+          <SheetThumbnail gameId={props.sheet.game.id} class="sheet-view__placeholder" />
+          <p class="sheet-view__hint">{text.noImage}</p>
+        </div>
+      </Match>
+    </Switch>
+  );
 }

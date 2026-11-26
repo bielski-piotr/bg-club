@@ -1,14 +1,24 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '../auth/authContext';
+/** @jsxImportSource @solidjs/web */
+import {
+  createEffect,
+  createSignal,
+  For,
+  Match,
+  Show,
+  Switch,
+  useContext,
+  type Accessor,
+} from 'solid-js';
 import { format, plural, t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
-import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { Button, EmptyState, Icon, Menu, SearchField, ShowMore, useChunks } from '../ui';
-import { cx } from '../ui/cx';
+import { PopupsContext } from '../solid/context';
+import { PopupModal } from '../solid/popups/PopupModal';
+import { QueryStatus } from '../solid/popups/QueryStatus';
+import { Button, createChunks, EmptyState, Icon, Menu, SearchField, ShowMore } from '../solid/ui';
+import { ariaTrue } from '../solid/ui/dom';
 import { GameCover } from './GameCover';
+import { createGameSearch } from './gameData';
+import type { Game } from './games';
 import { playersLabel } from './labels';
-import { useGameSearch, type Game } from './games';
 import './games.css';
 
 const text = t.games.collection;
@@ -17,185 +27,200 @@ const text = t.games.collection;
 export const SEARCH_DELAY_MS = 200;
 
 /** Wartość po `delay` ms bez zmian; pusta (wyczyszczenie pola) od razu. */
-function useDebounced(value: string, delay: number): string {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), value === '' ? 0 : delay);
+function createDebounced(value: Accessor<string>, delay: number): Accessor<string> {
+  // Pole startuje puste; pierwsza wartość przychodzi z efektu (pusta: od razu).
+  const [debounced, setDebounced] = createSignal('');
+  createEffect(value, (next) => {
+    const timer = window.setTimeout(() => setDebounced(next), next === '' ? 0 : delay);
     return () => window.clearTimeout(timer);
-  }, [value, delay]);
+  });
   return debounced;
 }
 
 /**
  * Popup kolekcji (PRD GAME-2, GAME-3, DS „Kolekcja / Popup”): siatka okładek aktywnych gier
  * z wyszukiwaniem po tytule filtrowanym na bieżąco (zapytanie po krótkiej przerwie w pisaniu).
- * Porównanie bez wielkości liter i polskich znaków robi baza (`search_games`, unaccent). Administrator ma „Dodaj grę”, a przy każdej grze
- * menu z „Edytuj”, „Notesy” (GAME-7), „Dodaj dodatek” i „Usuń”. Dodatków nie ma w kolekcji; formularz otwiera się w tym samym stosie, ze strzałką „wstecz”.
+ * Porównanie bez wielkości liter i polskich znaków robi baza (`search_games`, unaccent).
+ * Administrator ma „Dodaj grę”, a przy każdej grze menu z „Edytuj”, „Notesy” (GAME-7), „Dodaj
+ * dodatek” i „Usuń”. Dodatków nie ma w kolekcji; formularz otwiera się w tym samym stosie, ze
+ * strzałką „wstecz”.
  */
-export function CollectionPopup({ isAdmin }: { readonly isAdmin: boolean }) {
-  const { client } = useAuth();
-  const { open } = usePopups();
-  const [query, setQuery] = useState('');
-  const deferredQuery = useDebounced(query.trim(), SEARCH_DELAY_MS);
-  const all = useGameSearch(client, '');
-  const results = useGameSearch(client, deferredQuery);
-  const searching = deferredQuery !== '';
-  const shown = searching ? results.data : all.data;
-  const count = all.data ? plural(all.data.length, t.games.count) : undefined;
-  const chunks = useChunks(shown ?? [], deferredQuery);
+export function CollectionPopup(props: { readonly isAdmin: boolean }) {
+  const popups = useContext(PopupsContext);
+  const [query, setQuery] = createSignal('');
+  const deferredQuery = createDebounced(() => query().trim(), SEARCH_DELAY_MS);
+  const all = createGameSearch(() => '');
+  const results = createGameSearch(deferredQuery);
+  const searching = () => deferredQuery() !== '';
+  const shown = () => (searching() ? results().data : all().data);
+  const status = () => (searching() ? results() : all());
+  const chunks = createChunks(() => shown() ?? [], deferredQuery);
+  const count = () => {
+    const games = all().data;
+    return games ? plural(games.length, t.games.count) : undefined;
+  };
 
-  const actions = isAdmin ? (
-    // Na telefonie krótka etykieta „Dodaj” (DS §7); nazwa dostępna jest zawsze pełna.
-    <Button size="sm" icon="plus" aria-label={text.add} onClick={() => open({ kind: 'add-game' })}>
-      <span className="games-add__long">{text.add}</span>
-      <span className="games-add__short">{text.addShort}</span>
-    </Button>
-  ) : undefined;
-
-  const status = searching ? results : all;
   return (
-    <PopupModal title={text.title} count={count} actions={actions}>
-      {all.isSuccess ? (
-        <>
-          <SearchField
-            label={text.searchLabel}
-            placeholder={text.searchPlaceholder}
-            value={query}
-            onValueChange={setQuery}
-            className="games-search"
-          />
-          <p className="sr-only" role="status">
-            {searching && results.isSuccess ? plural(results.data.length, text.results) : ''}
-          </p>
-          {shown === undefined ? (
-            <div className="games-body">
-              <QueryStatus isError={status.isError} onRetry={() => void status.refetch()} />
+    <PopupModal
+      title={text.title}
+      count={count()}
+      actions={
+        <Show when={props.isAdmin}>
+          {/* Na telefonie krótka etykieta „Dodaj” (DS §7); nazwa dostępna jest zawsze pełna. */}
+          <Button
+            size="sm"
+            icon="plus"
+            aria-label={text.add}
+            onClick={() => popups.open({ kind: 'add-game' })}
+          >
+            <span class="games-add__long">{text.add}</span>
+            <span class="games-add__short">{text.addShort}</span>
+          </Button>
+        </Show>
+      }
+    >
+      <Show
+        when={all().isSuccess}
+        fallback={<QueryStatus isError={all().isError} onRetry={() => void all().refetch()} />}
+      >
+        <SearchField
+          label={text.searchLabel}
+          placeholder={text.searchPlaceholder}
+          value={query()}
+          onValueChange={setQuery}
+          class="games-search"
+        />
+        <p class="sr-only" role="status">
+          {searching() && results().isSuccess
+            ? plural(results().data?.length ?? 0, text.results)
+            : ''}
+        </p>
+        <Switch>
+          <Match when={shown() === undefined}>
+            <div class="games-body">
+              <QueryStatus isError={status().isError} onRetry={() => void status().refetch()} />
             </div>
-          ) : shown.length > 0 ? (
-            <>
-              <ul
-                className="game-grid games-body"
-                aria-label={text.listLabel}
-                aria-busy={results.isFetching && results.isPlaceholderData ? true : undefined}
-              >
-                {chunks.visible.map((game, index) => (
+          </Match>
+          <Match when={(shown()?.length ?? 0) > 0}>
+            <ul
+              class="game-grid games-body"
+              aria-label={text.listLabel}
+              aria-busy={ariaTrue(results().isFetching && results().isPlaceholderData)}
+            >
+              <For each={chunks.visible()} keyed={(game) => game.id}>
+                {(game, index) => (
                   <GameTile
-                    key={game.id}
-                    game={game}
-                    isAdmin={isAdmin}
-                    chunkStart={chunks.chunkStart(index)}
+                    game={game()}
+                    isAdmin={props.isAdmin}
+                    chunkStart={chunks.chunkStart(index())}
                   />
-                ))}
-              </ul>
-              <ShowMore hidden={chunks.hidden} onClick={chunks.showMore} />
-            </>
-          ) : (
-            <div className="games-body">
+                )}
+              </For>
+            </ul>
+            <ShowMore hidden={chunks.hidden()} onClick={chunks.showMore} />
+          </Match>
+          <Match when={true}>
+            <div class="games-body">
               <EmptyState
-                icon={searching ? 'search' : 'dice'}
+                icon={searching() ? 'search' : 'dice'}
                 title={
-                  searching
-                    ? format(text.noResultsTitle, { query: deferredQuery })
+                  searching()
+                    ? format(text.noResultsTitle, { query: deferredQuery() })
                     : text.emptyTitle
                 }
                 helper={
-                  searching
+                  searching()
                     ? text.noResultsHelper
-                    : isAdmin
+                    : props.isAdmin
                       ? text.emptyHelperAdmin
                       : text.emptyHelper
                 }
               />
             </div>
-          )}
-        </>
-      ) : (
-        <QueryStatus isError={all.isError} onRetry={() => void all.refetch()} />
-      )}
+          </Match>
+        </Switch>
+      </Show>
     </PopupModal>
   );
 }
 
-function GameTile({
-  game,
-  isAdmin,
-  chunkStart,
-}: {
+function GameTile(props: {
   readonly game: Game;
   readonly isAdmin: boolean;
   readonly chunkStart?: string | undefined;
 }) {
-  const { open } = usePopups();
+  const popups = useContext(PopupsContext);
+  const actions = () => format(text.actions, { title: props.game.title });
   return (
     <li
-      className={cx('game-tile', !game.available && 'game-tile--unavailable')}
-      data-chunk-start={chunkStart}
+      class={['game-tile', { 'game-tile--unavailable': !props.game.available }]}
+      data-chunk-start={props.chunkStart}
     >
-      <div className="game-tile__cover">
+      <div class="game-tile__cover">
         <button
           type="button"
-          className="game-tile__open"
-          aria-label={format(game.available ? text.details : text.detailsUnavailable, {
-            title: game.title,
+          class="game-tile__open"
+          aria-label={format(props.game.available ? text.details : text.detailsUnavailable, {
+            title: props.game.title,
           })}
-          onClick={() => open({ kind: 'game', id: game.id })}
+          onClick={() => popups.open({ kind: 'game', id: props.game.id })}
         >
           <GameCover
-            id={game.id}
-            title={game.title}
-            coverPath={game.cover_path}
+            id={props.game.id}
+            title={props.game.title}
+            coverPath={props.game.cover_path}
             size="large"
-            unavailable={!game.available}
+            unavailable={!props.game.available}
           />
         </button>
-        {isAdmin ? (
+        <Show when={props.isAdmin}>
           <Menu
-            label={format(text.actions, { title: game.title })}
+            label={actions()}
             align="end"
-            className="game-tile__menu"
+            class="game-tile__menu"
             items={[
               {
                 id: 'edit',
                 label: text.edit,
                 icon: 'pencil',
-                onSelect: () => open({ kind: 'edit-game', id: game.id }),
+                onSelect: () => popups.open({ kind: 'edit-game', id: props.game.id }),
               },
               {
                 id: 'scorepads',
                 label: text.scorepads,
                 icon: 'pad',
-                onSelect: () => open({ kind: 'scorepads', gameId: game.id }),
+                onSelect: () => popups.open({ kind: 'scorepads', gameId: props.game.id }),
               },
               {
                 id: 'add-expansion',
                 label: text.addExpansion,
                 icon: 'plus',
-                onSelect: () => open({ kind: 'add-expansion', baseId: game.id }),
+                onSelect: () => popups.open({ kind: 'add-expansion', baseId: props.game.id }),
               },
               {
                 id: 'delete',
                 label: text.delete,
                 icon: 'trash',
                 destructive: true,
-                onSelect: () => open({ kind: 'delete-game', id: game.id }),
+                onSelect: () => popups.open({ kind: 'delete-game', id: props.game.id }),
               },
             ]}
-            trigger={(props) => (
+            trigger={(trigger) => (
               <button
                 type="button"
-                {...props}
-                className="icon-btn icon-btn--32 game-tile__more"
-                aria-label={format(text.actions, { title: game.title })}
-                title={format(text.actions, { title: game.title })}
+                {...trigger}
+                class="icon-btn icon-btn--32 game-tile__more"
+                aria-label={actions()}
+                title={actions()}
               >
                 <Icon name="more" />
               </button>
             )}
           />
-        ) : null}
+        </Show>
       </div>
-      <p className="game-tile__title">{game.title}</p>
-      <p className="game-tile__meta">{playersLabel(game)}</p>
+      <p class="game-tile__title">{props.game.title}</p>
+      <p class="game-tile__meta">{playersLabel(props.game)}</p>
     </li>
   );
 }

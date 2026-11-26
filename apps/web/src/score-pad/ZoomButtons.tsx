@@ -1,6 +1,7 @@
+/** @jsxImportSource @solidjs/web */
 import type { ScorePadEditorStatus, ScorePadZoomAction } from '@bg-club/score-pad';
 import { t } from '../i18n';
-import { IconButton } from '../ui';
+import { IconButton } from '../solid/ui';
 
 const text = t.scorepads.wizard.zoom;
 
@@ -8,11 +9,7 @@ const text = t.scorepads.wizard.zoom;
  * Przybliżenie i oddalenie podglądu w pływającym pasku sceny (kroki 2–4), żeby precyzyjniej
  * ustawiać punkty obszaru, linie tabeli i pola kategorii.
  */
-export function ZoomButtons({
-  zoom,
-  disabled,
-  onZoom,
-}: {
+export function ZoomButtons(props: {
   readonly zoom: ScorePadEditorStatus['zoom'];
   readonly disabled: boolean;
   readonly onZoom: (by: ScorePadZoomAction) => void;
@@ -22,16 +19,16 @@ export function ZoomButtons({
       <IconButton
         icon="zoom-out"
         label={text.out}
-        className="wizard-toolbar__btn"
-        disabled={disabled || zoom.level <= 1}
-        onClick={() => onZoom('out')}
+        class="wizard-toolbar__btn"
+        disabled={props.disabled || props.zoom.level <= 1}
+        onClick={() => props.onZoom('out')}
       />
       <IconButton
         icon="zoom-in"
         label={text.in}
-        className="wizard-toolbar__btn"
-        disabled={disabled || zoom.level >= zoom.max}
-        onClick={() => onZoom('in')}
+        class="wizard-toolbar__btn"
+        disabled={props.disabled || props.zoom.level >= props.zoom.max}
+        onClick={() => props.onZoom('in')}
       />
     </>
   );

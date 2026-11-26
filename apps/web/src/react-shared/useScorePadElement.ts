@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ResolvedTheme } from '../theme/theme';
-import { loadScorePadPart, type ScorePadPart } from './load';
+import { loadScorePadPart, type ScorePadPart } from '../score-pad/load';
 
 export type ScorePadLoadState = 'loading' | 'ready' | 'error';
 

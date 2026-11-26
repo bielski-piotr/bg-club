@@ -8,7 +8,7 @@ import { Hub } from '../hub/Hub';
 import { PopupRouter } from '../popups/PopupRouter';
 import type { Profile } from '../react-shared/profiles';
 import { ToastProvider } from '../ui';
-import type { Scorepad } from './scorepads';
+import type { Scorepad } from '../score-pad/scorepads';
 
 /*
  * Popup notesów gry (PRD GAME-7, EDT-6, zadanie [015]): lista z liczbą miejsc i wersją,
@@ -270,10 +270,10 @@ describe('notesy gry (GAME-7)', () => {
     const field = await screen.findByLabelText('Nazwa notesu');
     const dialog = screen.getByRole('dialog', { name: 'Zmień nazwę notesu' });
     expect(field).toHaveValue('Turniejowy');
-    fireEvent.change(field, { target: { value: '' } });
+    fireEvent.input(field, { target: { value: '' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
     expect(await within(dialog).findByText('Wpisz nazwę notesu.')).toBeInTheDocument();
-    fireEvent.change(field, { target: { value: '  Finałowy ' } });
+    fireEvent.input(field, { target: { value: '  Finałowy ' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
     expect(await screen.findByText('Zmieniono nazwę notesu na Finałowy')).toBeInTheDocument();
     expect(fake.updates).toEqual([{ row: { name: 'Finałowy' }, id: TURNIEJ.id }]);
@@ -287,11 +287,12 @@ describe('notesy gry (GAME-7)', () => {
     expect(submit).toBeDisabled();
     fireEvent.click(within(dialog).getByRole('button', { name: /Gra albo dodatek/ }));
     // Obecna gra notesu jest wyłączona; dodatek jest pod swoją grą.
-    expect(screen.getByRole('option', { name: 'Żółwie Wyścigi' })).toHaveAttribute(
+    expect(await screen.findByRole('option', { name: 'Żółwie Wyścigi' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
     fireEvent.click(screen.getByRole('option', { name: 'Żółwie Wyścigi › Turbo' }));
+    await waitFor(() => expect(submit).toBeEnabled());
     fireEvent.click(submit);
     expect(
       await screen.findByText('Przeniesiono notes Turniejowy do: Żółwie Wyścigi › Turbo'),
