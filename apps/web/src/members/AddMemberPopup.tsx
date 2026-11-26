@@ -1,5 +1,14 @@
 import { NAME_MAX_LENGTH } from '@bg-club/accounts';
-import { createMemo, createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
+import {
+  action,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  createUniqueId,
+  flush,
+  Show,
+  useContext,
+} from 'solid-js';
 import { format, t } from '../i18n';
 import { allProfilesKey, fullName, membersKey, profileKey } from '../profile/profileQueries';
 import { nameProblem } from '../profile/settings';
@@ -9,7 +18,6 @@ import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { createMutation } from '../lib/query';
 import { Banner, Button, Icon, TextField } from '../ui';
 import {
   createMember,
@@ -64,25 +72,27 @@ function AddMemberForm(props: { readonly onCreated: (created: CreatedMember) => 
   const [serverProblems, setServerProblems] = createSignal<Problems>({});
   const [saveError, setSaveError] = createSignal<string | undefined>(undefined);
 
-  const save = createMutation({
-    mutationFn: (input: NewMember) => createMember(auth.client, input),
-    // Wynik zawiera hasło: mutacja nie trzyma go w cache'u dłużej niż trwa ten formularz.
-    gcTime: 0,
-    onSuccess: (result) => {
-      queryClient.setQueryData(profileKey(result.member.id), result.member);
-      void queryClient.invalidateQueries({ queryKey: membersKey });
-      void queryClient.invalidateQueries({ queryKey: allProfilesKey });
-      // Potwierdzeniem jest ekran z danymi logowania (bez toastu, który zasłaniałby stopkę).
-      props.onCreated(result);
-    },
-    onError: (error) => {
+  const [saving, setSaving] = createOptimistic(false);
+  // Wynik zawiera hasło: trafia tylko do stanu popupu, nie do cache'u zapytań.
+  const save = action(function* (input: NewMember) {
+    setSaving(true);
+    let result: CreatedMember;
+    try {
+      result = (yield createMember(auth.client, input)) as CreatedMember;
+    } catch (error) {
       if (error instanceof CreateMemberError && error.reason === 'invalid') {
         setServerProblems(error.problems);
         return;
       }
       const reason = error instanceof CreateMemberError ? error.reason : 'failed';
       setSaveError(SAVE_ERRORS[reason === 'invalid' ? 'failed' : reason]);
-    },
+      return;
+    }
+    queryClient.setQueryData(profileKey(result.member.id), result.member);
+    void queryClient.invalidateQueries({ queryKey: membersKey });
+    void queryClient.invalidateQueries({ queryKey: allProfilesKey });
+    // Potwierdzeniem jest ekran z danymi logowania (bez toastu, który zasłaniałby stopkę).
+    props.onCreated(result);
   });
 
   // Ta sama walidacja co w Edge Function (`validateMemberInput`), żeby nie wysyłać złych danych.
@@ -110,8 +120,8 @@ function AddMemberForm(props: { readonly onCreated: (created: CreatedMember) => 
     setSaveError(undefined);
     setServerProblems({});
     const problems = local();
-    if (problems.firstName || problems.lastName || save.state().isPending) return;
-    save.mutate({ firstName: firstName(), lastName: lastName() });
+    if (problems.firstName || problems.lastName || saving()) return;
+    void save({ firstName: firstName(), lastName: lastName() });
   };
 
   return (
@@ -122,7 +132,7 @@ function AddMemberForm(props: { readonly onCreated: (created: CreatedMember) => 
           <Button variant="secondary" onClick={() => popups.back()}>
             {text.cancel}
           </Button>
-          <Button type="submit" form={formId} loading={save.state().isPending}>
+          <Button type="submit" form={formId} loading={saving()}>
             {text.submit}
           </Button>
         </>

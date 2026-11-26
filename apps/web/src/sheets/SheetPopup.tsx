@@ -9,7 +9,7 @@ import { PopupsContext } from '../popups/popupContext';
 import { PlayResultRows, PlayTimes, SheetThumbnail } from '../meetings/MeetingParts';
 import { createMeetingRecords } from '../meetings/meetingData';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { createAllProfiles } from '../profile/profiles';
 import { Button, Icon } from '../ui';
 import { createSavedSheet, createSheetImageUrl } from './sheetData';
@@ -33,10 +33,10 @@ export function SheetPopup(props: {
   const sheet = createSavedSheet(() => props.id);
   const profiles = createAllProfiles();
   const club = createClub();
-  const gone = () => sheet().isSuccess && sheet().data === null;
-  const data = () => sheet().data ?? undefined;
-  const ready = () => (profiles().data ? data() : undefined);
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  // Okno (tytuł, „brak partii”) zależy od danych w cache bez czekania.
+  const gone = () => sheet.current() === null;
+  const ready = () => (profiles.current() ? (sheet.current() ?? undefined) : undefined);
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
 
   // Jedno okno na wszystkie stany (wczytywanie, karteczka, brak partii): fokus z `PopupHost`
   // zostaje na oknie po wczytaniu danych.
@@ -45,30 +45,20 @@ export function SheetPopup(props: {
       title={gone() ? text.goneTitle : (ready()?.game.title ?? text.loading)}
       width={gone() ? undefined : 880}
     >
-      <Switch>
-        <Match when={gone()}>
-          <p class="meeting-form__state">{text.gone}</p>
-        </Match>
-        <Match when={ready()}>
-          {(shown) => (
-            <SheetView
-              sheet={shown()}
-              profiles={profiles().data ?? new Map()}
-              timeZone={timeZone()}
-              isAdmin={props.isAdmin ?? false}
-            />
-          )}
-        </Match>
-        <Match when={true}>
-          <QueryStatus
-            isError={sheet().isError || profiles().isError}
-            onRetry={() => {
-              if (sheet().isError) void sheet().refetch();
-              if (profiles().isError) void profiles().refetch();
-            }}
-          />
-        </Match>
-      </Switch>
+      <Show when={!gone()} fallback={<p class="meeting-form__state">{text.gone}</p>}>
+        <QueryBoundary>
+          <Show when={sheet()}>
+            {(shown) => (
+              <SheetView
+                sheet={shown()}
+                profiles={profiles()}
+                timeZone={timeZone()}
+                isAdmin={props.isAdmin ?? false}
+              />
+            )}
+          </Show>
+        </QueryBoundary>
+      </Show>
     </PopupModal>
   );
 }
@@ -84,7 +74,7 @@ function SheetView(props: {
   const expansions = createGameTitlesById(() => props.sheet.expansion_ids);
   const date = () => formatMeetingDate(props.sheet.saved_at, props.timeZone);
   const expansionTitles = () => {
-    const titles = expansions().data;
+    const titles = expansions.current();
     if (!titles || props.sheet.expansion_ids.length === 0) return undefined;
     return props.sheet.expansion_ids
       .map((id) => titles.get(id) ?? '')
@@ -127,7 +117,7 @@ function SheetView(props: {
             play={props.sheet}
             profiles={props.profiles}
             label={format(text.resultsLabel, { title: props.sheet.game.title })}
-            records={records().data?.get(props.sheet.id)}
+            records={records.current()?.get(props.sheet.id)}
           />
         </section>
         <button
@@ -176,9 +166,9 @@ function SheetImage(props: { readonly sheet: SavedSheet; readonly label: string 
   const [failed, setFailed] = createSignal<string | undefined>(undefined);
   // Bez adresu (np. plik usunięty, błąd Storage) karteczka zastępcza zamiast wczytywania.
   const loading = () =>
-    !!props.sheet.sheet_image_path && signed().data === undefined && !signed().isError;
+    !!props.sheet.sheet_image_path && signed.current() === undefined && !signed.state()?.isError;
   const url = () => {
-    const value = signed().data;
+    const value = signed.current();
     return value && value !== failed() ? value : undefined;
   };
   return (

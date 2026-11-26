@@ -1,4 +1,13 @@
-import { createMemo, For, Show, useContext, type Accessor } from 'solid-js';
+import {
+  action,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  For,
+  Show,
+  useContext,
+  type Accessor,
+} from 'solid-js';
 import type { OwnProfile } from '../auth/ownProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { GameCover } from '../games/GameCover';
@@ -11,8 +20,7 @@ import { ToastContext } from '../ui/toastContext';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { createMounted } from '../popups/leaveGuard';
 import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { PopupLoadError, QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button, Tray } from '../ui';
 import { localDateTime } from './datetime';
 import { createMeeting, createMeetingPlays } from './meetingData';
@@ -38,25 +46,39 @@ const successTexts = {
   reopen: t.meetings.toasts.meetingReopened,
 };
 
-/** Mutacja zmiany statusu: toast, zamknięcie dialogu i odświeżenie wszystkich spotkań. */
-function createRunMutation(id: Accessor<string>, action: Action) {
+/**
+ * Zmiana statusu: toast, zamknięcie dialogu i odświeżenie wszystkich spotkań. `pending` trwa do
+ * końca odświeżenia, `done` = zmiana się udała, `error` = błąd ostatniej próby.
+ */
+function createRunAction(id: Accessor<string>, kind: Action) {
   const auth = useContext(AuthContext);
   const queryClient = useContext(QueryClientContext);
   const toast = useContext(ToastContext);
   const popups = useContext(PopupsContext);
   const mounted = createMounted();
-  return createMutation({
-    mutationFn: () => runActions[action](auth.client, id()),
-    onSuccess: () => {
-      toast.show(successTexts[action], 'success');
+  const [done, setDone] = createSignal(false);
+  // Wysłanie optymistycznie od kliknięcia do wyniku: po sukcesie zostaje (`done`), po błędzie
+  // wraca. W toku = wysłane, ale jeszcze bez wyniku.
+  const [sent, setSent] = createOptimistic(() => done());
+  const pending = () => sent() && !done();
+  const [error, setError] = createSignal<{ readonly cause: unknown } | null>(null);
+  const run = action(function* () {
+    setSent(true);
+    setError(null);
+    try {
+      yield runActions[kind](auth.client, id());
+      setDone(true);
+      toast.show(successTexts[kind], 'success');
       if (mounted()) popups.back();
-    },
+    } catch (cause) {
+      setError({ cause });
+    }
     // Także po błędzie: status albo partie mogły się zmienić w innej karcie.
-    onSettled: () =>
-      action === 'start'
-        ? queryClient.invalidateQueries({ queryKey: meetingsKey })
-        : invalidatePlayData(queryClient),
+    yield kind === 'start'
+      ? queryClient.invalidateQueries({ queryKey: meetingsKey })
+      : invalidatePlayData(queryClient);
   });
+  return { run, pending, done, error };
 }
 
 function failureText(error: unknown): string {
@@ -81,48 +103,36 @@ function blocked(meeting: Meeting, me: OwnProfile, action: Action): string | nul
 export function StartMeetingDialog(props: { readonly id: string; readonly me: OwnProfile }) {
   const popups = useContext(PopupsContext);
   const query = createMeeting(() => props.id);
-  const run = createRunMutation(() => props.id, 'start');
-  const meeting = () => query().data ?? undefined;
+  const run = createRunAction(() => props.id, 'start');
+  // Okno i stopka czytają cache bez czekania, opis czeka pod `<QueryBoundary>`.
+  const meeting = () => query.current() ?? undefined;
   const reason = () => {
     const current = meeting();
-    const state = run.state();
-    return current && !state.isPending && !state.isSuccess
-      ? blocked(current, props.me, 'start')
-      : null;
+    return current && !run.pending() && !run.done() ? blocked(current, props.me, 'start') : null;
   };
 
   return (
-    <Show
-      when={!(!run.state().isSuccess && query().isSuccess && !meeting())}
-      fallback={<InvalidPopup />}
-    >
+    <Show when={!(!run.done() && query.current() === null)} fallback={<InvalidPopup />}>
       <PopupDialog
         title={text.startTitle}
         icon="play"
         description={
-          <Show
-            when={meeting()}
-            fallback={
-              <QueryStatus isError={query().isError} onRetry={() => void query().refetch()} />
-            }
-          >
-            {(current) => <p>{format(text.startBody, { title: current().title })}</p>}
-          </Show>
+          <QueryBoundary>
+            <Show when={query()}>
+              {(current) => <p>{format(text.startBody, { title: current().title })}</p>}
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <>
-            <Button
-              variant="secondary"
-              disabled={run.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={run.pending()} onClick={() => popups.back()}>
               {text.cancel}
             </Button>
             <Button
               icon="play"
-              loading={run.state().isPending}
-              disabled={!meeting() || reason() !== null || run.state().isSuccess}
-              onClick={() => run.mutate()}
+              loading={run.pending()}
+              disabled={!meeting() || reason() !== null || run.done()}
+              onClick={() => void run.run()}
             >
               {text.confirmStart}
             </Button>
@@ -133,8 +143,8 @@ export function StartMeetingDialog(props: { readonly id: string; readonly me: Ow
           <Banner variant="info">{text.startVoting}</Banner>
         </Show>
         <Show when={reason()}>{(shown) => <Banner variant="warning">{shown()}</Banner>}</Show>
-        <Show when={run.state().isError}>
-          <Banner variant="error">{failureText(run.state().error)}</Banner>
+        <Show when={run.error()}>
+          {(failed) => <Banner variant="error">{failureText(failed().cause)}</Banner>}
         </Show>
       </PopupDialog>
     </Show>
@@ -152,44 +162,39 @@ export function FinishMeetingDialog(props: { readonly id: string; readonly me: O
   const query = createMeeting(() => props.id);
   const plays = createMeetingPlays(() => props.id, true);
   const club = createClub();
-  const run = createRunMutation(() => props.id, 'finish');
-  const meeting = () => query().data ?? undefined;
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  const run = createRunAction(() => props.id, 'finish');
+  // Okno (wariant, stopka) czyta cache i stan zapytań bez czekania, opis czeka pod
+  // `<QueryBoundary>`.
+  const meeting = () => query.current() ?? undefined;
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
   const drafts = createMemo(() => {
-    const list = plays().data;
+    const list = plays.current();
     return list ? splitPlays(list).drafts : [];
   });
   const reason = () => {
     const current = meeting();
-    const state = run.state();
-    return current && !state.isPending && !state.isSuccess
-      ? blocked(current, props.me, 'finish')
-      : null;
+    return current && !run.pending() && !run.done() ? blocked(current, props.me, 'finish') : null;
   };
   // Tylko świeża lista: partia w toku mogła zostać zapisana albo rozpoczęta przed chwilą.
-  const ready = () => !!meeting() && plays().isSuccess && plays().isFetchedAfterMount;
-  const warning = () =>
-    ready() && drafts().length > 0 && reason() === null && !run.state().isSuccess;
+  const ready = () => {
+    const state = plays.state();
+    return !!meeting() && !!state?.isSuccess && state.isFetchedAfterMount;
+  };
+  const warning = () => ready() && drafts().length > 0 && reason() === null && !run.done();
 
   return (
-    <Show
-      when={!(!run.state().isSuccess && query().isSuccess && !meeting())}
-      fallback={<InvalidPopup />}
-    >
+    <Show when={!(!run.done() && query.current() === null)} fallback={<InvalidPopup />}>
       <PopupDialog
         title={warning() ? text.draftsTitle : text.finishTitle}
         icon={warning() ? 'alert' : 'flag'}
         tone={warning() ? 'warning' : undefined}
         description={
           <Show when={!warning()} fallback={<p>{text.draftsBody}</p>}>
-            <Show
-              when={meeting()}
-              fallback={
-                <QueryStatus isError={query().isError} onRetry={() => void query().refetch()} />
-              }
-            >
-              {(current) => <p>{format(text.finishBody, { title: current().title })}</p>}
-            </Show>
+            <QueryBoundary>
+              <Show when={query()}>
+                {(current) => <p>{format(text.finishBody, { title: current().title })}</p>}
+              </Show>
+            </QueryBoundary>
           </Show>
         }
         footer={
@@ -201,18 +206,14 @@ export function FinishMeetingDialog(props: { readonly id: string; readonly me: O
               </Button>
             }
           >
-            <Button
-              variant="secondary"
-              disabled={run.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={run.pending()} onClick={() => popups.back()}>
               {text.cancel}
             </Button>
             <Button
               icon="flag"
-              loading={run.state().isPending}
-              disabled={!ready() || reason() !== null || run.state().isSuccess}
-              onClick={() => run.mutate()}
+              loading={run.pending()}
+              disabled={!ready() || reason() !== null || run.done()}
+              onClick={() => void run.run()}
             >
               {text.confirmFinish}
             </Button>
@@ -229,12 +230,13 @@ export function FinishMeetingDialog(props: { readonly id: string; readonly me: O
             </Tray>
           }
         >
-          <Show when={plays().isError}>
-            <QueryStatus isError onRetry={() => void plays().refetch()} />
+          {/* Błąd świeżej listy także przy partiach z cache (granica pokazałaby stare dane). */}
+          <Show when={plays.state()?.isError}>
+            <PopupLoadError onRetry={() => void plays.refetch()} />
           </Show>
           <Show when={reason()}>{(shown) => <Banner variant="warning">{shown()}</Banner>}</Show>
-          <Show when={run.state().isError}>
-            <Banner variant="error">{failureText(run.state().error)}</Banner>
+          <Show when={run.error()}>
+            {(failed) => <Banner variant="error">{failureText(failed().cause)}</Banner>}
           </Show>
         </Show>
       </PopupDialog>
@@ -246,53 +248,41 @@ export function FinishMeetingDialog(props: { readonly id: string; readonly me: O
 export function ReopenMeetingDialog(props: { readonly id: string }) {
   const popups = useContext(PopupsContext);
   const query = createMeeting(() => props.id);
-  const run = createRunMutation(() => props.id, 'reopen');
-  const meeting = () => query().data ?? undefined;
+  const run = createRunAction(() => props.id, 'reopen');
+  // Okno i stopka czytają cache bez czekania, opis czeka pod `<QueryBoundary>`.
+  const meeting = () => query.current() ?? undefined;
   const reason = () => {
     const current = meeting();
-    const state = run.state();
-    return current && current.status !== 'finished' && !state.isPending && !state.isSuccess
+    return current && current.status !== 'finished' && !run.pending() && !run.done()
       ? t.meetings.errors.notFinished
       : null;
   };
-  const failure = () => {
-    const error = run.state().error;
-    return error instanceof MeetingError && error.reason === 'forbidden'
+  const failure = (error: unknown) =>
+    error instanceof MeetingError && error.reason === 'forbidden'
       ? text.reopenAdminOnly
       : failureText(error);
-  };
   return (
-    <Show
-      when={!(!run.state().isSuccess && query().isSuccess && !meeting())}
-      fallback={<InvalidPopup />}
-    >
+    <Show when={!(!run.done() && query.current() === null)} fallback={<InvalidPopup />}>
       <PopupDialog
         title={text.reopenTitle}
         icon="refresh"
         description={
-          <Show
-            when={meeting()}
-            fallback={
-              <QueryStatus isError={query().isError} onRetry={() => void query().refetch()} />
-            }
-          >
-            {(current) => <p>{format(text.reopenBody, { title: current().title })}</p>}
-          </Show>
+          <QueryBoundary>
+            <Show when={query()}>
+              {(current) => <p>{format(text.reopenBody, { title: current().title })}</p>}
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <>
-            <Button
-              variant="secondary"
-              disabled={run.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={run.pending()} onClick={() => popups.back()}>
               {text.cancel}
             </Button>
             <Button
               icon="refresh"
-              loading={run.state().isPending}
-              disabled={!meeting() || reason() !== null || run.state().isSuccess}
-              onClick={() => run.mutate()}
+              loading={run.pending()}
+              disabled={!meeting() || reason() !== null || run.done()}
+              onClick={() => void run.run()}
             >
               {text.confirmReopen}
             </Button>
@@ -300,8 +290,8 @@ export function ReopenMeetingDialog(props: { readonly id: string }) {
         }
       >
         <Show when={reason()}>{(shown) => <Banner variant="warning">{shown()}</Banner>}</Show>
-        <Show when={run.state().isError}>
-          <Banner variant="error">{failure()}</Banner>
+        <Show when={run.error()}>
+          {(failed) => <Banner variant="error">{failure(failed().cause)}</Banner>}
         </Show>
       </PopupDialog>
     </Show>

@@ -385,8 +385,6 @@ function renderWizard(pad: Scorepad | null = null, template?: ScorePadTemplate) 
                   scorepadId="00000000-0000-4000-d000-000000000009"
                   source={{ game: GAME, pad, template }}
                   notFound={false}
-                  isError={false}
-                  onRetry={() => undefined}
                 />
               )}
             >

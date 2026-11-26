@@ -22,8 +22,12 @@ import './LoginScreen.css';
 export function SignedInScreen(props: { readonly userId: string }) {
   const auth = useContext(AuthContext);
   const queryClient = useContext(QueryClientContext);
+  // Powłoka aplikacji nie czeka na profil (cache i stan zapytania bez zawieszania): decyduje
+  // o ekranie wczytywania, hubie, błędzie i wylogowaniu nieaktywnego konta.
   const profile = createQuery(() => ownProfileQuery(auth.client, props.userId));
-  const inactive = createMemo(() => profile().isSuccess && profile().data === null);
+  const me = () => profile.current();
+  const inactive = createMemo(() => me() === null);
+  const pending = () => me() === undefined && profile.state()?.isError !== true;
 
   onSettled(() => {
     // Klub i dane widżetów pobieramy równolegle z profilem, nie dopiero po wyświetleniu huba
@@ -43,14 +47,14 @@ export function SignedInScreen(props: { readonly userId: string }) {
     if (isInactive) void auth.signOut('accountInactive');
   });
 
-  createProfileTheme(() => profile().data?.theme);
+  createProfileTheme(() => me()?.theme);
 
   return (
     <Switch>
-      <Match when={profile().isPending || inactive()}>
+      <Match when={pending() || inactive()}>
         <LoadingScreen />
       </Match>
-      <Match when={profile().isError || !profile().data}>
+      <Match when={!me()}>
         <main class="shell">
           <section class="start-card signed-in" aria-labelledby="page-title">
             <p class="eyebrow">{t.app.name}</p>
@@ -65,7 +69,7 @@ export function SignedInScreen(props: { readonly userId: string }) {
                   size="sm"
                   variant="secondary"
                   icon="refresh"
-                  onClick={() => void profile().refetch()}
+                  onClick={() => void profile.refetch()}
                 >
                   {t.home.retry}
                 </Button>
@@ -81,10 +85,10 @@ export function SignedInScreen(props: { readonly userId: string }) {
           </section>
         </main>
       </Match>
-      <Match when={profile().data}>
-        {(me) => (
+      <Match when={me()}>
+        {(own) => (
           <PopupRouter>
-            <Hub me={me()} />
+            <Hub me={own()} />
           </PopupRouter>
         )}
       </Match>

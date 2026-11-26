@@ -1,5 +1,7 @@
 import {
+  action,
   createMemo,
+  createOptimistic,
   createSignal,
   createUniqueId,
   flush,
@@ -19,10 +21,10 @@ import { PopupsContext } from '../popups/popupContext';
 import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { createMembers } from '../profile/profiles';
-import { createMutation } from '../lib/query';
+import type { AsyncQuery } from '../lib/query';
 import { Badge, Banner, Button, Checkbox, IconButton, Select, TextField, Tray } from '../ui';
 import { duplicateDateOptions, type DateOptionValue } from './dateOptions';
 import { dateOptionValues } from './dateVoting';
@@ -63,17 +65,7 @@ export function AddMeetingPopup(props: {
   readonly me: OwnProfile;
   readonly date?: string | undefined;
 }) {
-  return (
-    <MeetingFormPopup
-      me={props.me}
-      editing={false}
-      meeting={null}
-      loaded
-      isError={false}
-      onRetry={() => undefined}
-      date={props.date}
-    />
-  );
+  return <MeetingFormPopup me={props.me} meeting={undefined} date={props.date} />;
 }
 
 /**
@@ -82,27 +74,13 @@ export function AddMeetingPopup(props: {
  */
 export function EditMeetingPopup(props: { readonly id: string; readonly me: OwnProfile }) {
   const meeting = createMeeting(() => props.id);
-  return (
-    <MeetingFormPopup
-      me={props.me}
-      editing
-      meeting={meeting().data ?? null}
-      loaded={meeting().isSuccess}
-      isError={meeting().isError}
-      onRetry={() => void meeting().refetch()}
-    />
-  );
+  return <MeetingFormPopup me={props.me} meeting={meeting} />;
 }
 
 interface PopupProps {
   readonly me: OwnProfile;
-  /** Edycja zapisanego spotkania (`meeting` = `null` po wczytaniu: nie ma takiego). */
-  readonly editing: boolean;
-  readonly meeting: Meeting | null;
-  /** Spotkanie edycji wczytane (dla nowego zawsze). */
-  readonly loaded: boolean;
-  readonly isError: boolean;
-  readonly onRetry: () => void;
+  /** Zapytanie spotkania edycji (dane `null`: nie ma takiego); `undefined` = nowe spotkanie. */
+  readonly meeting: AsyncQuery<Meeting | null> | undefined;
   readonly date?: string | undefined;
 }
 
@@ -132,48 +110,66 @@ function MeetingFormPopup(props: PopupProps) {
 
   const club = createClub();
   const members = createMembers();
-  const inProgress = () => props.meeting?.status === 'in_progress';
-  const players = createMeetingPlayers(() => props.meeting?.id ?? '', inProgress);
+  const creating = () => !props.meeting;
+  /** Spotkanie edycji z cache (bez czekania): `undefined` w trakcie wczytywania, `null` = brak. */
+  const meeting = (): Meeting | null | undefined =>
+    props.meeting ? props.meeting.current() : null;
+  const inProgress = () => meeting()?.status === 'in_progress';
+  const players = createMeetingPlayers(() => meeting()?.id ?? '', inProgress);
   // Propozycje terminu zmienia się tylko w zaplanowanym spotkaniu.
-  const planned = () => props.meeting?.status === 'planned';
-  const options = createMeetingDateOptions(() => props.meeting?.id ?? '', planned);
-  const creating = () => !props.editing;
+  const planned = () => meeting()?.status === 'planned';
+  const options = createMeetingDateOptions(() => meeting()?.id ?? '', planned);
 
-  /** Etap okna: spotkanie edycji, potem dane formularza. */
+  /** Etap okna (tytuł, stopka) z danych w cache: spotkanie edycji, potem dane formularza. */
   const phase = createMemo(() => {
-    if (props.editing && !props.loaded) return 'meeting';
-    if (props.editing && !props.meeting) return 'notFound';
-    if (props.meeting?.status === 'finished') return 'finished';
+    const current = meeting();
+    if (current === undefined) return 'meeting';
+    if (!creating() && !current) return 'notFound';
+    if (current?.status === 'finished') return 'finished';
     if (
-      !club().isSuccess ||
-      !members().isSuccess ||
-      (inProgress() && !players().isSuccess) ||
-      (planned() && !options().isSuccess)
+      club.current() === undefined ||
+      members.current() === undefined ||
+      (inProgress() && players.current() === undefined) ||
+      (planned() && options.current() === undefined)
     ) {
       return 'loading';
     }
     return 'form';
   });
+  /**
+   * Treść okna: czeka pod `<QueryBoundary>` na spotkanie edycji, a dla formularza na strefę
+   * klubu, członków, w trakcie graczy z partiami i propozycje terminu.
+   */
+  const content = createMemo(() => {
+    const current = props.meeting ? props.meeting() : null;
+    if (props.meeting && !current) return 'notFound';
+    if (current?.status === 'finished') return 'finished';
+    club();
+    members();
+    if (current?.status === 'in_progress') players();
+    if (current?.status === 'planned') options();
+    return 'form';
+  });
   // Bez klubu nie ma strefy czasowej; widżety (i ten formularz) są dopiero po założeniu.
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
-  const memberList = (): readonly Profile[] => members().data ?? [];
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
+  const memberList = (): readonly Profile[] => members.current() ?? [];
   /** Uczestnicy z partią w spotkaniu w trakcie: nie da się ich odznaczyć (PLAN-4). */
-  const locked = () => players().data ?? NO_PLAYERS;
+  const locked = () => players.current() ?? NO_PLAYERS;
 
   let first: FormStart | undefined;
   const start = createMemo(() => {
     if (first || phase() !== 'form') return first;
-    const meeting = props.meeting;
+    const current = meeting();
     const zone = timeZone();
-    const original = meeting
+    const original = current
       ? meetingFormFrom(
-          meeting,
+          current,
           zone,
-          planned() ? dateOptionValues(options().data ?? [], zone) : [],
+          planned() ? dateOptionValues(options.current() ?? [], zone) : [],
         )
       : null;
     first = {
-      id: meeting?.id ?? newId,
+      id: current?.id ?? newId,
       original,
       values: original ?? emptyMeetingForm(zone, props.me.id, props.date),
     };
@@ -221,29 +217,30 @@ function MeetingFormPopup(props: PopupProps) {
       dateOptions: errors.dateOptions(),
     });
 
-  const save = createMutation({
-    mutationFn: () =>
-      saveMeeting(auth.client, {
+  const [saving, setSaving] = createOptimistic(false);
+  const save = action(function* () {
+    setSaving(true);
+    try {
+      yield saveMeeting(auth.client, {
         id: start()?.id ?? newId,
         values: values(),
         original: start()?.original ?? null,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: meetingsKey });
-      toast.show(
-        creating()
-          ? t.meetings.toasts.created
-          : format(t.meetings.toasts.updated, { title: values().title.trim() }),
-        'success',
-      );
-      popups.back();
-    },
-    onError: (error) => {
+      });
+    } catch (error) {
       const reason = error instanceof MeetingError ? error.reason : 'save';
       // Stan spotkania zmienił się gdzie indziej (rozpoczęte, usunięte): odświeżamy dane.
       if (reason !== 'save') void queryClient.invalidateQueries({ queryKey: meetingsKey });
       setSaveError(t.meetings.errors[reason]);
-    },
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: meetingsKey });
+    toast.show(
+      creating()
+        ? t.meetings.toasts.created
+        : format(t.meetings.toasts.updated, { title: values().title.trim() }),
+      'success',
+    );
+    popups.back();
   });
 
   const memberIds = createMemo(() => memberList().map((member) => member.id));
@@ -288,8 +285,8 @@ function MeetingFormPopup(props: PopupProps) {
     flush();
     setShowErrors(true);
     setSaveError(undefined);
-    if (invalid() || save.state().isPending) return;
-    save.mutate();
+    if (invalid() || saving()) return;
+    void save();
   };
 
   const popupTitle = () => {
@@ -306,184 +303,176 @@ function MeetingFormPopup(props: PopupProps) {
           <Button variant="secondary" onClick={() => popups.back()}>
             {form.cancel}
           </Button>
-          <Button type="submit" form={formId} loading={save.state().isPending}>
+          <Button type="submit" form={formId} loading={saving()}>
             {creating() ? form.create : form.save}
           </Button>
         </Show>
       }
     >
-      <Switch>
-        <Match when={phase() === 'meeting'}>
-          <QueryStatus isError={props.isError} onRetry={() => props.onRetry()} />
-        </Match>
-        <Match when={phase() === 'notFound'}>
-          <p class="meeting-form__state">{form.notFoundBody}</p>
-        </Match>
-        <Match when={phase() === 'finished'}>
-          <p class="meeting-form__state">{form.finishedBody}</p>
-        </Match>
-        <Match when={phase() === 'loading'}>
-          <QueryStatus
-            isError={club().isError || members().isError || players().isError || options().isError}
-            onRetry={() => {
-              void club().refetch();
-              void members().refetch();
-              if (inProgress()) void players().refetch();
-              if (planned()) void options().refetch();
-            }}
-          />
-        </Match>
-        <Match when={phase() === 'form'}>
-          <form id={formId} class="meeting-form" novalidate onSubmit={submit}>
-            <Show when={saveError()}>
-              {(message) => <Banner variant="error">{message()}</Banner>}
-            </Show>
-            <Show when={showErrors() && invalid() && !saveError()}>
-              <Banner variant="error">{form.errors.invalid}</Banner>
-            </Show>
-            <Show when={inProgress()}>
-              <Banner variant="info">{form.inProgressNote}</Banner>
-            </Show>
+      <QueryBoundary>
+        <Switch>
+          <Match when={content() === 'notFound'}>
+            <p class="meeting-form__state">{form.notFoundBody}</p>
+          </Match>
+          <Match when={content() === 'finished'}>
+            <p class="meeting-form__state">{form.finishedBody}</p>
+          </Match>
+          <Match when={content() === 'form'}>
+            <form id={formId} class="meeting-form" novalidate onSubmit={submit}>
+              <Show when={saveError()}>
+                {(message) => <Banner variant="error">{message()}</Banner>}
+              </Show>
+              <Show when={showErrors() && invalid() && !saveError()}>
+                <Banner variant="error">{form.errors.invalid}</Banner>
+              </Show>
+              <Show when={inProgress()}>
+                <Banner variant="info">{form.inProgressNote}</Banner>
+              </Show>
 
-            <TextField
-              label={form.titleLabel}
-              placeholder={form.titlePlaceholder}
-              value={title()}
-              autocomplete="off"
-              required
-              disabled={inProgress()}
-              error={titleMessage()}
-              onInput={(event) => {
-                const text = event.currentTarget.value;
-                setValues((current) => ({ ...current, title: text }));
-              }}
-              onBlur={(event) => {
-                // Wartość z pola: wpis z tego samego zadania sygnał pokaże dopiero po flushu.
-                if (event.currentTarget.value !== '') setTitleTouched(true);
-              }}
-            />
-
-            <div class="meeting-form__when">
               <TextField
-                label={form.dateLabel}
-                type="date"
-                value={date()}
-                min={creating() ? todayIn(timeZone()) : undefined}
+                label={form.titleLabel}
+                placeholder={form.titlePlaceholder}
+                value={title()}
+                autocomplete="off"
                 required
                 disabled={inProgress()}
-                error={dateMessage()}
+                error={titleMessage()}
                 onInput={(event) => {
-                  const date = event.currentTarget.value;
-                  setValues((current) => ({ ...current, date }));
+                  const text = event.currentTarget.value;
+                  setValues((current) => ({ ...current, title: text }));
+                }}
+                onBlur={(event) => {
+                  // Wartość z pola: wpis z tego samego zadania sygnał pokaże dopiero po flushu.
+                  if (event.currentTarget.value !== '') setTitleTouched(true);
                 }}
               />
-              <Select
-                label={form.timeLabel}
-                options={timeOptions()}
-                value={time() === '' ? null : time()}
-                disabled={inProgress()}
-                leadingIcon="clock"
-                error={showErrors() && errors.time() ? form.errors.timeRequired : undefined}
-                onChange={(time) => setValues((current) => ({ ...current, time }))}
-              />
-            </div>
-            <p class="meeting-form__hint">{format(form.timezoneHint, { timezone: timeZone() })}</p>
 
-            <fieldset class="meeting-form__group">
-              <legend class="meeting-form__label">{form.participantsLegend}</legend>
-              <div class="meeting-form__label-row">
-                <span class="meeting-form__count" aria-live="polite">
-                  {format(form.selectedCount, { n: selected(), total: memberIds().length })}
-                </span>
-                <button
-                  type="button"
-                  class="meeting-form__link"
-                  onClick={() => {
-                    const all = !allSelected();
-                    setValues((current) => setAllParticipants(current, memberIds(), all, locked()));
+              <div class="meeting-form__when">
+                <TextField
+                  label={form.dateLabel}
+                  type="date"
+                  value={date()}
+                  min={creating() ? todayIn(timeZone()) : undefined}
+                  required
+                  disabled={inProgress()}
+                  error={dateMessage()}
+                  onInput={(event) => {
+                    const date = event.currentTarget.value;
+                    setValues((current) => ({ ...current, date }));
                   }}
-                >
-                  {allSelected() ? form.clearAll : form.selectAll}
-                </button>
+                />
+                <Select
+                  label={form.timeLabel}
+                  options={timeOptions()}
+                  value={time() === '' ? null : time()}
+                  disabled={inProgress()}
+                  leadingIcon="clock"
+                  error={showErrors() && errors.time() ? form.errors.timeRequired : undefined}
+                  onChange={(time) => setValues((current) => ({ ...current, time }))}
+                />
               </div>
-              <Tray label={form.participantsLegend} class="meeting-form__members">
-                <For each={memberList()} keyed={(member) => member.id}>
-                  {(member) => {
-                    const hasPlay = () => locked().has(member().id);
-                    const checked = () => participants().includes(member().id);
-                    return (
-                      <li class="tray__item">
-                        <Checkbox
-                          class="row meeting-member"
-                          checked={checked()}
-                          disabled={hasPlay() && checked()}
-                          onCheckedChange={(next) =>
-                            setValues((current) => toggleParticipant(current, member().id, next))
-                          }
-                          label={
-                            <span class="meeting-member__body">
-                              <ProfileAvatar profile={member()} size={36} decorative />
-                              <span class="meeting-member__name">{fullName(member())}</span>
-                              <span class="meeting-member__badges">
-                                <Show when={member().role === 'admin'}>
-                                  <Badge tone="accent">{t.ui.adminBadge}</Badge>
-                                </Show>
-                                <Show when={member().id === props.me.id}>
-                                  <Badge tone="ink">{t.ui.youBadge}</Badge>
-                                </Show>
-                                <Show when={hasPlay()}>
-                                  <Badge tone="neutral">{form.hasPlay}</Badge>
-                                </Show>
+              <p class="meeting-form__hint">
+                {format(form.timezoneHint, { timezone: timeZone() })}
+              </p>
+
+              <fieldset class="meeting-form__group">
+                <legend class="meeting-form__label">{form.participantsLegend}</legend>
+                <div class="meeting-form__label-row">
+                  <span class="meeting-form__count" aria-live="polite">
+                    {format(form.selectedCount, { n: selected(), total: memberIds().length })}
+                  </span>
+                  <button
+                    type="button"
+                    class="meeting-form__link"
+                    onClick={() => {
+                      const all = !allSelected();
+                      setValues((current) =>
+                        setAllParticipants(current, memberIds(), all, locked()),
+                      );
+                    }}
+                  >
+                    {allSelected() ? form.clearAll : form.selectAll}
+                  </button>
+                </div>
+                <Tray label={form.participantsLegend} class="meeting-form__members">
+                  <For each={memberList()} keyed={(member) => member.id}>
+                    {(member) => {
+                      const hasPlay = () => locked().has(member().id);
+                      const checked = () => participants().includes(member().id);
+                      return (
+                        <li class="tray__item">
+                          <Checkbox
+                            class="row meeting-member"
+                            checked={checked()}
+                            disabled={hasPlay() && checked()}
+                            onCheckedChange={(next) =>
+                              setValues((current) => toggleParticipant(current, member().id, next))
+                            }
+                            label={
+                              <span class="meeting-member__body">
+                                <ProfileAvatar profile={member()} size={36} decorative />
+                                <span class="meeting-member__name">{fullName(member())}</span>
+                                <span class="meeting-member__badges">
+                                  <Show when={member().role === 'admin'}>
+                                    <Badge tone="accent">{t.ui.adminBadge}</Badge>
+                                  </Show>
+                                  <Show when={member().id === props.me.id}>
+                                    <Badge tone="ink">{t.ui.youBadge}</Badge>
+                                  </Show>
+                                  <Show when={hasPlay()}>
+                                    <Badge tone="neutral">{form.hasPlay}</Badge>
+                                  </Show>
+                                </span>
                               </span>
-                            </span>
-                          }
-                        />
-                      </li>
-                    );
-                  }}
-                </For>
-              </Tray>
-              <Show when={showErrors() && errors.participants()}>
-                <p class="meeting-form__error" role="alert">
-                  {form.errors.participantsRequired}
-                </p>
-              </Show>
-            </fieldset>
+                            }
+                          />
+                        </li>
+                      );
+                    }}
+                  </For>
+                </Tray>
+                <Show when={showErrors() && errors.participants()}>
+                  <p class="meeting-form__error" role="alert">
+                    {form.errors.participantsRequired}
+                  </p>
+                </Show>
+              </fieldset>
 
-            <Select
-              label={form.hostLabel}
-              options={hostOptions()}
-              value={hostId() ?? ADMIN_HOST}
-              hint={form.hostHint}
-              onChange={(value) =>
-                setValues((current) => ({
-                  ...current,
-                  hostId: value === ADMIN_HOST ? null : value,
-                }))
-              }
-            />
-
-            <Show when={!inProgress()}>
-              <DateOptionsField
-                enabled={dateVoting()}
-                values={dateOptions()}
-                minDate={creating() ? todayIn(timeZone()) : undefined}
-                error={dateOptionsMessage()}
-                onToggle={(dateVoting) => setValues((current) => ({ ...current, dateVoting }))}
-                onAdd={() => setValues((current) => addDateOption(current))}
-                onChange={(index, change) =>
-                  setValues((current) => updateDateOption(current, index, change))
+              <Select
+                label={form.hostLabel}
+                options={hostOptions()}
+                value={hostId() ?? ADMIN_HOST}
+                hint={form.hostHint}
+                onChange={(value) =>
+                  setValues((current) => ({
+                    ...current,
+                    hostId: value === ADMIN_HOST ? null : value,
+                  }))
                 }
-                onRemove={(index) => setValues((current) => removeDateOption(current, index))}
               />
-            </Show>
 
-            <Show when={creating()}>
-              <p class="meeting-form__hint">{form.votingNote}</p>
-            </Show>
-          </form>
-        </Match>
-      </Switch>
+              <Show when={!inProgress()}>
+                <DateOptionsField
+                  enabled={dateVoting()}
+                  values={dateOptions()}
+                  minDate={creating() ? todayIn(timeZone()) : undefined}
+                  error={dateOptionsMessage()}
+                  onToggle={(dateVoting) => setValues((current) => ({ ...current, dateVoting }))}
+                  onAdd={() => setValues((current) => addDateOption(current))}
+                  onChange={(index, change) =>
+                    setValues((current) => updateDateOption(current, index, change))
+                  }
+                  onRemove={(index) => setValues((current) => removeDateOption(current, index))}
+                />
+              </Show>
+
+              <Show when={creating()}>
+                <p class="meeting-form__hint">{form.votingNote}</p>
+              </Show>
+            </form>
+          </Match>
+        </Switch>
+      </QueryBoundary>
     </PopupModal>
   );
 }

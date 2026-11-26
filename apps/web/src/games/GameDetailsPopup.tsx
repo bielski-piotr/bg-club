@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, useContext } from 'solid-js';
+import { For, Show, useContext } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, plural, t } from '../i18n';
 import { formatMeetingDate } from '../meetings/datetime';
@@ -10,7 +10,7 @@ import { PopupsContext } from '../popups/popupContext';
 import { SheetThumbnail } from '../meetings/MeetingParts';
 import { PopupLink } from '../popups/PopupLink';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Button, EmptyState, Icon, ListRow, Menu, Tray } from '../ui';
 import { GameCover } from './GameCover';
 import { GameStatsSection } from './GameStats';
@@ -30,9 +30,10 @@ const text = t.games.details;
 export function GameDetailsPopup(props: { readonly id: string; readonly isAdmin?: boolean }) {
   const game = createGame(() => props.id);
   const club = createClub();
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
-  const data = () => game().data ?? undefined;
-  const notFound = () => game().isSuccess && game().data === null;
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
+  // Okno (tytuł, akcje, „nie znaleziono”) zależy od danych w cache bez czekania.
+  const data = () => game.current() ?? undefined;
+  const notFound = () => game.current() === null;
 
   // Jedno okno na wszystkie stany (wczytywanie, gra, dodatek, brak gry): fokus, który
   // `PopupHost` ustawił na oknie przy otwarciu, zostaje na nim po wczytaniu danych.
@@ -44,28 +45,24 @@ export function GameDetailsPopup(props: { readonly id: string; readonly isAdmin?
         <Show when={props.isAdmin && data()}>{(shown) => <GameActions game={shown()} />}</Show>
       }
     >
-      <Switch>
-        <Match when={notFound()}>
-          <p class="meeting-form__state">{text.notFoundBody}</p>
-        </Match>
-        <Match when={data()}>
-          {(shown) => (
-            <Show
-              when={shown().base_game_id === null}
-              fallback={<ExpansionDetails expansion={shown()} timeZone={timeZone()} />}
-            >
-              <BaseGameDetails
-                game={shown()}
-                isAdmin={props.isAdmin ?? false}
-                timeZone={timeZone()}
-              />
-            </Show>
-          )}
-        </Match>
-        <Match when={true}>
-          <QueryStatus isError={game().isError} onRetry={() => void game().refetch()} />
-        </Match>
-      </Switch>
+      <Show when={!notFound()} fallback={<p class="meeting-form__state">{text.notFoundBody}</p>}>
+        <QueryBoundary>
+          <Show when={game()}>
+            {(shown) => (
+              <Show
+                when={shown().base_game_id === null}
+                fallback={<ExpansionDetails expansion={shown()} timeZone={timeZone()} />}
+              >
+                <BaseGameDetails
+                  game={shown()}
+                  isAdmin={props.isAdmin ?? false}
+                  timeZone={timeZone()}
+                />
+              </Show>
+            )}
+          </Show>
+        </QueryBoundary>
+      </Show>
     </PopupModal>
   );
 }
@@ -164,16 +161,13 @@ function BaseGameDetails(props: {
             </p>
           </Show>
           <LastPlayed game={props.game} timeZone={props.timeZone} />
-          <Switch>
-            <Match when={votes().isError || votes().data === undefined}>
-              <QueryStatus isError={votes().isError} onRetry={() => void votes().refetch()} />
-            </Match>
-            <Match when={votes().data != null}>
+          <QueryBoundary>
+            <Show when={votes() != null}>
               <p class="game-details__fact" aria-live="polite">
-                {format(text.voteTotal, { count: votes().data ?? 0 })}
+                {format(text.voteTotal, { count: votes() ?? 0 })}
               </p>
-            </Match>
-          </Switch>
+            </Show>
+          </QueryBoundary>
         </div>
       </div>
       <ExpansionsSection game={props.game} isAdmin={props.isAdmin} />
@@ -183,23 +177,22 @@ function BaseGameDetails(props: {
           <h3 id={headingId()} class="meeting-view__head">
             {text.gallery}
           </h3>
-          <Show when={sheets().data}>
+          <Show when={sheets.current()}>
             {(list) => <span class="meeting-view__note">{plural(list().length, text.count)}</span>}
           </Show>
         </div>
-        <Switch>
-          <Match when={!sheets().data}>
-            <QueryStatus isError={sheets().isError} onRetry={() => void sheets().refetch()} />
-          </Match>
-          <Match when={sheets().data?.length === 0}>
-            <EmptyState icon="pad" title={text.galleryEmptyTitle} helper={text.galleryEmpty} />
-          </Match>
-          <Match when={true}>
+        <QueryBoundary>
+          <Show
+            when={sheets().length > 0}
+            fallback={
+              <EmptyState icon="pad" title={text.galleryEmptyTitle} helper={text.galleryEmpty} />
+            }
+          >
             <ul
               class="sheet-gallery"
               aria-label={format(text.galleryLabel, { title: props.game.title })}
             >
-              <For each={sheets().data ?? []} keyed={(sheet) => sheet.id}>
+              <For each={sheets()} keyed={(sheet) => sheet.id}>
                 {(sheet) => (
                   <li>
                     <GalleryItem sheet={sheet()} gameId={props.game.id} timeZone={props.timeZone} />
@@ -207,8 +200,8 @@ function BaseGameDetails(props: {
                 )}
               </For>
             </ul>
-          </Match>
-        </Switch>
+          </Show>
+        </QueryBoundary>
       </section>
     </div>
   );
@@ -222,16 +215,19 @@ function ExpansionsSection(props: { readonly game: Game; readonly isAdmin: boole
   const popups = useContext(PopupsContext);
   const expansions = createExpansions(() => props.game.id);
   const headingId = () => `${props.game.id}-expansions`;
-  const list = () => expansions().data ?? [];
+  // Sekcja i licznik zależą od danych w cache bez czekania, lista czeka pod `<QueryBoundary>`.
+  const empty = () => expansions.current()?.length === 0;
   return (
-    <Show when={!(expansions().isSuccess && list().length === 0 && !props.isAdmin)}>
+    <Show when={!(empty() && !props.isAdmin)}>
       <section class="meeting-view__section" aria-labelledby={headingId()}>
         <div class="meeting-view__head-row">
           <h3 id={headingId()} class="meeting-view__head">
             {text.expansions}
           </h3>
-          <Show when={expansions().data}>
-            <span class="meeting-view__note">{plural(list().length, text.expansionCount)}</span>
+          <Show when={expansions.current()}>
+            {(list) => (
+              <span class="meeting-view__note">{plural(list().length, text.expansionCount)}</span>
+            )}
           </Show>
           <Show when={props.isAdmin}>
             <Button
@@ -244,22 +240,16 @@ function ExpansionsSection(props: { readonly game: Game; readonly isAdmin: boole
             </Button>
           </Show>
         </div>
-        <Switch>
-          <Match when={!expansions().data}>
-            <QueryStatus
-              isError={expansions().isError}
-              onRetry={() => void expansions().refetch()}
-            />
-          </Match>
-          <Match when={list().length === 0}>
-            <p class="meeting-view__note">{text.expansionsEmpty}</p>
-          </Match>
-          <Match when={true}>
+        <QueryBoundary>
+          <Show
+            when={expansions().length > 0}
+            fallback={<p class="meeting-view__note">{text.expansionsEmpty}</p>}
+          >
             <Tray
               label={format(text.expansionsLabel, { title: props.game.title })}
               class="expansion-list"
             >
-              <For each={list()} keyed={(expansion) => expansion.id}>
+              <For each={expansions()} keyed={(expansion) => expansion.id}>
                 {(expansion) => (
                   <ListRow
                     leading={
@@ -277,8 +267,8 @@ function ExpansionsSection(props: { readonly game: Game; readonly isAdmin: boole
                 )}
               </For>
             </Tray>
-          </Match>
-        </Switch>
+          </Show>
+        </QueryBoundary>
       </section>
     </Show>
   );
@@ -302,7 +292,7 @@ function ExpansionDetails(props: { readonly expansion: Game; readonly timeZone: 
         />
         <div class="game-details__facts">
           <p class="game-details__fact game-details__fact--muted">{text.expansionBadge}</p>
-          <Show when={base().data}>
+          <Show when={base.current()}>
             {(shown) => (
               <p class="game-details__base">
                 <PopupLink to={{ kind: 'game', id: shown().id }}>

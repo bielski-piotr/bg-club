@@ -1,14 +1,14 @@
 import {
+  action,
   createEffect,
   createMemo,
+  createOptimistic,
   createSignal,
   createUniqueId,
   flush,
   For,
-  Match,
   onSettled,
   Show,
-  Switch,
   useContext,
 } from 'solid-js';
 import { format, t } from '../i18n';
@@ -17,8 +17,7 @@ import { PopupsContext } from '../popups/popupContext';
 import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button, Icon, Stepper, Switch as Toggle, TextField } from '../ui';
 import { clipboardImage, downloadCover, type CroppedCover } from './cover';
 import { CoverEditor, type CoverEditorResult, type CoverEditorStart } from './CoverEditor';
@@ -123,14 +122,19 @@ function GameFormPopup(props: {
   const newId = crypto.randomUUID();
 
   const source = createGame(() => (props.mode === 'add' ? '' : props.id));
+  // Okno (tytuł, stopka, „nie znaleziono”) i start formularza zależą od danych w cache bez
+  // czekania; treść czeka na grę pod `<QueryBoundary>`.
   const notFound = () => {
-    if (props.mode === 'add' || !source().isSuccess) return false;
-    const data = source().data;
+    if (props.mode === 'add') return false;
+    const data = source.current();
+    if (data === undefined) return false;
     return !data || (props.mode === 'expansion' && data.base_game_id !== null);
   };
+  /** Czyta grę z czekaniem (pod `<QueryBoundary>`); nowa gra nie czeka. */
+  const loaded = () => props.mode === 'add' || source() !== undefined;
   const target = (): FormTarget | undefined => {
     if (props.mode === 'add') return { game: null, base: null };
-    const data = source().data;
+    const data = source.current();
     if (!data || notFound()) return undefined;
     return props.mode === 'edit' ? { game: data, base: null } : { game: null, base: data };
   };
@@ -154,7 +158,7 @@ function GameFormPopup(props: {
   // Gra podstawowa dodatku (nowego albo edytowanego): uwaga, gdy jest niedostępna.
   const baseGame = createGame(() => base()?.id ?? game()?.base_game_id ?? '');
   const unavailableBase = () => {
-    const data = baseGame().data;
+    const data = baseGame.current();
     return expansion() && data != null && !data.available ? data : undefined;
   };
   const [cover, setCover] = createSignal<CoverState>({ kind: 'keep' });
@@ -174,26 +178,27 @@ function GameFormPopup(props: {
   const errors = createMemo(() => validateGameForm(values()));
   const invalid = () => hasErrors(errors());
 
-  const save = createMutation({
-    mutationFn: (coverChange: CoverChange) =>
-      saveGame(auth.client, game(), {
+  const [saving, setSaving] = createOptimistic(false);
+  const save = action(function* (coverChange: CoverChange) {
+    setSaving(true);
+    try {
+      yield saveGame(auth.client, game(), {
         id: id(),
         values: values(),
         cover: coverChange,
         baseGameId: base()?.id,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: gamesKey });
-      const title = values().title.trim();
-      const toasts = expansion() ? t.games.toasts.expansion : t.games.toasts;
-      toast.show(format(creating() ? toasts.created : toasts.updated, { title }), 'success');
-      popups.back();
-    },
-    onError: (error) => {
+      });
+    } catch (error) {
       const reason = error instanceof GameSaveError ? error.reason : 'save';
       if (reason === 'gone') void queryClient.invalidateQueries({ queryKey: gamesKey });
       setSaveError(SAVE_ERRORS[reason]);
-    },
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: gamesKey });
+    const title = values().title.trim();
+    const toasts = expansion() ? t.games.toasts.expansion : t.games.toasts;
+    toast.show(format(creating() ? toasts.created : toasts.updated, { title }), 'success');
+    popups.back();
   });
 
   const hasCover = () => {
@@ -297,11 +302,12 @@ function GameFormPopup(props: {
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
-    // Wpis z tego samego zadania (autouzupełnianie + Enter) widać dopiero po flushu.
-    flush();
     setShowErrors(true);
     setSaveError(undefined);
-    if (invalid() || save.state().isPending) return;
+    // Wpis z tego samego zadania (autouzupełnianie + Enter) widać dopiero po flushu; flush
+    // pokazuje też od razu powyższe zapisy (przed akcją czekałyby na jej koniec).
+    flush();
+    if (invalid() || saving()) return;
     const current = cover();
     const change: CoverChange =
       current.kind === 'new'
@@ -309,7 +315,7 @@ function GameFormPopup(props: {
         : current.kind === 'remove'
           ? current
           : { kind: 'keep' };
-    save.mutate(change);
+    void save(change);
   };
 
   const title = () => {
@@ -331,198 +337,194 @@ function GameFormPopup(props: {
               <Button variant="secondary" onClick={() => popups.back()}>
                 {form.cancel}
               </Button>
-              <Button type="submit" form={formId} loading={save.state().isPending}>
+              <Button type="submit" form={formId} loading={saving()}>
                 {form.save}
               </Button>
             </Show>
           }
         >
-          <Switch>
-            <Match when={notFound()}>
-              <p class="games-not-found">{form.notFoundBody}</p>
-            </Match>
-            <Match when={ctx()}>
-              <form id={formId} class="game-form" novalidate onSubmit={submit}>
-                <Show when={base()}>
-                  {(shown) => (
-                    <p class="game-form__hint">
-                      {format(form.expansionOf, { title: shown().title })}
-                    </p>
-                  )}
-                </Show>
-                <Show when={saveError()}>
-                  {(message) => <Banner variant="error">{message()}</Banner>}
-                </Show>
-                <Show when={showErrors() && invalid() && !saveError()}>
-                  <Banner variant="error">{form.errors.invalid}</Banner>
-                </Show>
-
-                <fieldset class="club-form__logo">
-                  <legend class="sr-only">{form.coverLabel}</legend>
-                  <button
-                    type="button"
-                    class="club-form__tile game-form__cover"
-                    aria-label={hasCover() ? form.editCover : form.addCover}
-                    onClick={openEditor}
-                  >
-                    <GameCover
-                      id={id()}
-                      title={values().title}
-                      coverPath={coverPath()}
-                      src={coverSrc()}
-                      size="form"
-                    />
-                    <span class="club-form__badge" aria-hidden="true">
-                      <Icon name="pencil" />
-                    </span>
-                  </button>
-                  <div class="club-form__logo-text">
-                    <p class="club-form__helper">
-                      {form.coverHelper}
-                      <br />
-                      {cover().kind === 'new'
-                        ? form.coverChanged
-                        : cover().kind === 'remove'
-                          ? form.coverRemoved
-                          : form.coverFallback}
-                    </p>
-                  </div>
-                </fieldset>
-
-                <TextField
-                  label={form.titleLabel}
-                  placeholder={form.titlePlaceholder}
-                  value={values().title}
-                  autocomplete="off"
-                  required
-                  error={titleMessage()}
-                  onInput={(event) => {
-                    const text = event.currentTarget.value;
-                    update((current) => ({ ...current, title: text }));
-                  }}
-                  onBlur={(event) => {
-                    // Wartość z pola: wpis z tego samego zadania sygnał pokaże dopiero po flushu.
-                    if (event.currentTarget.value !== '') setTitleTouched(true);
-                  }}
-                />
-
-                <div class="game-form__group">
-                  <Toggle
-                    label={form.availableLabel}
-                    checked={values().available}
-                    onCheckedChange={(available) =>
-                      update((current) => ({ ...current, available }))
-                    }
-                    description={expansion() ? form.availableHintExpansion : form.availableHint}
-                  />
-                  <Show when={unavailableBase()}>
+          <Show when={!notFound()} fallback={<p class="games-not-found">{form.notFoundBody}</p>}>
+            <QueryBoundary>
+              <Show when={loaded() && ctx()}>
+                <form id={formId} class="game-form" novalidate onSubmit={submit}>
+                  <Show when={base()}>
                     {(shown) => (
                       <p class="game-form__hint">
-                        {format(form.availableBaseOff, { title: shown().title })}
+                        {format(form.expansionOf, { title: shown().title })}
                       </p>
                     )}
                   </Show>
-                </div>
-
-                <fieldset class="game-form__group">
-                  <legend class="game-form__legend">{form.playersLegend}</legend>
-                  <div class="game-form__players">
-                    <Stepper
-                      label={form.minLabel}
-                      value={values().minPlayers}
-                      min={1}
-                      onChange={(minPlayers) => update((current) => ({ ...current, minPlayers }))}
-                    />
-                    <Stepper
-                      label={form.maxLabel}
-                      value={values().maxPlayers}
-                      min={1}
-                      onChange={(maxPlayers) =>
-                        update((current) => withMaxPlayers(current, maxPlayers))
-                      }
-                      error={errors().maxPlayers ? form.errors.range : undefined}
-                    />
-                  </div>
-                  <p class="game-form__hint">{form.playersHint}</p>
-                </fieldset>
-
-                <div class="game-form__group">
-                  <Show when={game()?.complexity === null && values().complexity === ''}>
-                    <Banner variant="warning">{form.complexityMissing}</Banner>
+                  <Show when={saveError()}>
+                    {(message) => <Banner variant="error">{message()}</Banner>}
                   </Show>
+                  <Show when={showErrors() && invalid() && !saveError()}>
+                    <Banner variant="error">{form.errors.invalid}</Banner>
+                  </Show>
+
+                  <fieldset class="club-form__logo">
+                    <legend class="sr-only">{form.coverLabel}</legend>
+                    <button
+                      type="button"
+                      class="club-form__tile game-form__cover"
+                      aria-label={hasCover() ? form.editCover : form.addCover}
+                      onClick={openEditor}
+                    >
+                      <GameCover
+                        id={id()}
+                        title={values().title}
+                        coverPath={coverPath()}
+                        src={coverSrc()}
+                        size="form"
+                      />
+                      <span class="club-form__badge" aria-hidden="true">
+                        <Icon name="pencil" />
+                      </span>
+                    </button>
+                    <div class="club-form__logo-text">
+                      <p class="club-form__helper">
+                        {form.coverHelper}
+                        <br />
+                        {cover().kind === 'new'
+                          ? form.coverChanged
+                          : cover().kind === 'remove'
+                            ? form.coverRemoved
+                            : form.coverFallback}
+                      </p>
+                    </div>
+                  </fieldset>
+
                   <TextField
-                    label={form.complexityLabel}
-                    placeholder={form.complexityPlaceholder}
-                    value={values().complexity}
-                    inputmode="decimal"
+                    label={form.titleLabel}
+                    placeholder={form.titlePlaceholder}
+                    value={values().title}
                     autocomplete="off"
-                    numeric
                     required
-                    hint={form.complexityHint}
-                    error={complexityMessage()}
+                    error={titleMessage()}
                     onInput={(event) => {
-                      const complexity = event.currentTarget.value;
-                      update((current) => withComplexity(current, complexity));
+                      const text = event.currentTarget.value;
+                      update((current) => ({ ...current, title: text }));
+                    }}
+                    onBlur={(event) => {
+                      // Wartość z pola: wpis z tego samego zadania sygnał pokaże dopiero po flushu.
+                      if (event.currentTarget.value !== '') setTitleTouched(true);
                     }}
                   />
-                </div>
 
-                <fieldset class="game-form__group">
-                  <legend class="game-form__legend">{form.pointsLegend}</legend>
-                  <p class="game-form__hint">
-                    {form.pointsHint}
-                    <Show when={!creating()}>
-                      <br />
-                      {form.historyNote}
-                    </Show>
-                  </p>
-                  <div class="game-form__points">
-                    {/* Pola są pozycjami (miejsce 1…max), więc lista jest po indeksie. */}
-                    <For each={values().points} keyed={false}>
-                      {(text, index) => (
-                        <TextField
-                          label={format(form.placeLabel, { n: index + 1 })}
-                          value={text()}
-                          inputmode="decimal"
-                          autocomplete="off"
-                          numeric
-                          required
-                          trailing={form.pointsUnit}
-                          error={(() => {
-                            const error = errors().points[index];
-                            return showErrors() && error ? POINTS_ERRORS[error] : undefined;
-                          })()}
-                          onInput={(event) => setPoint(index, event.currentTarget.value)}
-                        />
+                  <div class="game-form__group">
+                    <Toggle
+                      label={form.availableLabel}
+                      checked={values().available}
+                      onCheckedChange={(available) =>
+                        update((current) => ({ ...current, available }))
+                      }
+                      description={expansion() ? form.availableHintExpansion : form.availableHint}
+                    />
+                    <Show when={unavailableBase()}>
+                      {(shown) => (
+                        <p class="game-form__hint">
+                          {format(form.availableBaseOff, { title: shown().title })}
+                        </p>
                       )}
-                    </For>
+                    </Show>
                   </div>
-                  <Show when={pointsEdited(values())}>
-                    <p class="game-form__hint">
-                      {form.pointsEdited}{' '}
-                      <button
-                        type="button"
-                        class="club-form__link"
-                        onClick={() =>
-                          update((current) => withComplexity(current, current.complexity))
+
+                  <fieldset class="game-form__group">
+                    <legend class="game-form__legend">{form.playersLegend}</legend>
+                    <div class="game-form__players">
+                      <Stepper
+                        label={form.minLabel}
+                        value={values().minPlayers}
+                        min={1}
+                        onChange={(minPlayers) => update((current) => ({ ...current, minPlayers }))}
+                      />
+                      <Stepper
+                        label={form.maxLabel}
+                        value={values().maxPlayers}
+                        min={1}
+                        onChange={(maxPlayers) =>
+                          update((current) => withMaxPlayers(current, maxPlayers))
                         }
-                      >
-                        {form.pointsReset}
-                      </button>
+                        error={errors().maxPlayers ? form.errors.range : undefined}
+                      />
+                    </div>
+                    <p class="game-form__hint">{form.playersHint}</p>
+                  </fieldset>
+
+                  <div class="game-form__group">
+                    <Show when={game()?.complexity === null && values().complexity === ''}>
+                      <Banner variant="warning">{form.complexityMissing}</Banner>
+                    </Show>
+                    <TextField
+                      label={form.complexityLabel}
+                      placeholder={form.complexityPlaceholder}
+                      value={values().complexity}
+                      inputmode="decimal"
+                      autocomplete="off"
+                      numeric
+                      required
+                      hint={form.complexityHint}
+                      error={complexityMessage()}
+                      onInput={(event) => {
+                        const complexity = event.currentTarget.value;
+                        update((current) => withComplexity(current, complexity));
+                      }}
+                    />
+                  </div>
+
+                  <fieldset class="game-form__group">
+                    <legend class="game-form__legend">{form.pointsLegend}</legend>
+                    <p class="game-form__hint">
+                      {form.pointsHint}
+                      <Show when={!creating()}>
+                        <br />
+                        {form.historyNote}
+                      </Show>
                     </p>
-                  </Show>
-                  <Show when={pointsIncrease(values().points)}>
-                    <Banner variant="warning" class="game-form__warning">
-                      {form.pointsWarning}
-                    </Banner>
-                  </Show>
-                </fieldset>
-              </form>
-            </Match>
-            <Match when={true}>
-              <QueryStatus isError={source().isError} onRetry={() => void source().refetch()} />
-            </Match>
-          </Switch>
+                    <div class="game-form__points">
+                      {/* Pola są pozycjami (miejsce 1…max), więc lista jest po indeksie. */}
+                      <For each={values().points} keyed={false}>
+                        {(text, index) => (
+                          <TextField
+                            label={format(form.placeLabel, { n: index + 1 })}
+                            value={text()}
+                            inputmode="decimal"
+                            autocomplete="off"
+                            numeric
+                            required
+                            trailing={form.pointsUnit}
+                            error={(() => {
+                              const error = errors().points[index];
+                              return showErrors() && error ? POINTS_ERRORS[error] : undefined;
+                            })()}
+                            onInput={(event) => setPoint(index, event.currentTarget.value)}
+                          />
+                        )}
+                      </For>
+                    </div>
+                    <Show when={pointsEdited(values())}>
+                      <p class="game-form__hint">
+                        {form.pointsEdited}{' '}
+                        <button
+                          type="button"
+                          class="club-form__link"
+                          onClick={() =>
+                            update((current) => withComplexity(current, current.complexity))
+                          }
+                        >
+                          {form.pointsReset}
+                        </button>
+                      </p>
+                    </Show>
+                    <Show when={pointsIncrease(values().points)}>
+                      <Banner variant="warning" class="game-form__warning">
+                        {form.pointsWarning}
+                      </Banner>
+                    </Show>
+                  </fieldset>
+                </form>
+              </Show>
+            </QueryBoundary>
+          </Show>
         </PopupModal>
       }
     >

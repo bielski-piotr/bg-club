@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Match, Show, Switch, useContext } from 'solid-js';
+import { createMemo, createSignal, For, Show, useContext } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, formatNumber, plural, t } from '../i18n';
 import { NO_FILTERS, type LeaderboardFilters } from '../leaderboard/filters';
@@ -8,7 +8,7 @@ import { AuthContext } from '../auth/authContext';
 import { GameCover } from '../games/GameCover';
 import { FilterBar } from '../leaderboard/FilterBar';
 import { PopupLink } from '../popups/PopupLink';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { createQuery } from '../lib/query';
 import { EmptyState, ListRow, Tray } from '../ui';
 import {
@@ -36,41 +36,38 @@ export function PlayerStatsSection(props: { readonly profileId: string }) {
   const [filters, setFilters] = createSignal<LeaderboardFilters>(NO_FILTERS);
   const stats = createQuery(() => playerStatsQuery(auth.client, props.profileId, filters()));
   const club = createClub();
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
   const headingId = () => `${props.profileId}-stats`;
+  /** Statystyki z historią partii; czekają na dane pod `<QueryBoundary>`. */
+  const withHistory = () => {
+    const data = stats();
+    return data && data.recent_meetings.length > 0 ? data : undefined;
+  };
 
   return (
     <section class="profile__section" aria-labelledby={headingId()}>
       <h3 id={headingId()} class="profile__section-title">
         {text.title}
       </h3>
-      <Switch>
-        <Match when={stats().data === undefined}>
-          <QueryStatus isError={stats().isError} onRetry={() => void stats().refetch()} />
-        </Match>
-        <Match when={stats().data}>
+      <QueryBoundary>
+        <Show
+          when={withHistory()}
+          fallback={
+            // Bez żadnej partii w historii filtry nie mają sensu: zostaje stan oczekiwania.
+            <EmptyState icon="trophy" title={text.pendingTitle} helper={text.pendingHelper} />
+          }
+        >
           {(data) => (
-            <Show
-              when={data().recent_meetings.length > 0}
-              fallback={
-                // Bez żadnej partii w historii filtry nie mają sensu: zostaje stan oczekiwania.
-                <EmptyState icon="trophy" title={text.pendingTitle} helper={text.pendingHelper} />
-              }
-            >
-              <StatsBody
-                headingId={headingId()}
-                stats={data()}
-                timeZone={timeZone()}
-                filters={filters()}
-                onFilters={setFilters}
-              />
-            </Show>
+            <StatsBody
+              headingId={headingId()}
+              stats={data()}
+              timeZone={timeZone()}
+              filters={filters()}
+              onFilters={setFilters}
+            />
           )}
-        </Match>
-        <Match when={true}>
-          <EmptyState icon="trophy" title={text.pendingTitle} helper={text.pendingHelper} />
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </section>
   );
 }

@@ -4,7 +4,17 @@ import type {
   ScorePadSheet,
   ScorePadTemplate,
 } from '@bg-club/score-pad';
-import { createEffect, createMemo, createSignal, Match, Show, Switch, useContext } from 'solid-js';
+import {
+  action,
+  createEffect,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  Match,
+  Show,
+  Switch,
+  useContext,
+} from 'solid-js';
 import type { OwnProfile } from '../auth/ownProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, t } from '../i18n';
@@ -27,9 +37,9 @@ import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { createLeaveGuard, createMounted } from '../popups/leaveGuard';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { PopupLoading, QueryBoundary } from '../popups/QueryStatus';
 import { createAllProfiles } from '../profile/profiles';
-import { createMutation, createQuery } from '../lib/query';
+import { createQuery } from '../lib/query';
 import { Banner, Button } from '../ui';
 import { localDateTime } from './datetime';
 import { createMeeting, createPlay } from './meetingData';
@@ -49,7 +59,13 @@ import {
 } from './playDraft';
 import { invalidatePlayData } from './playDelete';
 import { isMeetingRunner, playKey, type PlayDetail } from './plays';
-import { PlaySaveError, playSummary, savePlay, type PlaySummary } from './playSave';
+import {
+  PlaySaveError,
+  playSummary,
+  savePlay,
+  type PlaySaveFailure,
+  type PlaySummary,
+} from './playSave';
 import { PlaySummaryDialog } from './PlaySummaryDialog';
 
 const text = t.meetings.play;
@@ -94,19 +110,21 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
   const popups = useContext(PopupsContext);
   const mounted = createMounted();
   const play = createPlay(() => props.id);
-  const meeting = createMeeting(() => play().data?.meeting_id ?? '');
+  const meeting = createMeeting(() => play.current()?.meeting_id ?? '');
   const profiles = createAllProfiles();
   const club = createClub();
 
-  const current = createMemo(() => play().data ?? undefined);
-  const meetingData = createMemo(() => meeting().data ?? undefined);
-  const profileMap = createMemo(() => profiles().data);
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  // Okno (tytuł, szerokość, widok) i stan notesu zależą od danych w cache (bez czekania);
+  // wczytywanie i błąd pokazuje `<QueryBoundary>` w treści.
+  const current = createMemo(() => play.current() ?? undefined);
+  const meetingData = createMemo(() => meeting.current() ?? undefined);
+  const profileMap = createMemo(() => profiles.current());
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
   const meId = createMemo(() => props.me.id);
   const playId = createMemo(() => props.id);
 
   // Partii nie ma (porzucona, zły link): kopie szkicu na tym urządzeniu nic już nie znaczą.
-  const gone = () => play().isSuccess && play().data === null;
+  const gone = () => play.current() === null;
   createEffect(
     () => (gone() || current()?.status === 'saved' ? playId() : null),
     (id) => {
@@ -114,11 +132,14 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
     },
   );
 
+  /** Partia, spotkanie i gracze: czekają pod `<QueryBoundary>`, błąd trafia do `<Errored>`. */
+  const loadedData = createMemo(() => [play(), meeting(), profiles()] as const);
+
   const view = createMemo<'gone' | 'loading' | 'live' | 'pad'>(() => {
-    if (gone() || (current() && meeting().isSuccess && !meetingData())) return 'gone';
+    if (gone() || (current() && meeting.current() === null)) return 'gone';
     // Notes zaczyna od świeżego szkicu z bazy, nie z pamięci podręcznej (inne urządzenie
     // mogło go w międzyczasie zmienić, PAD-4).
-    if (!current() || !play().isFetchedAfterMount || !meetingData() || !profileMap()) {
+    if (!current() || !play.state()?.isFetchedAfterMount || !meetingData() || !profileMap()) {
       return 'loading';
     }
     return reason() ? 'live' : 'pad';
@@ -258,9 +279,12 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
       },
     };
   });
-  const conflictServer = () => startConflict() ?? (liveConflict() ? (latest().data ?? null) : null);
+  // Nowszy szkic pojawia się w sekcji konfliktu po wczytaniu (bez czekania), błąd w niej samej.
+  const conflictServer = () =>
+    startConflict() ?? (liveConflict() ? (latest.current() ?? null) : null);
   const showConflict = () => startConflict() !== null || liveConflict();
-  const conflictError = () => liveConflict() && (latest().isError || latest().data === null);
+  const conflictError = () =>
+    liveConflict() && (latest.state()?.isError === true || latest.current() === null);
 
   const template = createQuery(() => {
     const shown = active() ? current() : undefined;
@@ -275,9 +299,11 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
       queryFn: () => loadVersionTemplate(auth.client, versionId, name),
     };
   });
-  const templateData = createMemo(() => template().data);
+  // Szablon wyłączonego zapytania (notes zamknięty) to `undefined`, nie czekanie.
+  const templateData = createMemo<ScorePadTemplate | undefined>(() => template());
 
-  // Notes powstaje raz z wpisami startowymi; dalsze wpisy żyją w nim samym.
+  // Notes powstaje raz z wpisami startowymi; dalsze wpisy żyją w nim samym. Czeka na szablon
+  // pod `<QueryBoundary>`.
   const config = createMemo<ScorePadFile | null>(() => {
     const loaded = templateData();
     const start = initial();
@@ -353,7 +379,8 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
       return;
     }
     tornNow = true;
-    saveFinal.reset();
+    setFinished(false);
+    setSaveFailure(null);
     const summary = playSummary(shown, sheet, detail.results);
     // Kartki bez wyniku nie da się zapisać, więc jej obrazu nie wysyłamy.
     const image: PendingSheetImage = summary
@@ -384,40 +411,41 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
   };
   const { release } = createLeaveGuard(() => (active() && torn() ? tearGuard : null));
 
-  const saveFinal = createMutation({
-    mutationFn: (input: {
-      readonly play: PlayDetail;
-      readonly summary: PlaySummary;
-      readonly image: PendingSheetImage;
-    }) => savePlay(auth.client, input.play, input.summary),
-    onMutate: () => {
-      saving = true;
-    },
-    onError: (_error, input) => {
+  const [finishing, setFinishing] = createOptimistic(false);
+  const [finished, setFinished] = createSignal(false);
+  const [saveFailure, setSaveFailure] = createSignal<PlaySaveFailure | null>(null);
+  const saveFinal = action(function* (input: {
+    readonly play: PlayDetail;
+    readonly summary: PlaySummary;
+    readonly image: PendingSheetImage;
+  }) {
+    setFinishing(true);
+    setSaveFailure(null);
+    saving = true;
+    try {
+      yield savePlay(auth.client, input.play, input.summary);
+    } catch (error) {
       saving = false;
+      setSaveFailure(error instanceof PlaySaveError ? error.reason : 'server');
       void queryClient.invalidateQueries({ queryKey: playKey(input.play.id) });
-    },
-    onSuccess: (_saved, input) => {
-      // Obraz karteczki dołączamy w tle: zapis wyników na niego nie czeka, a jego brak nie psuje
-      // historii (PAD-6). Po dołączeniu lista partii pokazuje miniaturę.
-      void finishSheetImage(auth.client, input.play, input.image)
-        .catch(() => null)
-        .then(() => queryClient.invalidateQueries({ queryKey: meetingsKey }));
-      // Partia zakończona: szkic i jego kopie lokalne nic już nie znaczą.
-      void saver?.dispose(false);
-      saver = null;
-      removeLocalDrafts(draftStorage(), input.play.id);
-      release();
-      toast.show(format(t.meetings.toasts.playSaved, { title: input.play.game.title }), 'success');
-      // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane” (§5.6.5).
-      void invalidatePlayData(queryClient);
-      if (mounted()) popups.back();
-    },
+      return;
+    }
+    setFinished(true);
+    // Obraz karteczki dołączamy w tle: zapis wyników na niego nie czeka, a jego brak nie psuje
+    // historii (PAD-6). Po dołączeniu lista partii pokazuje miniaturę.
+    void finishSheetImage(auth.client, input.play, input.image)
+      .catch(() => null)
+      .then(() => queryClient.invalidateQueries({ queryKey: meetingsKey }));
+    // Partia zakończona: szkic i jego kopie lokalne nic już nie znaczą.
+    void saver?.dispose(false);
+    saver = null;
+    removeLocalDrafts(draftStorage(), input.play.id);
+    release();
+    toast.show(format(t.meetings.toasts.playSaved, { title: input.play.game.title }), 'success');
+    // Nowy wynik zmienia rankingi, statystyki i „ostatnio grane” (§5.6.5).
+    void invalidatePlayData(queryClient);
+    if (mounted()) popups.back();
   });
-  const saveFailure = () => {
-    const error = saveFinal.state().error;
-    return error ? (error instanceof PlaySaveError ? error.reason : 'server') : null;
-  };
 
   const savedBy = () => {
     const by = conflictServer()?.savedBy;
@@ -471,14 +499,12 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
             <p class="meeting-form__state">{text.gone}</p>
           </Match>
           <Match when={view() === 'loading'}>
-            <QueryStatus
-              isError={play().isError || meeting().isError || profiles().isError}
-              onRetry={() => {
-                if (play().isError) void play().refetch();
-                if (meeting().isError) void meeting().refetch();
-                if (profiles().isError) void profiles().refetch();
-              }}
-            />
+            <QueryBoundary>
+              {/* Spinner także po wczytaniu, dopóki nie przyjdzie świeży szkic z bazy. */}
+              <Show when={loadedData()}>
+                <PopupLoading />
+              </Show>
+            </QueryBoundary>
           </Match>
           <Match when={view() === 'live'}>
             <LiveInfo
@@ -517,7 +543,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
                   <p class="play-pad__note">{text.conflict.keepLocalNote}</p>
                   <div class="play-pad__conflict-actions">
                     <Show when={conflictError()}>
-                      <Button variant="secondary" onClick={() => void latest().refetch()}>
+                      <Button variant="secondary" onClick={() => void latest.refetch()}>
                         {text.conflict.retry}
                       </Button>
                     </Show>
@@ -547,41 +573,35 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
                     </Banner>
                   )}
                 </Show>
-                <Show
-                  when={config()}
-                  fallback={
-                    <QueryStatus
-                      isError={template().isError}
-                      onRetry={() => void template().refetch()}
-                    />
-                  }
-                >
-                  {(file) => (
-                    <ScorePadView
-                      ref={(handle) => (pad = handle)}
-                      config={file()}
-                      controls={false}
-                      summary={false}
-                      class="play-pad__pad"
-                      onTear={onTear}
-                      onSave={onSave}
-                      onChange={({ sheet }) => {
-                        // Po oderwaniu na wierzchu jest czysta kartka: to nie są wpisy partii.
-                        if (tearing) return;
-                        // Imiona graczy wynikają z miejsc partii (PAD-2), nie z klawiatury.
-                        const next = sheetWithPlayers(sheet, names());
-                        lastSheet = next;
-                        saver?.change(next);
-                      }}
-                    />
-                  )}
-                </Show>
+                <QueryBoundary>
+                  <Show when={config()}>
+                    {(file) => (
+                      <ScorePadView
+                        ref={(handle) => (pad = handle)}
+                        config={file()}
+                        controls={false}
+                        summary={false}
+                        class="play-pad__pad"
+                        onTear={onTear}
+                        onSave={onSave}
+                        onChange={({ sheet }) => {
+                          // Po oderwaniu na wierzchu jest czysta kartka: to nie są wpisy partii.
+                          if (tearing) return;
+                          // Imiona graczy wynikają z miejsc partii (PAD-2), nie z klawiatury.
+                          const next = sheetWithPlayers(sheet, names());
+                          lastSheet = next;
+                          saver?.change(next);
+                        }}
+                      />
+                    )}
+                  </Show>
+                </QueryBoundary>
                 <div class="play-pad__footer">
                   <p class="play-pad__note">{text.tearHint}</p>
                   <Button
                     variant="secondary"
                     icon="tear-off"
-                    disabled={!config() || torn() !== null}
+                    disabled={!template.current() || torn() !== null}
                     aria-label={format(text.tearLabel, { title: title() })}
                     onClick={() => pad?.tear()}
                   >
@@ -605,11 +625,11 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
             timeZone={timeZone()}
             summary={shown.summary}
             profiles={profileMap() ?? new Map()}
-            saving={saveFinal.state().isPending || saveFinal.state().isSuccess}
+            saving={finishing() || finished()}
             failure={saveFailure()}
             onCancel={cancelTear}
             manual={(() => {
-              const loaded = templateData();
+              const loaded = template.current();
               const seats = current();
               return loaded && seats
                 ? { template: loaded, ranked: shown.ranked, play: seats }
@@ -617,7 +637,7 @@ export function PlayPopup(props: { readonly id: string; readonly me: OwnProfile 
             })()}
             onConfirm={(summary) => {
               const seats = current();
-              if (seats) saveFinal.mutate({ play: seats, summary, image: shown.image });
+              if (seats) void saveFinal({ play: seats, summary, image: shown.image });
             }}
           />
         )}

@@ -48,9 +48,12 @@ export function Hub(props: { readonly me: OwnProfile }) {
     }
   });
   onSettled(prefetchPopups);
-  // Dane klubu mają pierwszeństwo przed błędem: nieudane ponowne pobranie nie chowa widżetów.
-  const loaded = () => club().data !== undefined;
-  const firstRun = () => club().data === null;
+  // Powłoka huba nie czeka na klub (cache i stan zapytania bez zawieszania); widżety mają własne
+  // granice danych. Dane klubu mają pierwszeństwo przed błędem: nieudane ponowne pobranie nie
+  // chowa widżetów.
+  const loaded = () => club.current() !== undefined;
+  const firstRun = () => club.current() === null;
+  const failed = () => !loaded() && club.state()?.isError === true;
   const isAdmin = () => props.me.role === 'admin';
 
   return (
@@ -60,7 +63,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
     >
       <div class={['hub', { 'hub--first-run': firstRun() }]}>
         <AppHeader
-          club={loaded() ? (club().data ?? 'none') : club().isError ? null : undefined}
+          club={loaded() ? (club.current() ?? 'none') : failed() ? null : undefined}
           me={props.me}
         />
         <main
@@ -82,7 +85,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
             <Match when={loaded()}>
               <Widgets me={props.me} />
             </Match>
-            <Match when={club().isError}>
+            <Match when={failed()}>
               <Banner
                 variant="error"
                 class="hub__error"
@@ -91,7 +94,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
                     size="sm"
                     variant="secondary"
                     icon="refresh"
-                    onClick={() => void club().refetch()}
+                    onClick={() => void club.refetch()}
                   >
                     {t.hub.retry}
                   </Button>

@@ -1,5 +1,7 @@
 import {
+  action,
   createMemo,
+  createOptimistic,
   createSignal,
   createUniqueId,
   flush,
@@ -17,8 +19,7 @@ import { PopupsContext } from '../popups/popupContext';
 import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import {
   Banner,
   Button,
@@ -93,11 +94,17 @@ export function ClubPopup() {
 
   const source = createClub();
   // Formularz startuje z pierwszych wczytanych danych: odświeżenie klubu w cache (np. zapis
-  // z innej karty) nie nadpisuje tego, co wpisano.
+  // z innej karty) nie nadpisuje tego, co wpisano. Okno (tytuł, stopka) czyta cache bez czekania.
   let first: { readonly club: Club | null } | undefined;
-  const ctx = createMemo(
-    () => (first ??= source().isSuccess ? { club: source().data ?? null } : undefined),
-  );
+  const ctx = createMemo(() => {
+    const loaded = source.current();
+    return (first ??= loaded === undefined ? undefined : { club: loaded });
+  });
+  /** Kontekst formularza pod `<QueryBoundary>`: czyta zapytanie, więc czeka na dane. */
+  const formCtx = () => {
+    source();
+    return ctx();
+  };
   const club = () => ctx()?.club ?? null;
   const creating = () => club() === null;
 
@@ -123,24 +130,20 @@ export function ClubPopup() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   });
 
-  const save = createMutation({
-    mutationFn: (change: { readonly existing: Club | null; readonly logo: LogoChange }) =>
-      saveClub(auth.client, change.existing, {
+  const [saving, setSaving] = createOptimistic(false);
+  const save = action(function* (change: {
+    readonly existing: Club | null;
+    readonly logo: LogoChange;
+  }) {
+    setSaving(true);
+    let saved: Club;
+    try {
+      saved = (yield saveClub(auth.client, change.existing, {
         name: name(),
         timezone: timezone(),
         logo: change.logo,
-      }),
-    onSuccess: (saved, change) => {
-      queryClient.setQueryData(clubKey, saved);
-      // Strefa klubu wyznacza granice roku w rankingu (NFR-10).
-      void queryClient.invalidateQueries({ queryKey: leaderboardRootKey });
-      toast.show(
-        change.existing === null ? t.club.toasts.created : t.club.toasts.updated,
-        'success',
-      );
-      popups.back();
-    },
-    onError: (error) => {
+      })) as Club;
+    } catch (error) {
       const reason = error instanceof ClubSaveError ? error.reason : 'save';
       if (reason === 'exists') {
         // Klub powstał w międzyczasie (np. równoległa próba, CLUB-2): drugiego nie ma, hub
@@ -151,7 +154,13 @@ export function ClubPopup() {
         return;
       }
       setSaveError(SAVE_ERRORS[reason]);
-    },
+      return;
+    }
+    queryClient.setQueryData(clubKey, saved);
+    // Strefa klubu wyznacza granice roku w rankingu (NFR-10).
+    void queryClient.invalidateQueries({ queryKey: leaderboardRootKey });
+    toast.show(change.existing === null ? t.club.toasts.created : t.club.toasts.updated, 'success');
+    popups.back();
   });
 
   const pickFile = async (file: File | undefined) => {
@@ -188,7 +197,7 @@ export function ClubPopup() {
     return state.kind === 'new'
       ? state.preview
       : state.kind === 'keep'
-        ? savedLogo().data
+        ? savedLogo.current()
         : undefined;
   };
 
@@ -199,14 +208,14 @@ export function ClubPopup() {
     setShowErrors(true);
     setSaveError(undefined);
     const state = logo();
-    if (nameError(name()) || state.kind === 'processing' || save.state().isPending) return;
+    if (nameError(name()) || state.kind === 'processing' || saving()) return;
     const change: LogoChange =
       state.kind === 'new'
         ? { kind: 'new', image: state.image }
         : state.kind === 'remove'
           ? state
           : { kind: 'keep' };
-    save.mutate({ existing: club(), logo: change });
+    void save({ existing: club(), logo: change });
   };
 
   return (
@@ -217,114 +226,111 @@ export function ClubPopup() {
           <Button variant="secondary" onClick={() => popups.back()}>
             {form.cancel}
           </Button>
-          <Button type="submit" form={formId} loading={save.state().isPending || processing()}>
+          <Button type="submit" form={formId} loading={saving() || processing()}>
             {form.save}
           </Button>
         </Show>
       }
     >
-      <Show
-        when={ctx()}
-        fallback={
-          <QueryStatus isError={source().isError} onRetry={() => void source().refetch()} />
-        }
-      >
-        <form id={formId} class="club-form" novalidate onSubmit={submit}>
-          <Show when={saveError()}>
-            <Banner variant="error">{saveError()}</Banner>
-          </Show>
+      <QueryBoundary>
+        <Show when={formCtx()}>
+          <form id={formId} class="club-form" novalidate onSubmit={submit}>
+            <Show when={saveError()}>
+              <Banner variant="error">{saveError()}</Banner>
+            </Show>
 
-          <fieldset class="club-form__logo">
-            <legend class="sr-only">{form.logoLabel}</legend>
-            <div class="club-form__tile">
-              <ClubLogo name={name()} src={logoSrc()} size={88} />
-              <span class="club-form__badge" aria-hidden="true">
-                <Show when={processing()} fallback={<Icon name="upload" />}>
-                  <Spinner size={16} />
-                </Show>
-              </span>
-            </div>
-            <div class="club-form__logo-text">
-              <div class="club-form__logo-actions">
-                <button
-                  type="button"
-                  class="club-form__link"
-                  disabled={processing()}
-                  onClick={() => fileInput?.click()}
-                >
-                  {hasLogo() ? form.changeLogo : form.addLogo}
-                </button>
-                <Show when={hasLogo() && !processing()}>
+            <fieldset class="club-form__logo">
+              <legend class="sr-only">{form.logoLabel}</legend>
+              <div class="club-form__tile">
+                <ClubLogo name={name()} src={logoSrc()} size={88} />
+                <span class="club-form__badge" aria-hidden="true">
+                  <Show when={processing()} fallback={<Icon name="upload" />}>
+                    <Spinner size={16} />
+                  </Show>
+                </span>
+              </div>
+              <div class="club-form__logo-text">
+                <div class="club-form__logo-actions">
                   <button
                     type="button"
-                    class="club-form__link club-form__link--muted"
-                    onClick={() => {
-                      setLogo({ kind: 'remove' });
-                      setLogoError(undefined);
-                    }}
+                    class="club-form__link"
+                    disabled={processing()}
+                    onClick={() => fileInput?.click()}
                   >
-                    {form.removeLogo}
+                    {hasLogo() ? form.changeLogo : form.addLogo}
                   </button>
-                </Show>
+                  <Show when={hasLogo() && !processing()}>
+                    <button
+                      type="button"
+                      class="club-form__link club-form__link--muted"
+                      onClick={() => {
+                        setLogo({ kind: 'remove' });
+                        setLogoError(undefined);
+                      }}
+                    >
+                      {form.removeLogo}
+                    </button>
+                  </Show>
+                </div>
+                <p class="club-form__helper" role={logoError() ? 'alert' : undefined}>
+                  <Switch
+                    fallback={
+                      <>
+                        {form.logoHelper}
+                        <br />
+                        {form.logoFallback}
+                      </>
+                    }
+                  >
+                    <Match when={logoError()}>
+                      <span class="club-form__helper--error">{logoError()}</span>
+                    </Match>
+                    <Match when={processing()}>{form.logoProcessing}</Match>
+                  </Switch>
+                </p>
+                <input
+                  ref={(el) => (fileInput = el)}
+                  type="file"
+                  accept={IMAGE_ACCEPT}
+                  class="sr-only"
+                  tabindex={-1}
+                  aria-label={form.logoLabel}
+                  onChange={(event) => {
+                    void pickFile(event.currentTarget.files?.[0]);
+                    event.currentTarget.value = '';
+                  }}
+                />
               </div>
-              <p class="club-form__helper" role={logoError() ? 'alert' : undefined}>
-                <Switch
-                  fallback={
-                    <>
-                      {form.logoHelper}
-                      <br />
-                      {form.logoFallback}
-                    </>
-                  }
-                >
-                  <Match when={logoError()}>
-                    <span class="club-form__helper--error">{logoError()}</span>
-                  </Match>
-                  <Match when={processing()}>{form.logoProcessing}</Match>
-                </Switch>
-              </p>
-              <input
-                ref={(el) => (fileInput = el)}
-                type="file"
-                accept={IMAGE_ACCEPT}
-                class="sr-only"
-                tabindex={-1}
-                aria-label={form.logoLabel}
-                onChange={(event) => {
-                  void pickFile(event.currentTarget.files?.[0]);
-                  event.currentTarget.value = '';
-                }}
-              />
-            </div>
-          </fieldset>
+            </fieldset>
 
-          <TextField
-            label={form.nameLabel}
-            placeholder={form.namePlaceholder}
-            value={name()}
-            maxlength={CLUB_NAME_MAX}
-            autocomplete="off"
-            required
-            error={showErrors() ? nameError(name()) : undefined}
-            onInput={(event) => setName(event.currentTarget.value)}
-            onBlur={(event) => {
-              // Wpis z tego samego zadania jest w polu, a w sygnale dopiero po flushu.
-              if (event.currentTarget.value !== '') setShowErrors(true);
-            }}
-          />
+            <TextField
+              label={form.nameLabel}
+              placeholder={form.namePlaceholder}
+              value={name()}
+              maxlength={CLUB_NAME_MAX}
+              autocomplete="off"
+              required
+              error={showErrors() ? nameError(name()) : undefined}
+              onInput={(event) => setName(event.currentTarget.value)}
+              onBlur={(event) => {
+                // Wpis z tego samego zadania jest w polu, a w sygnale dopiero po flushu.
+                if (event.currentTarget.value !== '') setShowErrors(true);
+              }}
+            />
 
-          <Select
-            label={form.timezoneLabel}
-            options={options()}
-            value={timezone()}
-            onChange={setTimezone}
-            leadingIcon="globe"
-            hint={form.timezoneHint}
-            searchLabel={form.timezoneSearch}
-            matches={matchesTimezone}
-          />
-        </form>
-      </Show>
+            <Select
+              label={form.timezoneLabel}
+              options={options()}
+              value={timezone()}
+              onChange={setTimezone}
+              leadingIcon="globe"
+              hint={form.timezoneHint}
+              searchLabel={form.timezoneSearch}
+              matches={matchesTimezone}
+            />
+          </form>
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }

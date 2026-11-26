@@ -15,7 +15,7 @@ import { createClub } from '../club/clubData';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { PopupLoadError, QueryBoundary } from '../popups/QueryStatus';
 import { Button, Icon, IconButton, Tray } from '../ui';
 import { ariaBool } from '../ui/dom';
 import {
@@ -47,6 +47,7 @@ export function CalendarPopup(props: { readonly isAdmin: boolean }) {
   const popups = useContext(PopupsContext);
   const club = createClub();
   const text = t.meetings.calendar;
+  const timeZone = () => club()?.timezone ?? FALLBACK_TIMEZONE;
 
   return (
     <PopupModal
@@ -67,15 +68,12 @@ export function CalendarPopup(props: { readonly isAdmin: boolean }) {
         </Show>
       }
     >
-      <Show
-        when={!club().isPending && !(club().isError && club().data === undefined)}
-        fallback={<QueryStatus isError={!club().isPending} onRetry={() => void club().refetch()} />}
-      >
-        <CalendarBody
-          isAdmin={props.isAdmin}
-          timeZone={club().data?.timezone ?? FALLBACK_TIMEZONE}
-        />
-      </Show>
+      {/* Strefa klubu czeka pod `<QueryBoundary>`; kalendarz powstaje dopiero z nią. */}
+      <QueryBoundary>
+        <Show when={timeZone()}>
+          {(zone) => <CalendarBody isAdmin={props.isAdmin} timeZone={zone()} />}
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }
@@ -87,8 +85,12 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
   // Miesiąc startowy jednorazowo z dzisiejszej daty.
   const [month, setMonth] = createSignal<YearMonth>(untrack(() => monthOf(today())));
   const meetings = createCalendarMonth(month);
+  // Siatka i nawigacja miesiąca nie czekają na dane: spotkania i stan miesiąca z cache (bez
+  // czekania), w trakcie wczytywania siatka jest `aria-busy`.
+  const loaded = () => meetings.state()?.isSuccess === true;
+  const loading = () => meetings.state()?.isPending === true;
   const weeks = createMemo(() => monthGrid(month()));
-  const byDay = createMemo(() => groupByDay(meetings().data ?? [], props.timeZone));
+  const byDay = createMemo(() => groupByDay(meetings.current() ?? [], props.timeZone));
   const inThisMonth = createMemo(() =>
     [...byDay().entries()].filter(([date]) => inMonth(date, month())).flatMap(([, list]) => list),
   );
@@ -96,11 +98,7 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
   const agendaId = createUniqueId();
   const canPlan = (day: GridDay) =>
     // Dopiero gdy wiadomo, które dni są zajęte (nie w trakcie wczytywania ani po błędzie).
-    props.isAdmin &&
-    meetings().isSuccess &&
-    day.inMonth &&
-    day.date >= today() &&
-    !byDay().has(day.date);
+    props.isAdmin && loaded() && day.inMonth && day.date >= today() && !byDay().has(day.date);
   const plan = (date: string) => popups.open({ kind: 'add-meeting', date });
   const dayMeetings = (day: GridDay) => byDay().get(day.date) ?? [];
 
@@ -111,7 +109,7 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
           <h3 class="calendar__month" aria-live="polite">
             {label()}
           </h3>
-          <Show when={meetings().isSuccess}>
+          <Show when={loaded()}>
             <span class="calendar__count">{plural(inThisMonth().length, text.count)}</span>
           </Show>
         </div>
@@ -137,9 +135,9 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
         </div>
       </div>
 
-      <Show when={meetings().isError}>
+      <Show when={meetings.state()?.isError}>
         <div class="calendar__status">
-          <QueryStatus isError onRetry={() => void meetings().refetch()} />
+          <PopupLoadError onRetry={() => void meetings.refetch()} />
         </div>
       </Show>
 
@@ -148,7 +146,7 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
         class="calendar__grid calendar__grid--full"
         role="group"
         aria-label={format(text.gridLabel, { month: label() })}
-        aria-busy={ariaBool(meetings().isPending)}
+        aria-busy={ariaBool(loading())}
       >
         <div class="calendar__weekdays" aria-hidden="true">
           <For each={text.weekdays}>{(day) => <span>{day}</span>}</For>
@@ -177,7 +175,7 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
         class="calendar__grid calendar__grid--compact"
         role="group"
         aria-label={format(text.gridLabel, { month: label() })}
-        aria-busy={ariaBool(meetings().isPending)}
+        aria-busy={ariaBool(loading())}
       >
         <div class="calendar__weekdays" aria-hidden="true">
           <For each={text.weekdays}>{(day) => <span>{day}</span>}</For>
@@ -215,12 +213,12 @@ function CalendarBody(props: { readonly isAdmin: boolean; readonly timeZone: str
           <h3 id={agendaId} class="calendar__agenda-title">
             {text.agendaTitle}
           </h3>
-          <Show when={meetings().isSuccess}>
+          <Show when={loaded()}>
             <span class="calendar__count">{plural(inThisMonth().length, text.count)}</span>
           </Show>
         </div>
         <Show
-          when={!(meetings().isSuccess && inThisMonth().length === 0)}
+          when={!(loaded() && inThisMonth().length === 0)}
           fallback={<p class="calendar__agenda-empty">{text.agendaEmpty}</p>}
         >
           <Tray label={text.agendaLabel} class="calendar__agenda-list">

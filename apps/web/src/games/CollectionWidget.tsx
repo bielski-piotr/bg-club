@@ -1,7 +1,8 @@
-import { For, Match, Show, Switch, useContext } from 'solid-js';
+import { For, Show, useContext } from 'solid-js';
 import { plural, t } from '../i18n';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner, Tray } from '../ui';
 import { GameCover } from './GameCover';
 import { createCollectionWidget } from './gameData';
@@ -15,9 +16,10 @@ import { playersLabel } from './labels';
 export function CollectionWidget(props: { readonly isAdmin: boolean }) {
   const popups = useContext(PopupsContext);
   const collection = createCollectionWidget();
-  const data = () => collection().data;
-  const featured = () => data()?.games[0];
-  const rest = () => data()?.games.slice(1) ?? [];
+  // Nagłówek karty jest widoczny od razu: licznik i link pojawiają się, gdy dane są w cache.
+  const data = () => collection.current();
+  /** Gry poza pierwszą: czeka na dane pod `<QueryBoundary>`. */
+  const rest = () => collection().games.slice(1);
 
   return (
     <Card
@@ -32,32 +34,46 @@ export function CollectionWidget(props: { readonly isAdmin: boolean }) {
         </Show>
       }
     >
-      <Switch>
-        <Match when={collection().isPending}>
+      <QueryBoundary
+        loading={
           <div class="collection-widget__loading">
             <Skeleton width={148} height={148} radius={18} />
             <Spinner label={t.hub.collection.loading} class="sr-only" />
           </div>
-        </Match>
-        <Match when={collection().isError}>
+        }
+        error={(retry) => (
           <Banner
             variant="error"
             class="collection-widget__error"
             action={
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="refresh"
-                onClick={() => void collection().refetch()}
-              >
+              <Button size="sm" variant="secondary" icon="refresh" onClick={retry}>
                 {t.hub.retry}
               </Button>
             }
           >
             {t.hub.loadError}
           </Banner>
-        </Match>
-        <Match when={featured()}>
+        )}
+      >
+        <Show
+          when={collection().games[0]}
+          fallback={
+            <EmptyState
+              icon="dice"
+              title={t.hub.collection.emptyTitle}
+              helper={
+                props.isAdmin ? t.hub.collection.emptyHelperAdmin : t.hub.collection.emptyHelper
+              }
+              action={
+                <Show when={props.isAdmin}>
+                  <Button icon="plus" fullWidth onClick={() => popups.open({ kind: 'add-game' })}>
+                    {t.hub.collection.add}
+                  </Button>
+                </Show>
+              }
+            />
+          }
+        >
           {(game) => (
             <div class="collection-widget">
               <PopupLink to={{ kind: 'games' }} class="collection-widget__featured">
@@ -105,24 +121,8 @@ export function CollectionWidget(props: { readonly isAdmin: boolean }) {
               </Show>
             </div>
           )}
-        </Match>
-        <Match when={true}>
-          <EmptyState
-            icon="dice"
-            title={t.hub.collection.emptyTitle}
-            helper={
-              props.isAdmin ? t.hub.collection.emptyHelperAdmin : t.hub.collection.emptyHelper
-            }
-            action={
-              <Show when={props.isAdmin}>
-                <Button icon="plus" fullWidth onClick={() => popups.open({ kind: 'add-game' })}>
-                  {t.hub.collection.add}
-                </Button>
-              </Show>
-            }
-          />
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </Card>
   );
 }

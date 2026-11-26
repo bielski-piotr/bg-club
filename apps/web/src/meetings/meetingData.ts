@@ -3,7 +3,8 @@ import { t } from '../i18n';
 import { AuthContext } from '../auth/authContext';
 import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
-import { createMutation, createQuery } from '../lib/query';
+import { createQuery, ifEnabled } from '../lib/query';
+import { action, createOptimistic } from 'solid-js';
 import {
   decideMeetingDate,
   DateVotingError,
@@ -38,7 +39,7 @@ export function createHubMeeting() {
 /** Uczestnicy z partią w spotkaniu (`meetingPlayersQuery`). */
 export function createMeetingPlayers(id: Accessor<string>, enabled: Accessor<boolean>) {
   const auth = useContext(AuthContext);
-  return createQuery(() => meetingPlayersQuery(auth.client, id(), enabled()));
+  return createQuery(() => (enabled() ? meetingPlayersQuery(auth.client, id(), true) : null));
 }
 
 /** Timeline huba (`timelineQuery`). */
@@ -69,7 +70,7 @@ export function createMeetingPlays(
   enabled: Accessor<boolean> = () => true,
 ) {
   const auth = useContext(AuthContext);
-  return createQuery(() => meetingPlaysQuery(auth.client, meetingId(), fresh, enabled()));
+  return createQuery(() => (enabled() ? meetingPlaysQuery(auth.client, meetingId(), fresh) : null));
 }
 
 /** Partia z kartką i szkicem (`playQuery`); `null` = nie ma jej. */
@@ -96,7 +97,7 @@ export function createMeetingDateOptions(
   enabled: Accessor<boolean> = () => true,
 ) {
   const auth = useContext(AuthContext);
-  return createQuery(() => meetingDateOptionsQuery(auth.client, meetingId(), enabled()));
+  return createQuery(() => (enabled() ? meetingDateOptionsQuery(auth.client, meetingId()) : null));
 }
 
 /** Zmiany w klasyfikacji punktów po spotkaniu (`meetingSummaryQuery`). */
@@ -114,7 +115,7 @@ export function createMeetingRecords(
   enabled: Accessor<boolean> = () => true,
 ) {
   const auth = useContext(AuthContext);
-  return createQuery(() => meetingRecordsQuery(auth.client, meetingId(), enabled()));
+  return createQuery(() => (enabled() ? meetingRecordsQuery(auth.client, meetingId()) : null));
 }
 
 /** Podgląd rekordów partii w toku przed zapisem (`recordPreviewQuery`). */
@@ -123,7 +124,7 @@ export function createRecordPreview(
   results: Accessor<readonly PreviewResult[] | null>,
 ) {
   const auth = useContext(AuthContext);
-  return createQuery(() => recordPreviewQuery(auth.client, playId(), results()));
+  return createQuery(() => ifEnabled(recordPreviewQuery(auth.client, playId(), results())));
 }
 
 /**
@@ -134,16 +135,22 @@ export function createReopenVoting() {
   const auth = useContext(AuthContext);
   const queryClient = useContext(QueryClientContext);
   const toast = useContext(ToastContext);
-  return createMutation({
-    mutationFn: (meetingId: string) => reopenVoting(auth.client, meetingId),
-    onSuccess: () => toast.show(t.meetings.toasts.reopened, 'success'),
-    onError: (error) =>
+  const [pending, setPending] = createOptimistic(false);
+  const run = action(function* (meetingId: string) {
+    setPending(true);
+    try {
+      yield reopenVoting(auth.client, meetingId);
+      toast.show(t.meetings.toasts.reopened, 'success');
+    } catch (error) {
       toast.show(
         t.meetings.voting.errors[error instanceof VotingError ? error.reason : 'save'],
         'error',
-      ),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
+      );
+    }
+    // Także po błędzie: stan mógł się zmienić gdzie indziej.
+    yield queryClient.invalidateQueries({ queryKey: meetingsKey });
   });
+  return { run, pending };
 }
 
 export type DateDecision =
@@ -156,15 +163,18 @@ export function createDateDecision() {
   const queryClient = useContext(QueryClientContext);
   const toast = useContext(ToastContext);
   const text = t.meetings.dateVoting;
-  return createMutation({
-    mutationFn: (action: DateDecision) =>
-      action.kind === 'decide'
-        ? decideMeetingDate(auth.client, action.meetingId, action.optionId)
-        : reopenDateVoting(auth.client, action.meetingId),
-    onSuccess: (_, action) =>
-      toast.show(action.kind === 'decide' ? text.decided : text.reopened, 'success'),
-    onError: (error) =>
-      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error'),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
+  const [pending, setPending] = createOptimistic(false);
+  const run = action(function* (decision: DateDecision) {
+    setPending(true);
+    try {
+      yield decision.kind === 'decide'
+        ? decideMeetingDate(auth.client, decision.meetingId, decision.optionId)
+        : reopenDateVoting(auth.client, decision.meetingId);
+      toast.show(decision.kind === 'decide' ? text.decided : text.reopened, 'success');
+    } catch (error) {
+      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error');
+    }
+    yield queryClient.invalidateQueries({ queryKey: meetingsKey });
   });
+  return { run, pending };
 }

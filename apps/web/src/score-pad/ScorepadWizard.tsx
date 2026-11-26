@@ -6,7 +6,18 @@ import type {
   ScorePadTemplate,
   ScorePadZoomAction,
 } from '@bg-club/score-pad';
-import { createEffect, createMemo, createSignal, For, onSettled, Show, useContext } from 'solid-js';
+import {
+  action,
+  createEffect,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  For,
+  onFlush,
+  onSettled,
+  Show,
+  useContext,
+} from 'solid-js';
 import type { Game } from '../games/games';
 import { format, t } from '../i18n';
 import { type LeaveGuard, PopupsContext } from '../popups/popupContext';
@@ -15,8 +26,7 @@ import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { createLeaveGuard } from '../popups/leaveGuard';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button, Dialog, Icon, Spinner } from '../ui';
 import { AreaPanel, AreaToolbar } from './AreaStep';
 import { CategoriesPanel, CategoriesToolbar } from './CategoriesStep';
@@ -30,6 +40,7 @@ import {
   readImportFile,
   saveScorepad,
   scorepadsKey,
+  type SavedScorepad,
   type Scorepad,
 } from './scorepads';
 import { TestStep } from './TestStep';
@@ -65,12 +76,15 @@ interface ScorepadWizardProps {
   /** Tryb okna (tytuł także w czasie wczytywania). */
   readonly mode: 'add' | 'edit';
   readonly scorepadId: string;
-  /** Dane kreatora; `undefined` = jeszcze się wczytują (albo błąd, `isError`). */
+  /** Dane kreatora z cache (bez czekania); `undefined` = jeszcze się wczytują. */
   readonly source: WizardSource | undefined;
   /** Notes albo gra nie istnieje (np. stary link). */
   readonly notFound: boolean;
-  readonly isError: boolean;
-  readonly onRetry: () => void;
+  /**
+   * Czeka na dane kreatora pod `<QueryBoundary>` (spinner w trakcie wczytania, błąd
+   * z ponowieniem); bez niej dane są od razu.
+   */
+  readonly wait?: () => unknown;
 }
 
 /**
@@ -257,39 +271,45 @@ export function ScorepadWizard(props: ScorepadWizardProps) {
     });
   };
 
-  const save = createMutation({
-    mutationFn: () => {
+  const [saving, setSaving] = createOptimistic(false);
+  const save = action(function* () {
+    setSaving(true);
+    const current = source();
+    let saved: SavedScorepad;
+    try {
       const config = editor?.exportConfig();
-      const current = source();
       if (!config?.template || !current) throw new ScorepadError('incomplete');
-      return saveScorepad(auth.client, {
+      saved = (yield saveScorepad(auth.client, {
         gameId: current.game.id,
         scorepadId: props.scorepadId,
         template: config.template,
         previousImage: initial()?.previousImage,
-      });
-    },
-    onSuccess: (saved) => {
-      void queryClient.invalidateQueries({ queryKey: scorepadsKey });
-      toast.show(
-        source()?.pad
-          ? format(t.scorepads.toasts.saved, { name: saved.name, version: saved.version })
-          : format(t.scorepads.toasts.created, { name: saved.name }),
-        'success',
-      );
-      const warning = fewerSeatsMessage(saved.playerSlots, source()?.game.max_players ?? 0);
-      if (warning) toast.show(warning, 'neutral');
-      // Zapisany notes nie ma już czego chronić.
-      release();
-      popups.back();
-    },
-    onError: (failure) => {
+      })) as SavedScorepad;
+    } catch (failure) {
       if (failure instanceof ScorepadError && failure.reason === 'gone') {
         void queryClient.invalidateQueries({ queryKey: scorepadsKey });
       }
       setSaveError(scorepadErrorMessage(failure));
-    },
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: scorepadsKey });
+    toast.show(
+      current.pad
+        ? format(t.scorepads.toasts.saved, { name: saved.name, version: saved.version })
+        : format(t.scorepads.toasts.created, { name: saved.name }),
+      'success',
+    );
+    const warning = fewerSeatsMessage(saved.playerSlots, current.game.max_players);
+    if (warning) toast.show(warning, 'neutral');
+    // Zapisany notes nie ma już czego chronić.
+    release();
+    popups.back();
   });
+  /** Pod `<QueryBoundary>`: czeka na dane (nic nie renderuje). */
+  const waiting = () => {
+    props.wait?.();
+    return null;
+  };
 
   const busy = () => {
     const current = status();
@@ -371,10 +391,11 @@ export function ScorepadWizard(props: ScorepadWizardProps) {
             icon="check"
             class="wizard-footer__next"
             disabled={!valid() || busy()}
-            loading={save.state().isPending}
+            loading={saving()}
             onClick={() => {
-              setSaveError(undefined);
-              save.mutate();
+              // Poprzedni błąd znika od razu, nie dopiero po zapisie.
+              onFlush(() => setSaveError(undefined));
+              void save();
             }}
           >
             {text.save}
@@ -411,10 +432,7 @@ export function ScorepadWizard(props: ScorepadWizardProps) {
         <Show
           when={!props.notFound && initial()}
           fallback={
-            <Show
-              when={props.notFound}
-              fallback={<QueryStatus isError={props.isError} onRetry={() => props.onRetry()} />}
-            >
+            <Show when={props.notFound} fallback={<QueryBoundary>{waiting()}</QueryBoundary>}>
               <p class="games-not-found">{text.notFoundBody}</p>
             </Show>
           }

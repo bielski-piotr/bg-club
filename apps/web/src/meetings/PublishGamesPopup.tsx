@@ -1,4 +1,14 @@
-import { createMemo, createSignal, For, Match, Show, Switch, useContext } from 'solid-js';
+import {
+  action,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  For,
+  Match,
+  Show,
+  Switch,
+  useContext,
+} from 'solid-js';
 import type { OwnProfile } from '../auth/ownProfile';
 import { createGameSearch } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
@@ -9,8 +19,7 @@ import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { createMounted } from '../popups/leaveGuard';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import {
   Badge,
   Banner,
@@ -51,13 +60,20 @@ export function PublishGamesPopup(props: { readonly id: string; readonly me: Own
   const games = createGameSearch(() => '');
   const votes = createMeetingVotes(() => props.id);
   const published = createPublishedGames(() => props.id);
-  const queries = () => [meeting(), games(), votes(), published()] as const;
-  const loaded = () => queries().every((query) => query.isSuccess);
+  // Stopka i lista czytają dane z cache bez czekania; treść okna czeka pod `<QueryBoundary>`.
+  const loaded = () =>
+    [meeting, games, votes, published].every((query) => query.current() !== undefined);
   // Formularz tylko dla zaplanowanego spotkania; inaczej komunikat zamiast formularza.
   const current = () => {
-    const data = meeting().data;
+    const data = meeting.current();
     return loaded() && data && data.status === 'planned' ? data : undefined;
   };
+  /** Spotkanie do formularza w treści: czeka na wszystkie zapytania formularza. */
+  const form = createMemo(() => {
+    const data = meeting();
+    const ready = [games(), votes(), published()].every((each) => each !== undefined);
+    return ready && data && data.status === 'planned' ? data : undefined;
+  });
 
   // Po zamknięciu głosowania formularz zaczyna od obecnej listy (ponowna publikacja ją zastąpi).
   // Niedostępnych gier nie da się opublikować: odpadają z obecnej listy. Wybór startuje
@@ -65,8 +81,8 @@ export function PublishGamesPopup(props: { readonly id: string; readonly me: Own
   let first: readonly string[] | undefined;
   const initial = createMemo(() => {
     if (first) return first;
-    const list = games().data;
-    const chosen = published().data;
+    const list = games.current();
+    const chosen = published.current();
     if (!current() || !list || !chosen) return undefined;
     first = chosen
       .map((game) => game.id)
@@ -79,8 +95,8 @@ export function PublishGamesPopup(props: { readonly id: string; readonly me: Own
   // Kolejność listy „Gramy w:” jak na liście głosowania (najwięcej głosów pierwsze).
   const allRows = createMemo(() => {
     const target = current();
-    const list = games().data;
-    const cast = votes().data;
+    const list = games.current();
+    const cast = votes.current();
     if (!target || !list || !cast) return [];
     return voteRows(list, cast, {
       me: props.me.id,
@@ -100,59 +116,63 @@ export function PublishGamesPopup(props: { readonly id: string; readonly me: Own
       .filter((gameId) => selected().includes(gameId)),
   );
 
-  const publish = createMutation({
-    mutationFn: (gameIds: readonly string[]) => publishGames(auth.client, props.id, gameIds),
-    onSuccess: () => {
+  const [done, setDone] = createSignal(false);
+  // Wysłanie optymistycznie od kliknięcia do wyniku: po sukcesie zostaje (`done`), po błędzie
+  // wraca. Zapis w toku = wysłane, ale jeszcze bez wyniku.
+  const [sent, setSent] = createOptimistic(() => done());
+  const publishing = () => sent() && !done();
+  const [failure, setFailure] = createSignal<string | null>(null);
+  const publish = action(function* (gameIds: readonly string[]) {
+    setSent(true);
+    setFailure(null);
+    try {
+      yield publishGames(auth.client, props.id, gameIds);
+      setDone(true);
       toast.show(t.meetings.toasts.published, 'success');
       if (mounted()) popups.back();
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
+    } catch (error) {
+      setFailure(error instanceof VotingError ? voting.errors[error.reason] : voting.errors.save);
+    }
+    yield queryClient.invalidateQueries({ queryKey: meetingsKey });
   });
-  const failure = () => {
-    const error = publish.state().error;
-    return error instanceof VotingError ? voting.errors[error.reason] : voting.errors.save;
-  };
   const searching = () => query().trim() !== '';
-  const hasGames = () => (games().data?.length ?? 0) > 0;
+  const hasGames = () => (games.current()?.length ?? 0) > 0;
 
   return (
     <PopupModal
       title={text.title}
       footer={
         <Show when={current()}>
-          <Button
-            variant="secondary"
-            disabled={publish.state().isPending}
-            onClick={() => popups.back()}
-          >
+          <Button variant="secondary" disabled={publishing()} onClick={() => popups.back()}>
             {text.cancel}
           </Button>
           <Button
-            loading={publish.state().isPending}
-            disabled={ordered().length === 0 || publish.state().isSuccess}
-            onClick={() => publish.mutate(ordered())}
+            loading={publishing()}
+            disabled={ordered().length === 0 || done()}
+            onClick={() => void publish(ordered())}
           >
             {text.submit}
           </Button>
         </Show>
       }
     >
-      <Switch>
-        <Match when={!loaded()}>
-          <QueryStatus
-            isError={queries().some((each) => each.isError)}
-            onRetry={() => queries().forEach((each) => void each.refetch())}
-          />
-        </Match>
-        <Match when={current()}>
+      <QueryBoundary>
+        <Show
+          when={form()}
+          fallback={
+            <p class="meeting-form__state">
+              {meeting() ? voting.errors.notPlanned : t.meetings.popup.notFoundBody}
+            </p>
+          }
+        >
           {(target) => (
             <div class="meeting-view">
               <p class="meeting-form__state">{text.intro}</p>
               <Show when={!target().voting_open}>
                 <Banner variant="info">{text.closedNote}</Banner>
               </Show>
-              <Show when={publish.state().isError}>
-                <Banner variant="error">{failure()}</Banner>
+              <Show when={failure()}>
+                {(message) => <Banner variant="error">{message()}</Banner>}
               </Show>
               <p class="publish-count" aria-live="polite">
                 {countLabel(ordered().length, text.selected)}
@@ -239,13 +259,8 @@ export function PublishGamesPopup(props: { readonly id: string; readonly me: Own
               </Show>
             </div>
           )}
-        </Match>
-        <Match when={true}>
-          <p class="meeting-form__state">
-            {meeting().data ? voting.errors.notPlanned : t.meetings.popup.notFoundBody}
-          </p>
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }

@@ -1,4 +1,4 @@
-import { Show, useContext } from 'solid-js';
+import { action, createOptimistic, createSignal, Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
 import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
@@ -7,8 +7,7 @@ import { ToastContext } from '../ui/toastContext';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { createMounted } from '../popups/leaveGuard';
 import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button } from '../ui';
 import { createGame } from './gameData';
 import { deleteGame, GameSaveError, gamesKey } from './games';
@@ -26,30 +25,37 @@ export function DeleteGameDialog(props: { readonly id: string }) {
   const popups = useContext(PopupsContext);
   const mounted = createMounted();
   const query = createGame(() => props.id);
-  const game = () => query().data ?? undefined;
+  // Okno zależy od danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
+  const game = () => query.current() ?? undefined;
   const expansion = () => (game()?.base_game_id ?? null) !== null;
   const text = () => (expansion() ? t.games.removeExpansion : t.games.remove);
 
-  const remove = createMutation({
-    mutationFn: () => deleteGame(auth.client, props.id),
-    onSuccess: () => {
-      const toasts = expansion() ? t.games.toasts.expansion : t.games.toasts;
-      const removed = game();
-      if (removed) toast.show(format(toasts.deleted, { title: removed.title }), 'success');
-      if (mounted()) popups.back();
-      void queryClient.invalidateQueries({ queryKey: gamesKey });
-    },
+  const [removing, setRemoving] = createOptimistic(false);
+  const [removed, setRemoved] = createSignal(false);
+  const [failure, setFailure] = createSignal<'forbidden' | 'save' | null>(null);
+
+  const remove = action(function* () {
+    setRemoving(true);
+    setFailure(null);
+    const toasts = expansion() ? t.games.toasts.expansion : t.games.toasts;
+    const target = game();
+    try {
+      yield deleteGame(auth.client, props.id);
+    } catch (error) {
+      setFailure(
+        error instanceof GameSaveError && error.reason === 'forbidden' ? 'forbidden' : 'save',
+      );
+      return;
+    }
+    setRemoved(true);
+    if (target) toast.show(format(toasts.deleted, { title: target.title }), 'success');
+    if (mounted()) popups.back();
+    void queryClient.invalidateQueries({ queryKey: gamesKey });
   });
 
   // Po sukcesie dialog zostaje do zamknięcia (Wstecz jest asynchroniczne), choć gry już nie ma
   // w kolekcji. Wcześniej: z linku nie usuniemy gry nieistniejącej ani już usuniętej.
-  const unavailable = () => !remove.state().isSuccess && query().isSuccess && !game();
-  const failure = () => {
-    const error = remove.state().error;
-    return error instanceof GameSaveError && error.reason === 'forbidden'
-      ? text().errors.forbidden
-      : text().errors.save;
-  };
+  const unavailable = () => !removed() && query.current() === null;
 
   return (
     <Show when={!unavailable()} fallback={<InvalidPopup />}>
@@ -58,37 +64,30 @@ export function DeleteGameDialog(props: { readonly id: string }) {
         icon="trash"
         tone="danger"
         description={
-          <Show
-            when={game()}
-            fallback={
-              <QueryStatus isError={query().isError} onRetry={() => void query().refetch()} />
-            }
-          >
-            {(shown) => <p>{format(text().description, { title: shown().title })}</p>}
-          </Show>
+          <QueryBoundary>
+            <Show when={query()}>
+              {(shown) => <p>{format(text().description, { title: shown().title })}</p>}
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <>
-            <Button
-              variant="secondary"
-              disabled={remove.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={removing()} onClick={() => popups.back()}>
               {text().cancel}
             </Button>
             <Button
               variant="destructive"
-              loading={remove.state().isPending}
-              disabled={!game() || remove.state().isSuccess}
-              onClick={() => remove.mutate()}
+              loading={removing()}
+              disabled={!game() || removed()}
+              onClick={() => void remove()}
             >
               {text().submit}
             </Button>
           </>
         }
       >
-        <Show when={remove.state().isError}>
-          <Banner variant="error">{failure()}</Banner>
+        <Show when={failure()}>
+          {(reason) => <Banner variant="error">{text().errors[reason()]}</Banner>}
         </Show>
       </PopupDialog>
     </Show>

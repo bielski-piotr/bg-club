@@ -1,4 +1,4 @@
-import { Show, useContext } from 'solid-js';
+import { action, createOptimistic, createSignal, Show, useContext } from 'solid-js';
 import type { OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
 import { AuthContext } from '../auth/authContext';
@@ -8,8 +8,7 @@ import { ToastContext } from '../ui/toastContext';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { createMounted } from '../popups/leaveGuard';
 import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button } from '../ui';
 import { createMeeting, createPlay } from './meetingData';
 import { meetingsKey } from './meetings';
@@ -30,42 +29,50 @@ export function DiscardPlayDialog(props: { readonly id: string; readonly me: Own
   const popups = useContext(PopupsContext);
   const mounted = createMounted();
   const play = createPlay(() => props.id);
-  const meeting = createMeeting(() => play().data?.meeting_id ?? '');
+  const meeting = createMeeting(() => play.current()?.meeting_id ?? '');
+  const [discarding, setDiscarding] = createOptimistic(false);
+  const [discarded, setDiscarded] = createSignal(false);
+  const [failure, setFailure] = createSignal<string | null>(null);
 
-  const discard = createMutation({
-    mutationFn: () => discardPlay(auth.client, props.id),
-    onSuccess: () => {
-      removeLocalDrafts(draftStorage(), props.id);
-      toast.show(
-        format(t.meetings.toasts.playDiscarded, { title: play().data?.game.title ?? '' }),
-        'success',
+  const discard = action(function* () {
+    setDiscarding(true);
+    setFailure(null);
+    try {
+      yield discardPlay(auth.client, props.id);
+    } catch (error) {
+      setFailure(
+        error instanceof DraftError
+          ? error.reason === 'forbidden'
+            ? text.errors.forbidden
+            : error.reason === 'gone'
+              ? text.errors.gone
+              : text.errors.save
+          : text.errors.save,
       );
-      // Pod dialogiem może być notes tej partii: po porzuceniu nie ma już czego pokazywać.
-      const below = popups.stack.at(-2);
-      const overPad = below?.kind === 'play' && below.id === props.id;
-      if (mounted()) popups.backBy(overPad ? 2 : 1);
       void queryClient.invalidateQueries({ queryKey: meetingsKey });
-    },
-    onError: () => void queryClient.invalidateQueries({ queryKey: meetingsKey }),
+      return;
+    }
+    setDiscarded(true);
+    removeLocalDrafts(draftStorage(), props.id);
+    toast.show(
+      format(t.meetings.toasts.playDiscarded, { title: play.current()?.game.title ?? '' }),
+      'success',
+    );
+    // Pod dialogiem może być notes tej partii: po porzuceniu nie ma już czego pokazywać.
+    const below = popups.stack.at(-2);
+    const overPad = below?.kind === 'play' && below.id === props.id;
+    if (mounted()) popups.backBy(overPad ? 2 : 1);
+    void queryClient.invalidateQueries({ queryKey: meetingsKey });
   });
 
-  // Po sukcesie dialog zostaje do zamknięcia (Wstecz jest asynchroniczne).
+  // Po sukcesie dialog zostaje do zamknięcia (Wstecz jest asynchroniczne). Okno zależy od
+  // danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
   const unavailable = () => {
-    if (discard.state().isSuccess) return false;
-    const current = play();
-    if (current.isSuccess && (!current.data || current.data.status !== 'draft')) return true;
-    const found = meeting().data;
+    if (discarded()) return false;
+    const current = play.current();
+    if (current !== undefined && (!current || current.status !== 'draft')) return true;
+    const found = meeting.current();
     return !!found && !isMeetingRunner(found, props.me);
-  };
-  const failure = () => {
-    const error = discard.state().error;
-    return error instanceof DraftError
-      ? error.reason === 'forbidden'
-        ? text.errors.forbidden
-        : error.reason === 'gone'
-          ? text.errors.gone
-          : text.errors.save
-      : text.errors.save;
   };
 
   return (
@@ -75,38 +82,29 @@ export function DiscardPlayDialog(props: { readonly id: string; readonly me: Own
         icon="trash"
         tone="danger"
         description={
-          <Show
-            when={play().data}
-            fallback={
-              <QueryStatus isError={play().isError} onRetry={() => void play().refetch()} />
-            }
-          >
-            {(current) => <p>{format(text.description, { title: current().game.title })}</p>}
-          </Show>
+          <QueryBoundary>
+            <Show when={play()}>
+              {(current) => <p>{format(text.description, { title: current().game.title })}</p>}
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <>
-            <Button
-              variant="secondary"
-              disabled={discard.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={discarding()} onClick={() => popups.back()}>
               {text.cancel}
             </Button>
             <Button
               variant="destructive"
-              loading={discard.state().isPending}
-              disabled={!play().data || discard.state().isSuccess}
-              onClick={() => discard.mutate()}
+              loading={discarding()}
+              disabled={!play.current() || discarded()}
+              onClick={() => void discard()}
             >
               {text.submit}
             </Button>
           </>
         }
       >
-        <Show when={discard.state().isError}>
-          <Banner variant="error">{failure()}</Banner>
-        </Show>
+        <Show when={failure()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
       </PopupDialog>
     </Show>
   );

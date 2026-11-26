@@ -5,7 +5,7 @@ import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { createMembers } from '../profile/profiles';
 import { Badge, Button, createChunks, EmptyState, Icon, SearchField, ShowMore, Tray } from '../ui';
@@ -23,14 +23,12 @@ export function MembersPopup(props: { readonly isAdmin: boolean }) {
   const members = createMembers();
   const [query, setQuery] = createSignal('');
   const ownId = () => (auth.state.status === 'signedIn' ? auth.state.session.user.id : null);
-  const shown = createMemo(() => {
-    const list = members().data;
-    return list ? filterMembers(list, query()) : [];
-  });
+  /** Lista po wyszukiwaniu: czeka na dane pod `<QueryBoundary>`. */
+  const shown = createMemo(() => filterMembers(members(), query()));
   const searching = () => query().trim() !== '';
   const chunks = createChunks(shown, query);
   const count = () => {
-    const list = members().data;
+    const list = members.current();
     return list ? plural(list.length, t.hub.members.count) : undefined;
   };
 
@@ -53,12 +51,7 @@ export function MembersPopup(props: { readonly isAdmin: boolean }) {
         </Show>
       }
     >
-      <Show
-        when={members().isSuccess}
-        fallback={
-          <QueryStatus isError={members().isError} onRetry={() => void members().refetch()} />
-        }
-      >
+      <QueryBoundary>
         <SearchField
           label={t.membersPopup.searchLabel}
           placeholder={t.membersPopup.searchPlaceholder}
@@ -114,7 +107,7 @@ export function MembersPopup(props: { readonly isAdmin: boolean }) {
           </Tray>
           <ShowMore hidden={chunks.hidden()} onClick={chunks.showMore} />
         </Show>
-      </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }

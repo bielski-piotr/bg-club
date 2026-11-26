@@ -1,4 +1,4 @@
-import { createMemo, For, Match, Show, Switch } from 'solid-js';
+import { createMemo, For, Show } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
@@ -8,7 +8,7 @@ import { PopupLink } from '../popups/PopupLink';
 import { PopupModal } from '../popups/PopupModal';
 import { Badge, EmptyState, Icon } from '../ui';
 import { ariaBool } from '../ui/dom';
-import { BoardError, BoardLoading } from './BoardStatus';
+import { BoardBoundary } from './BoardStatus';
 import { createBoardData } from './board';
 import { datesValue, gamesValue } from './filterLabels';
 import { hasDateFilter, hasFilters, NO_FILTERS, type LeaderboardFilters } from './filters';
@@ -54,14 +54,12 @@ export function TiesPopup(props: {
 }) {
   const filters = () => props.filters ?? NO_FILTERS;
   const club = createClub();
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
   const board = createBoardData(() => props.tab, filters);
   const { titles } = createGameTitles(() => filters().games.length > 0);
   const text = t.leaderboard.ties;
-  const groups = createMemo(() => {
-    const entries = board.entries();
-    return entries ? tieGroups(entries) : undefined;
-  });
+  /** Grupy remisów: czekają na ranking pod `BoardBoundary`. */
+  const groups = createMemo(() => tieGroups(board.entries()));
   const applied = () =>
     [
       t.leaderboard.tabs[props.tab],
@@ -77,13 +75,13 @@ export function TiesPopup(props: {
         <ol class="ties__rules">
           <For each={text.rules}>{(rule) => <li>{rule}</li>}</For>
         </ol>
-        <div aria-busy={ariaBool(!board.entries())}>
-          <Switch
-            fallback={
-              <For
-                each={groups() ?? []}
-                keyed={(group) => group.members[0]?.entry.profile_id ?? ''}
-              >
+        <div aria-busy={ariaBool(!board.entries.current())}>
+          <BoardBoundary>
+            <Show
+              when={groups().length > 0}
+              fallback={<EmptyState icon="check" title={text.none} />}
+            >
+              <For each={groups()} keyed={(group) => group.members[0]?.entry.profile_id ?? ''}>
                 {(group) => (
                   <TieGroupList
                     group={group()}
@@ -93,18 +91,8 @@ export function TiesPopup(props: {
                   />
                 )}
               </For>
-            }
-          >
-            <Match when={board.failed()}>
-              <BoardError onRetry={board.retry} />
-            </Match>
-            <Match when={!groups()}>
-              <BoardLoading />
-            </Match>
-            <Match when={groups()?.length === 0}>
-              <EmptyState icon="check" title={text.none} />
-            </Match>
-          </Switch>
+            </Show>
+          </BoardBoundary>
         </div>
       </div>
     </PopupModal>

@@ -1,6 +1,6 @@
 import { useContext, type Accessor } from 'solid-js';
 import { AuthContext } from '../auth/authContext';
-import { createQuery } from '../lib/query';
+import { createQuery, ifEnabled } from '../lib/query';
 import {
   allExpansionsQuery,
   collectionWidgetQuery,
@@ -26,7 +26,7 @@ export function createCollectionWidget() {
 /** Wyszukiwanie w kolekcji (`gameSearchQuery`); `enabled` = czy pobierać. */
 export function createGameSearch(query: Accessor<string>, enabled: Accessor<boolean> = () => true) {
   const auth = useContext(AuthContext);
-  return createQuery(() => gameSearchQuery(auth.client, query(), enabled()));
+  return createQuery(() => (enabled() ? gameSearchQuery(auth.client, query()) : null));
 }
 
 /** Aktywna gra (`gameQuery`); `null` = nie ma takiej gry albo została usunięta. */
@@ -44,13 +44,13 @@ export function createExpansions(baseId: Accessor<string>) {
 /** Wszystkie aktywne dodatki (`allExpansionsQuery`); `enabled` = czy pobierać. */
 export function createAllExpansions(enabled: Accessor<boolean> = () => true) {
   const auth = useContext(AuthContext);
-  return createQuery(() => allExpansionsQuery(auth.client, enabled()));
+  return createQuery(() => (enabled() ? allExpansionsQuery(auth.client) : null));
 }
 
-/** Tytuły gier i dodatków po id (`gameTitlesQuery`). */
+/** Tytuły gier i dodatków po id (`gameTitlesQuery`); bez id `undefined`. */
 export function createGameTitlesById(ids: Accessor<readonly string[]>) {
   const auth = useContext(AuthContext);
-  return createQuery(() => gameTitlesQuery(auth.client, ids()));
+  return createQuery(() => ifEnabled(gameTitlesQuery(auth.client, ids())));
 }
 
 /** Statystyki gry (`gameStatsQuery`). */

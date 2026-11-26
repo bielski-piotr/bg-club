@@ -20,7 +20,7 @@ import { FilterPopover } from './FilterPopover';
 import { GameFilterPanel } from './GameFilter';
 import { createGameTitles } from './gameTitles';
 
-/** Panel gier: kolekcja wczytywana przy otwarciu panelu. */
+/** Panel gier: kolekcja wczytywana przy otwarciu panelu; stany listy pokazuje sam panel. */
 function GamesPanel(props: {
   readonly selected: readonly string[];
   readonly onChange: (games: readonly string[]) => void;
@@ -28,8 +28,8 @@ function GamesPanel(props: {
   const { games } = createGameTitles(() => true);
   return (
     <GameFilterPanel
-      games={games().data}
-      failed={games().isError && !games().data}
+      games={games.current()}
+      failed={games.state()?.isError === true && games.current() === undefined}
       selected={props.selected}
       onChange={(next) => props.onChange(next)}
     />
@@ -52,7 +52,7 @@ export interface FilterBarProps {
 export function FilterBar(props: FilterBarProps) {
   const text = t.leaderboard.filters;
   const club = createClub();
-  const today = () => todayIn(club().data?.timezone ?? FALLBACK_TIMEZONE);
+  const today = () => todayIn(club.current()?.timezone ?? FALLBACK_TIMEZONE);
   const { titles } = createGameTitles(() => props.filters.games.length > 0);
   const dates = () => datesValue(props.filters);
   const gamesText = () => gamesValue(props.filters, titles());

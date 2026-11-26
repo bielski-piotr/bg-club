@@ -1,6 +1,8 @@
 import { NAME_MAX_LENGTH } from '@bg-club/accounts';
 import {
+  action,
   createMemo,
+  createOptimistic,
   createSignal,
   createUniqueId,
   flush,
@@ -19,7 +21,6 @@ import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
 import { createAvatarUrl } from './profiles';
-import { createMutation } from '../lib/query';
 import { createTheme } from '../theme/createTheme';
 import { Avatar, Banner, Button, Icon, SegmentedControl, Spinner, TextField } from '../ui';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme';
@@ -128,50 +129,53 @@ export function SettingsPopup(props: { readonly me: OwnProfile }) {
     setCropping(null);
   };
 
-  const save = createMutation({
-    mutationFn: (change: AvatarChange) =>
-      saveProfile(auth.client, props.me, {
+  const [saving, setSaving] = createOptimistic(false);
+  const save = action(function* (change: AvatarChange) {
+    setSaving(true);
+    let profile: OwnProfile;
+    try {
+      profile = (yield saveProfile(auth.client, props.me, {
         firstName: firstName(),
         lastName: lastName(),
         avatar: change,
-      }),
-    onSuccess: (profile) => {
-      queryClient.setQueryData(ownProfileKey(props.me.id), profile);
-      // Imię i zdjęcie widać też w profilu, na liście i w widżecie członków.
-      void queryClient.invalidateQueries({
-        queryKey: ['profiles'],
-        predicate: (query) => query.queryKey[1] !== 'own',
-      });
-      toast.show(text.toasts.saved, 'success');
-      popups.back();
-    },
-    onError: (error) => {
+      })) as OwnProfile;
+    } catch (error) {
       const reason = error instanceof ProfileSaveError ? error.reason : 'save';
       setSaveError(reason === 'upload' ? text.errors.upload : text.errors.save);
-    },
+      return;
+    }
+    queryClient.setQueryData(ownProfileKey(props.me.id), profile);
+    // Imię i zdjęcie widać też w profilu, na liście i w widżecie członków.
+    void queryClient.invalidateQueries({
+      queryKey: ['profiles'],
+      predicate: (query) => query.queryKey[1] !== 'own',
+    });
+    toast.show(text.toasts.saved, 'success');
+    popups.back();
   });
 
-  const themeSave = createMutation({
-    mutationFn: ({ next }: { next: ThemePreference; previous: ThemePreference }) =>
-      saveTheme(auth.client, props.me.id, next),
-    onSuccess: (_, { next }) => {
-      queryClient.setQueryData<OwnProfile | null>(ownProfileKey(props.me.id), (old) =>
-        old ? { ...old, theme: next } : old,
-      );
-    },
-    onError: (_, { next, previous }) => {
+  const themeSave = action(function* (next: ThemePreference, previous: ThemePreference) {
+    try {
+      yield saveTheme(auth.client, props.me.id, next);
+    } catch {
       // Przywracamy tylko wtedy, gdy nikt nie wybrał w międzyczasie kolejnego motywu.
       if (getThemePreference() === next) theme.setPreference(previous);
       toast.show(text.errors.theme, 'error');
-    },
+      return;
+    }
+    queryClient.setQueryData<OwnProfile | null>(ownProfileKey(props.me.id), (old) =>
+      old ? { ...old, theme: next } : old,
+    );
   });
 
   const changeTheme = (next: ThemePreference) => {
     const previous = getThemePreference();
     if (next === previous) return;
-    // Motyw działa od razu; profil zapisujemy w tle, a błąd przywraca poprzedni wybór.
+    // Motyw działa od razu, a `flush` utrwala wybór, zanim zapis profilu (w tle) go wstrzyma;
+    // błąd zapisu przywraca poprzedni wybór.
     theme.setPreference(next);
-    themeSave.mutate({ next, previous });
+    flush();
+    void themeSave(next, previous);
   };
 
   const pickFile = async (file: File | undefined) => {
@@ -232,7 +236,7 @@ export function SettingsPopup(props: { readonly me: OwnProfile }) {
   const person = createMemo(() => {
     const state = avatar();
     const src =
-      state.kind === 'new' ? state.preview : state.kind === 'keep' ? saved().data : undefined;
+      state.kind === 'new' ? state.preview : state.kind === 'keep' ? saved.current() : undefined;
     return avatarPerson(
       {
         ...props.me,
@@ -250,9 +254,9 @@ export function SettingsPopup(props: { readonly me: OwnProfile }) {
     setShowErrors(true);
     setSaveError(undefined);
     const found = problems();
-    if (found.first || found.last || processing() || save.state().isPending) return;
+    if (found.first || found.last || processing() || saving()) return;
     const state = avatar();
-    save.mutate(state.kind === 'new' ? { kind: 'new', image: state.image } : state);
+    void save(state.kind === 'new' ? { kind: 'new', image: state.image } : state);
   };
 
   const onSignOut = () => {
@@ -272,7 +276,7 @@ export function SettingsPopup(props: { readonly me: OwnProfile }) {
               <Button variant="secondary" onClick={() => popups.back()}>
                 {text.cancel}
               </Button>
-              <Button type="submit" form={formId} loading={save.state().isPending || processing()}>
+              <Button type="submit" form={formId} loading={saving() || processing()}>
                 {text.save}
               </Button>
             </>

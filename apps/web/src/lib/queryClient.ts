@@ -10,5 +10,5 @@ export function createQueryClient(): QueryClient {
   });
 }
 
-/** Wspólny cache zapytań aplikacji (`createQuery`, `createMutation` w `lib/query.ts`). */
+/** Wspólny cache zapytań aplikacji (`createQuery` w `lib/query.ts`, inwalidacje w akcjach). */
 export const QueryClientContext = createContext<QueryClient>();

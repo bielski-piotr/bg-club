@@ -1,9 +1,10 @@
-import { For, Match, Show, Switch, createMemo } from 'solid-js';
+import { For, Show, createMemo } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { format, plural, t } from '../i18n';
 import type { Profile } from '../profile/profileQueries';
 import { createClub } from '../club/clubData';
 import { PopupLink } from '../popups/PopupLink';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { createAllProfiles } from '../profile/profiles';
 import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui';
 import { shortDayLabel, weekdayTime } from './calendar';
@@ -24,20 +25,26 @@ export function TimelineWidget() {
   const timeline = createTimeline();
   const club = createClub();
   const profiles = createAllProfiles();
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
-  const data = () => timeline().data;
-  const empty = () => {
-    const current = data();
-    return current !== undefined && current.upcoming.length === 0 && current.finished.length === 0;
+  // Po błędzie wczytania klubu daty są w strefie domyślnej; czekamy tylko na pierwsze wczytanie.
+  const timeZone = () =>
+    club.state()?.isError && club.current() === undefined
+      ? FALLBACK_TIMEZONE
+      : (club()?.timezone ?? FALLBACK_TIMEZONE);
+  const isEmpty = (current: Timeline) =>
+    current.upcoming.length === 0 && current.finished.length === 0;
+  /** Pusty timeline: czeka na dane pod `<QueryBoundary>`. */
+  const empty = createMemo(() => isEmpty(timeline()));
+  // Nagłówek karty jest widoczny od razu: link pojawia się, gdy spotkania są w cache.
+  const hasMeetings = () => {
+    const current = timeline.current();
+    return current !== undefined && !isEmpty(current);
   };
-  // Profile są potrzebne do zwycięzców; dane z cache'u mają pierwszeństwo przed błędem odświeżania.
-  const failed = () => (timeline().isError && !data()) || (profiles().isError && !profiles().data);
 
   return (
     <Card
       title={t.hub.timeline.title}
       action={
-        <Show when={data() && !empty()}>
+        <Show when={hasMeetings()}>
           <PopupLink
             to={{ kind: 'calendar' }}
             class="text-link"
@@ -49,46 +56,40 @@ export function TimelineWidget() {
         </Show>
       }
     >
-      <Switch>
-        <Match when={failed()}>
+      <QueryBoundary
+        loading={
+          <div class="members-widget__loading">
+            <Skeleton width={240} height={48} radius={14} />
+            <Spinner label={t.hub.timeline.loading} class="sr-only" />
+          </div>
+        }
+        error={(retry) => (
           <Banner
             variant="error"
             action={
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="refresh"
-                onClick={() => {
-                  if (timeline().isError) void timeline().refetch();
-                  if (profiles().isError) void profiles().refetch();
-                }}
-              >
+              <Button size="sm" variant="secondary" icon="refresh" onClick={retry}>
                 {t.hub.retry}
               </Button>
             }
           >
             {t.hub.loadError}
           </Banner>
-        </Match>
-        <Match when={!data() || (!empty() && (club().isPending || !profiles().data))}>
-          <div class="members-widget__loading">
-            <Skeleton width={240} height={48} radius={14} />
-            <Spinner label={t.hub.timeline.loading} class="sr-only" />
-          </div>
-        </Match>
-        <Match when={empty()}>
-          <EmptyState
-            icon="clock"
-            title={t.hub.timeline.emptyTitle}
-            helper={t.hub.timeline.emptyHelper}
-          />
-        </Match>
-        <Match when={data()}>
-          {(shown) => (
-            <TimelineList timeline={shown()} timeZone={timeZone()} profiles={profiles().data} />
-          )}
-        </Match>
-      </Switch>
+        )}
+      >
+        {/* Profile (zwycięzcy) i strefa klubu są potrzebne dopiero do listy spotkań. */}
+        <Show
+          when={!empty()}
+          fallback={
+            <EmptyState
+              icon="clock"
+              title={t.hub.timeline.emptyTitle}
+              helper={t.hub.timeline.emptyHelper}
+            />
+          }
+        >
+          <TimelineList timeline={timeline()} timeZone={timeZone()} profiles={profiles()} />
+        </Show>
+      </QueryBoundary>
     </Card>
   );
 }

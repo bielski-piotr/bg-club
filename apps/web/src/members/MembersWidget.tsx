@@ -1,9 +1,10 @@
-import { createMemo, For, Match, Show, Switch, useContext } from 'solid-js';
+import { createMemo, For, Show, useContext } from 'solid-js';
 import { visibleMembers } from '../hub/members';
 import { format, plural, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { createMembers } from '../profile/profiles';
@@ -17,13 +18,15 @@ import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui
 export function MembersWidget(props: { readonly me: Profile }) {
   const popups = useContext(PopupsContext);
   const members = createMembers();
-  const others = createMemo(
-    () => members().data?.filter((member) => member.id !== props.me.id) ?? [],
-  );
+  const othersOf = (list: readonly Profile[]) => list.filter((member) => member.id !== props.me.id);
+  /** Pozostali członkowie: czeka na dane pod `<QueryBoundary>`. */
+  const others = createMemo(() => othersOf(members()));
+  // Nagłówek karty jest widoczny od razu: licznik i link pojawiają się, gdy dane są w cache.
   const count = () => {
-    const list = members().data;
+    const list = members.current();
     return list ? plural(list.length, t.hub.members.count) : undefined;
   };
+  const hasOthers = () => othersOf(members.current() ?? []).length > 0;
   const isAdmin = () => props.me.role === 'admin';
 
   return (
@@ -31,7 +34,7 @@ export function MembersWidget(props: { readonly me: Profile }) {
       title={t.hub.members.title}
       count={count()}
       action={
-        <Show when={members().data && others().length > 0}>
+        <Show when={hasOthers()}>
           <PopupLink to={{ kind: 'members' }} class="text-link">
             <span>{t.ui.seeMore}</span>
             <Icon name="chevron-right" />
@@ -39,50 +42,51 @@ export function MembersWidget(props: { readonly me: Profile }) {
         </Show>
       }
     >
-      <Switch fallback={<MembersStack members={members().data ?? []} />}>
-        <Match when={members().isPending}>
+      <QueryBoundary
+        loading={
           <div class="members-widget__loading">
             <Skeleton width={240} height={56} radius={999} />
             <Spinner label={t.hub.members.loading} class="sr-only" />
           </div>
-        </Match>
-        <Match when={members().isError}>
+        }
+        error={(retry) => (
           <Banner
             variant="error"
             class="members-widget__error"
             action={
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="refresh"
-                onClick={() => void members().refetch()}
-              >
+              <Button size="sm" variant="secondary" icon="refresh" onClick={retry}>
                 {t.hub.retry}
               </Button>
             }
           >
             {t.hub.loadError}
           </Banner>
-        </Match>
-        <Match when={others().length === 0}>
-          <EmptyState
-            lead={
-              <ProfileLink id={props.me.id} name={fullName(props.me)}>
-                <ProfileAvatar profile={props.me} size={56} decorative />
-              </ProfileLink>
-            }
-            title={t.hub.members.emptyTitle}
-            helper={isAdmin() ? t.hub.members.emptyHelperAdmin : t.hub.members.emptyHelper}
-            action={
-              <Show when={isAdmin()}>
-                <Button icon="plus" fullWidth onClick={() => popups.open({ kind: 'add-member' })}>
-                  {t.hub.members.add}
-                </Button>
-              </Show>
-            }
-          />
-        </Match>
-      </Switch>
+        )}
+      >
+        <Show
+          when={others().length > 0}
+          fallback={
+            <EmptyState
+              lead={
+                <ProfileLink id={props.me.id} name={fullName(props.me)}>
+                  <ProfileAvatar profile={props.me} size={56} decorative />
+                </ProfileLink>
+              }
+              title={t.hub.members.emptyTitle}
+              helper={isAdmin() ? t.hub.members.emptyHelperAdmin : t.hub.members.emptyHelper}
+              action={
+                <Show when={isAdmin()}>
+                  <Button icon="plus" fullWidth onClick={() => popups.open({ kind: 'add-member' })}>
+                    {t.hub.members.add}
+                  </Button>
+                </Show>
+              }
+            />
+          }
+        >
+          <MembersStack members={members()} />
+        </Show>
+      </QueryBoundary>
     </Card>
   );
 }

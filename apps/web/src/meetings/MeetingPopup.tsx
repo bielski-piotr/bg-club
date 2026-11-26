@@ -1,6 +1,8 @@
 import {
+  action,
   createEffect,
   createMemo,
+  createOptimistic,
   createSignal,
   For,
   Match,
@@ -22,10 +24,9 @@ import { PopupLevelContext, PopupsContext } from '../popups/popupContext';
 import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { createAllProfiles, createMembers } from '../profile/profiles';
-import { createMutation } from '../lib/query';
 import {
   AvatarStack,
   Badge,
@@ -82,50 +83,49 @@ const popup = t.meetings.popup;
  * Prowadzący nie ma akcji administracyjnych (uczestnicy, prowadzący, PLAN-4, Q14).
  *
  * Jedno okno na wszystkie stany (wczytywanie, spotkanie, brak spotkania): fokus, który
- * `PopupHost` ustawił na oknie przy otwarciu, zostaje na nim po wczytaniu danych.
+ * `PopupHost` ustawił na oknie przy otwarciu, zostaje na nim po wczytaniu danych. Nagłówek okna
+ * czyta dane z cache bez czekania, treść czeka pod `<QueryBoundary>`.
  */
 export function MeetingPopup(props: { readonly id: string; readonly me: OwnProfile }) {
   const meeting = createMeeting(() => props.id);
   const club = createClub();
   const members = createMembers();
-  createCloseWhenDeleted(() => meeting().data);
-  const ready = () => meeting().isSuccess && club().isSuccess && members().isSuccess;
-  const shown = () => (ready() ? (meeting().data ?? undefined) : undefined);
-  const notFound = () => ready() && !meeting().data;
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  createCloseWhenDeleted(() => meeting.current());
+  const ready = () =>
+    meeting.current() !== undefined &&
+    club.current() !== undefined &&
+    members.current() !== undefined;
+  const shown = () => (ready() ? (meeting.current() ?? undefined) : undefined);
+  const notFound = () => ready() && !meeting.current();
+  /** Treść: czeka pod `<QueryBoundary>` na spotkanie, klub (strefa czasu) i członków. */
+  const content = createMemo(() => ({
+    meeting: meeting(),
+    timeZone: club()?.timezone ?? FALLBACK_TIMEZONE,
+    members: members(),
+  }));
 
   return (
     <PopupModal
-      title={notFound() ? popup.notFoundTitle : (meeting().data?.title ?? t.ui.loading)}
+      title={notFound() ? popup.notFoundTitle : (meeting.current()?.title ?? t.ui.loading)}
       actions={
         <Show when={shown()}>{(current) => <MeetingMenu meeting={current()} me={props.me} />}</Show>
       }
     >
-      <Switch>
-        <Match when={shown()}>
+      <QueryBoundary>
+        <Show
+          when={content().meeting}
+          fallback={<p class="meeting-form__state">{popup.notFoundBody}</p>}
+        >
           {(current) => (
             <MeetingView
               meeting={current()}
               me={props.me}
-              timeZone={timeZone()}
-              members={members().data ?? []}
+              timeZone={content().timeZone}
+              members={content().members}
             />
           )}
-        </Match>
-        <Match when={notFound()}>
-          <p class="meeting-form__state">{popup.notFoundBody}</p>
-        </Match>
-        <Match when={true}>
-          <QueryStatus
-            isError={meeting().isError || club().isError || members().isError}
-            onRetry={() => {
-              void meeting().refetch();
-              void club().refetch();
-              void members().refetch();
-            }}
-          />
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }
@@ -157,7 +157,7 @@ function MeetingView(props: ViewProps) {
   // Uczestnicy także usunięci w międzyczasie (MEM-5: zostają w historii spotkania).
   const people = createMemo(() =>
     props.meeting.participants
-      .map((id) => profiles().data?.get(id) ?? props.members.find((member) => member.id === id))
+      .map((id) => profiles.current()?.get(id) ?? props.members.find((member) => member.id === id))
       .filter((person): person is Profile => person !== undefined)
       .sort(compareProfiles),
   );
@@ -321,8 +321,8 @@ function RunnerBox(props: { readonly meeting: Meeting; readonly isAdmin: boolean
             fullWidth
             variant="secondary"
             icon="refresh"
-            loading={reopen.state().isPending}
-            onClick={() => reopen.mutate(props.meeting.id)}
+            loading={reopen.pending()}
+            onClick={() => void reopen.run(props.meeting.id)}
           >
             {text.reopen}
           </Button>
@@ -346,47 +346,34 @@ function VotingSection(props: {
   const votes = createMeetingVotes(() => props.meeting.id);
   const [query, setQuery] = createSignal('');
   const canVote = () => props.meeting.participants.includes(props.me.id);
-  const ready = () => games().isSuccess && votes().isSuccess;
-  const rows = createMemo(() => {
-    const list = games().data;
-    const cast = votes().data;
-    if (!ready() || !list || !cast) return [];
-    return voteRows(list, cast, {
+  // Nagłówek sekcji jest w treści czekającej pod `<QueryBoundary>`.
+  const ready = () => games.current() !== undefined && votes.current() !== undefined;
+  const rows = createMemo(() =>
+    voteRows(games() ?? [], votes(), {
       me: props.me.id,
       participants: props.meeting.participants.length,
       query: query(),
-    });
-  });
+    }),
+  );
   const searching = () => query().trim() !== '';
   const headingId = () => `${props.meeting.id}-voting`;
   return (
     <section class="meeting-view__section" aria-labelledby={ready() ? headingId() : undefined}>
-      <Show
-        when={ready()}
-        fallback={
-          <QueryStatus
-            isError={games().isError || votes().isError}
-            onRetry={() => {
-              void games().refetch();
-              void votes().refetch();
-            }}
-          />
-        }
-      >
+      <QueryBoundary>
         <div class="meeting-view__head-row">
           <h3 id={headingId()} class="meeting-view__head">
             {text.title}
           </h3>
           <Show when={canVote()}>
             <span class="meeting-view__note">
-              {format(text.myVotes, { n: myVoteCount(votes().data ?? [], props.me.id) })}
+              {format(text.myVotes, { n: myVoteCount(votes(), props.me.id) })}
             </span>
           </Show>
         </div>
         <p class="meeting-form__hint meeting-view__intro">
           {canVote() ? text.intro : text.notParticipant}
         </p>
-        <Show when={(games().data?.length ?? 0) > 0}>
+        <Show when={(games()?.length ?? 0) > 0}>
           <SearchField
             label={text.searchLabel}
             placeholder={text.searchPlaceholder}
@@ -425,7 +412,7 @@ function VotingSection(props: {
             </For>
           </Tray>
         </Show>
-      </Show>
+      </QueryBoundary>
     </section>
   );
 }
@@ -450,37 +437,35 @@ function VoteItem(props: VoteItemProps) {
   const queryClient = useContext(QueryClientContext);
   const toast = useContext(ToastContext);
   const voters = createMemo(() => voterPeople(props.row.voters, props.members));
-  const toggle = createMutation({
-    mutationFn: (on: boolean) => {
-      const target = {
-        meetingId: props.meeting.id,
-        gameId: props.row.game.id,
-        profileId: props.me.id,
-      };
-      return on ? castVote(auth.client, target) : withdrawVote(auth.client, target);
-    },
-    onSuccess: (_, on) => {
+  /** Głos w trakcie zapisu (wartość optymistyczna); `null` = brak zapisu w toku. */
+  const [pending, setPending] = createOptimistic<boolean | null>(null);
+  const toggle = action(function* (on: boolean) {
+    setPending(on);
+    const target = {
+      meetingId: props.meeting.id,
+      gameId: props.row.game.id,
+      profileId: props.me.id,
+    };
+    let failed = false;
+    try {
+      yield on ? castVote(auth.client, target) : withdrawVote(auth.client, target);
       toast.show(on ? t.meetings.toasts.voted : t.meetings.toasts.withdrawn, 'success');
-    },
-    onError: (error) => {
+    } catch (error) {
+      failed = true;
       const reason = error instanceof VotingError ? error.reason : 'save';
       toast.show(text.errors[reason], 'error');
-    },
-    // Zwrócona obietnica trzyma mutację w toku do odświeżenia głosów: przełącznik nie wraca
-    // na chwilę do starego stanu i nie da się kliknąć go drugi raz z nieaktualną wartością.
-    // Błąd mógł wynikać ze zmiany spotkania (zamknięte, usunięte): odświeżamy też spotkanie.
-    onSettled: (_, error) =>
-      Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: error ? meetingsKey : meetingVotesKey(props.meeting.id),
-        }),
-        queryClient.invalidateQueries({ queryKey: gameVoteTotalKey(props.row.game.id) }),
-      ]),
+    }
+    // Akcja trwa do odświeżenia głosów: przełącznik nie wraca na chwilę do starego stanu
+    // i nie da się kliknąć go drugi raz z nieaktualną wartością. Błąd mógł wynikać ze zmiany
+    // spotkania (zamknięte, usunięte): odświeżamy też spotkanie.
+    yield Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: failed ? meetingsKey : meetingVotesKey(props.meeting.id),
+      }),
+      queryClient.invalidateQueries({ queryKey: gameVoteTotalKey(props.row.game.id) }),
+    ]);
   });
-  const mine = () => {
-    const state = toggle.state();
-    return state.isPending ? !!state.variables : props.row.mine;
-  };
+  const mine = () => pending() ?? props.row.mine;
   const mismatch = () => !props.row.fits && props.row.available;
   // Na niedostępną grę nie można zagłosować; oddany wcześniej głos można cofnąć.
   const locked = () => !props.row.available && !props.row.mine;
@@ -529,8 +514,8 @@ function VoteItem(props: VoteItemProps) {
             aria-label={format(mine() ? text.voteOff : text.voteOn, {
               title: props.row.game.title,
             })}
-            disabled={toggle.state().isPending || locked()}
-            onClick={() => toggle.mutate(!props.row.mine)}
+            disabled={pending() !== null || locked()}
+            onClick={() => void toggle(!props.row.mine)}
           >
             <Show when={mine()}>
               <Icon name="check" size={14} />
@@ -561,54 +546,47 @@ function PlayingSection(props: {
   );
   const profiles = createAllProfiles();
   const headingId = () => `${props.meeting.id}-playing`;
-  const winners = createMemo(() => gameWinners(plays().data ?? []));
-  const rows = createMemo((): PlayingRow[] => {
-    const list = games().data;
-    if (!list) return [];
-    return [
+  // Partie i profile dochodzą bez czekania (zwycięzcy i gry spoza listy).
+  const winners = createMemo(() => gameWinners(plays.current() ?? []));
+  /** Lista z głosami: czeka pod `<QueryBoundary>` na gry i głosy. */
+  const playing = createMemo(() => {
+    const list = games();
+    const rows: PlayingRow[] = [
       ...list.map((game) => ({ game, published: true })),
-      ...playedGames(plays().data ?? [])
+      ...playedGames(plays.current() ?? [])
         .filter((game) => !list.some((g) => g.id === game.id))
         .map((game) => ({ game, published: false })),
     ];
+    return { rows, votes: votes() };
   });
   return (
     <section class="meeting-view__section" aria-labelledby={headingId()}>
       <h3 id={headingId()} class="meeting-view__head">
         {text.playing}
       </h3>
-      <Switch>
-        <Match when={!games().isSuccess || !votes().isSuccess}>
-          <QueryStatus
-            isError={games().isError || votes().isError}
-            onRetry={() => {
-              void games().refetch();
-              void votes().refetch();
-            }}
-          />
-        </Match>
-        <Match when={rows().length === 0}>
-          <p class="meeting-form__state">{text.playingEmpty}</p>
-        </Match>
-        <Match when={true}>
+      <QueryBoundary>
+        <Show
+          when={playing().rows.length > 0}
+          fallback={<p class="meeting-form__state">{text.playingEmpty}</p>}
+        >
           <Tray label={text.playingLabel}>
-            <For each={rows()} keyed={(row) => row.game.id}>
+            <For each={playing().rows} keyed={(row) => row.game.id}>
               {(row) => (
                 <PlayingItem
                   row={row()}
-                  votes={votes().data ?? []}
+                  votes={playing().votes}
                   members={props.members}
                   participants={props.meeting.participants.length}
                   winners={(winners().get(row().game.id) ?? []).flatMap((id) => {
-                    const person = profiles().data?.get(id);
+                    const person = profiles.current()?.get(id);
                     return person ? [person] : [];
                   })}
                 />
               )}
             </For>
           </Tray>
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </section>
   );
 }
@@ -729,12 +707,12 @@ function MeetingMenu(props: { readonly meeting: Meeting; readonly me: OwnProfile
   const items = createMemo((): MenuItem[] =>
     menuItems(
       props.meeting,
-      overview().data,
+      overview.current(),
       props.me.role === 'admin',
       isMeetingRunner(props.meeting, props.me),
     ).map(({ route, ...item }) => ({
       ...item,
-      onSelect: () => (route ? popups.open(route) : reopen.mutate(props.meeting.id)),
+      onSelect: () => (route ? popups.open(route) : void reopen.run(props.meeting.id)),
     })),
   );
   return (

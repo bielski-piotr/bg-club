@@ -1,9 +1,9 @@
-import { createMemo, createSignal, Match, Show, Switch } from 'solid-js';
+import { createMemo, createSignal, Show } from 'solid-js';
 import { t } from '../i18n';
 import type { Profile } from '../profile/profileQueries';
 import { PopupLink } from '../popups/PopupLink';
 import { Card, EmptyState, Icon, Tabs } from '../ui';
-import { BoardError, BoardLoading } from './BoardStatus';
+import { BoardBoundary } from './BoardStatus';
 import { FilterBar } from './FilterBar';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import { TiesLink } from './TiesPopup';
@@ -24,9 +24,10 @@ export function RankingWidget(props: { readonly me: Profile }) {
   const [filters, setFilters] = createSignal<LeaderboardFilters>(NO_FILTERS);
   const board = createBoardData(kind, filters);
   const filtered = () => hasFilters(filters());
-  const empty = () => board.entries()?.length === 0;
+  // Nagłówek, zakładki i filtry są widoczne od razu: czytają dane z cache bez czekania.
+  const empty = () => board.entries.current()?.length === 0;
   const ties = createMemo(() => {
-    const entries = board.entries();
+    const entries = board.entries.current();
     return !!entries && tieGroups(entries).length > 0;
   });
 
@@ -34,7 +35,7 @@ export function RankingWidget(props: { readonly me: Profile }) {
     <Card
       title={t.leaderboard.title}
       action={
-        <Show when={board.entries() && !empty()}>
+        <Show when={board.entries.current() && !empty()}>
           <PopupLink
             to={{ kind: 'leaderboard', tab: kind(), ...(filtered() ? { filters: filters() } : {}) }}
             class="text-link"
@@ -74,29 +75,28 @@ export function RankingWidget(props: { readonly me: Profile }) {
                   </Show>
                 }
               />
-              <Switch fallback={<BoardLoading />}>
-                <Match when={board.failed()}>
-                  <BoardError onRetry={board.retry} />
-                </Match>
-                <Match when={board.entries()?.length === 0 && board.profiles()}>
-                  <div class="leaderboard">
-                    <EmptyState
-                      icon="trophy"
-                      title={t.leaderboard.emptyFilteredTitle}
-                      helper={t.leaderboard.emptyFilteredHelper}
-                    />
-                  </div>
-                </Match>
-                <Match when={board.entries() && board.profiles()}>
+              <BoardBoundary on={current}>
+                <Show
+                  when={board.entries().length > 0}
+                  fallback={
+                    <div class="leaderboard">
+                      <EmptyState
+                        icon="trophy"
+                        title={t.leaderboard.emptyFilteredTitle}
+                        helper={t.leaderboard.emptyFilteredHelper}
+                      />
+                    </div>
+                  }
+                >
                   <LeaderboardBoard
-                    entries={board.entries() ?? []}
+                    entries={board.entries()}
                     kind={current}
                     meId={props.me.id}
-                    profiles={board.profiles() ?? new Map()}
+                    profiles={board.profiles()}
                     variant="widget"
                   />
-                </Match>
-              </Switch>
+                </Show>
+              </BoardBoundary>
             </>
           )}
         </Tabs>

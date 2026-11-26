@@ -3,7 +3,7 @@ import { t } from '../i18n';
 import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from './ProfileAvatar';
 import { createProfile } from './profiles';
 import { Badge, Banner, Button, EmptyState } from '../ui';
@@ -26,7 +26,8 @@ export function ProfilePopup(props: { readonly id: string; readonly isAdmin: boo
   const popups = useContext(PopupsContext);
   const profile = createProfile(() => props.id);
   const ownId = () => (auth.state.status === 'signedIn' ? auth.state.session.user.id : null);
-  const data = () => (profile().isSuccess ? (profile().data ?? undefined) : undefined);
+  // Akcje okna zależą od danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
+  const data = () => profile.current() ?? undefined;
   const removed = () => data()?.deleted_at != null;
   const own = () => data()?.id === ownId() && !removed();
   const deletable = () => {
@@ -65,17 +66,20 @@ export function ProfilePopup(props: { readonly id: string; readonly isAdmin: boo
         </Switch>
       }
     >
-      <Switch>
-        <Match when={!profile().isSuccess}>
-          <QueryStatus isError={profile().isError} onRetry={() => void profile().refetch()} />
-        </Match>
-        <Match when={data()}>
+      <QueryBoundary>
+        <Show
+          when={profile()}
+          fallback={
+            <EmptyState
+              icon="user"
+              title={t.profile.notFoundTitle}
+              helper={t.profile.notFoundBody}
+            />
+          }
+        >
           {(shown) => <ProfileView profile={shown()} own={own()} removed={removed()} />}
-        </Match>
-        <Match when={true}>
-          <EmptyState icon="user" title={t.profile.notFoundTitle} helper={t.profile.notFoundBody} />
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }

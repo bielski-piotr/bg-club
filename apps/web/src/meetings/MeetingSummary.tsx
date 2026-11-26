@@ -5,7 +5,7 @@ import { FilterPopover } from '../leaderboard/FilterPopover';
 import { NO_FILTERS, normalizeGames } from '../leaderboard/filters';
 import { GameFilterPanel } from '../leaderboard/GameFilter';
 import { fullName } from '../profile/profileQueries';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { createAllProfiles } from '../profile/profiles';
@@ -30,14 +30,19 @@ export function MeetingSummarySection(props: { readonly meetingId: string }) {
   const profiles = createAllProfiles();
   const headingId = () => `${props.meetingId}-summary`;
   const played = createMemo(() => {
-    const list = plays().data;
+    const list = plays.current();
     return list ? meetingGames(splitPlays(list).saved) : [];
   });
   // Sekcja pojawia się dopiero z danymi (albo błędem): spotkanie bez zapisanych partii nie ma
-  // podsumowania, więc nagłówek z ładowaniem tylko by mignął.
+  // podsumowania, więc nagłówek z ładowaniem tylko by mignął. Decyzja czyta cache bez czekania,
+  // tabela czeka pod `<QueryBoundary>` (błąd: baner z ponowieniem pod nagłówkiem).
   const visible = () => {
-    if (plays().data && played().length === 0) return false;
-    return summary().isError || profiles().isError || (!!summary().data && !!profiles().data);
+    if (plays.current() && played().length === 0) return false;
+    return (
+      !!summary.state()?.isError ||
+      !!profiles.state()?.isError ||
+      (!!summary.current() && !!profiles.current())
+    );
   };
   const gamesText = () =>
     gamesValue(
@@ -77,19 +82,8 @@ export function MeetingSummarySection(props: { readonly meetingId: string }) {
             </FilterPopover>
           </div>
         </Show>
-        <Show
-          when={summary().data && profiles().data}
-          fallback={
-            <QueryStatus
-              isError={summary().isError || profiles().isError}
-              onRetry={() => {
-                if (summary().isError) void summary().refetch();
-                if (profiles().isError) void profiles().refetch();
-              }}
-            />
-          }
-        >
-          <div class={['meeting-summary', { 'is-stale': summary().isPlaceholderData }]}>
+        <QueryBoundary>
+          <div class={['meeting-summary', { 'is-stale': !!summary.state()?.isPlaceholderData }]}>
             <table class="meeting-changes" aria-label={text.label}>
               <thead>
                 <tr>
@@ -108,9 +102,9 @@ export function MeetingSummarySection(props: { readonly meetingId: string }) {
                 </tr>
               </thead>
               <tbody>
-                <For each={summary().data ?? []} keyed={(entry) => entry.profile_id}>
+                <For each={summary()} keyed={(entry) => entry.profile_id}>
                   {(entry) => {
-                    const person = () => profiles().data?.get(entry().profile_id);
+                    const person = () => profiles().get(entry().profile_id);
                     const name = () => {
                       const shown = person();
                       return shown ? fullName(shown) : t.meetings.plays.unknownPlayer;
@@ -175,7 +169,7 @@ export function MeetingSummarySection(props: { readonly meetingId: string }) {
               </tbody>
             </table>
           </div>
-        </Show>
+        </QueryBoundary>
       </section>
     </Show>
   );

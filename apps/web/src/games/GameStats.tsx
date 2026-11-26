@@ -1,9 +1,9 @@
-import { For, Match, Show, Switch } from 'solid-js';
+import { createMemo, For, Show } from 'solid-js';
 import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
 import { fullName, type Profile } from '../profile/profileQueries';
 import { PopupLink } from '../popups/PopupLink';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
 import { createAllProfiles } from '../profile/profiles';
@@ -27,6 +27,12 @@ export function GameStatsSection(props: {
   const stats = createGameStats(() => props.gameId);
   const profiles = createAllProfiles();
   const headingId = () => `${props.gameId}-stats`;
+  /** Statystyki z profilami (oba zapytania czekają pod `<QueryBoundary>`); bez partii `null`. */
+  const body = createMemo(() => {
+    const data = stats();
+    const people = profiles();
+    return data?.play_count ? { data, people } : null;
+  });
   return (
     <section class="meeting-view__section" aria-labelledby={headingId()}>
       <div class="meeting-view__head-row">
@@ -34,30 +40,21 @@ export function GameStatsSection(props: {
           {text.title}
         </h3>
       </div>
-      <Switch>
-        <Match when={stats().data === undefined || !profiles().data}>
-          <QueryStatus
-            isError={stats().isError || profiles().isError}
-            onRetry={() => {
-              if (stats().isError) void stats().refetch();
-              if (profiles().isError) void profiles().refetch();
-            }}
-          />
-        </Match>
-        <Match when={stats().data?.play_count ? stats().data : undefined}>
-          {(data) => (
+      <QueryBoundary>
+        <Show
+          when={body()}
+          fallback={<EmptyState icon="trophy" title={text.emptyTitle} helper={text.empty} />}
+        >
+          {(shown) => (
             <StatsBody
-              stats={data()}
-              profiles={profiles().data ?? new Map()}
+              stats={shown().data}
+              profiles={shown().people}
               title={props.title}
               timeZone={props.timeZone}
             />
           )}
-        </Match>
-        <Match when={true}>
-          <EmptyState icon="trophy" title={text.emptyTitle} helper={text.empty} />
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </section>
   );
 }

@@ -153,7 +153,8 @@ export function PlaySummaryDialog(props: PlaySummaryDialogProps) {
                     [row().win ? text.win : null, row().tied ? text.shared : null]
                       .filter(Boolean)
                       .join(' · ');
-                  const record = () => records().data?.get(row().profileId);
+                  // Oznaczenie rekordu pojawia się po wczytaniu podglądu (bez czekania).
+                  const record = () => records.current()?.get(row().profileId);
                   return (
                     <li class={['play-summary__row', { 'is-first': row().win }]}>
                       <span class="play-summary__place">

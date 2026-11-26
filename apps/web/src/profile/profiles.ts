@@ -1,10 +1,11 @@
 import { useContext, type Accessor } from 'solid-js';
 import { allProfilesQuery, avatarUrlQuery, membersQuery, profileQuery } from './profileQueries';
 import { AuthContext } from '../auth/authContext';
-import { createQuery } from '../lib/query';
+import { createQuery, ifEnabled } from '../lib/query';
 
 /*
- * Profile graczy: zapytania z `profileQueries.ts` na wspólnym cache. Klient Supabase z `AuthContext`; parametry jako akcesory.
+ * Profile graczy: zapytania z `profileQueries.ts` na wspólnym cache. Akcesory danych czekają pod
+ * `<Loading>` (`createQuery`); parametry jako akcesory.
  */
 
 /** Aktywni członkowie klubu (`membersQuery`). */
@@ -28,5 +29,5 @@ export function createAllProfiles() {
 /** Adres zdjęcia profilowego (`avatarUrlQuery`); `null` = bez zapytania. */
 export function createAvatarUrl(path: Accessor<string | null>) {
   const auth = useContext(AuthContext);
-  return createQuery(() => avatarUrlQuery(auth.client, path()));
+  return createQuery(() => ifEnabled(avatarUrlQuery(auth.client, path())));
 }

@@ -1,4 +1,14 @@
-import { createMemo, createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
+import {
+  action,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  createUniqueId,
+  flush,
+  onFlush,
+  Show,
+  useContext,
+} from 'solid-js';
 import { createGameSearch } from '../games/gameData';
 import { allExpansionsQuery } from '../games/games';
 import { format, t } from '../i18n';
@@ -9,8 +19,8 @@ import { ToastContext } from '../ui/toastContext';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { createMounted } from '../popups/leaveGuard';
 import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation, createQuery } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
+import { createQuery } from '../lib/query';
 import { Banner, Button, Select, TextField, type SelectOption } from '../ui';
 import { scorepadErrorMessage } from './messages';
 import { createScorepad } from './scorepadData';
@@ -40,7 +50,12 @@ export function RenameScorepadDialog(props: { readonly id: string }) {
   const query = createScorepad(() => props.id);
   // Formularz startuje z pierwszego wczytanego notesu: odświeżenie w tle nie nadpisuje wpisu.
   let first: Scorepad | undefined;
-  const pad = createMemo(() => (first ??= query().data ?? undefined));
+  const pad = createMemo(() => (first ??= query.current() ?? undefined));
+  /** Notes pod `<QueryBoundary>`: czeka na pierwsze wczytanie. */
+  const loaded = () => {
+    query();
+    return pad();
+  };
   const [name, setName] = createSignal(() => pad()?.name ?? '');
   const [touched, setTouched] = createSignal(false);
   const trimmed = () => name().trim();
@@ -51,13 +66,19 @@ export function RenameScorepadDialog(props: { readonly id: string }) {
         ? format(text.tooLong, { max: SCOREPAD_NAME_MAX })
         : undefined;
 
-  const rename = createMutation({
-    mutationFn: (next: string) => renameScorepad(auth.client, props.id, next),
-    onSuccess: (_, next) => {
-      toast.show(format(t.scorepads.toasts.renamed, { name: scorepadName(next) }), 'success');
-      void queryClient.invalidateQueries({ queryKey: scorepadsKey });
-      if (mounted()) popups.back();
-    },
+  const [saving, setSaving] = createOptimistic(false);
+  const [error, setError] = createSignal<string | undefined>(undefined);
+  const rename = action(function* (next: string) {
+    setSaving(true);
+    try {
+      yield renameScorepad(auth.client, props.id, next);
+    } catch (failure) {
+      setError(scorepadErrorMessage(failure));
+      return;
+    }
+    toast.show(format(t.scorepads.toasts.renamed, { name: scorepadName(next) }), 'success');
+    void queryClient.invalidateQueries({ queryKey: scorepadsKey });
+    if (mounted()) popups.back();
   });
 
   const submit = (event: SubmitEvent) => {
@@ -66,40 +87,35 @@ export function RenameScorepadDialog(props: { readonly id: string }) {
     flush();
     setTouched(true);
     const current = pad();
-    if (!current || problem() || rename.state().isPending) return;
+    if (!current || problem() || saving()) return;
     if (trimmed() === current.name) {
       popups.back();
       return;
     }
-    rename.mutate(trimmed());
+    // Poprzedni błąd znika od razu, nie dopiero po zapisie.
+    onFlush(() => setError(undefined));
+    void rename(trimmed());
   };
 
   return (
-    <Show when={!(query().isSuccess && !query().data && !pad())} fallback={<InvalidPopup />}>
+    <Show when={!(query.current() === null && !pad())} fallback={<InvalidPopup />}>
       <PopupDialog
         title={text.title}
         icon="pad"
         description={
-          <Show
-            when={pad()}
-            fallback={
-              <QueryStatus isError={query().isError} onRetry={() => void query().refetch()} />
-            }
-          >
-            <p>{text.helper}</p>
-          </Show>
+          <QueryBoundary>
+            <Show when={loaded()}>
+              <p>{text.helper}</p>
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <>
-            <Button
-              variant="secondary"
-              disabled={rename.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={saving()} onClick={() => popups.back()}>
               {text.cancel}
             </Button>
             <Show when={pad()}>
-              <Button type="submit" form={formId} loading={rename.state().isPending}>
+              <Button type="submit" form={formId} loading={saving()}>
                 {text.submit}
               </Button>
             </Show>
@@ -108,9 +124,7 @@ export function RenameScorepadDialog(props: { readonly id: string }) {
       >
         <Show when={pad()}>
           <form id={formId} novalidate onSubmit={submit} class="scorepads">
-            <Show when={rename.state().isError}>
-              <Banner variant="error">{scorepadErrorMessage(rename.state().error)}</Banner>
-            </Show>
+            <Show when={error()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
             <TextField
               label={text.label}
               value={name()}
@@ -144,12 +158,12 @@ export function MoveScorepadPopup(props: { readonly id: string }) {
   const games = createGameSearch(() => '');
   const expansions = createQuery(() => allExpansionsQuery(auth.client));
   const [target, setTarget] = createSignal<string | null>(null);
-  const pad = () => query().data ?? undefined;
+  const pad = () => query.current() ?? undefined;
 
   const options = createMemo(() => {
     const list: SelectOption<string>[] = [];
-    const allGames = games().data;
-    const allExpansions = expansions().data;
+    const allGames = games.current();
+    const allExpansions = expansions.current();
     if (!allGames || !allExpansions) return list;
     const current = pad()?.game_id;
     const titles = new Map(allGames.map((game) => [game.id, game.title]));
@@ -170,20 +184,27 @@ export function MoveScorepadPopup(props: { readonly id: string }) {
     return list;
   });
 
-  const move = createMutation({
-    mutationFn: (to: { readonly id: string; readonly label: string }) =>
-      moveScorepad(auth.client, props.id, to.id),
-    onSuccess: (_, to) => {
-      const moved = pad();
-      if (moved) {
-        toast.show(
-          format(t.scorepads.toasts.moved, { name: moved.name, title: to.label }),
-          'success',
-        );
-      }
-      void queryClient.invalidateQueries({ queryKey: scorepadsKey });
-      if (mounted()) popups.back();
-    },
+  const [moving, setMoving] = createOptimistic(false);
+  const [moved, setMoved] = createSignal(false);
+  const [error, setError] = createSignal<string | undefined>(undefined);
+  const move = action(function* (to: { readonly id: string; readonly label: string }) {
+    setMoving(true);
+    const current = pad();
+    try {
+      yield moveScorepad(auth.client, props.id, to.id);
+    } catch (failure) {
+      setError(scorepadErrorMessage(failure));
+      return;
+    }
+    setMoved(true);
+    if (current) {
+      toast.show(
+        format(t.scorepads.toasts.moved, { name: current.name, title: to.label }),
+        'success',
+      );
+    }
+    void queryClient.invalidateQueries({ queryKey: scorepadsKey });
+    if (mounted()) popups.back();
   });
 
   const submit = () => {
@@ -191,49 +212,39 @@ export function MoveScorepadPopup(props: { readonly id: string }) {
     // Bez wybranej gry przycisk jest wyłączony.
     if (!id) return;
     const label = options().find((option) => option.value === id)?.label ?? '';
-    move.mutate({ id, label });
+    onFlush(() => setError(undefined));
+    void move({ id, label });
   };
 
-  const loading = () => !pad() || !games().data || !expansions().data;
-  const failed = () => query().isError || games().isError || expansions().isError;
+  // Okno i przyciski zależą od danych w cache (bez czekania), opis czeka pod `<QueryBoundary>`.
+  const loading = () => !pad() || !games.current() || !expansions.current();
+  const loaded = () => {
+    games();
+    expansions();
+    query();
+    return pad();
+  };
 
   return (
-    <Show
-      when={!(!move.state().isSuccess && query().isSuccess && !pad())}
-      fallback={<InvalidPopup />}
-    >
+    <Show when={!(!moved() && query.current() === null)} fallback={<InvalidPopup />}>
       <PopupDialog
         title={text.title}
         icon="pad"
         description={
-          <Show
-            when={!loading() && pad()}
-            fallback={
-              <QueryStatus
-                isError={failed()}
-                onRetry={() => {
-                  void query().refetch();
-                  void games().refetch();
-                  void expansions().refetch();
-                }}
-              />
-            }
-          >
-            {(shown) => <p>{format(text.description, { name: shown().name })}</p>}
-          </Show>
+          <QueryBoundary>
+            <Show when={loaded()}>
+              {(shown) => <p>{format(text.description, { name: shown().name })}</p>}
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <>
-            <Button
-              variant="secondary"
-              disabled={move.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={moving()} onClick={() => popups.back()}>
               {text.cancel}
             </Button>
             <Button
-              loading={move.state().isPending}
-              disabled={loading() || target() === null || move.state().isSuccess}
+              loading={moving()}
+              disabled={loading() || target() === null || moved()}
               onClick={submit}
             >
               {text.submit}
@@ -241,9 +252,7 @@ export function MoveScorepadPopup(props: { readonly id: string }) {
           </>
         }
       >
-        <Show when={move.state().isError}>
-          <Banner variant="error">{scorepadErrorMessage(move.state().error)}</Banner>
-        </Show>
+        <Show when={error()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
         <Show when={!loading()}>
           <Select
             label={text.label}
@@ -272,64 +281,60 @@ export function DeleteScorepadDialog(props: { readonly id: string }) {
   const popups = useContext(PopupsContext);
   const mounted = createMounted();
   const query = createScorepad(() => props.id);
-  const pad = () => query().data ?? undefined;
+  const pad = () => query.current() ?? undefined;
+  const [removing, setRemoving] = createOptimistic(false);
+  const [removed, setRemoved] = createSignal(false);
+  /** Błąd usunięcia: `true` = brak uprawnień. */
+  const [forbidden, setForbidden] = createSignal<boolean | null>(null);
 
-  const remove = createMutation({
-    mutationFn: () => deleteScorepad(auth.client, props.id),
-    onSuccess: () => {
-      const removed = pad();
-      if (removed)
-        toast.show(format(t.scorepads.toasts.deleted, { name: removed.name }), 'success');
-      if (mounted()) popups.back();
-      void queryClient.invalidateQueries({ queryKey: scorepadsKey });
-    },
+  const remove = action(function* () {
+    setRemoving(true);
+    const target = pad();
+    try {
+      yield deleteScorepad(auth.client, props.id);
+    } catch (error) {
+      setForbidden(error instanceof ScorepadError && error.reason === 'forbidden');
+      return;
+    }
+    setRemoved(true);
+    if (target) toast.show(format(t.scorepads.toasts.deleted, { name: target.name }), 'success');
+    if (mounted()) popups.back();
+    void queryClient.invalidateQueries({ queryKey: scorepadsKey });
   });
 
-  const forbidden = () => {
-    const error = remove.state().error;
-    return error instanceof ScorepadError && error.reason === 'forbidden';
-  };
-
   return (
-    <Show
-      when={!(!remove.state().isSuccess && query().isSuccess && !pad())}
-      fallback={<InvalidPopup />}
-    >
+    <Show when={!(!removed() && query.current() === null)} fallback={<InvalidPopup />}>
       <PopupDialog
         title={text.title}
         icon="trash"
         tone="danger"
         description={
-          <Show
-            when={pad()}
-            fallback={
-              <QueryStatus isError={query().isError} onRetry={() => void query().refetch()} />
-            }
-          >
-            {(shown) => <p>{format(text.description, { name: shown().name })}</p>}
-          </Show>
+          <QueryBoundary>
+            <Show when={query()}>
+              {(shown) => <p>{format(text.description, { name: shown().name })}</p>}
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <>
-            <Button
-              variant="secondary"
-              disabled={remove.state().isPending}
-              onClick={() => popups.back()}
-            >
+            <Button variant="secondary" disabled={removing()} onClick={() => popups.back()}>
               {text.cancel}
             </Button>
             <Button
               variant="destructive"
-              loading={remove.state().isPending}
-              disabled={!pad() || remove.state().isSuccess}
-              onClick={() => remove.mutate()}
+              loading={removing()}
+              disabled={!pad() || removed()}
+              onClick={() => {
+                onFlush(() => setForbidden(null));
+                void remove();
+              }}
             >
               {text.submit}
             </Button>
           </>
         }
       >
-        <Show when={remove.state().isError}>
+        <Show when={forbidden() !== null}>
           <Banner variant="error">
             {forbidden() ? t.scorepads.errors.forbidden : t.scorepads.errors.remove}
           </Banner>

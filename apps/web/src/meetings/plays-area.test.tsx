@@ -11,7 +11,7 @@ import { clubKey } from '../club/club';
 import { format, t } from '../i18n';
 import type { PopupApi, PopupLevel } from '../popups/popupContext';
 import { allProfilesKey, type Profile } from '../profile/profileQueries';
-import { scorepadsKey, type Scorepad } from '../score-pad/scorepads';
+import { scorepadsKey, versionTemplateKey, type Scorepad } from '../score-pad/scorepads';
 import { renderWithProviders } from '../test/render';
 import { DeletePlayDialog } from './DeletePlayDialog';
 import { DiscardPlayDialog } from './DiscardPlayDialog';
@@ -19,6 +19,7 @@ import { meetingKey, type Meeting } from './meetings';
 import { NewPlayPopup } from './NewPlayPopup';
 import type { PlaySummary } from './playSave';
 import { PlayPopup } from './PlayPopup';
+import { fromPlayDetailRow, playKey } from './plays';
 import { PlaySummaryDialog } from './PlaySummaryDialog';
 import { meetingGamesKey } from './voting';
 
@@ -137,6 +138,15 @@ function host(play: 'draft' | 'saved' = 'draft') {
   queryClient.setQueryData([...gamesKey, 'expansions', 'all'], []);
   queryClient.setQueryData(allProfilesKey, PROFILES);
   queryClient.setQueryData(clubKey, { name: 'Klub', logo_path: null, timezone: 'Europe/Warsaw' });
+  // Partia i szablon w cache (jak po otwarciu z listy partii): bez mignięcia zastępnika.
+  queryClient.setQueryData(
+    playKey(PLAY_ID),
+    fromPlayDetailRow(playRow(play) as unknown as Parameters<typeof fromPlayDetailRow>[0]),
+  );
+  queryClient.setQueryData(versionTemplateKey(PAD.current?.id ?? ''), {
+    ...SAMPLE_SCORE_PAD.template,
+    name: PAD.name,
+  });
   const from = vi.fn((table: string) =>
     chain(
       table === 'plays'

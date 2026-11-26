@@ -1,17 +1,16 @@
 import {
   createEffect,
+  createMemo,
   createSignal,
   For,
-  Match,
   Show,
-  Switch,
   useContext,
   type Accessor,
 } from 'solid-js';
 import { format, plural, t } from '../i18n';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { PopupLoadError, PopupLoading, QueryBoundary } from '../popups/QueryStatus';
 import { Button, createChunks, EmptyState, Icon, Menu, SearchField, ShowMore } from '../ui';
 import { ariaTrue } from '../ui/dom';
 import { GameCover } from './GameCover';
@@ -51,12 +50,21 @@ export function CollectionPopup(props: { readonly isAdmin: boolean }) {
   const all = createGameSearch(() => '');
   const results = createGameSearch(deferredQuery);
   const searching = () => deferredQuery() !== '';
-  const shown = () => (searching() ? results().data : all().data);
-  const status = () => (searching() ? results() : all());
-  const chunks = createChunks(() => shown() ?? [], deferredQuery);
+  /** Widoczne gry: czekają na dane pod `<QueryBoundary>`. */
+  const shown = createMemo(() => (searching() ? results() : all()) ?? []);
+  const chunks = createChunks(shown, deferredQuery);
   const count = () => {
-    const games = all().data;
+    const games = all.current();
     return games ? plural(games.length, t.games.count) : undefined;
+  };
+  /** Liczba wyników dla czytnika ekranu, bez czekania na dane. */
+  const announcement = () => {
+    const found = results.state();
+    return searching() && found?.isSuccess ? plural(found.data?.length ?? 0, text.results) : '';
+  };
+  const busy = () => {
+    const found = results.state();
+    return !!found?.isFetching && found.isPlaceholderData;
   };
 
   return (
@@ -78,67 +86,73 @@ export function CollectionPopup(props: { readonly isAdmin: boolean }) {
         </Show>
       }
     >
-      <Show
-        when={all().isSuccess}
-        fallback={<QueryStatus isError={all().isError} onRetry={() => void all().refetch()} />}
-      >
-        <SearchField
-          label={text.searchLabel}
-          placeholder={text.searchPlaceholder}
-          value={query()}
-          onValueChange={setQuery}
-          class="games-search"
-        />
-        <p class="sr-only" role="status">
-          {searching() && results().isSuccess
-            ? plural(results().data?.length ?? 0, text.results)
-            : ''}
-        </p>
-        <Switch>
-          <Match when={shown() === undefined}>
-            <div class="games-body">
-              <QueryStatus isError={status().isError} onRetry={() => void status().refetch()} />
-            </div>
-          </Match>
-          <Match when={(shown()?.length ?? 0) > 0}>
-            <ul
-              class="game-grid games-body"
-              aria-label={text.listLabel}
-              aria-busy={ariaTrue(results().isFetching && results().isPlaceholderData)}
-            >
-              <For each={chunks.visible()} keyed={(game) => game.id}>
-                {(game, index) => (
-                  <GameTile
-                    game={game()}
-                    isAdmin={props.isAdmin}
-                    chunkStart={chunks.chunkStart(index())}
+      <QueryBoundary>
+        {/* Wyszukiwarka pojawia się po wczytaniu całej kolekcji. */}
+        <Show when={all()}>
+          <SearchField
+            label={text.searchLabel}
+            placeholder={text.searchPlaceholder}
+            value={query()}
+            onValueChange={setQuery}
+            class="games-search"
+          />
+          <p class="sr-only" role="status">
+            {announcement()}
+          </p>
+          <QueryBoundary
+            loading={
+              <div class="games-body">
+                <PopupLoading />
+              </div>
+            }
+            error={(retry) => (
+              <div class="games-body">
+                <PopupLoadError onRetry={retry} />
+              </div>
+            )}
+          >
+            <Show
+              when={shown().length > 0}
+              fallback={
+                <div class="games-body">
+                  <EmptyState
+                    icon={searching() ? 'search' : 'dice'}
+                    title={
+                      searching()
+                        ? format(text.noResultsTitle, { query: deferredQuery() })
+                        : text.emptyTitle
+                    }
+                    helper={
+                      searching()
+                        ? text.noResultsHelper
+                        : props.isAdmin
+                          ? text.emptyHelperAdmin
+                          : text.emptyHelper
+                    }
                   />
-                )}
-              </For>
-            </ul>
-            <ShowMore hidden={chunks.hidden()} onClick={chunks.showMore} />
-          </Match>
-          <Match when={true}>
-            <div class="games-body">
-              <EmptyState
-                icon={searching() ? 'search' : 'dice'}
-                title={
-                  searching()
-                    ? format(text.noResultsTitle, { query: deferredQuery() })
-                    : text.emptyTitle
-                }
-                helper={
-                  searching()
-                    ? text.noResultsHelper
-                    : props.isAdmin
-                      ? text.emptyHelperAdmin
-                      : text.emptyHelper
-                }
-              />
-            </div>
-          </Match>
-        </Switch>
-      </Show>
+                </div>
+              }
+            >
+              <ul
+                class="game-grid games-body"
+                aria-label={text.listLabel}
+                aria-busy={ariaTrue(busy())}
+              >
+                <For each={chunks.visible()} keyed={(game) => game.id}>
+                  {(game, index) => (
+                    <GameTile
+                      game={game()}
+                      isAdmin={props.isAdmin}
+                      chunkStart={chunks.chunkStart(index())}
+                    />
+                  )}
+                </For>
+              </ul>
+              <ShowMore hidden={chunks.hidden()} onClick={chunks.showMore} />
+            </Show>
+          </QueryBoundary>
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }

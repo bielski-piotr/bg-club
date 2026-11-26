@@ -1,4 +1,13 @@
-import { createMemo, createSignal, For, Match, Show, Switch, useContext } from 'solid-js';
+import {
+  action,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  For,
+  onFlush,
+  Show,
+  useContext,
+} from 'solid-js';
 import { createGame } from '../games/gameData';
 import type { Game } from '../games/games';
 import { playersLabel } from '../games/labels';
@@ -8,8 +17,7 @@ import { PopupsContext } from '../popups/popupContext';
 import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button, EmptyState, Icon, Menu, Tray } from '../ui';
 import { fewerSeatsMessage, scorepadErrorMessage } from './messages';
 import { createGameScorepads, createScorepadFileUrl } from './scorepadData';
@@ -38,14 +46,20 @@ export function ScorepadsPopup(props: { readonly gameId: string; readonly isAdmi
   const popups = useContext(PopupsContext);
   const game = createGame(() => props.gameId);
   const pads = createGameScorepads(() => props.gameId);
-  const loaded = () => game().isSuccess && pads().isSuccess;
-  const data = () => (loaded() ? (game().data ?? undefined) : undefined);
-  const notFound = () => loaded() && !game().data;
+  // Nagłówek okna z danych w cache (bez czekania), lista czeka pod `<QueryBoundary>`.
+  const loaded = () => pads.current() !== undefined && game.current() !== undefined;
+  const data = () => (loaded() ? (game.current() ?? undefined) : undefined);
+  const notFound = () => loaded() && !game.current();
+  const shown = createMemo(() => {
+    const list = pads();
+    const found = game();
+    return found ? { game: found, pads: list } : null;
+  });
 
   return (
     <PopupModal
       title={notFound() ? text.notFoundTitle : text.title}
-      count={data() ? plural(pads().data?.length ?? 0, t.scorepads.count) : undefined}
+      count={data() ? plural(pads.current()?.length ?? 0, t.scorepads.count) : undefined}
       actions={
         // W nagłówku tylko „Dodaj notes” (jak „Dodaj grę”), żeby tytuł mieścił się od 360 px.
         <Show when={props.isAdmin && data()}>
@@ -63,22 +77,11 @@ export function ScorepadsPopup(props: { readonly gameId: string; readonly isAdmi
         </Show>
       }
     >
-      <Switch>
-        <Match when={notFound()}>
-          <p class="games-not-found">{text.notFoundBody}</p>
-        </Match>
-        <Match when={data()}>
-          {(shown) => (
-            <ScorepadList game={shown()} pads={pads().data ?? []} isAdmin={props.isAdmin} />
-          )}
-        </Match>
-        <Match when={true}>
-          <QueryStatus
-            isError={game().isError || pads().isError}
-            onRetry={() => void (game().isError ? game() : pads()).refetch()}
-          />
-        </Match>
-      </Switch>
+      <QueryBoundary>
+        <Show when={shown()} fallback={<p class="games-not-found">{text.notFoundBody}</p>}>
+          {(list) => <ScorepadList game={list().game} pads={list().pads} isAdmin={props.isAdmin} />}
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }
@@ -95,33 +98,45 @@ function ScorepadList(props: {
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [warning, setWarning] = createSignal<string | undefined>(undefined);
 
-  const importFile = createMutation({
-    mutationFn: (file: File) => importScorepad(auth.client, props.game.id, file),
-    onSuccess: (saved: SavedScorepad) => {
-      void queryClient.invalidateQueries({ queryKey: gameScorepadsKey(props.game.id) });
-      toast.show(format(t.scorepads.toasts.imported, { name: saved.name }), 'success');
-      setWarning(fewerSeatsMessage(saved.playerSlots, props.game.max_players));
-    },
-    onError: (failure) => setError(scorepadErrorMessage(failure)),
+  const [importing, setImporting] = createOptimistic(false);
+  const importFile = action(function* (file: File) {
+    setImporting(true);
+    const gameId = props.game.id;
+    const maxPlayers = props.game.max_players;
+    let saved: SavedScorepad;
+    try {
+      saved = (yield importScorepad(auth.client, gameId, file)) as SavedScorepad;
+    } catch (failure) {
+      setError(scorepadErrorMessage(failure));
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: gameScorepadsKey(gameId) });
+    toast.show(format(t.scorepads.toasts.imported, { name: saved.name }), 'success');
+    setWarning(fewerSeatsMessage(saved.playerSlots, maxPlayers));
   });
 
-  const exportPad = createMutation({
-    mutationFn: (pad: Scorepad) => exportScorepad(auth.client, pad),
-    onSuccess: (_, pad) =>
-      toast.show(format(t.scorepads.toasts.exported, { name: pad.name }), 'neutral'),
-    onError: (failure) =>
+  const exportPad = action(function* (pad: Scorepad) {
+    try {
+      yield exportScorepad(auth.client, pad);
+    } catch (failure) {
       setError(
         failure instanceof ScorepadError && failure.reason === 'gone'
           ? t.scorepads.errors.gone
           : t.scorepads.errors.export,
-      ),
+      );
+      return;
+    }
+    toast.show(format(t.scorepads.toasts.exported, { name: pad.name }), 'neutral');
   });
 
   const pickFile = (file: File | undefined) => {
-    if (!file || importFile.state().isPending) return;
-    setError(undefined);
-    setWarning(undefined);
-    importFile.mutate(file);
+    if (!file || importing()) return;
+    // Poprzednie komunikaty znikają od razu, nie dopiero po imporcie.
+    onFlush(() => {
+      setError(undefined);
+      setWarning(undefined);
+    });
+    void importFile(file);
   };
 
   return (
@@ -135,7 +150,7 @@ function ScorepadList(props: {
             size="sm"
             variant="secondary"
             icon="upload"
-            loading={importFile.state().isPending}
+            loading={importing()}
             onClick={() => fileInput?.click()}
           >
             {text.import}
@@ -157,7 +172,7 @@ function ScorepadList(props: {
       <Show when={error()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
       <Show when={warning()}>{(message) => <Banner variant="warning">{message()}</Banner>}</Show>
       <p class="sr-only" role="status">
-        {importFile.state().isPending ? text.importing : ''}
+        {importing() ? text.importing : ''}
       </p>
       <Show
         when={props.pads.length > 0}
@@ -177,8 +192,8 @@ function ScorepadList(props: {
                 maxPlayers={props.game.max_players}
                 isAdmin={props.isAdmin}
                 onExport={() => {
-                  setError(undefined);
-                  exportPad.mutate(pad());
+                  onFlush(() => setError(undefined));
+                  void exportPad(pad());
                 }}
               />
             )}
@@ -293,11 +308,12 @@ export function ScorepadThumb(props: { readonly name: string; readonly path: str
   const [thumbFailed, setThumbFailed] = createSignal(false);
   // Brak miniatury (starsza wersja) to od razu pełne zdjęcie, bez ponawiania zapytania.
   const thumb = createScorepadFileUrl(() => props.path && thumbPath(props.path), false);
-  const useFull = () => thumbFailed() || thumb().isError;
+  // Adresy bez czekania: do wczytania widać rysunek kartki.
+  const useFull = () => thumbFailed() || (thumb.state()?.isError ?? false);
   const full = createScorepadFileUrl(() => (useFull() ? props.path : null));
   const [failed, setFailed] = createSignal(false);
   const src = () => {
-    const url = useFull() ? full().data : thumb().data;
+    const url = useFull() ? full.current() : thumb.current();
     return url && !failed() ? url : undefined;
   };
   const onError = () => (useFull() ? setFailed(true) : setThumbFailed(true));

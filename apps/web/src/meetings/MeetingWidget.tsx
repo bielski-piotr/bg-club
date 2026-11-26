@@ -1,3 +1,4 @@
+import type { JSX } from '@solidjs/web';
 import {
   createMemo,
   createSignal,
@@ -15,6 +16,7 @@ import { format, plural, t } from '../i18n';
 import { avatarPerson, type Profile } from '../profile/profileQueries';
 import { createClub } from '../club/clubData';
 import { PopupsContext } from '../popups/popupContext';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { createAllProfiles, createMembers } from '../profile/profiles';
 import {
@@ -65,8 +67,9 @@ export function MeetingWidget(props: { readonly me: Profile }) {
   const members = createMembers();
   const reopen = createReopenVoting();
   const isAdmin = () => props.me.role === 'admin';
-  const data = () => meeting().data ?? undefined;
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  // Nagłówek karty czyta dane z cache bez czekania, treść czeka pod `<QueryBoundary>`.
+  const data = () => meeting.current() ?? undefined;
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
   // Odliczanie liczy dni od „dziś” w strefie klubu, więc zegar przesuwa je też po północy.
   const [now, setNow] = createSignal(new Date());
   onSettled(() => {
@@ -92,14 +95,14 @@ export function MeetingWidget(props: { readonly me: Profile }) {
       ...menuItems(current, undefined, isAdmin(), isMeetingRunner(current, props.me)).map(
         ({ route, ...item }) => ({
           ...item,
-          onSelect: () => (route ? popups.open(route) : reopen.mutate(current.id)),
+          onSelect: () => (route ? popups.open(route) : void reopen.run(current.id)),
         }),
       ),
     ];
   });
   const countdown = () => {
     const current = data();
-    return current && current.status === 'planned' && !club().isPending
+    return current && current.status === 'planned' && club.current() !== undefined
       ? countdownLabel(current.starts_at, timeZone(), now())
       : null;
   };
@@ -145,55 +148,57 @@ export function MeetingWidget(props: { readonly me: Profile }) {
         </Show>
       }
     >
-      <Switch>
-        <Match when={meeting().isPending || (data() && club().isPending)}>
+      <QueryBoundary
+        loading={
           <div class="members-widget__loading">
             <Skeleton width={240} height={64} radius={18} />
             <Spinner label={t.hub.meeting.loading} class="sr-only" />
           </div>
-        </Match>
-        <Match when={meeting().isError}>
+        }
+        error={(retry) => (
           <Banner
             variant="error"
             action={
-              <Button
-                size="sm"
-                variant="secondary"
-                icon="refresh"
-                onClick={() => void meeting().refetch()}
-              >
+              <Button size="sm" variant="secondary" icon="refresh" onClick={retry}>
                 {t.hub.retry}
               </Button>
             }
           >
             {t.hub.loadError}
           </Banner>
-        </Match>
-        <Match when={data()}>
+        )}
+      >
+        <Show
+          when={meeting()}
+          fallback={
+            <EmptyState
+              icon="calendar"
+              title={t.hub.meeting.emptyTitle}
+              helper={isAdmin() ? t.hub.meeting.emptyHelperAdmin : t.hub.meeting.emptyHelper}
+              action={
+                <Show when={isAdmin()}>
+                  <Button
+                    icon="plus"
+                    fullWidth
+                    onClick={() => popups.open({ kind: 'add-meeting' })}
+                  >
+                    {t.hub.meeting.plan}
+                  </Button>
+                </Show>
+              }
+            />
+          }
+        >
           {(current) => (
             <MeetingBlock
               meeting={current()}
               me={props.me}
-              timeZone={timeZone()}
-              members={members().data ?? []}
+              timeZone={club()?.timezone ?? FALLBACK_TIMEZONE}
+              members={members.current() ?? []}
             />
           )}
-        </Match>
-        <Match when={true}>
-          <EmptyState
-            icon="calendar"
-            title={t.hub.meeting.emptyTitle}
-            helper={isAdmin() ? t.hub.meeting.emptyHelperAdmin : t.hub.meeting.emptyHelper}
-            action={
-              <Show when={isAdmin()}>
-                <Button icon="plus" fullWidth onClick={() => popups.open({ kind: 'add-meeting' })}>
-                  {t.hub.meeting.plan}
-                </Button>
-              </Show>
-            }
-          />
-        </Match>
-      </Switch>
+        </Show>
+      </QueryBoundary>
     </Card>
   );
 }
@@ -304,20 +309,26 @@ function TrayHead(props: { readonly meeting: Meeting; readonly note?: string | n
   );
 }
 
-function TrayLoading(props: { readonly isError: boolean; readonly onRetry: () => void }) {
+/** Treść tacy: szkielet przy pierwszym wczytaniu, baner z ponowieniem przy błędzie. */
+function TrayBoundary(props: { readonly children: JSX.Element }) {
   return (
-    <Show when={props.isError} fallback={<Skeleton width="100%" height={54} radius={14} />}>
-      <Banner
-        variant="error"
-        action={
-          <Button size="sm" variant="secondary" icon="refresh" onClick={() => props.onRetry()}>
-            {t.hub.retry}
-          </Button>
-        }
-      >
-        {t.hub.loadError}
-      </Banner>
-    </Show>
+    <QueryBoundary
+      loading={<Skeleton width="100%" height={54} radius={14} />}
+      error={(retry) => (
+        <Banner
+          variant="error"
+          action={
+            <Button size="sm" variant="secondary" icon="refresh" onClick={retry}>
+              {t.hub.retry}
+            </Button>
+          }
+        >
+          {t.hub.loadError}
+        </Banner>
+      )}
+    >
+      {props.children}
+    </QueryBoundary>
   );
 }
 
@@ -333,45 +344,33 @@ function VotesTray(props: { readonly meeting: Meeting; readonly me: Profile }) {
   const games = createGameSearch(() => '');
   const votes = createMeetingVotes(() => props.meeting.id);
   const profiles = createAllProfiles();
-  const ready = () => games().isSuccess && votes().isSuccess;
+  // Głowa tacy czyta dane z cache bez czekania, wiersze czekają pod `<TrayBoundary>`.
   const note = () => {
-    const list = votes().data;
-    return ready() && list && props.meeting.participants.includes(props.me.id)
+    const list = votes.current();
+    return games.current() !== undefined && list && props.meeting.participants.includes(props.me.id)
       ? format(t.meetings.voting.myVotes, { n: myVoteCount(list, props.me.id) })
       : null;
   };
-  const rows = createMemo(() => {
-    const allGames = games().data;
-    const allVotes = votes().data;
-    if (!ready() || !allGames || !allVotes) return [];
-    return voteRows(allGames, allVotes, {
+  const rows = createMemo(() =>
+    voteRows(games() ?? [], votes(), {
       me: props.me.id,
       participants: props.meeting.participants.length,
-    }).filter((row) => row.voters.length > 0);
-  });
+    }).filter((row) => row.voters.length > 0),
+  );
   return (
     <div class="meeting-tray">
       <TrayHead meeting={props.meeting} note={note()} />
-      <Switch>
-        <Match when={!ready()}>
-          <TrayLoading
-            isError={games().isError || votes().isError}
-            onRetry={() => {
-              void games().refetch();
-              void votes().refetch();
-            }}
-          />
-        </Match>
-        <Match when={rows().length === 0}>
-          <p class="meeting-tray__empty">{t.hub.meeting.noVotes}</p>
-        </Match>
-        <Match when={true}>
+      <TrayBoundary>
+        <Show
+          when={rows().length > 0}
+          fallback={<p class="meeting-tray__empty">{t.hub.meeting.noVotes}</p>}
+        >
           <Tray label={t.hub.meeting.topVotesLabel}>
             <For each={rows().slice(0, TRAY_ROWS)} keyed={(row) => row.game.id}>
               {(row) => {
                 const voters = () =>
                   row().voters.flatMap((id) => {
-                    const person = profiles().data?.get(id);
+                    const person = profiles.current()?.get(id);
                     return person ? [avatarPerson(person)] : [];
                   });
                 return (
@@ -401,26 +400,24 @@ function VotesTray(props: { readonly meeting: Meeting; readonly me: Profile }) {
             </For>
           </Tray>
           <MoreRows hidden={rows().length - TRAY_ROWS} />
-        </Match>
-      </Switch>
+        </Show>
+      </TrayBoundary>
     </div>
   );
 }
 
 function ChosenGamesTray(props: { readonly meeting: Meeting }) {
   const games = createPublishedGames(() => props.meeting.id);
-  const list = () => games().data ?? [];
+  /** Wybrane gry: czekają pod `<TrayBoundary>`. */
+  const list = () => games();
   return (
     <div class="meeting-tray">
       <TrayHead meeting={props.meeting} />
-      <Switch>
-        <Match when={!games().isSuccess}>
-          <TrayLoading isError={games().isError} onRetry={() => void games().refetch()} />
-        </Match>
-        <Match when={list().length === 0}>
-          <p class="meeting-tray__empty">{t.meetings.voting.playingEmpty}</p>
-        </Match>
-        <Match when={true}>
+      <TrayBoundary>
+        <Show
+          when={list().length > 0}
+          fallback={<p class="meeting-tray__empty">{t.meetings.voting.playingEmpty}</p>}
+        >
           <Tray label={t.meetings.voting.playingLabel}>
             <For each={list().slice(0, TRAY_ROWS)} keyed={(game) => game.id}>
               {(game) => (
@@ -439,8 +436,8 @@ function ChosenGamesTray(props: { readonly meeting: Meeting }) {
             </For>
           </Tray>
           <MoreRows hidden={list().length - TRAY_ROWS} />
-        </Match>
-      </Switch>
+        </Show>
+      </TrayBoundary>
     </div>
   );
 }
@@ -449,32 +446,25 @@ function ChosenGamesTray(props: { readonly meeting: Meeting }) {
 function PlaysTray(props: { readonly meeting: Meeting; readonly timeZone: string }) {
   const plays = createMeetingPlays(() => props.meeting.id);
   const profiles = createAllProfiles();
-  const split = createMemo(() => {
-    const list = plays().data;
-    return plays().isSuccess && list ? splitPlays(list) : undefined;
+  // Postęp w głowie tacy z cache bez czekania; wiersze czekają pod `<TrayBoundary>`.
+  const progress = createMemo(() => {
+    const list = plays.current();
+    if (!list) return null;
+    const current = splitPlays(list);
+    return playsProgressLabel(current.saved.length, current.drafts.length);
   });
   const rows = createMemo(() => {
-    const current = split();
-    return current ? [...current.drafts, ...[...current.saved].reverse()] : [];
+    const current = splitPlays(plays() ?? []);
+    return [...current.drafts, ...[...current.saved].reverse()];
   });
   return (
     <div class="meeting-tray">
-      <TrayHead
-        meeting={props.meeting}
-        note={
-          split()
-            ? playsProgressLabel(split()?.saved.length ?? 0, split()?.drafts.length ?? 0)
-            : null
-        }
-      />
-      <Switch>
-        <Match when={!split()}>
-          <TrayLoading isError={plays().isError} onRetry={() => void plays().refetch()} />
-        </Match>
-        <Match when={rows().length === 0}>
-          <p class="meeting-tray__empty">{t.hub.meeting.noPlays}</p>
-        </Match>
-        <Match when={true}>
+      <TrayHead meeting={props.meeting} note={progress()} />
+      <TrayBoundary>
+        <Show
+          when={rows().length > 0}
+          fallback={<p class="meeting-tray__empty">{t.hub.meeting.noPlays}</p>}
+        >
           <Tray label={t.hub.meeting.playsLabel}>
             <For each={rows().slice(0, TRAY_ROWS)} keyed={(play) => play.id}>
               {(play) => (
@@ -501,7 +491,7 @@ function PlaysTray(props: { readonly meeting: Meeting; readonly timeZone: string
                         winners={play()
                           .results.filter((r) => r.is_win === true)
                           .map((r) => r.profile_id)}
-                        profiles={profiles().data}
+                        profiles={profiles.current()}
                       />
                     </Show>
                   </div>
@@ -510,8 +500,8 @@ function PlaysTray(props: { readonly meeting: Meeting; readonly timeZone: string
             </For>
           </Tray>
           <MoreRows hidden={rows().length - TRAY_ROWS} />
-        </Match>
-      </Switch>
+        </Show>
+      </TrayBoundary>
     </div>
   );
 }

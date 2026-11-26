@@ -74,10 +74,12 @@ describe('obszar Członkowie bez diagnostyki Solid', () => {
     const { artifact } = await captureArtifact(
       async () => {
         const widget = renderWithProviders(() => <MembersWidget me={ME} />, host());
+        await settle();
         expect(within(widget.container).getByText('30 osób')).toBeInTheDocument();
         widget.unmount();
 
         const list = renderWithProviders(() => <MembersPopup isAdmin />, host());
+        await settle();
         expect(within(list.container).getAllByRole('listitem')).toHaveLength(24);
         fireEvent.click(screen.getByRole('button', { name: 'Pokaż więcej (6)' }));
         await settle();
@@ -98,6 +100,7 @@ describe('obszar Członkowie bez diagnostyki Solid', () => {
           () => <DeleteMemberDialog id={MEMBERS[3]?.id ?? ''} />,
           host(),
         );
+        await settle();
         expect(within(dialog.container).getByRole('dialog')).toHaveTextContent('Imię4 Nazwisko4');
         dialog.unmount();
       },

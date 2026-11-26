@@ -1,10 +1,10 @@
-import { createMemo, createSignal, Match, Show, Switch, untrack } from 'solid-js';
+import { createMemo, createSignal, Show, untrack } from 'solid-js';
 import { plural, t } from '../i18n';
 import type { Profile } from '../profile/profileQueries';
 import { PopupModal } from '../popups/PopupModal';
 import { EmptyState, Tabs } from '../ui';
 import { ariaBool } from '../ui/dom';
-import { BoardError, BoardLoading } from './BoardStatus';
+import { BoardBoundary, BoardError } from './BoardStatus';
 import { FilterBar } from './FilterBar';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import { TiesLink } from './TiesPopup';
@@ -31,13 +31,14 @@ export function LeaderboardPopup(props: {
   );
   const board = createBoardData(kind, filters);
   const text = t.leaderboard;
+  // Okno, zakładki i filtry nie czekają na dane: licznik i „Remisy” czytają cache.
   const count = () => {
-    const entries = board.entries();
+    const entries = board.entries.current();
     return entries ? plural(entries.length, text.count) : undefined;
   };
   const filtered = () => hasFilters(filters());
   const ties = createMemo(() => {
-    const entries = board.entries();
+    const entries = board.entries.current();
     return !!entries && tieGroups(entries).length > 0;
   });
 
@@ -55,32 +56,36 @@ export function LeaderboardPopup(props: {
           }
         />
       </div>
-      <div aria-busy={ariaBool(!board.entries())}>
-        <Switch fallback={<BoardLoading />}>
-          <Match when={board.failed()}>
+      <div aria-busy={ariaBool(!board.entries.current())}>
+        <BoardBoundary
+          on={kind()}
+          error={(retry) => (
             <div class="leaderboard">
-              <BoardError onRetry={board.retry} />
+              <BoardError onRetry={retry} />
             </div>
-          </Match>
-          <Match when={board.entries()?.length === 0 && board.profiles()}>
-            <div class="leaderboard">
-              <EmptyState
-                icon="trophy"
-                title={filtered() ? text.emptyFilteredTitle : text.emptyTitle}
-                helper={filtered() ? text.emptyFilteredHelper : text.emptyHelper}
-              />
-            </div>
-          </Match>
-          <Match when={board.entries() && board.profiles()}>
+          )}
+        >
+          <Show
+            when={board.entries().length > 0}
+            fallback={
+              <div class="leaderboard">
+                <EmptyState
+                  icon="trophy"
+                  title={filtered() ? text.emptyFilteredTitle : text.emptyTitle}
+                  helper={filtered() ? text.emptyFilteredHelper : text.emptyHelper}
+                />
+              </div>
+            }
+          >
             <LeaderboardBoard
-              entries={board.entries() ?? []}
+              entries={board.entries()}
               kind={kind()}
               meId={props.me.id}
-              profiles={board.profiles() ?? new Map()}
+              profiles={board.profiles()}
               variant="popup"
             />
-          </Match>
-        </Switch>
+          </Show>
+        </BoardBoundary>
       </div>
     </PopupModal>
   );

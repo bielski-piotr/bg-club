@@ -1,6 +1,6 @@
 import { useContext, type Accessor } from 'solid-js';
 import { AuthContext } from '../auth/authContext';
-import { createQuery } from '../lib/query';
+import { createQuery, ifEnabled } from '../lib/query';
 import { gameSheetsQuery, savedSheetQuery, sheetImageUrlQuery } from './sheets';
 
 /*
@@ -10,7 +10,7 @@ import { gameSheetsQuery, savedSheetQuery, sheetImageUrlQuery } from './sheets';
 /** Podpisany adres obrazu karteczki; bez ścieżki zapytanie jest wyłączone. */
 export function createSheetImageUrl(path: Accessor<string | null | undefined>) {
   const auth = useContext(AuthContext);
-  return createQuery(() => sheetImageUrlQuery(auth.client, path()));
+  return createQuery(() => ifEnabled(sheetImageUrlQuery(auth.client, path())));
 }
 
 /** Karteczka zapisanej partii (`savedSheetQuery`). */

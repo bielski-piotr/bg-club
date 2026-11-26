@@ -1,7 +1,9 @@
 import type { JSX } from '@solidjs/web';
 import {
+  action,
   createEffect,
   createMemo,
+  createOptimistic,
   createSignal,
   createUniqueId,
   For,
@@ -24,10 +26,9 @@ import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { createMounted } from '../popups/leaveGuard';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { createAllProfiles } from '../profile/profiles';
-import { createMutation } from '../lib/query';
 import { Banner, Button, EmptyState, Icon, SearchField, Tray } from '../ui';
 import { ariaBool } from '../ui/dom';
 import { createMeeting, createPublishedGames } from './meetingData';
@@ -82,11 +83,14 @@ export function NewPlayPopup(props: { readonly meetingId: string; readonly me: O
   const pads = createActiveScorepads();
   const profiles = createAllProfiles();
   const expansions = createAllExpansions();
-  const queries = () => [meeting(), games(), published(), pads(), profiles(), expansions()];
+  const queries = [meeting, games, published, pads, profiles, expansions];
 
-  const loaded = () => queries().every((query) => query.isSuccess);
+  // Okno (stopka) zależy od danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
+  const loaded = () => queries.every((query) => query.current() !== undefined);
+  /** Wszystkie dane kreatora: treść czeka na nie (błąd któregokolwiek → baner z ponowieniem). */
+  const all = createMemo(() => queries.every((query) => query() !== undefined));
   const blocked = () => {
-    const current = meeting().data;
+    const current = meeting.current();
     return !current
       ? t.meetings.popup.notFoundBody
       : !isMeetingRunner(current, props.me)
@@ -95,12 +99,12 @@ export function NewPlayPopup(props: { readonly meetingId: string; readonly me: O
           ? text.notInProgress
           : null;
   };
-  const meetingData = createMemo(() => meeting().data ?? undefined);
-  const gamesData = createMemo(() => games().data ?? []);
-  const expansionsData = createMemo(() => expansions().data ?? []);
-  const publishedIds = createMemo(() => (published().data ?? []).map((game) => game.id));
-  const padsData = createMemo(() => pads().data ?? []);
-  const profileMap = createMemo(() => profiles().data ?? new Map<string, Profile>());
+  const meetingData = createMemo(() => meeting.current() ?? undefined);
+  const gamesData = createMemo(() => games.current() ?? []);
+  const expansionsData = createMemo(() => expansions.current() ?? []);
+  const publishedIds = createMemo(() => (published.current() ?? []).map((game) => game.id));
+  const padsData = createMemo(() => pads.current() ?? []);
+  const profileMap = createMemo(() => profiles.current() ?? new Map<string, Profile>());
 
   const wizard = createWizard({
     meeting: meetingData,
@@ -120,20 +124,18 @@ export function NewPlayPopup(props: { readonly meetingId: string; readonly me: O
         </Show>
       }
     >
-      <Switch>
-        <Match when={!loaded()}>
-          <QueryStatus
-            isError={queries().some((query) => query.isError)}
-            onRetry={() => queries().forEach((query) => void query.refetch())}
-          />
-        </Match>
-        <Match when={blocked()}>
-          {(message) => <p class="meeting-form__state">{message()}</p>}
-        </Match>
-        <Match when={true}>
-          <wizard.Body publishedIds={publishedIds()} />
-        </Match>
-      </Switch>
+      <QueryBoundary>
+        <Show when={all()}>
+          <Switch>
+            <Match when={blocked()}>
+              {(message) => <p class="meeting-form__state">{message()}</p>}
+            </Match>
+            <Match when={true}>
+              <wizard.Body publishedIds={publishedIds()} />
+            </Match>
+          </Switch>
+        </Show>
+      </QueryBoundary>
     </PopupModal>
   );
 }
@@ -225,38 +227,42 @@ function createWizard(data: WizardData) {
       : undefined;
   });
 
-  const start = createMutation({
-    mutationFn: (id: string) => {
+  const [starting, setStarting] = createOptimistic(false);
+  const [started, setStarted] = createSignal(false);
+  const [failure, setFailure] = createSignal<string | null>(null);
+  const start = action(function* (id: string) {
+    setStarting(true);
+    setFailure(null);
+    try {
       const current = pad();
       const found = data.meeting();
       if (!current || !found) throw new StartPlayError('scorepadGone');
-      return startPlay(auth.client, {
+      yield startPlay(auth.client, {
         playId: id,
         meetingId: found.id,
         scorepadId: current.id,
         seats: seats(),
         expansionIds: chosen().map((expansion) => expansion.id),
       });
-    },
-    onSuccess: (_, id) => {
-      toast.show(format(t.meetings.toasts.playStarted, { title: game()?.title ?? '' }), 'success');
-      // Kreator ustępuje notesowi partii (PAD-4); Wstecz wraca do spotkania.
-      if (mounted()) popups.replace({ kind: 'play', id });
-    },
-    // Także po błędzie: notes, gra albo spotkanie mogły się zmienić w innej karcie.
-    onSettled: (_, error) =>
-      Promise.all([
+    } catch (error) {
+      setFailure(error instanceof StartPlayError ? text.errors[error.reason] : text.errors.save);
+      // Także po błędzie: notes, gra albo spotkanie mogły się zmienić w innej karcie.
+      yield Promise.all([
         queryClient.invalidateQueries({ queryKey: meetingsKey }),
-        ...(error
-          ? [
-              queryClient.invalidateQueries({ queryKey: scorepadsKey }),
-              queryClient.invalidateQueries({ queryKey: gamesKey }),
-            ]
-          : []),
-      ]),
+        queryClient.invalidateQueries({ queryKey: scorepadsKey }),
+        queryClient.invalidateQueries({ queryKey: gamesKey }),
+      ]);
+      return;
+    }
+    setStarted(true);
+    toast.show(format(t.meetings.toasts.playStarted, { title: game()?.title ?? '' }), 'success');
+    // Kreator ustępuje notesowi partii (PAD-4); Wstecz wraca do spotkania. Zmiana stosu nie
+    // czeka na odświeżenie spotkań.
+    if (mounted()) popups.replace({ kind: 'play', id });
+    void queryClient.invalidateQueries({ queryKey: meetingsKey });
   });
   const changed = () => {
-    start.reset();
+    setFailure(null);
     setPlayId(crypto.randomUUID());
   };
 
@@ -346,11 +352,7 @@ function createWizard(data: WizardData) {
     const limits = bounds();
     return limits ? seatsProblem(seats(), limits) : 'tooFew';
   };
-  const failure = () => {
-    const error = start.state().error;
-    return error instanceof StartPlayError ? text.errors[error.reason] : text.errors.save;
-  };
-  const busy = () => start.state().isPending || start.state().isSuccess;
+  const busy = () => starting() || started();
 
   function Footer() {
     return (
@@ -377,9 +379,9 @@ function createWizard(data: WizardData) {
         >
           <Button
             icon="play"
-            loading={start.state().isPending}
-            disabled={problem() !== null || start.state().isSuccess}
-            onClick={() => start.mutate(playId())}
+            loading={starting()}
+            disabled={problem() !== null || started()}
+            onClick={() => void start(playId())}
           >
             {text.start}
           </Button>
@@ -398,9 +400,7 @@ function createWizard(data: WizardData) {
           skipped={singlePad() ? 'scorepad' : null}
           onBack={busy() ? undefined : setStep}
         />
-        <Show when={start.state().isError}>
-          <Banner variant="error">{failure()}</Banner>
-        </Show>
+        <Show when={failure()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
         <Switch>
           <Match when={step() === 'game'}>
             <GameStep

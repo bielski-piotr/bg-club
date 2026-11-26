@@ -9,23 +9,17 @@ import { LEADERBOARD_KINDS, leaderboardQuery, type LeaderboardKind } from './lea
 export const kindTabs = LEADERBOARD_KINDS.map((id) => ({ id, label: t.leaderboard.tabs[id] }));
 
 /**
- * Ranking z profilami do awatarów. Dane z cache'u mają pierwszeństwo przed błędem odświeżania;
- * błąd bez danych pokazuje banner z ponowieniem.
+ * Ranking z profilami do awatarów. Akcesory czekają na dane pod `BoardBoundary` (błąd bez danych
+ * trafia do jej banera z ponowieniem); `.current()` to dane z cache bez czekania (licznik, linki
+ * w nagłówku). Dane z cache'u mają pierwszeństwo przed błędem odświeżania.
  */
 export function createBoardData(
   kind: Accessor<LeaderboardKind>,
   filters: Accessor<LeaderboardFilters>,
 ) {
   const auth = useContext(AuthContext);
-  const board = createQuery(() => leaderboardQuery(auth.client, kind(), filters()));
-  const profiles = createAllProfiles();
   return {
-    entries: () => board().data,
-    profiles: () => profiles().data,
-    failed: () => (board().isError && !board().data) || (profiles().isError && !profiles().data),
-    retry: () => {
-      if (board().isError) void board().refetch();
-      if (profiles().isError) void profiles().refetch();
-    },
+    entries: createQuery(() => leaderboardQuery(auth.client, kind(), filters())),
+    profiles: createAllProfiles(),
   };
 }

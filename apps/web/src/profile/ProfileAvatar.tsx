@@ -20,7 +20,7 @@ export function ProfileAvatar(props: ProfileAvatarProps) {
   const url = createAvatarUrl(() =>
     props.profile.deleted_at === null ? (props.profile.avatar_path ?? null) : null,
   );
-  const person = createMemo(() => avatarPerson(props.profile, url().data));
+  const person = createMemo(() => avatarPerson(props.profile, url.current()));
   return (
     <Avatar
       id={person().id}

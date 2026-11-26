@@ -1,5 +1,14 @@
 import { MIN_PASSWORD_LENGTH } from '@bg-club/accounts';
-import { createMemo, createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
+import {
+  action,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  createUniqueId,
+  flush,
+  Show,
+  useContext,
+} from 'solid-js';
 import { ownProfileKey, type OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
 import { AuthContext } from '../auth/authContext';
@@ -7,7 +16,6 @@ import { PopupsContext } from '../popups/popupContext';
 import { QueryClientContext } from '../lib/queryClient';
 import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
-import { createMutation } from '../lib/query';
 import { ariaTrue } from '../ui/dom';
 import { Banner, Button, PasswordField } from '../ui';
 import {
@@ -70,30 +78,34 @@ export function PasswordPopup(props: PasswordPopupProps) {
       old ? { ...old, password_change_suggested: false } : old,
     );
 
-  const change = createMutation({
-    mutationFn: () =>
-      changePassword(auth.client, props.me.id, { current: current(), next: next() }),
-    // Hasła są w zmiennych mutacji: nie trzymamy ich w cache'u po zamknięciu formularza.
-    gcTime: 0,
-    onSuccess: () => {
-      clearSuggestion();
-      toast.show(text.toasts.changed, 'success');
-      popups.back();
-    },
-    onError: (error) => {
+  const [changing, setChanging] = createOptimistic(false);
+  const [skipping, setSkipping] = createOptimistic(false);
+  // Hasła są tylko w sygnałach formularza: nie trafiają do cache'u zapytań.
+  const change = action(function* () {
+    setChanging(true);
+    try {
+      yield changePassword(auth.client, props.me.id, { current: current(), next: next() });
+    } catch (error) {
       const reason = error instanceof PasswordChangeError ? error.reason : 'unknown';
       if (reason === 'currentInvalid') setCurrentInvalid(true);
       else setSaveError(CHANGE_ERRORS[reason]);
-    },
+      return;
+    }
+    clearSuggestion();
+    toast.show(text.toasts.changed, 'success');
+    popups.back();
   });
 
-  const skip = createMutation({
-    mutationFn: () => dismissPasswordSuggestion(auth.client, props.me.id),
-    onSuccess: () => {
-      clearSuggestion();
-      popups.back();
-    },
-    onError: () => setSaveError(text.errors.skip),
+  const skip = action(function* () {
+    setSkipping(true);
+    try {
+      yield dismissPasswordSuggestion(auth.client, props.me.id);
+    } catch {
+      setSaveError(text.errors.skip);
+      return;
+    }
+    clearSuggestion();
+    popups.back();
   });
 
   const problems = createMemo(() =>
@@ -106,8 +118,8 @@ export function PasswordPopup(props: PasswordPopupProps) {
     setShowErrors(true);
     setSaveError(undefined);
     const found = problems();
-    if (found.current || found.next || found.repeat || change.state().isPending) return;
-    change.mutate();
+    if (found.current || found.next || found.repeat || changing()) return;
+    void change();
   };
 
   const currentError = () =>
@@ -116,7 +128,7 @@ export function PasswordPopup(props: PasswordPopupProps) {
       : showErrors()
         ? problemText(problems().current)
         : undefined;
-  const busy = () => change.state().isPending || skip.state().isPending;
+  const busy = () => changing() || skipping();
 
   return (
     <PopupModal
@@ -133,19 +145,14 @@ export function PasswordPopup(props: PasswordPopupProps) {
           >
             <Button
               variant="secondary"
-              loading={skip.state().isPending}
-              disabled={change.state().isPending}
-              onClick={() => skip.mutate()}
+              loading={skipping()}
+              disabled={changing()}
+              onClick={() => void skip()}
             >
               {text.skip}
             </Button>
           </Show>
-          <Button
-            type="submit"
-            form={formId}
-            loading={change.state().isPending}
-            disabled={skip.state().isPending}
-          >
+          <Button type="submit" form={formId} loading={changing()} disabled={skipping()}>
             {text.submit}
           </Button>
         </>

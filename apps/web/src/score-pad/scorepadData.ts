@@ -1,7 +1,7 @@
 import { useContext, type Accessor } from 'solid-js';
 import { signedUrlQuery } from '../lib/storage';
 import { AuthContext } from '../auth/authContext';
-import { createQuery } from '../lib/query';
+import { createQuery, ifEnabled } from '../lib/query';
 import {
   activeScorepadsQuery,
   gameScorepadsQuery,
@@ -37,14 +37,16 @@ export function createScorepad(id: Accessor<string>) {
 /** Szablon aktualnej wersji notesu ze zdjęciem (`scorepadTemplateQuery`). */
 export function createScorepadTemplate(pad: Accessor<Scorepad | null | undefined>) {
   const auth = useContext(AuthContext);
-  return createQuery(() => scorepadTemplateQuery(auth.client, pad()));
+  return createQuery(() => ifEnabled(scorepadTemplateQuery(auth.client, pad())));
 }
 
 /** Podpisany adres pliku z bucketu notesów; `null` = bez zapytania. */
 export function createScorepadFileUrl(path: Accessor<string | null>, retry = true) {
   const auth = useContext(AuthContext);
-  return createQuery(() => ({
-    ...signedUrlQuery(auth.client, SCOREPADS_BUCKET, path()),
-    ...(retry ? {} : { retry: false, retryOnMount: false }),
-  }));
+  return createQuery(() =>
+    ifEnabled({
+      ...signedUrlQuery(auth.client, SCOREPADS_BUCKET, path()),
+      ...(retry ? {} : { retry: false, retryOnMount: false }),
+    }),
+  );
 }

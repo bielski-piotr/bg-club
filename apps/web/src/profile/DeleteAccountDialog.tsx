@@ -1,11 +1,18 @@
-import { createSignal, createUniqueId, flush, Show, useContext } from 'solid-js';
+import {
+  action,
+  createOptimistic,
+  createSignal,
+  createUniqueId,
+  flush,
+  Show,
+  useContext,
+} from 'solid-js';
 import type { OwnProfile } from '../auth/ownProfile';
 import { t } from '../i18n';
 import { deleteOwnAccount, DeletionError, type DeletionFailure } from '../members/deletion';
 import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupDialog } from '../popups/PopupDialog';
-import { createMutation } from '../lib/query';
 import { Banner, Button, PasswordField } from '../ui';
 import './profile.css';
 
@@ -36,34 +43,35 @@ export function DeleteAccountDialog(props: { readonly me: OwnProfile }) {
   const [showErrors, setShowErrors] = createSignal(false);
   const [wrongPassword, setWrongPassword] = createSignal(false);
 
-  const remove = createMutation({
-    mutationFn: () => deleteOwnAccount(auth.client, password()),
-    // Hasło jest w domknięciu mutacji: nie trzymamy go w cache'u po zamknięciu dialogu.
-    gcTime: 0,
-    onSuccess: () => {
-      // Serwer już unieważnił sesje; lokalne wylogowanie czyści cache i popupy z adresu.
-      void auth.signOut('accountDeleted');
-    },
-    onError: (error) => {
-      if (error instanceof DeletionError && error.reason === 'wrongPassword') {
-        setWrongPassword(true);
-      }
-    },
+  const [removing, setRemoving] = createOptimistic(false);
+  const [removed, setRemoved] = createSignal(false);
+  const [failure, setFailure] = createSignal<DeletionFailure | null>(null);
+
+  // Hasło jest tylko w sygnale formularza: nie trafia do cache'u zapytań.
+  const remove = action(function* () {
+    setRemoving(true);
+    setFailure(null);
+    try {
+      yield deleteOwnAccount(auth.client, password());
+    } catch (error) {
+      const reason = error instanceof DeletionError ? error.reason : 'unknown';
+      setFailure(reason);
+      if (reason === 'wrongPassword') setWrongPassword(true);
+      return;
+    }
+    setRemoved(true);
+    // Serwer już unieważnił sesje; lokalne wylogowanie czyści cache i popupy z adresu.
+    void auth.signOut('accountDeleted');
   });
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
     flush();
     setShowErrors(true);
-    const state = remove.state();
-    if (password() === '' || state.isPending || state.isSuccess) return;
-    remove.mutate();
+    if (password() === '' || removing() || removed()) return;
+    void remove();
   };
 
-  const failure = () => {
-    const error = remove.state().error;
-    return error instanceof DeletionError ? error.reason : 'unknown';
-  };
   const fieldError = () =>
     wrongPassword()
       ? text.errors.wrongPassword
@@ -72,7 +80,7 @@ export function DeleteAccountDialog(props: { readonly me: OwnProfile }) {
         : undefined;
   const bannerFailure = () => {
     const reason = failure();
-    return remove.state().isError && reason !== 'wrongPassword' ? reason : undefined;
+    return reason !== null && reason !== 'wrongPassword' ? reason : undefined;
   };
 
   return (
@@ -83,18 +91,14 @@ export function DeleteAccountDialog(props: { readonly me: OwnProfile }) {
       description={<p>{text.description}</p>}
       footer={
         <>
-          <Button
-            variant="secondary"
-            disabled={remove.state().isPending}
-            onClick={() => popups.back()}
-          >
+          <Button variant="secondary" disabled={removing()} onClick={() => popups.back()}>
             {text.cancel}
           </Button>
           <Button
             type="submit"
             form={formId}
             variant="destructive"
-            loading={remove.state().isPending || remove.state().isSuccess}
+            loading={removing() || removed()}
           >
             {text.submit}
           </Button>

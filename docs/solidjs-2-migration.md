@@ -455,12 +455,48 @@ Ustalenia:
 - `onSettled` traktuje zwracaną wartość jak sprzątanie: callback z przypisaniem (`() => (x = true)`) rzuca „invalid cleanup value”.
 - Popup zamykany po zapisie (`back()`) znika po `popstate`, czyli w kolejnym zadaniu: testy czekają (`waitFor`).
 
-### Etap 8b – natywne async Solid (do zrobienia)
+### Etap 8b – natywne async Solid ✅
 
-- Zastąpić `createQuery`/`createMutation` (`lib/query.ts`, ≈ 68 zapytań i 56 mutacji w 40 plikach) przez `createMemo` +
-  `<Loading>` + `refresh`/`action`. Do decyzji przed startem: odpowiednik `staleTime` i cache między popupami, prefetch
-  w `SignedInScreen`, inwalidacje (≈ 40 `invalidateQueries`, 69 `setQueryData`), `keepPreviousData`.
-- Po 8b: usunąć `@tanstack/query-core`, przejrzeć `perf.spec.ts` i limit bundla.
+Decyzja: cache zostaje w `@tanstack/query-core` (klucze, `staleTime`, prefetch, `invalidateQueries`, `setQueryData`), a komponenty
+korzystają z async Solid 2.0. Czysto natywne `createMemo(() => fetchX())` nie ma wspólnego cache po kluczu: `refresh(d)` wymaga
+referencji do konkretnego memo, a mutacje odświeżają widoki, które o sobie nie wiedzą.
+
+Zrobione:
+
+- `lib/query.ts`: `createQuery(() => opcje)` zwraca **async akcesor** – bez danych w cache jest w toku (`<Loading>`), błąd bez danych
+  trafia do `<Errored>`, zmiana klucza zostawia poprzednią wartość i daje `isPending(() => q())`, dane z `setQueryData` i po
+  inwalidacji pojawiają się bez zastępnika. Dodatki: `q.current()` (dane z cache bez czekania – nagłówki okien, adresy obrazów),
+  `q.state()` (surowy wynik obserwatora), `q.refetch()`; opcje `null` / `ifEnabled(opcje)` = brak zapytania (obserwator się odpina,
+  więc `gcTime: 0` zwalnia np. zdjęcie notesu). `createMutation` usunięte.
+- `popups/QueryStatus.tsx`: `QueryBoundary` (`<Errored>` + `<Loading>`, domyślnie spinner i baner popupu, własne `loading` / `error(retry)`
+  w widżetach); ponowienie pobiera od nowa zapytania z błędem i odbudowuje treść. `QueryStatus` usunięty.
+- Wszystkie widżety i popupy: okno (`PopupModal`/`PopupDialog`, tytuł, licznik, stopka, decyzja „Nie znaleziono”) czyta `current()`
+  i nie czeka; treść jest pod `QueryBoundary`. Mutacje to `action(function* …)` z flagą zapisu `createOptimistic(false)`
+  (dialogi jednorazowe: `createOptimistic(() => done())`, żeby udany zapis nie „wracał”) i błędami w zwykłych sygnałach.
+  Wspólne akcje (`createReopenVoting`, `createDateDecision`) zwracają `{ run, pending }`.
+- Powłoka (`SignedInScreen`, `Hub`) nie czeka na profil ani klub: decyzje (ekran wczytywania, hub, błąd, wylogowanie nieaktywnego
+  konta, pierwsze uruchomienie) z `current()` / `state()`.
+- Testy: `lib/query.test.tsx` (semantyka adaptera: pierwsze wczytanie, cache, zmiana klucza z `isPending`, inwalidacja i
+  `setQueryData`, `<Errored>` z ponowieniem, opcje `null` i odpięcie obserwatora, `action` z flagą i `yield invalidateQueries`, bramka
+  bez diagnostyki). Testy obszarów bez zmian asercji (tylko czekanie i dane startowe w cache). `pnpm check` zielone (614 testów).
+- Bundle: początkowy JS 171,2 KB gzip (8a: 167,3 KB).
+
+Ustalenia:
+
+- `QueryObserver.setOptions` powiadamia słuchaczy synchronicznie: w trakcie obliczenia to powiadomienie jest pomijane (inaczej
+  `REACTIVE_WRITE_IN_OWNED_SCOPE`). `setOptions` działa tylko przy zmianie opcji, powiadomienia czytają `getCurrentResult`
+  (wcześniej memo przekraczało budżet `HOT_SCOPE_TIME` w rankingu).
+- Odczyt `q()` poza granicą zawiesza najbliższe `<Loading>` wyżej (popup w hubie, a w widżetach – nic): nagłówki i decyzje o oknie
+  zawsze przez `current()`.
+- Zapisy w akcji (np. wyczyszczenie poprzedniego błędu) widać dopiero po jej zakończeniu; jeśli coś ma się zmienić od razu (motyw
+  w ustawieniach), zapis idzie przed akcją z `flush()`.
+- `createOptimistic(false)` jako flaga zapisu daje informacyjny `OPTIMISTIC_REVERTED` po każdej akcji (flaga zawsze wraca);
+  to oczekiwane – w dialogach jednorazowych flaga wynika z `done`.
+- Drobne różnice zachowania (agenci obszarów): poprzedni baner błędu znika po zakończeniu kolejnej próby, nie na jej początku;
+  nieudane odświeżenie w tle nie zastępuje już danych błędem (dane z cache mają pierwszeństwo, także w `SignedInScreen`);
+  widżet Spotkanie pokazuje baner przy błędzie klubu (wcześniej domyślna strefa); Timeline przy pustej liście nie czeka na profile.
+- Do rozważenia: `@tanstack/solid-query` dla Solid 2.0, gdy się pojawi; `GameFilterPanel` nadal rysuje własne stany wczytywania
+  z `current()`/`state()`.
 
 ## Definicja ukończenia obszaru
 

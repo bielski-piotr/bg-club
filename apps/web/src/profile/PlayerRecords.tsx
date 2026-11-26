@@ -9,7 +9,7 @@ import { AuthContext } from '../auth/authContext';
 import { GameCover } from '../games/GameCover';
 import { FilterBar } from '../leaderboard/FilterBar';
 import { PopupLink } from '../popups/PopupLink';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { createQuery } from '../lib/query';
 import { EmptyState, Icon, Select, type SelectOption } from '../ui';
 import {
@@ -39,16 +39,14 @@ export function PlayerRecordsSection(props: { readonly profileId: string }) {
   const [view, setView] = createSignal<RecordsView>('all');
   const records = createQuery(() => playerRecordsQuery(auth.client, props.profileId, filters()));
   const club = createClub();
-  const timeZone = () => club().data?.timezone ?? FALLBACK_TIMEZONE;
+  const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
   const headingId = () => `${props.profileId}-records`;
-  const shown = createMemo(() => {
-    const data = records().data;
-    return data ? visibleRecords(data, view()) : undefined;
-  });
-  const noGames = () => {
-    const data = records().data;
-    return data !== undefined && data.length === 0 && !hasFilters(filters());
-  };
+  /** Rekordy w wybranym widoku: czekają na dane pod `<QueryBoundary>`. */
+  const shown = createMemo(() => visibleRecords(records(), view()));
+  const noGamesIn = (data: readonly PlayerRecord[] | undefined) =>
+    data !== undefined && data.length === 0 && !hasFilters(filters());
+  // Nagłówek z widokiem i filtrami nie czeka na dane: czyta cache.
+  const noGames = () => noGamesIn(records.current());
 
   return (
     <section class="profile__section" aria-labelledby={headingId()}>
@@ -71,20 +69,11 @@ export function PlayerRecordsSection(props: { readonly profileId: string }) {
       <Show when={!noGames()}>
         <FilterBar filters={filters()} onChange={setFilters} label={text.filtersLabel} />
       </Show>
-      <Switch>
-        <Match when={shown() === undefined}>
-          <QueryStatus isError={records().isError} onRetry={() => void records().refetch()} />
-        </Match>
-        <Match when={noGames()}>
-          <EmptyState icon="dice" title={text.noGamesTitle} helper={text.noGamesHelper} />
-        </Match>
-        <Match when={shown()?.length === 0}>
-          <EmptyState icon="trophy" title={text.emptyTitle} helper={text.emptyHelper} />
-        </Match>
-        <Match when={shown()}>
-          {(list) => (
+      <QueryBoundary>
+        <Switch
+          fallback={
             <ul class="records" aria-label={text.listLabel}>
-              <For each={list()} keyed={(record) => record.game_id}>
+              <For each={shown()} keyed={(record) => record.game_id}>
                 {(record) => (
                   <li>
                     <RecordCard record={record()} timeZone={timeZone()} />
@@ -92,9 +81,16 @@ export function PlayerRecordsSection(props: { readonly profileId: string }) {
                 )}
               </For>
             </ul>
-          )}
-        </Match>
-      </Switch>
+          }
+        >
+          <Match when={noGamesIn(records())}>
+            <EmptyState icon="dice" title={text.noGamesTitle} helper={text.noGamesHelper} />
+          </Match>
+          <Match when={shown().length === 0}>
+            <EmptyState icon="trophy" title={text.emptyTitle} helper={text.emptyHelper} />
+          </Match>
+        </Switch>
+      </QueryBoundary>
     </section>
   );
 }

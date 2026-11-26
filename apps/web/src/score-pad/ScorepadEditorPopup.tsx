@@ -4,23 +4,26 @@ import { ScorepadWizard } from './ScorepadWizard';
 import '../games/games.css';
 import './scorepads.css';
 
+/*
+ * Okno kreatora zależy od danych w cache (bez czekania: `current()`), a spinner i błąd
+ * wczytania pokazuje `wait` pod `<QueryBoundary>` w treści kreatora.
+ */
+
 /** „Dodaj notes” (GAME-7, EDT-1): pusty edytor; zapis tworzy notes i jego wersję 1. */
 export function AddScorepadPopup(props: { readonly gameId: string }) {
   const game = createGame(() => props.gameId);
   // Id nowego notesu od razu: ponowny zapis po błędzie trafia w ten sam notes, nie w nowy.
   const id = crypto.randomUUID();
-  const data = () => game().data ?? undefined;
   return (
     <ScorepadWizard
       mode="add"
       scorepadId={id}
       source={(() => {
-        const found = data();
+        const found = game.current();
         return found ? { game: found, pad: null, template: undefined } : undefined;
       })()}
-      notFound={game().isSuccess && !game().data}
-      isError={game().isError}
-      onRetry={() => void game().refetch()}
+      notFound={game.current() === null}
+      wait={() => game()}
     />
   );
 }
@@ -31,26 +34,32 @@ export function AddScorepadPopup(props: { readonly gameId: string }) {
  */
 export function EditScorepadPopup(props: { readonly id: string }) {
   const pad = createScorepad(() => props.id);
-  const game = createGame(() => pad().data?.game_id ?? '');
-  const template = createScorepadTemplate(() => pad().data);
+  const game = createGame(() => pad.current()?.game_id ?? '');
+  const template = createScorepadTemplate(() => pad.current());
   // Notes bez wersji (np. dodany poza aplikacją) nie ma szablonu: edytor zaczyna od zdjęcia.
-  const noVersion = () => pad().data?.current === null;
-  const ready = () => pad().isSuccess && game().isSuccess && (template().isSuccess || noVersion());
-  const notFound = () => (pad().isSuccess && !pad().data) || (ready() && !game().data);
-  const failed = () => (pad().isError ? pad() : game().isError ? game() : template());
+  const noVersion = () => pad.current()?.current === null;
+  const ready = () =>
+    !!pad.current() &&
+    game.current() !== undefined &&
+    (noVersion() || template.current() !== undefined);
+  const notFound = () => pad.current() === null || (ready() && !game.current());
   return (
     <ScorepadWizard
       mode="edit"
       scorepadId={props.id}
       source={(() => {
-        const found = pad().data;
-        const base = game().data;
+        const found = pad.current();
+        const base = game.current();
         if (!ready() || !found || !base) return undefined;
-        return { game: base, pad: found, template: noVersion() ? undefined : template().data };
+        return { game: base, pad: found, template: noVersion() ? undefined : template.current() };
       })()}
       notFound={notFound()}
-      isError={pad().isError || game().isError || template().isError}
-      onRetry={() => void failed().refetch()}
+      wait={() => {
+        // Gra i szablon dopiero dla wczytanego notesu (wcześniej ich klucze są puste).
+        if (!pad()) return;
+        game();
+        template();
+      }}
     />
   );
 }

@@ -66,7 +66,7 @@ function ClubIdentity(props: { readonly club: Club | null; readonly isAdmin: boo
   const name = () => props.club?.name ?? t.app.name;
   return (
     <>
-      <ClubLogo name={name()} src={logo().data} size={36} />
+      <ClubLogo name={name()} src={logo.current()} size={36} />
       <h1 class="app-header__name">{name()}</h1>
       <Show when={props.club && props.isAdmin}>
         <IconButton

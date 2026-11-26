@@ -1,10 +1,10 @@
-import { createMemo, For, Match, Show, Switch, useContext } from 'solid-js';
+import { createMemo, For, Show, useContext } from 'solid-js';
 import { createGameTitlesById } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
 import { format, t } from '../i18n';
 import { avatarPerson, type Profile } from '../profile/profileQueries';
 import { PopupsContext } from '../popups/popupContext';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { createAllProfiles } from '../profile/profiles';
 import { AvatarStack, Button, Icon } from '../ui';
 import '../sheets/sheets.css';
@@ -35,37 +35,40 @@ export function MeetingPlaysSection(props: {
   const popups = useContext(PopupsContext);
   const plays = createMeetingPlays(() => props.meeting.id);
   const profiles = createAllProfiles();
-  const split = createMemo(() => {
-    const list = plays().data;
+  // Nagłówek i zależne zapytania czytają partie z cache bez czekania.
+  const loaded = createMemo(() => {
+    const list = plays.current();
     return list ? splitPlays(list) : undefined;
   });
+  /** Partie z profilami graczy: czekają pod `<QueryBoundary>`. */
+  const content = createMemo(() => ({ ...splitPlays(plays() ?? []), people: profiles() }));
   const records = createMeetingRecords(
     () => props.meeting.id,
-    () => (split()?.saved.length ?? 0) > 0,
+    () => (loaded()?.saved.length ?? 0) > 0,
   );
   // Dodatki partii (także usunięte później z kolekcji) po tytułach.
   const expansionTitles = createGameTitlesById(() =>
-    (plays().data ?? []).flatMap((play) => play.expansion_ids ?? []),
+    (plays.current() ?? []).flatMap((play) => play.expansion_ids ?? []),
   );
   const expansionsOf = (play: MeetingPlay) => {
     const ids = play.expansion_ids ?? [];
     if (ids.length === 0) return undefined;
     const names = ids
-      .map((id) => expansionTitles().data?.get(id))
+      .map((id) => expansionTitles.current()?.get(id))
       .filter((name): name is string => name !== undefined)
       .sort((a, b) => a.localeCompare(b, 'pl'));
     return names.length > 0 ? format(text.withExpansions, { titles: names.join(', ') }) : undefined;
   };
   const headingId = () => `${props.meeting.id}-plays`;
-  const drafts = () => split()?.drafts ?? [];
-  const saved = () => split()?.saved ?? [];
+  const drafts = () => content().drafts;
+  const saved = () => content().saved;
   return (
     <section class="meeting-view__section" aria-labelledby={headingId()}>
       <div class="meeting-view__head-row">
         <h3 id={headingId()} class="meeting-view__head">
           {t.meetings.view.plays}
         </h3>
-        <Show when={split()}>
+        <Show when={loaded()}>
           {(current) => (
             <span class="meeting-view__note">
               {playsProgressLabel(current().saved.length, current().drafts.length)}
@@ -73,65 +76,56 @@ export function MeetingPlaysSection(props: {
           )}
         </Show>
       </div>
-      <Switch>
-        <Match when={!split() || !profiles().data}>
-          <QueryStatus
-            isError={plays().isError || profiles().isError}
-            onRetry={() => {
-              if (plays().isError) void plays().refetch();
-              if (profiles().isError) void profiles().refetch();
-            }}
-          />
-        </Match>
-        <Match when={saved().length === 0 && drafts().length === 0}>
-          <p class="meeting-form__state">
-            {props.meeting.status === 'in_progress'
-              ? text.emptyInProgress
-              : t.meetings.view.noPlays}
-          </p>
-        </Match>
-        <Match when={profiles().data}>
-          {(people) => (
-            <>
-              <Show when={drafts().length > 0}>
-                <ul class="play-list" aria-label={text.liveLabel}>
-                  <For each={drafts()} keyed={(play) => play.id}>
-                    {(play) => (
-                      <li>
-                        <LivePlayCard
-                          play={play()}
-                          expansions={expansionsOf(play())}
-                          timeZone={props.timeZone}
-                          profiles={people()}
-                          canRun={!!props.runner && props.meeting.status === 'in_progress'}
-                        />
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
-              <Show when={saved().length > 0}>
-                <ol class="sheet-gallery meeting-sheets" aria-label={text.savedLabel}>
-                  <For each={saved()} keyed={(play) => play.id}>
-                    {(play, index) => (
-                      <li>
-                        <PlaySheet
-                          play={play()}
-                          expansions={expansionsOf(play())}
-                          index={index()}
-                          timeZone={props.timeZone}
-                          records={records().data?.get(play().id)}
-                          onOpen={() => popups.open({ kind: 'sheet', id: play().id })}
-                        />
-                      </li>
-                    )}
-                  </For>
-                </ol>
-              </Show>
-            </>
-          )}
-        </Match>
-      </Switch>
+      <QueryBoundary>
+        <Show
+          when={saved().length > 0 || drafts().length > 0}
+          fallback={
+            <p class="meeting-form__state">
+              {props.meeting.status === 'in_progress'
+                ? text.emptyInProgress
+                : t.meetings.view.noPlays}
+            </p>
+          }
+        >
+          <>
+            <Show when={drafts().length > 0}>
+              <ul class="play-list" aria-label={text.liveLabel}>
+                <For each={drafts()} keyed={(play) => play.id}>
+                  {(play) => (
+                    <li>
+                      <LivePlayCard
+                        play={play()}
+                        expansions={expansionsOf(play())}
+                        timeZone={props.timeZone}
+                        profiles={content().people}
+                        canRun={!!props.runner && props.meeting.status === 'in_progress'}
+                      />
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+            <Show when={saved().length > 0}>
+              <ol class="sheet-gallery meeting-sheets" aria-label={text.savedLabel}>
+                <For each={saved()} keyed={(play) => play.id}>
+                  {(play, index) => (
+                    <li>
+                      <PlaySheet
+                        play={play()}
+                        expansions={expansionsOf(play())}
+                        index={index()}
+                        timeZone={props.timeZone}
+                        records={records.current()?.get(play().id)}
+                        onOpen={() => popups.open({ kind: 'sheet', id: play().id })}
+                      />
+                    </li>
+                  )}
+                </For>
+              </ol>
+            </Show>
+          </>
+        </Show>
+      </QueryBoundary>
     </section>
   );
 }

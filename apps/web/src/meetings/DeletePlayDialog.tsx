@@ -1,4 +1,4 @@
-import { Show, useContext } from 'solid-js';
+import { action, createOptimistic, createSignal, Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
 import { allowOrphanSweep } from '../sheets/sheetImages';
 import { AuthContext } from '../auth/authContext';
@@ -8,8 +8,7 @@ import { ToastContext } from '../ui/toastContext';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import { createMounted } from '../popups/leaveGuard';
 import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { createMutation } from '../lib/query';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { Banner, Button } from '../ui';
 import { createPlay } from './meetingData';
 import {
@@ -59,55 +58,74 @@ export function DeletePlayDialog(props: { readonly id: string }) {
     close();
   };
 
-  const remove = createMutation({
-    mutationFn: async (_target: DeleteTarget): Promise<DeleteOutcome> => {
-      const { imagePath } = await deletePlay(auth.client, props.id);
-      if (!imagePath) return { leftImage: null };
-      return {
-        leftImage: (await removeDeletedPlayImage(auth.client, imagePath)) ? null : imagePath,
-      };
-    },
-    onSuccess: ({ leftImage }, { title }) => {
-      toast.show(format(t.meetings.toasts.playDeleted, { title }), 'success');
+  const [removing, setRemoving] = createOptimistic(false);
+  /** Dane z ostatniej próby usunięcia; `null` = jeszcze nie próbowano. */
+  const [attempt, setAttempt] = createSignal<DeleteTarget | null>(null);
+  const [outcome, setOutcome] = createSignal<DeleteOutcome | null>(null);
+  const [failure, setFailure] = createSignal<string | null>(null);
+  const deleteWithImage = async (): Promise<DeleteOutcome> => {
+    const { imagePath } = await deletePlay(auth.client, props.id);
+    if (!imagePath) return { leftImage: null };
+    return {
+      leftImage: (await removeDeletedPlayImage(auth.client, imagePath)) ? null : imagePath,
+    };
+  };
+
+  const remove = action(function* (target: DeleteTarget) {
+    setRemoving(true);
+    setAttempt(target);
+    setFailure(null);
+    let result: DeleteOutcome;
+    try {
+      result = (yield deleteWithImage()) as DeleteOutcome;
+    } catch (error) {
+      setFailure(
+        error instanceof PlayDeleteError
+          ? error.reason === 'forbidden'
+            ? text.errors.forbidden
+            : error.reason === 'draft'
+              ? text.errors.draft
+              : text.errors.save
+          : text.errors.save,
+      );
       void invalidatePlayData(queryClient);
-      if (!leftImage) close();
-    },
-    onError: () => void invalidatePlayData(queryClient),
+      return;
+    }
+    setOutcome(result);
+    toast.show(format(t.meetings.toasts.playDeleted, { title: target.title }), 'success');
+    void invalidatePlayData(queryClient);
+    if (!result.leftImage) close();
   });
 
-  const leftImage = () => remove.state().data?.leftImage ?? null;
-  const retryImage = createMutation({
-    mutationFn: async () => {
-      const path = leftImage();
-      if (path && !(await removeDeletedPlayImage(auth.client, path))) {
-        throw new Error('sheet image not removed');
-      }
-    },
-    onSuccess: close,
+  const leftImage = () => outcome()?.leftImage ?? null;
+  const [retrying, setRetrying] = createOptimistic(false);
+  const [imageRemoved, setImageRemoved] = createSignal(false);
+  const retryImage = action(function* () {
+    setRetrying(true);
+    const path = leftImage();
+    try {
+      if (path && !((yield removeDeletedPlayImage(auth.client, path)) as boolean)) return;
+    } catch {
+      return;
+    }
+    setImageRemoved(true);
+    close();
   });
 
   // Przed potwierdzeniem (np. z linku): tylko zapisana partia, która istnieje. Po próbie
   // usunięcia dialog zostaje, nawet gdy odświeżona partia już nie pasuje (błąd, sukces).
+  // Okno zależy od danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
   const unavailable = () => {
-    const current = play();
+    const current = play.current();
     return (
-      remove.state().isIdle &&
-      current.isSuccess &&
-      (!current.data || current.data.status !== 'saved')
+      attempt() === null &&
+      !removing() &&
+      current !== undefined &&
+      (!current || current.status !== 'saved')
     );
   };
-  const failure = () => {
-    const error = remove.state().error;
-    return error instanceof PlayDeleteError
-      ? error.reason === 'forbidden'
-        ? text.errors.forbidden
-        : error.reason === 'draft'
-          ? text.errors.draft
-          : text.errors.save
-      : text.errors.save;
-  };
-  const title = () => play().data?.game.title ?? remove.state().variables?.title ?? '';
-  const imagePending = () => leftImage() !== null && !retryImage.state().isSuccess;
+  const title = () => play.current()?.game.title ?? attempt()?.title ?? '';
+  const imagePending = () => leftImage() !== null && !imageRemoved();
 
   return (
     <Show when={!unavailable()} fallback={<InvalidPopup />}>
@@ -116,34 +134,27 @@ export function DeletePlayDialog(props: { readonly id: string }) {
         icon="trash"
         tone="danger"
         description={
-          <Show
-            when={play().data || remove.state().isSuccess}
-            fallback={
-              <QueryStatus isError={play().isError} onRetry={() => void play().refetch()} />
-            }
-          >
-            <p>{format(text.description, { title: title() })}</p>
-          </Show>
+          <QueryBoundary>
+            <Show when={play() || outcome()}>
+              <p>{format(text.description, { title: title() })}</p>
+            </Show>
+          </QueryBoundary>
         }
         footer={
           <Show
             when={imagePending()}
             fallback={
               <>
-                <Button
-                  variant="secondary"
-                  disabled={remove.state().isPending}
-                  onClick={() => popups.back()}
-                >
+                <Button variant="secondary" disabled={removing()} onClick={() => popups.back()}>
                   {text.cancel}
                 </Button>
                 <Button
                   variant="destructive"
-                  loading={remove.state().isPending}
-                  disabled={!play().data || remove.state().isSuccess}
+                  loading={removing()}
+                  disabled={!play.current() || outcome() !== null}
                   onClick={() => {
-                    const current = play().data;
-                    if (current) remove.mutate({ title: title(), meetingId: current.meeting_id });
+                    const current = play.current();
+                    if (current) void remove({ title: title(), meetingId: current.meeting_id });
                   }}
                 >
                   {text.submit}
@@ -153,20 +164,18 @@ export function DeletePlayDialog(props: { readonly id: string }) {
           >
             <Button
               variant="secondary"
-              disabled={retryImage.state().isPending}
-              onClick={() => closeWithLeftImage(remove.state().variables?.meetingId ?? '')}
+              disabled={retrying()}
+              onClick={() => closeWithLeftImage(attempt()?.meetingId ?? '')}
             >
               {text.close}
             </Button>
-            <Button loading={retryImage.state().isPending} onClick={() => retryImage.mutate()}>
+            <Button loading={retrying()} onClick={() => void retryImage()}>
               {text.retryImage}
             </Button>
           </Show>
         }
       >
-        <Show when={remove.state().isError}>
-          <Banner variant="error">{failure()}</Banner>
-        </Show>
+        <Show when={failure()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
         <Show when={imagePending()}>
           <Banner variant="warning">{text.imageFailed}</Banner>
         </Show>

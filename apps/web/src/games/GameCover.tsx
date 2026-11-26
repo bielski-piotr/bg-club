@@ -30,7 +30,7 @@ export function GameCover(props: GameCoverProps) {
   const saved = createCoverUrl(() => (props.src === undefined ? props.coverPath : null));
   const [failed, setFailed] = createSignal<string | undefined>(undefined);
   const url = () => {
-    const value = props.src ?? saved().data;
+    const value = props.src ?? saved.current();
     return value !== undefined && value !== failed() ? value : undefined;
   };
   const letters = () => {

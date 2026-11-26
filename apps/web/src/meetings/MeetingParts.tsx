@@ -38,7 +38,7 @@ export function SheetThumbnail(props: {
   );
   const [failed, setFailed] = createSignal<string | undefined>(undefined);
   const url = () => {
-    const value = props.imageUrl === undefined ? signed().data : (props.imageUrl ?? undefined);
+    const value = props.imageUrl === undefined ? signed.current() : (props.imageUrl ?? undefined);
     return value !== undefined && value !== failed() ? value : undefined;
   };
   return (
