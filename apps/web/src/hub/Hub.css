@@ -1,17 +1,15 @@
 /*
- * Widok Klubu. Telefon: padding 16/16/32, odstęp 16, karty na całą szerokość.
- * Od 768 px: odstęp 24 i karty do 520 px. Od 1112 px: treść 1064 px, dwie kolumny po 520 px
- * z odstępem 24 i niezależnymi wysokościami (masonry.ts).
+ * Club view across the full page width: a full-bleed header and content with 16 px padding
+ * (24 px from 768 px). From 1112 px: two equal columns with independent heights (masonry.ts).
  */
 .hub {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: 100%;
-  max-width: 1064px;
-  margin-inline: auto;
+  min-height: 100dvh;
+}
+
+.hub__main {
   padding: 16px 16px 32px;
-  padding-top: max(16px, env(safe-area-inset-top));
 }
 
 .hub__main:focus {
@@ -24,20 +22,27 @@
   gap: 16px;
 }
 
-/* Nagłówek: pasek h64, promień 20, ramka, bez cienia. */
+/*
+ * Header: full-width sticky bar with a bottom border. Phone: club name and user chip on the
+ * first row, navigation spread over a second row. From 768 px: one row.
+ */
 .app-header {
-  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'club user' 'nav nav';
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 4px 12px;
   min-height: 64px;
-  padding-inline: 16px 8px;
+  padding: max(8px, env(safe-area-inset-top)) 12px 8px 16px;
   background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: 20px;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .app-header__club {
+  grid-area: club;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -50,17 +55,13 @@
 
 /* Przed założeniem klubu: przezroczysty wiersz z samym chipem po prawej. */
 .app-header--bare {
+  display: flex;
   justify-content: flex-end;
-  padding-inline: 0;
   background: none;
   border-color: transparent;
 }
 
 /* Pierwsze uruchomienie: blok wyśrodkowany w wysokości okna (min. 812 / 900). */
-.hub--first-run {
-  min-height: 100dvh;
-}
-
 .hub--first-run .hub__main {
   display: flex;
   flex-direction: column;
@@ -82,7 +83,48 @@
 }
 
 /* Chip użytkownika: kółko 48 z obwódką 2 px wokół awatara 38. */
+.app-nav {
+  grid-area: nav;
+  display: flex;
+  gap: 4px;
+}
+
+/* Links without href are placeholders for views that don't exist yet: no hover. */
+.app-nav__link {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+  color: var(--c-muted);
+  font: 600 15px/20px var(--font-display);
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 120ms var(--ease),
+    color 120ms var(--ease);
+}
+
+.app-nav__link[href]:hover {
+  background: var(--c-tint);
+  color: var(--c-ink);
+}
+
+.app-nav__link[aria-current='page'] {
+  background: var(--c-accent-tint);
+  color: var(--c-accent-text);
+}
+
+.app-nav__link[aria-current='page']:hover {
+  background: var(--c-accent-tint-strong);
+  color: var(--c-accent-text);
+}
+
+.app-nav__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .app-header__user {
+  grid-area: user;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -191,19 +233,23 @@
 }
 
 @media (min-width: 768px) {
-  .hub {
-    gap: 24px;
-    padding: 24px 24px 64px;
+  .hub__main {
+    padding: 24px 24px 48px;
+  }
+
+  .app-header {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'club nav user';
+    column-gap: 16px;
+    padding-inline: 24px 16px;
+  }
+
+  .app-nav__link {
+    flex: none;
   }
 
   .hub__grid {
     gap: 24px;
-    justify-items: center;
-  }
-
-  .hub__slot {
-    width: 100%;
-    max-width: 520px;
   }
 
   .members-widget__item + .members-widget__item {
@@ -228,13 +274,8 @@
 }
 
 @media (min-width: 1112px) {
-  .hub {
-    padding-inline: 0;
-  }
-
   .hub__grid {
-    grid-template-columns: repeat(2, 520px);
-    justify-content: center;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
 
@@ -244,10 +285,6 @@
     grid-auto-rows: 1px;
     grid-auto-flow: row dense;
     row-gap: 0;
-  }
-
-  .hub__slot {
-    max-width: none;
   }
 
   .hub__slot--left {

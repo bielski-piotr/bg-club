@@ -1,4 +1,4 @@
-/** Szerokość, od której hub ma dwie kolumny po 520 px (1064 + marginesy). */
+/** Width from which the hub has two equal columns. */
 export const TWO_COLUMNS_QUERY = '(min-width: 1112px)';
 
 /** Odstęp między kartami w kolumnie (gap 24). */

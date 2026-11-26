@@ -1,13 +1,11 @@
 import { Show, useContext } from 'solid-js';
 import { format, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
-import { createCoverUrl } from './clubData';
 import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { IconButton, Menu, Skeleton } from '../ui';
 import type { Club } from './club';
-import { ClubLogo } from './ClubLogo';
 
 interface AppHeaderProps {
   /**
@@ -20,9 +18,9 @@ interface AppHeaderProps {
 }
 
 /**
- * Nagłówek huba: logo i nazwa klubu po lewej, dla admina ołówek otwierający
- * formularz klubu, chip użytkownika po prawej. Chip otwiera menu awatara:
- * własny profil, ustawienia i wylogowanie.
+ * App header: the club name on the left (with a pencil opening the club form for admins),
+ * the main navigation and the user chip on the right. The chip opens the avatar menu:
+ * own profile, settings and sign-out.
  */
 export function AppHeader(props: AppHeaderProps) {
   /** Klub albo `null` (błąd) poza wczytywaniem i pustą bazą. */
@@ -42,18 +40,16 @@ export function AppHeader(props: AppHeaderProps) {
           <Show
             when={props.club !== undefined}
             fallback={
-              <>
-                <Skeleton width={36} height={36} radius={12} />
-                <h1 class="app-header__name">
-                  <Skeleton width={140} height={18} />
-                  <span class="sr-only">{t.ui.loading}</span>
-                </h1>
-              </>
+              <h1 class="app-header__name">
+                <Skeleton width={140} height={18} />
+                <span class="sr-only">{t.ui.loading}</span>
+              </h1>
             }
           >
             <ClubIdentity club={shown()} isAdmin={props.me.role === 'admin'} />
           </Show>
         </div>
+        <MainNav />
         <UserMenu me={props.me} />
       </header>
     </Show>
@@ -62,12 +58,9 @@ export function AppHeader(props: AppHeaderProps) {
 
 function ClubIdentity(props: { readonly club: Club | null; readonly isAdmin: boolean }) {
   const popups = useContext(PopupsContext);
-  const logo = createCoverUrl(() => props.club?.logo_path ?? null);
-  const name = () => props.club?.name ?? t.app.name;
   return (
     <>
-      <ClubLogo name={name()} src={logo.current()} size={36} />
-      <h1 class="app-header__name">{name()}</h1>
+      <h1 class="app-header__name">{props.club?.name ?? t.app.name}</h1>
       <Show when={props.club && props.isAdmin}>
         <IconButton
           icon="pencil"
@@ -78,6 +71,19 @@ function ClubIdentity(props: { readonly club: Club | null; readonly isAdmin: boo
         />
       </Show>
     </>
+  );
+}
+
+/** Club is the only view so far; Meetings and Games are placeholders until their pages exist. */
+function MainNav() {
+  return (
+    <nav class="app-nav" aria-label={t.nav.label}>
+      <a class="app-nav__link" href="/" aria-current="page">
+        {t.nav.club}
+      </a>
+      <a class="app-nav__link">{t.nav.meetings}</a>
+      <a class="app-nav__link">{t.nav.games}</a>
+    </nav>
   );
 }
 
