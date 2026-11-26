@@ -1,7 +1,6 @@
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
-import reactHooks from 'eslint-plugin-react-hooks';
-import reactRefresh from 'eslint-plugin-react-refresh';
+import solid from 'eslint-plugin-solid/configs/v2';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -30,13 +29,16 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  { files: ['apps/web/src/**/*.{ts,tsx}'], ...solid },
   {
-    files: ['apps/web/src/**/*.{ts,tsx}'],
-    plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
-    rules: {
-      ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': ['error', { allowConstantExport: true }],
-    },
+    // Testy Solid czytają sygnały imperatywnie po `flush()` (asercje), poza zakresem śledzenia.
+    // Atrapy notesów w kreatorze przekazują uchwyt przez `props.ref` jak prawdziwe widoki.
+    files: [
+      'apps/web/src/ui/components.test.tsx',
+      'apps/web/src/lib/query.test.tsx',
+      'apps/web/src/hub/ScorepadWizard.test.tsx',
+    ],
+    rules: { 'solid/reactivity': 'off' },
   },
   {
     // Szablon service workera (NFR-3): kontekst workera, nie okna.

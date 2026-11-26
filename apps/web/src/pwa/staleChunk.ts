@@ -4,7 +4,7 @@ import { pwa, type PwaStore } from './updates';
  * Leniwe fragmenty pakietu po wdrożeniu (NFR-3). Karta otwarta przed wdrożeniem ma stary
  * `index.html` i prosi o pliki `/assets/…` ze starym hashem. Nowe wdrożenie ich już nie ma,
  * a hosting SPA odpowiada na brakujący plik stroną HTML, więc `import()` kończy się błędem
- * „Failed to fetch dynamically imported module”. Przeglądarka i `React.lazy` zapamiętują
+ * „Failed to fetch dynamically imported module”. Przeglądarka i `lazy` zapamiętują
  * nieudany import, więc ponowna próba w tej karcie nic nie da: pomaga tylko przeładowanie,
  * które pobiera aktualny `index.html`.
  */

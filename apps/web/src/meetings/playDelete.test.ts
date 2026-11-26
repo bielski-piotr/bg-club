@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/query-core';
 import { describe, expect, it } from 'vitest';
 import { gamesKey } from '../games/games';
 import { meetingsKey } from './meetings';

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { createSignal, Show, onSettled, untrack } from 'solid-js';
 import { IMAGE_ACCEPT, ImageScaleError } from '../club/image';
 import { t } from '../i18n';
 import { AvatarCropper, CROP_VIEW } from '../profile/AvatarCropper';
@@ -70,6 +70,8 @@ interface Editing {
   readonly fill: string;
 }
 
+type Busy = 'loading' | 'processing' | 'applying' | null;
+
 function release(open: Editing | null) {
   if (!open) return;
   URL.revokeObjectURL(open.url);
@@ -82,41 +84,40 @@ function release(open: Editing | null) {
  * pliku) i usunięcie okładki. Podgląd pokazuje obraz także poza kadrem, a obraz można oddalić,
  * aż zmieści się w całości (tło wypełnia kolor jego brzegów).
  */
-export function CoverEditor({
-  start,
-  onCancel,
-  onDone,
-}: {
+export function CoverEditor(props: {
   readonly start: CoverEditorStart;
   readonly onCancel: () => void;
   readonly onDone: (result: CoverEditorResult) => void;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [editing, setEditing] = useState<Editing | null>(null);
-  const [busy, setBusy] = useState<'loading' | 'processing' | 'applying' | null>(
+  // Edytor otwiera się z jednym startem (świadomie jednorazowy odczyt): formularz tworzy nowy
+  // edytor przy każdym otwarciu.
+  const start = untrack(() => props.start);
+  let fileInput: HTMLInputElement | undefined;
+  const [editing, setEditingState] = createSignal<Editing | null>(null);
+  const [busy, setBusyState] = createSignal<Busy>(
     start.kind === 'empty' ? null : start.kind === 'current' ? 'loading' : 'processing',
   );
-  const [error, setError] = useState<string | undefined>(undefined);
+  const [error, setError] = createSignal<string | undefined>(undefined);
   /** Coś zmieniono (nowy obraz, kadr, usunięcie): bez zmian „Gotowe” niczego nie zapisuje. */
-  const [dirty, setDirty] = useState(start.kind === 'file');
-  const [dropping, setDropping] = useState(false);
+  const [dirty, setDirty] = createSignal(start.kind === 'file');
+  const [dropping, setDropping] = createSignal(false);
 
-  // Obraz zwalniamy przy podmianie i przy zamknięciu (ref: StrictMode od razu uruchamia
-  // sprzątanie efektu).
-  const editingRef = useRef<Editing | null>(null);
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-      release(editingRef.current);
-      editingRef.current = null;
-    };
-  }, []);
+  // Bieżące wartości dla obsługi zdarzeń i sprzątania (sygnał widzi zapis dopiero po flushu).
+  let editingNow: Editing | null = null;
+  let busyNow: Busy = untrack(busy);
+  let alive = true;
+  const setEditing = (next: Editing | null) => {
+    editingNow = next;
+    setEditingState(next);
+  };
+  const setBusy = (next: Busy) => {
+    busyNow = next;
+    setBusyState(next);
+  };
 
+  /** Podmienia obraz w kadrze i zwalnia poprzedni. */
   const show = (next: Editing | null) => {
-    release(editingRef.current);
-    editingRef.current = next;
+    release(editingNow);
     setEditing(next);
   };
 
@@ -126,7 +127,7 @@ export function CoverEditor({
     crop: (bitmap: ImageBitmap) => CropState,
   ) => {
     const bitmap = await createImageBitmap(blob);
-    if (!alive.current) {
+    if (!alive) {
       bitmap.close();
       return;
     }
@@ -140,11 +141,6 @@ export function CoverEditor({
   };
 
   /** Nowy obraz (plik, schowek, przeciągnięcie): oryginał 1600 px, kadr od środka. */
-  const pick = async (file: Blob | undefined | null) => {
-    if (!file || busyRef.current) return;
-    await load(file);
-  };
-
   const load = async (file: Blob) => {
     setError(undefined);
     setBusy('processing');
@@ -159,22 +155,17 @@ export function CoverEditor({
         failure instanceof ImageScaleError ? IMAGE_ERRORS[failure.reason] : errors.coverDecode,
       );
     } finally {
-      if (alive.current) setBusy(null);
+      if (alive) setBusy(null);
     }
   };
 
-  const busyRef = useRef(busy);
-  const pickRef = useRef(pick);
-  useEffect(() => {
-    busyRef.current = busy;
-    pickRef.current = pick;
-  });
+  const pick = async (file: Blob | undefined | null) => {
+    if (!file || busyNow) return;
+    await load(file);
+  };
 
-  // Start: obecna okładka albo obraz wklejony w formularzu (raz, także w StrictMode).
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+  onSettled(() => {
+    // Start: obecna okładka albo obraz wklejony w formularzu.
     if (start.kind === 'file') {
       void load(start.file);
     } else if (start.kind === 'current') {
@@ -185,26 +176,29 @@ export function CoverEditor({
             fromStoredCrop(original.crop, bitmap, CROP_VIEW, COVER_FIT),
           );
         } catch {
-          if (alive.current) setError(errors.coverLoad);
+          if (alive) setError(errors.coverLoad);
         } finally {
-          if (alive.current) setBusy(null);
+          if (alive) setBusy(null);
         }
       })();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- tylko przy otwarciu edytora
-  }, []);
 
-  // Ctrl+V / ⌘V w edytorze podmienia obraz.
-  useEffect(() => {
+    // Ctrl+V / ⌘V w edytorze podmienia obraz.
     const onPaste = (event: ClipboardEvent) => {
       const file = clipboardImage(event.clipboardData);
       if (!file) return;
       event.preventDefault();
-      void pickRef.current(file);
+      void pick(file);
     };
     document.addEventListener('paste', onPaste);
-    return () => document.removeEventListener('paste', onPaste);
-  }, []);
+    return () => {
+      document.removeEventListener('paste', onPaste);
+      // Obraz zwalniamy przy zamknięciu edytora.
+      alive = false;
+      release(editingNow);
+      editingNow = null;
+    };
+  });
 
   const paste = async () => {
     setError(undefined);
@@ -226,155 +220,160 @@ export function CoverEditor({
   };
 
   const apply = async () => {
-    if (busy) return;
-    if (!dirty) {
-      onDone({ kind: 'unchanged' });
+    if (busyNow) return;
+    if (!dirty()) {
+      props.onDone({ kind: 'unchanged' });
       return;
     }
-    if (!editing) {
-      onDone({ kind: 'remove' });
+    const current = editingNow;
+    if (!current) {
+      props.onDone({ kind: 'remove' });
       return;
     }
     setBusy('applying');
     try {
-      const image = await renderCover(editing.bitmap, editing.crop, CROP_VIEW, editing.fill);
-      onDone({
+      const image = await renderCover(current.bitmap, current.crop, CROP_VIEW, current.fill);
+      props.onDone({
         kind: 'new',
         image,
-        crop: toStoredCrop(editing.crop, CROP_VIEW),
-        source: editing.source,
+        crop: toStoredCrop(current.crop, CROP_VIEW),
+        source: current.source,
       });
     } catch (failure) {
       setError(
         failure instanceof ImageScaleError ? IMAGE_ERRORS[failure.reason] : errors.coverDecode,
       );
-      if (alive.current) setBusy(null);
+      if (alive) setBusy(null);
     }
   };
 
-  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!Array.from(event.dataTransfer.types).includes('Files')) return;
+  const onDragOver = (event: DragEvent) => {
+    const transfer = event.dataTransfer;
+    if (!transfer || !Array.from(transfer.types).includes('Files')) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
+    transfer.dropEffect = 'copy';
     setDropping(true);
   };
-  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+  const onDrop = (event: DragEvent) => {
     event.preventDefault();
     setDropping(false);
-    void pick(event.dataTransfer.files[0]);
+    void pick(event.dataTransfer?.files[0]);
   };
 
-  const loading = busy === 'loading' || busy === 'processing';
+  const loading = () => busy() === 'loading' || busy() === 'processing';
   return (
     <PopupModal
       title={editor.title}
       footer={
         <>
-          <Button variant="secondary" disabled={busy === 'applying'} onClick={onCancel}>
+          <Button
+            variant="secondary"
+            disabled={busy() === 'applying'}
+            onClick={() => props.onCancel()}
+          >
             {editor.cancel}
           </Button>
-          <Button
-            loading={busy !== null}
-            disabled={busy === 'loading' || busy === 'processing'}
-            onClick={() => void apply()}
-          >
+          <Button loading={busy() !== null} disabled={loading()} onClick={() => void apply()}>
             {editor.apply}
           </Button>
         </>
       }
     >
       <div
-        className={dropping ? 'cover-editor cover-editor--dropping' : 'cover-editor'}
+        class={['cover-editor', { 'cover-editor--dropping': dropping() }]}
         onDragOver={onDragOver}
         onDragLeave={() => setDropping(false)}
         onDrop={onDrop}
       >
-        {editing ? <p className="game-form__hint">{editor.intro}</p> : null}
-        {error ? <Banner variant="error">{error}</Banner> : null}
-        {editing && !loading ? (
-          <AvatarCropper
-            src={editing.url}
-            image={editing.bitmap}
-            crop={editing.crop}
-            shape="cover"
-            fit={COVER_FIT}
-            fill={editing.fill}
-            margin={STAGE_MARGIN}
-            maxSize={STAGE_MAX}
-            onCropChange={(crop) => {
-              setDirty(true);
-              setEditing((current) => {
-                if (!current) return current;
-                const next = { ...current, crop };
-                editingRef.current = next;
-                return next;
-              });
-            }}
-          />
-        ) : (
-          <div className="cover-editor__empty" aria-live="polite">
-            {loading ? (
-              <>
+        <Show when={editing()}>
+          <p class="game-form__hint">{editor.intro}</p>
+        </Show>
+        <Show when={error()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
+        <Show
+          when={!loading() && editing()}
+          fallback={
+            <div class="cover-editor__empty" aria-live="polite">
+              <Show
+                when={loading()}
+                fallback={
+                  <>
+                    <span class="cover-editor__empty-icon" aria-hidden="true">
+                      <Icon name="image" />
+                    </span>
+                    <span class="cover-editor__empty-title">{editor.empty}</span>
+                    <span class="cover-editor__empty-text">{editor.emptyHelper}</span>
+                  </>
+                }
+              >
                 <Spinner size={24} />
-                <span className="cover-editor__empty-text">
-                  {busy === 'loading' ? editor.loading : editor.processing}
+                <span class="cover-editor__empty-text">
+                  {busy() === 'loading' ? editor.loading : editor.processing}
                 </span>
-              </>
-            ) : (
-              <>
-                <span className="cover-editor__empty-icon" aria-hidden="true">
-                  <Icon name="image" />
-                </span>
-                <span className="cover-editor__empty-title">{editor.empty}</span>
-                <span className="cover-editor__empty-text">{editor.emptyHelper}</span>
-              </>
-            )}
-          </div>
-        )}
-        <div className="cover-editor__actions">
+              </Show>
+            </div>
+          }
+        >
+          {(open) => (
+            <AvatarCropper
+              src={open().url}
+              image={open().bitmap}
+              crop={open().crop}
+              shape="cover"
+              fit={COVER_FIT}
+              fill={open().fill}
+              margin={STAGE_MARGIN}
+              maxSize={STAGE_MAX}
+              onCropChange={(crop) => {
+                setDirty(true);
+                if (editingNow) setEditing({ ...editingNow, crop });
+              }}
+            />
+          )}
+        </Show>
+        <div class="cover-editor__actions">
           <Button
             variant="secondary"
             size="sm"
             icon="upload"
-            disabled={busy !== null}
-            onClick={() => fileRef.current?.click()}
+            disabled={busy() !== null}
+            onClick={() => fileInput?.click()}
           >
-            {editing ? editor.pickOther : editor.pickFile}
+            {editing() ? editor.pickOther : editor.pickFile}
           </Button>
-          {canReadClipboard() ? (
+          <Show when={canReadClipboard()}>
             <Button
               variant="secondary"
               size="sm"
               icon="copy"
-              disabled={busy !== null}
+              disabled={busy() !== null}
               onClick={() => void paste()}
             >
               {editor.paste}
             </Button>
-          ) : null}
-          {editing ? (
+          </Show>
+          <Show when={editing()}>
             <Button
               variant="secondary"
               size="sm"
               icon="trash"
-              disabled={busy !== null}
+              disabled={busy() !== null}
               onClick={remove}
             >
               {editor.remove}
             </Button>
-          ) : null}
+          </Show>
         </div>
-        <p className="club-form__helper cover-editor__helper">{editor.helper}</p>
+        <p class="club-form__helper cover-editor__helper">{editor.helper}</p>
         <input
-          ref={fileRef}
+          ref={(el) => (fileInput = el)}
           type="file"
           accept={IMAGE_ACCEPT}
-          className="sr-only"
-          tabIndex={-1}
+          class="sr-only"
+          tabindex={-1}
           aria-label={t.games.form.coverLabel}
           onChange={(event) => {
-            void pick(event.target.files?.[0]);
-            event.target.value = '';
+            void pick(event.currentTarget.files?.[0]);
+            event.currentTarget.value = '';
           }}
         />
       </div>

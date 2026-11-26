@@ -8,14 +8,14 @@ Aplikacja webowa dla jednego klubu planszówkowego: spotkania, głosowanie na gr
 - Skomplikowanie gry, punkty ułamkowe i zespoły: [docs/complexity-and-teams.md](docs/complexity-and-teams.md)
 - Dodatki do gier, kadrowanie okładki i przenoszenie notesów: [docs/expansions-covers-scorepads.md](docs/expansions-covers-scorepads.md)
 
-Stos (PRD §8.1): Vite + TypeScript + React + TanStack Query, Supabase (Postgres, Auth, Storage, Edge Functions), hosting statyczny na Cloudflare Pages.
+Stos (PRD §8.1): Vite + TypeScript + Solid 2.0 + TanStack Query (`query-core`), Supabase (Postgres, Auth, Storage, Edge Functions), hosting statyczny na Cloudflare Pages.
 
 ## Struktura repozytorium
 
 ```
-apps/web/              SPA (React). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; klub: src/club; członkowie: src/members; spotkania: src/meetings; profil i ustawienia: src/profile; popupy: src/popups
+apps/web/              SPA (Solid 2.0). Teksty interfejsu: apps/web/src/i18n/pl.ts; hub: src/hub; klub: src/club; członkowie: src/members; spotkania: src/meetings; profil i ustawienia: src/profile; popupy: src/popups
 packages/accounts/     konta: hook, techniczny e-mail, hasła, tworzenie członka, skrypt bootstrapu admina (+ testy)
-packages/score-pad/    web componenty <score-pad> i <score-pad-editor> z POC w trybie klubowym (+ testy); adaptery React: apps/web/src/score-pad
+packages/score-pad/    web componenty <score-pad> i <score-pad-editor> z POC w trybie klubowym (+ testy); adaptery Solid: apps/web/src/score-pad
 packages/scoring/      czysta logika wyników: sumy, miejsca, remisy, punkty, walidacja notesu (+ wspólne przypadki TS/SQL)
 supabase/config.toml   konfiguracja lokalnego Supabase (CLI)
 supabase/migrations/   schemat, RLS i funkcje SQL
@@ -346,7 +346,7 @@ Wymagania: PRD GAME-1…GAME-6, GAME-8, GAME-9; wygląd DS §6, §7, §14. Kod: 
 
 ## Notes i edytor notesu
 
-Wymagania: PRD §8.4–8.5, PAD-1, EDT-8. Kod: [`packages/score-pad`](packages/score-pad) (źródła POC 2.4.0, commit `e6b7dd2`; pochodzenie, licencje i lista zmian w [README pakietu](packages/score-pad/README.md)) i adaptery React w [`apps/web/src/score-pad`](apps/web/src/score-pad).
+Wymagania: PRD §8.4–8.5, PAD-1, EDT-8. Kod: [`packages/score-pad`](packages/score-pad) (źródła POC 2.4.0, commit `e6b7dd2`; pochodzenie, licencje i lista zmian w [README pakietu](packages/score-pad/README.md)) i adaptery Solid w [`apps/web/src/score-pad`](apps/web/src/score-pad).
 
 - **Leniwe ładowanie** (NFR-2): `ScorePadView` i `ScorePadEditorView` pobierają `@bg-club/score-pad/pad` albo `/editor` przez `import()` dopiero przy pierwszym pokazaniu. Three.js 0.149 (npm, nie CDN) i fonty kartki (npm, nie Google Fonts) są tylko w tych chunkach. Błąd pobrania pokazuje komunikat z „Spróbuj ponownie”.
 - **Tryb klubowy** (PAD-1): adapter zawsze ustawia `club: true`. Notes nie czyta i nie zapisuje lokalnej biblioteki szablonów (IndexedDB) ani stanu i historii POC (`localStorage`) i nie dokłada notesów wbudowanych. Pliki notesu v2 nadal się wczytują (`config`, „Wczytaj notes z pliku…”), tylko do pamięci.

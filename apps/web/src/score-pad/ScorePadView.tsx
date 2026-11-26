@@ -6,13 +6,12 @@ import type {
   ScorePadSheet,
   ScorePadTemplate,
 } from '@bg-club/score-pad';
-import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
-import type { ScorePadLoadState } from './useScorePadElement';
+import { createEffect } from 'solid-js';
 import { t } from '../i18n';
-import { cx } from '../ui/cx';
-import { useTheme } from '../theme/useTheme';
+import { createTheme } from '../theme/createTheme';
+import { ariaBool, type ClassValue } from '../ui/dom';
+import { createScorePadElement, type ScorePadLoadState } from './createScorePadElement';
 import { ScorePadStatus } from './ScorePadStatus';
-import { useScorePadElement } from './useScorePadElement';
 import './scorePad.css';
 
 export interface ScorePadViewProps {
@@ -42,9 +41,9 @@ export interface ScorePadViewProps {
   readonly onChange?: ((detail: ScorePadChangeDetail) => void) | undefined;
   /** Stan ładowania modułu notesu (np. żeby wyłączyć przyciski do czasu wczytania). */
   readonly onLoadState?: ((state: ScorePadLoadState) => void) | undefined;
-  readonly className?: string | undefined;
+  readonly class?: ClassValue;
   /** Uchwyt do notesu (test w kreatorze: losowe wpisy, oderwanie, widok z góry). */
-  readonly ref?: Ref<ScorePadHandle> | undefined;
+  readonly ref?: ScorePadHandle | ((handle: ScorePadHandle) => void) | undefined;
 }
 
 export interface ScorePadHandle {
@@ -65,89 +64,82 @@ export interface ScorePadHandle {
  * Notes 3D `<score-pad>` w trybie klubowym (PAD-1, PRD §8.5): szablony tylko z propsów,
  * bez lokalnej biblioteki i historii POC. Motyw idzie za motywem aplikacji.
  * Nowy `config`, `templates` lub `template` (inna referencja) tworzy notes od nowa i czyści
- * kartkę, więc rodzic przekazuje stabilne obiekty (dane z zapytania albo `useMemo`).
+ * kartkę, więc rodzic przekazuje stabilne obiekty (dane z zapytania albo memo).
  */
-export function ScorePadView({
-  config,
-  templates,
-  template,
-  controls,
-  help,
-  test,
-  tear,
-  summary,
-  readOnly,
-  onReady,
-  onSave,
-  onTear,
-  onChange,
-  onLoadState,
-  className,
-  ref,
-}: ScorePadViewProps) {
-  const { resolved } = useTheme();
-  const handlers = useRef({ onReady, onSave, onTear, onChange });
-
-  useEffect(() => {
-    handlers.current = { onReady, onSave, onTear, onChange };
-  });
-
-  const { hostRef, elementRef, state, retry } = useScorePadElement(
+export function ScorePadView(props: ScorePadViewProps) {
+  const theme = createTheme();
+  const pad = createScorePadElement(
     'pad',
-    resolved,
+    theme.resolved,
     () => {
       const element = document.createElement('score-pad');
       element.options = {
         club: true,
-        config,
-        templates,
-        template,
-        controls,
-        help,
-        test,
-        tear,
-        summary,
-        readOnly,
+        config: props.config,
+        templates: props.templates,
+        template: props.template,
+        controls: props.controls,
+        help: props.help,
+        test: props.test,
+        tear: props.tear,
+        summary: props.summary,
+        readOnly: props.readOnly,
       };
-      element.addEventListener('scorepad:ready', () => handlers.current.onReady?.());
-      element.addEventListener('scorepad:tear', () => handlers.current.onTear?.());
+      element.addEventListener('scorepad:ready', () => props.onReady?.());
+      element.addEventListener('scorepad:tear', () => props.onTear?.());
       element.addEventListener('scorepad:change', (event: ScorePadEventMap['scorepad:change']) =>
-        handlers.current.onChange?.(event.detail),
+        props.onChange?.(event.detail),
       );
       element.addEventListener('scorepad:save', (event: ScorePadEventMap['scorepad:save']) =>
-        handlers.current.onSave?.(event.detail),
+        props.onSave?.(event.detail),
       );
       return element;
     },
-    [config, templates, template, controls, help, test, tear, summary, readOnly],
+    () => [
+      props.config,
+      props.templates,
+      props.template,
+      props.controls,
+      props.help,
+      props.test,
+      props.tear,
+      props.summary,
+      props.readOnly,
+    ],
   );
 
-  const onLoadStateRef = useRef(onLoadState);
-  useEffect(() => {
-    onLoadStateRef.current = onLoadState;
+  createEffect(pad.state, (state) => {
+    props.onLoadState?.(state);
   });
-  useEffect(() => onLoadStateRef.current?.(state), [state]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      setSheet: (sheet) => elementRef.current?.pad?.setSheet(sheet),
-      tear: () => elementRef.current?.pad?.tear(),
-      restoreSheet: (sheet) => elementRef.current?.pad?.restoreSheet(sheet) ?? false,
-      resetView: () => elementRef.current?.pad?.resetView(),
-    }),
-    [elementRef],
-  );
+  const handle: ScorePadHandle = {
+    setSheet: (sheet) => pad.element()?.pad?.setSheet(sheet),
+    tear: () => pad.element()?.pad?.tear(),
+    restoreSheet: (sheet) => pad.element()?.pad?.restoreSheet(sheet) ?? false,
+    resetView: () => pad.element()?.pad?.resetView(),
+  };
 
   return (
     <div
-      className={cx('score-pad-view', className)}
+      class={['score-pad-view', props.class]}
       role="region"
       aria-label={t.scorePad.padLabel}
-      aria-busy={state === 'loading'}
+      aria-busy={ariaBool(pad.state() === 'loading')}
     >
-      <div ref={hostRef} className="score-pad-view__host" />
-      <ScorePadStatus state={state} loadingLabel={t.scorePad.loadingPad} onRetry={retry} />
+      <div
+        ref={(el) => {
+          pad.hostRef(el);
+          // Uchwyt dla rodzica (`ref` komponentu) razem z kontenerem elementu.
+          const ref = props.ref;
+          if (typeof ref === 'function') ref(handle);
+        }}
+        class="score-pad-view__host"
+      />
+      <ScorePadStatus
+        state={pad.state()}
+        loadingLabel={t.scorePad.loadingPad}
+        onRetry={pad.retry}
+      />
     </div>
   );
 }

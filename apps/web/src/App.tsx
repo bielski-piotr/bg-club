@@ -1,7 +1,8 @@
+import { For, Match, Show, Switch, useContext } from 'solid-js';
+import { AuthContext } from './auth/authContext';
 import { AuthProvider } from './auth/AuthProvider';
-import { useAuth } from './auth/authContext';
-import { LoginScreen } from './auth/LoginScreen';
 import { LoadingScreen } from './auth/LoadingScreen';
+import { LoginScreen } from './auth/LoginScreen';
 import { SignedInScreen } from './auth/SignedInScreen';
 import type { ConfigIssue, ConfigResult } from './config/env';
 import { format, t } from './i18n';
@@ -11,26 +12,35 @@ interface AppProps {
   readonly config: ConfigResult;
 }
 
-export function App({ config }: AppProps) {
-  if (!config.ok) return <ConfigError issues={config.issues} />;
+export function App(props: AppProps) {
   return (
-    <AuthProvider client={getSupabase(config.config)}>
-      <AuthGate />
-    </AuthProvider>
+    <Show
+      when={props.config.ok ? props.config.config : undefined}
+      fallback={<ConfigError issues={props.config.ok ? [] : props.config.issues} />}
+    >
+      {(config) => (
+        <AuthProvider client={getSupabase(config())}>
+          <AuthGate />
+        </AuthProvider>
+      )}
+    </Show>
   );
 }
 
 /** Widok według stanu sesji: wczytywanie, logowanie albo aplikacja (AUTH-1, AUTH-5). */
 export function AuthGate() {
-  const { state } = useAuth();
-  switch (state.status) {
-    case 'loading':
-      return <LoadingScreen />;
-    case 'signedOut':
-      return <LoginScreen notice={state.notice} />;
-    case 'signedIn':
-      return <SignedInScreen key={state.session.user.id} userId={state.session.user.id} />;
-  }
+  const auth = useContext(AuthContext);
+  const signedOut = () => (auth.state.status === 'signedOut' ? auth.state : undefined);
+  const userId = () => (auth.state.status === 'signedIn' ? auth.state.session.user.id : undefined);
+  return (
+    <Switch fallback={<LoadingScreen />}>
+      <Match when={signedOut()}>{(state) => <LoginScreen notice={state().notice} />}</Match>
+      {/* Każdy użytkownik dostaje własny widok: stan poprzedniej sesji nie przechodzi dalej. */}
+      <Match when={userId()} keyed>
+        {(id) => <SignedInScreen userId={id} />}
+      </Match>
+    </Switch>
+  );
 }
 
 function issueText(issue: ConfigIssue): string {
@@ -44,22 +54,20 @@ function issueText(issue: ConfigIssue): string {
   }
 }
 
-function ConfigError({ issues }: { readonly issues: readonly ConfigIssue[] }) {
+function ConfigError(props: { readonly issues: readonly ConfigIssue[] }) {
   return (
-    <main className="shell">
-      <section className="start-card" aria-labelledby="page-title">
-        <p className="eyebrow">{t.app.tagline}</p>
+    <main class="shell">
+      <section class="start-card" aria-labelledby="page-title">
+        <p class="eyebrow">{t.app.tagline}</p>
         <div role="alert">
-          <h1 id="page-title" className="title">
+          <h1 id="page-title" class="title">
             {t.config.errorTitle}
           </h1>
-          <p className="body">{t.config.errorBody}</p>
-          <ul className="issues">
-            {issues.map((issue) => (
-              <li key={issue.kind}>{issueText(issue)}</li>
-            ))}
+          <p class="body">{t.config.errorBody}</p>
+          <ul class="issues">
+            <For each={props.issues}>{(issue) => <li>{issueText(issue)}</li>}</For>
           </ul>
-          <p className="hint">{t.config.hint}</p>
+          <p class="hint">{t.config.hint}</p>
         </div>
       </section>
     </main>

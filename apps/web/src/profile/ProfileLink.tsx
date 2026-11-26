@@ -1,7 +1,7 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { JSX } from '@solidjs/web';
 import { format, t } from '../i18n';
 import { PopupLink } from '../popups/PopupLink';
-import { cx } from '../ui/cx';
+import type { ClassValue } from '../ui/dom';
 import './profile.css';
 
 interface ProfileLinkProps {
@@ -10,25 +10,25 @@ interface ProfileLinkProps {
   readonly name: string;
   /** Własna etykieta zamiast „Otwórz profil: …”. */
   readonly label?: string | undefined;
-  readonly children: ReactNode;
-  readonly className?: string | undefined;
-  readonly style?: CSSProperties | undefined;
+  readonly children: JSX.Element;
+  readonly class?: ClassValue;
+  readonly style?: JSX.CSSProperties | undefined;
 }
 
 /**
  * Awatar gracza jako link do jego profilu (PRD §4: kliknięcie awatara w dowolnym miejscu
  * otwiera profil). Awatar w środku powinien być `decorative`, bo etykietę ma link.
  */
-export function ProfileLink({ id, name, label, children, className, style }: ProfileLinkProps) {
+export function ProfileLink(props: ProfileLinkProps) {
   return (
     <PopupLink
-      to={{ kind: 'profile', id }}
-      className={cx('profile-link', className)}
-      style={style}
-      aria-label={label ?? format(t.membersPopup.openProfile, { name })}
-      title={name}
+      to={{ kind: 'profile', id: props.id }}
+      class={['profile-link', props.class]}
+      style={props.style}
+      aria-label={props.label ?? format(t.membersPopup.openProfile, { name: props.name })}
+      title={props.name}
     >
-      {children}
+      {props.children}
     </PopupLink>
   );
 }

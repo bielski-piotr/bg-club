@@ -13,11 +13,10 @@ import {
   resolveManualTies,
   type RankedPlayer,
 } from '@bg-club/scoring';
-import { ManualTieControls } from './ManualTieControls';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createMemo, createSignal, For, onSettled, Show } from 'solid-js';
 import { format, t } from '../i18n';
 import { Banner, Button, Checkbox, Spinner } from '../ui';
-import { cx } from '../ui/cx';
+import { ManualTieControls } from './ManualTieControls';
 import { fewerSeatsMessage } from './messages';
 import { ScorePadView, type ScorePadHandle } from './ScorePadView';
 
@@ -40,6 +39,11 @@ interface TestStepProps {
   readonly error: string | undefined;
 }
 
+interface ManualState {
+  readonly ranked: readonly RankedPlayer[];
+  readonly rows: readonly SheetResult[];
+}
+
 /**
  * Krok 5 kreatora „Test i zapis” (EDT-14, EDT-1, DS §18): notes 3D jak w partii (PAD-10…PAD-16)
  * z fikcyjnymi graczami. „Wypełnij losowo” wpisuje wartości zgodne z zakresami kategorii,
@@ -47,31 +51,30 @@ interface TestStepProps {
  * pokazuje miejsca policzone tymi samymi regułami co partia; nic nie trafia do bazy ani historii.
  * Test jest opcjonalny: „Zapisz notes” w stopce działa od razu.
  */
-export function TestStep({ template, status, maxPlayers, versionNote, error }: TestStepProps) {
-  const pad = useRef<ScorePadHandle>(null);
-  const [tools, setTools] = useState<Tools | null>(null);
-  const [toolsFailed, setToolsFailed] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [tie, setTie] = useState(false);
-  const [results, setResults] = useState<readonly SheetResult[] | null>(null);
-  const manualRevision = useRef(0);
-  const [manual, setManual] = useState<{
-    ranked: readonly RankedPlayer[];
-    rows: readonly SheetResult[];
-    key: number;
-  } | null>(null);
+export function TestStep(props: TestStepProps) {
+  let pad: ScorePadHandle | undefined;
+  const [tools, setTools] = createSignal<Tools | null>(null);
+  const [toolsFailed, setToolsFailed] = createSignal(false);
+  const [ready, setReady] = createSignal(false);
+  const [tie, setTie] = createSignal(false);
+  const [results, setResults] = createSignal<readonly SheetResult[] | null>(null);
+  // Nowy obiekt = nowe kontrolki remisów: `<Show keyed>` tworzy je od nowa.
+  const [manual, setManual] = createSignal<ManualState | null>(null);
   // Stabilny plik notesu: nowa referencja utworzyłaby notes od nowa (i wyczyściła kartkę).
   // Kartka startowa ma tylko fikcyjnych graczy „Gracz 1…n”, po jednym na miejsce notesu.
-  const config = useMemo<ScorePadFile | null>(() => {
-    const sheet = tools?.testSheet(template);
+  const config = createMemo<ScorePadFile | null>(() => {
+    const template = props.template;
+    const sheet = tools()?.testSheet(template);
     return sheet ? { format: 'score-pad', version: 2, template, active: template.id, sheet } : null;
-  }, [tools, template]);
-  const deciding = useMemo(
-    () => (tools ? lineLabel(template, tools.rankingLine(template)) : null),
-    [tools, template],
-  );
+  });
+  const deciding = createMemo(() => {
+    const loaded = tools();
+    return loaded ? lineLabel(props.template, loaded.rankingLine(props.template)) : null;
+  });
+  const warning = () => fewerSeatsMessage(props.status.seats, props.maxPlayers);
+  const canTest = () => ready() && tools() !== null;
 
-  useEffect(() => {
+  onSettled(() => {
     let cancelled = false;
     import('@bg-club/score-pad/template').then(
       (module) => {
@@ -84,139 +87,143 @@ export function TestStep({ template, status, maxPlayers, versionNote, error }: T
     return () => {
       cancelled = true;
     };
-  }, []);
+  });
 
   const onSave = (detail: ScorePadSaveDetail) => {
-    if (tools) {
-      const rows = tools.sheetResults(template, detail.sheet);
+    const loaded = tools();
+    if (loaded) {
+      const rows = loaded.sheetResults(props.template, detail.sheet);
       setResults(rows);
-      manualRevision.current += 1;
-      setManual({ ranked: detail.results, rows, key: manualRevision.current });
+      setManual({ ranked: detail.results, rows });
     }
   };
 
   const fill = () => {
-    const sheet = tools?.testSheet(template, { fill: true, tie });
+    const sheet = tools()?.testSheet(props.template, { fill: true, tie: tie() });
     if (!sheet) return;
     setResults(null);
     setManual(null);
-    pad.current?.setSheet(sheet);
+    pad?.setSheet(sheet);
   };
 
-  const warning = fewerSeatsMessage(status.seats, maxPlayers);
-  const canTest = ready && tools !== null;
-
   return (
-    <div className="wizard-body">
-      <div className="wizard-stage wizard-test" role="group" aria-label={text.stage}>
-        {config ? (
-          <ScorePadView
-            ref={pad}
-            config={config}
-            controls={false}
-            help={false}
-            test
-            summary={!hasManualTiebreak(template)}
-            onReady={() => setReady(true)}
-            onLoadState={(state) => {
-              if (state !== 'ready') setReady(false);
-            }}
-            // Każde oderwanie (także pustej kartki) kończy poprzedni wynik testu.
-            onTear={() => {
-              setResults(null);
-              setManual(null);
-            }}
-            onSave={onSave}
-            className="wizard-test__pad"
-          />
-        ) : toolsFailed ? null : (
-          <div className="wizard-test__loading">
-            <Spinner label={t.scorePad.loadingPad} />
-          </div>
-        )}
+    <div class="wizard-body">
+      <div class="wizard-stage wizard-test" role="group" aria-label={text.stage}>
+        <Show
+          when={config()}
+          fallback={
+            <Show when={!toolsFailed()}>
+              <div class="wizard-test__loading">
+                <Spinner label={t.scorePad.loadingPad} />
+              </div>
+            </Show>
+          }
+        >
+          {(file) => (
+            <ScorePadView
+              ref={(handle) => (pad = handle)}
+              config={file()}
+              controls={false}
+              help={false}
+              test
+              summary={!hasManualTiebreak(props.template)}
+              onReady={() => setReady(true)}
+              onLoadState={(state) => {
+                if (state !== 'ready') setReady(false);
+              }}
+              // Każde oderwanie (także pustej kartki) kończy poprzedni wynik testu.
+              onTear={() => {
+                setResults(null);
+                setManual(null);
+              }}
+              onSave={onSave}
+              class="wizard-test__pad"
+            />
+          )}
+        </Show>
       </div>
-      <div className="wizard-panel">
-        {error ? <Banner variant="error">{error}</Banner> : null}
+      <div class="wizard-panel">
+        <Show when={props.error}>{(error) => <Banner variant="error">{error()}</Banner>}</Show>
         <Banner variant="info">{text.intro}</Banner>
-        {toolsFailed ? <Banner variant="warning">{text.toolsError}</Banner> : null}
-        <div className="wizard-actions">
-          <Button variant="secondary" icon="dice" disabled={!canTest} onClick={fill}>
+        <Show when={toolsFailed()}>
+          <Banner variant="warning">{text.toolsError}</Banner>
+        </Show>
+        <div class="wizard-actions">
+          <Button variant="secondary" icon="dice" disabled={!canTest()} onClick={fill}>
             {text.fill}
           </Button>
           <Button
             variant="secondary"
             icon="tear-off"
-            disabled={!canTest}
-            onClick={() => pad.current?.tear()}
+            disabled={!canTest()}
+            onClick={() => pad?.tear()}
           >
             {text.tear}
           </Button>
         </div>
-        <Checkbox label={text.tie} checked={tie} onCheckedChange={setTie} />
-        {manual ? (
-          <ManualTieControls
-            key={manual.key}
-            groups={manualTieGroups(template, manual.ranked)}
-            nameOf={(seat) => manual.rows.find((row) => row.seat === seat)?.name ?? ''}
-            onChange={(decisions) => {
-              const ranked = resolveManualTies(template, manual.ranked, decisions);
-              setResults(
-                ranked.flatMap((row) => {
-                  const original = manual.rows.find((r) => r.seat === row.seat);
-                  return original ? [{ ...original, place: row.place, tied: row.tied }] : [];
-                }),
-              );
-            }}
-          />
-        ) : null}
-        <section className="wizard-result" aria-labelledby="wizard-result-title">
-          <h3 id="wizard-result-title" className="wizard-panel__title">
+        <Checkbox label={text.tie} checked={tie()} onCheckedChange={setTie} />
+        <Show when={manual()} keyed>
+          {(current) => (
+            <ManualTieControls
+              groups={manualTieGroups(props.template, current.ranked)}
+              nameOf={(seat) => current.rows.find((row) => row.seat === seat)?.name ?? ''}
+              onChange={(decisions) => {
+                const ranked = resolveManualTies(props.template, current.ranked, decisions);
+                setResults(
+                  ranked.flatMap((row) => {
+                    const original = current.rows.find((r) => r.seat === row.seat);
+                    return original ? [{ ...original, place: row.place, tied: row.tied }] : [];
+                  }),
+                );
+              }}
+            />
+          )}
+        </Show>
+        <section class="wizard-result" aria-labelledby="wizard-result-title">
+          <h3 id="wizard-result-title" class="wizard-panel__title">
             {text.result}
           </h3>
-          {deciding ? (
-            <p className="wizard-hint">{format(text.resultBy, { line: deciding })}</p>
-          ) : null}
-          <div className="wizard-result__tray" aria-live="polite">
-            {results && results.length > 0 ? (
-              <ol className="wizard-result__list">
-                {results.map((row) => (
-                  <ResultRow key={row.seat} row={row} template={template} />
-                ))}
+          <Show when={deciding()}>
+            {(line) => <p class="wizard-hint">{format(text.resultBy, { line: line() })}</p>}
+          </Show>
+          <div class="wizard-result__tray" aria-live="polite">
+            <Show
+              when={(results()?.length ?? 0) > 0}
+              fallback={<p class="wizard-result__empty">{text.resultEmpty}</p>}
+            >
+              <ol class="wizard-result__list">
+                <For each={results() ?? []} keyed={(row) => row.seat}>
+                  {(row) => <ResultRow row={row()} template={props.template} />}
+                </For>
               </ol>
-            ) : (
-              <p className="wizard-result__empty">{text.resultEmpty}</p>
-            )}
+            </Show>
           </div>
         </section>
-        {warning ? <Banner variant="warning">{warning}</Banner> : null}
-        <p className="wizard-hint">{text.optional}</p>
-        {versionNote ? <p className="scorepads__note">{versionNote}</p> : null}
+        <Show when={warning()}>{(message) => <Banner variant="warning">{message()}</Banner>}</Show>
+        <p class="wizard-hint">{text.optional}</p>
+        <Show when={props.versionNote}>{(note) => <p class="scorepads__note">{note()}</p>}</Show>
       </div>
     </div>
   );
 }
 
-function ResultRow({
-  row,
-  template,
-}: {
-  readonly row: SheetResult;
-  readonly template: ScorePadTemplate;
-}) {
-  const note = row.tied
-    ? text.shared
-    : row.decidedBy
-      ? format(text.decidedBy, { line: lineLabel(template, row.decidedBy) })
-      : undefined;
-  const value = row.value === null ? text.noValue : String(row.value);
+function ResultRow(props: { readonly row: SheetResult; readonly template: ScorePadTemplate }) {
+  const note = () =>
+    props.row.tied
+      ? text.shared
+      : props.row.decidedBy
+        ? format(text.decidedBy, { line: lineLabel(props.template, props.row.decidedBy) })
+        : undefined;
   return (
-    <li className={cx('wizard-result__row', row.place === 1 && 'is-first')}>
-      <span className="wizard-result__place">{format(text.place, { place: row.place })}</span>
-      <span className="wizard-result__player">
-        <span className="wizard-result__name">{row.name}</span>
-        {note ? <span className="wizard-result__note">{note}</span> : null}
+    <li class={['wizard-result__row', { 'is-first': props.row.place === 1 }]}>
+      <span class="wizard-result__place">{format(text.place, { place: props.row.place })}</span>
+      <span class="wizard-result__player">
+        <span class="wizard-result__name">{props.row.name}</span>
+        <Show when={note()}>{(value) => <span class="wizard-result__note">{value()}</span>}</Show>
       </span>
-      <span className="wizard-result__score">{value}</span>
+      <span class="wizard-result__score">
+        {props.row.value === null ? text.noValue : String(props.row.value)}
+      </span>
     </li>
   );
 }

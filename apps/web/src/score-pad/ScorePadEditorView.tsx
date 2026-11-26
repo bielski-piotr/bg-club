@@ -8,12 +8,12 @@ import type {
   ScorePadTemplate,
   ScorePadZoomAction,
 } from '@bg-club/score-pad';
-import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
+import { createEffect } from 'solid-js';
 import { t } from '../i18n';
-import { cx } from '../ui/cx';
-import { useTheme } from '../theme/useTheme';
+import { createTheme } from '../theme/createTheme';
+import { ariaBool, type ClassValue } from '../ui/dom';
+import { createScorePadElement, type ScorePadLoadState } from './createScorePadElement';
 import { ScorePadStatus } from './ScorePadStatus';
-import { useScorePadElement, type ScorePadLoadState } from './useScorePadElement';
 import './scorePad.css';
 
 export interface ScorePadEditorViewProps {
@@ -21,7 +21,7 @@ export interface ScorePadEditorViewProps {
   readonly template?: ScorePadTemplate | undefined;
   /** Plik notesu po „Zapisz do pliku” lub „Kopiuj do schowka” (zapis w bazie: EDT-1). */
   readonly onExport?: ((config: ScorePadFile, via: 'file' | 'clipboard') => void) | undefined;
-  readonly className?: string | undefined;
+  readonly class?: ClassValue;
   /**
    * Tryb kreatora (EDT-9): bez własnych kroków i wczytywania zdjęcia; kroki prowadzi aplikacja
    * przez uchwyt (`goStep`, `loadPhoto`, `loadTemplate`). Zmiana nie tworzy edytora od nowa.
@@ -32,7 +32,7 @@ export interface ScorePadEditorViewProps {
   /** Stan ładowania modułu edytora z ponowieniem (kreator pokazuje błąd w kroku zdjęcia). */
   readonly onLoadState?: ((state: ScorePadLoadState, retry: () => void) => void) | undefined;
   /** Uchwyt do bieżącego notesu z edytora (zapis w bazie, EDT-1). */
-  readonly ref?: Ref<ScorePadEditorHandle> | undefined;
+  readonly ref?: ScorePadEditorHandle | ((handle: ScorePadEditorHandle) => void) | undefined;
 }
 
 export interface ScorePadEditorHandle {
@@ -60,86 +60,77 @@ export interface ScorePadEditorHandle {
   editCategories(action: ScorePadEditorCategoriesAction): void;
 }
 
-/** Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5). */
-export function ScorePadEditorView({
-  template,
-  onExport,
-  className,
-  wizard = false,
-  onStatus,
-  onLoadState,
-  ref,
-}: ScorePadEditorViewProps) {
-  const { resolved } = useTheme();
-  const onExportRef = useRef(onExport);
-  const onStatusRef = useRef(onStatus);
-  const onLoadStateRef = useRef(onLoadState);
-  const wizardRef = useRef(wizard);
-
-  useEffect(() => {
-    onExportRef.current = onExport;
-    onStatusRef.current = onStatus;
-    onLoadStateRef.current = onLoadState;
-  });
-
-  const { hostRef, elementRef, state, retry } = useScorePadElement(
+/**
+ * Edytor `<score-pad-editor>` z motywem aplikacji (PRD §8.5); także na stronie design systemu.
+ */
+export function ScorePadEditorView(props: ScorePadEditorViewProps) {
+  const theme = createTheme();
+  const editor = createScorePadElement(
     'editor',
-    resolved,
+    theme.resolved,
     () => {
       const element = document.createElement('score-pad-editor');
-      element.template = template;
-      element.wizard = wizardRef.current;
+      element.template = props.template;
+      // Tryb kreatora ustala się przy tworzeniu: jego zmiana nie tworzy edytora od nowa.
+      element.wizard = props.wizard ?? false;
       element.addEventListener(
         'scorepad-editor:change',
-        (event: ScorePadEditorEventMap['scorepad-editor:change']) =>
-          onStatusRef.current?.(event.detail),
+        (event: ScorePadEditorEventMap['scorepad-editor:change']) => props.onStatus?.(event.detail),
       );
       element.addEventListener(
         'scorepad-editor:export',
         (event: ScorePadEditorEventMap['scorepad-editor:export']) =>
-          onExportRef.current?.(event.detail.config, event.detail.via),
+          props.onExport?.(event.detail.config, event.detail.via),
       );
       return element;
     },
-    [template],
+    () => props.template,
   );
 
-  useEffect(() => {
-    onLoadStateRef.current?.(state, retry);
-    // `retry` zmienia się przy każdym renderze; ważna jest tylko zmiana stanu.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+  createEffect(editor.state, (state) => {
+    props.onLoadState?.(state, editor.retry);
+  });
 
-  useImperativeHandle(ref, () => {
-    const ready = () => {
-      const element = elementRef.current;
-      if (!element) throw new Error('score-pad-editor: not ready');
-      return element;
-    };
-    return {
-      exportConfig: () => elementRef.current?.exportConfig() ?? null,
-      status: () => elementRef.current?.status() ?? null,
-      loadPhoto: async (file) => ready().loadPhoto(file),
-      loadTemplate: async (value) => ready().loadTemplate(value),
-      goStep: (step) => elementRef.current?.goStep(step),
-      setArea: (patch) => elementRef.current?.setArea(patch),
-      rotatePhoto: (dir) => elementRef.current?.rotatePhoto(dir),
-      undoArea: () => elementRef.current?.undoArea(),
-      zoom: (by) => elementRef.current?.zoom(by),
-      editMapping: (action) => elementRef.current?.editMapping(action),
-      editCategories: (action) => elementRef.current?.editCategories(action),
-    };
-  }, [elementRef]);
+  const ready = () => {
+    const element = editor.element();
+    if (!element) throw new Error('score-pad-editor: not ready');
+    return element;
+  };
+  const handle: ScorePadEditorHandle = {
+    exportConfig: () => editor.element()?.exportConfig() ?? null,
+    status: () => editor.element()?.status() ?? null,
+    loadPhoto: async (file) => ready().loadPhoto(file),
+    loadTemplate: async (value) => ready().loadTemplate(value),
+    goStep: (step) => editor.element()?.goStep(step),
+    setArea: (patch) => editor.element()?.setArea(patch),
+    rotatePhoto: (dir) => editor.element()?.rotatePhoto(dir),
+    undoArea: () => editor.element()?.undoArea(),
+    zoom: (by) => editor.element()?.zoom(by),
+    editMapping: (action) => editor.element()?.editMapping(action),
+    editCategories: (action) => editor.element()?.editCategories(action),
+  };
 
   return (
     <div
-      className={cx('score-pad-view', 'score-pad-view--editor', className)}
+      class={['score-pad-view', 'score-pad-view--editor', props.class]}
       role="region"
       aria-label={t.scorePad.editorLabel}
-      aria-busy={state === 'loading'}
+      aria-busy={ariaBool(editor.state() === 'loading')}
     >
-      <div ref={hostRef} className="score-pad-view__host" />
-      <ScorePadStatus state={state} loadingLabel={t.scorePad.loadingEditor} onRetry={retry} />
+      <div
+        ref={(el) => {
+          editor.hostRef(el);
+          // Uchwyt dla rodzica (`ref` komponentu) razem z kontenerem elementu.
+          const ref = props.ref;
+          if (typeof ref === 'function') ref(handle);
+        }}
+        class="score-pad-view__host"
+      />
+      <ScorePadStatus
+        state={editor.state()}
+        loadingLabel={t.scorePad.loadingEditor}
+        onRetry={editor.retry}
+      />
     </div>
   );
 }

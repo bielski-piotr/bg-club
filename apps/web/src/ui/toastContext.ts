@@ -1,4 +1,5 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import type { JSX } from '@solidjs/web';
+import { createContext } from 'solid-js';
 
 /** Warianty toastu (DS §12): sukces (✓ #7CE0A3), neutralny (kopiuj, biały), błąd (⚠ #FFB4B4). */
 export type ToastVariant = 'success' | 'neutral' | 'error';
@@ -6,18 +7,12 @@ export type ToastVariant = 'success' | 'neutral' | 'error';
 export interface ToastApi {
   /** Pokazuje toast; zwraca identyfikator do wcześniejszego zamknięcia. */
   readonly show: (
-    message: ReactNode,
+    message: JSX.Element,
     variant?: ToastVariant,
     options?: { readonly rich?: boolean; readonly duration?: number; readonly key?: string },
   ) => number;
   readonly dismiss: (id: number) => void;
 }
 
-export const ToastContext = createContext<ToastApi | null>(null);
-
-/** Dostęp do toastów. Wymaga `ToastProvider` wyżej w drzewie. */
-export function useToast(): ToastApi {
-  const api = useContext(ToastContext);
-  if (!api) throw new Error('useToast wymaga ToastProvider');
-  return api;
-}
+/** Toasty (`ToastProvider`). */
+export const ToastContext = createContext<ToastApi>();

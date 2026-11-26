@@ -1,5 +1,6 @@
-import { useId, type CSSProperties, type InputHTMLAttributes } from 'react';
-import { cx } from './cx';
+import type { JSX } from '@solidjs/web';
+import { createUniqueId, omit, Show } from 'solid-js';
+import { ariaBool, type ClassValue } from './dom';
 import './Controls.css';
 
 export interface SwitchProps {
@@ -8,53 +9,46 @@ export interface SwitchProps {
   readonly onCheckedChange: (checked: boolean) => void;
   readonly description?: string | undefined;
   readonly disabled?: boolean | undefined;
-  readonly className?: string | undefined;
+  readonly class?: ClassValue;
 }
 
 /**
  * Przełącznik 40×24 (DS §18, ma pierwszeństwo przed §10 wg Q19): etykieta po lewej,
  * przełącznik po prawej. `role="switch"`; Spacja i Enter przełączają.
  */
-export function Switch({
-  label,
-  checked,
-  onCheckedChange,
-  description,
-  disabled = false,
-  className,
-}: SwitchProps) {
-  const id = useId();
+export function Switch(props: SwitchProps) {
+  const id = createUniqueId();
   return (
-    <div className={cx('switch-row', disabled && 'switch-row--disabled', className)}>
-      <span className="switch-row__text">
-        <label htmlFor={id} className="switch-row__label">
-          {label}
+    <div class={['switch-row', { 'switch-row--disabled': !!props.disabled }, props.class]}>
+      <span class="switch-row__text">
+        <label for={id} class="switch-row__label">
+          {props.label}
         </label>
-        {description ? (
-          <span id={`${id}-desc`} className="switch-row__desc">
-            {description}
+        <Show when={props.description}>
+          <span id={`${id}-desc`} class="switch-row__desc">
+            {props.description}
           </span>
-        ) : null}
+        </Show>
       </span>
       <button
         id={id}
         type="button"
         role="switch"
-        aria-checked={checked}
-        aria-describedby={description ? `${id}-desc` : undefined}
-        className="switch"
-        disabled={disabled}
-        onClick={() => onCheckedChange(!checked)}
+        aria-checked={ariaBool(props.checked)}
+        aria-describedby={props.description ? `${id}-desc` : undefined}
+        class="switch"
+        disabled={props.disabled}
+        onClick={() => props.onCheckedChange(!props.checked)}
       >
-        <span className="switch__knob" aria-hidden="true" />
+        <span class="switch__knob" aria-hidden="true" />
       </button>
     </div>
   );
 }
 
 export interface SliderProps extends Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  'type' | 'value' | 'onChange' | 'min' | 'max'
+  JSX.InputHTMLAttributes<HTMLInputElement>,
+  'type' | 'value' | 'onChange' | 'onInput' | 'min' | 'max' | 'step'
 > {
   readonly label: string;
   readonly value: number;
@@ -64,47 +58,51 @@ export interface SliderProps extends Omit<
   readonly step?: number | undefined;
   /** Tekst wartości obok suwaka i dla czytnika ekranu, np. „150%”. */
   readonly formatValue?: ((value: number) => string) | undefined;
+  readonly class?: ClassValue;
 }
 
 /**
  * Suwak (DS §18): etykieta, tor h4 z wypełnieniem akcentu, gałka 20, wartość po prawej.
  * Natywny `input type="range"`: strzałki, PageUp/PageDown, Home i End.
  */
-export function Slider({
-  label,
-  value,
-  onValueChange,
-  min = 0,
-  max = 100,
-  step = 1,
-  formatValue,
-  disabled,
-  className,
-  ...rest
-}: SliderProps) {
-  const id = useId();
-  const fill = max > min ? ((value - min) / (max - min)) * 100 : 0;
+export function Slider(props: SliderProps) {
+  const id = createUniqueId();
+  const rest = omit(
+    props,
+    'label',
+    'value',
+    'onValueChange',
+    'min',
+    'max',
+    'step',
+    'formatValue',
+    'disabled',
+    'class',
+  );
+  const min = () => props.min ?? 0;
+  const max = () => props.max ?? 100;
+  const fill = () => (max() > min() ? ((props.value - min()) / (max() - min())) * 100 : 0);
   return (
-    <div className={cx('slider', disabled && 'slider--disabled', className)}>
-      <label htmlFor={id} className="slider__label">
-        {label}
+    <div class={['slider', { 'slider--disabled': !!props.disabled }, props.class]}>
+      <label for={id} class="slider__label">
+        {props.label}
       </label>
       <input
         id={id}
         type="range"
-        className="slider__input"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onValueChange(Number(event.target.value))}
-        style={{ '--fill': `${fill}%` } as CSSProperties}
-        aria-valuetext={formatValue?.(value)}
+        class="slider__input"
+        min={min()}
+        max={max()}
+        step={props.step ?? 1}
+        value={props.value}
+        disabled={props.disabled}
+        onInput={(event) => props.onValueChange(Number(event.currentTarget.value))}
+        style={{ '--fill': `${fill()}%` }}
+        aria-valuetext={props.formatValue?.(props.value)}
         {...rest}
       />
-      <output htmlFor={id} className="slider__value tnum" aria-hidden="true">
-        {formatValue ? formatValue(value) : value}
+      <output for={id} class="slider__value tnum" aria-hidden="true">
+        {props.formatValue ? props.formatValue(props.value) : props.value}
       </output>
     </div>
   );

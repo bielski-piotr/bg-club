@@ -1,13 +1,15 @@
-import { useAuth } from '../auth/authContext';
+import { Match, Show, Switch, useContext } from 'solid-js';
 import { t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
+import { ProfileAvatar } from './ProfileAvatar';
+import { createProfile } from './profiles';
 import { Badge, Banner, Button, EmptyState } from '../ui';
 import { PlayerRecordsSection } from './PlayerRecords';
 import { PlayerStatsSection } from './PlayerStats';
-import { ProfileAvatar } from './ProfileAvatar';
-import { fullName, useProfile } from './profiles';
+import { fullName, type Profile } from './profileQueries';
 import './profile.css';
 
 /**
@@ -19,84 +21,115 @@ import './profile.css';
  * Administrator ma w profilu aktywnego gracza przycisk **Usuń członka** (MEM-4); profilu
  * administratora nie da się usunąć.
  */
-export function ProfilePopup({ id, isAdmin }: { readonly id: string; readonly isAdmin: boolean }) {
-  const { client, state } = useAuth();
-  const { open } = usePopups();
-  const profile = useProfile(client, id);
-  const ownId = state.status === 'signedIn' ? state.session.user.id : null;
+export function ProfilePopup(props: { readonly id: string; readonly isAdmin: boolean }) {
+  const auth = useContext(AuthContext);
+  const popups = useContext(PopupsContext);
+  const profile = createProfile(() => props.id);
+  const ownId = () => (auth.state.status === 'signedIn' ? auth.state.session.user.id : null);
+  // Akcje okna zależą od danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
+  const data = () => profile.current() ?? undefined;
+  const removed = () => data()?.deleted_at != null;
+  const own = () => data()?.id === ownId() && !removed();
+  const deletable = () => {
+    const shown = data();
+    return !!shown && props.isAdmin && !own() && !removed() && shown.role !== 'admin';
+  };
 
-  if (!profile.isSuccess) {
-    return (
-      <PopupModal title={t.profile.title}>
-        <QueryStatus isError={profile.isError} onRetry={() => void profile.refetch()} />
-      </PopupModal>
-    );
-  }
-
-  const data = profile.data;
-  if (!data) {
-    return (
-      <PopupModal title={t.profile.title}>
-        <EmptyState icon="user" title={t.profile.notFoundTitle} helper={t.profile.notFoundBody} />
-      </PopupModal>
-    );
-  }
-
-  const removed = data.deleted_at !== null;
-  const own = data.id === ownId && !removed;
-  const deletable = isAdmin && !own && !removed && data.role !== 'admin';
+  // Jedno okno na wszystkie stany (wczytywanie, profil, brak gracza): fokus, który `PopupHost`
+  // ustawił na oknie przy otwarciu, zostaje na nim po wczytaniu danych.
   return (
     <PopupModal
       title={t.profile.title}
       actions={
-        own ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            icon="settings"
-            onClick={() => open({ kind: 'settings' })}
-          >
-            {t.profile.settings}
-          </Button>
-        ) : deletable ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            icon="trash"
-            className="profile__delete"
-            onClick={() => open({ kind: 'delete-member', id: data.id })}
-          >
-            {t.profile.deleteMember}
-          </Button>
-        ) : undefined
+        <Switch>
+          <Match when={own()}>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="settings"
+              onClick={() => popups.open({ kind: 'settings' })}
+            >
+              {t.profile.settings}
+            </Button>
+          </Match>
+          <Match when={deletable()}>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="trash"
+              class="profile__delete"
+              onClick={() => popups.open({ kind: 'delete-member', id: data()?.id ?? '' })}
+            >
+              {t.profile.deleteMember}
+            </Button>
+          </Match>
+        </Switch>
       }
     >
-      <div className="profile">
-        <ProfileAvatar profile={data} size={88} decorative />
-        <div className="profile__text">
-          <p className="profile__name">
-            {fullName(data)}
-            {removed ? <span className="profile__removed"> {t.ui.removedSuffix}</span> : null}
+      <QueryBoundary>
+        <Show
+          when={profile()}
+          fallback={
+            <EmptyState
+              icon="user"
+              title={t.profile.notFoundTitle}
+              helper={t.profile.notFoundBody}
+            />
+          }
+        >
+          {(shown) => <ProfileView profile={shown()} own={own()} removed={removed()} />}
+        </Show>
+      </QueryBoundary>
+    </PopupModal>
+  );
+}
+
+function ProfileView(props: {
+  readonly profile: Profile;
+  readonly own: boolean;
+  readonly removed: boolean;
+}) {
+  return (
+    <>
+      <div class="profile">
+        <ProfileAvatar profile={props.profile} size={88} decorative />
+        <div class="profile__text">
+          <p class="profile__name">
+            {fullName(props.profile)}
+            <Show when={props.removed}>
+              <span class="profile__removed"> {t.ui.removedSuffix}</span>
+            </Show>
           </p>
-          <p className="profile__hook">
-            <span className="sr-only">{t.profile.hookLabel}: </span>
-            <span className="profile__hook-value">{data.hook}</span>
+          <p class="profile__hook">
+            <span class="sr-only">{t.profile.hookLabel}: </span>
+            <span class="profile__hook-value">{props.profile.hook}</span>
           </p>
-          {data.role === 'admin' || own ? (
-            <p className="profile__badges">
-              {data.role === 'admin' ? <Badge tone="accent">{t.ui.adminBadge}</Badge> : null}
-              {own ? <Badge tone="ink">{t.ui.youBadge}</Badge> : null}
+          <Show when={props.profile.role === 'admin' || props.own}>
+            <p class="profile__badges">
+              <Show when={props.profile.role === 'admin'}>
+                <Badge tone="accent">{t.ui.adminBadge}</Badge>
+              </Show>
+              <Show when={props.own}>
+                <Badge tone="ink">{t.ui.youBadge}</Badge>
+              </Show>
             </p>
-          ) : null}
+          </Show>
         </div>
       </div>
-      {removed ? (
-        <Banner variant="info" className="profile__notice">
+      <Show when={props.removed}>
+        <Banner variant="info" class="profile__notice">
           {t.profile.removedNote}
         </Banner>
-      ) : null}
-      <PlayerStatsSection key={data.id} profileId={data.id} />
-      <PlayerRecordsSection key={`${data.id}-records`} profileId={data.id} />
-    </PopupModal>
+      </Show>
+      {/* Inny profil = nowe sekcje (filtry wracają do domyślnych). */}
+      <Show when={props.profile.id} keyed>
+        {(id) => (
+          <>
+            <PlayerStatsSection profileId={id} />
+            <PlayerRecordsSection profileId={id} />
+          </>
+        )}
+      </Show>
+    </>
   );
 }

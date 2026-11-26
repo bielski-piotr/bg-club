@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { normalizeGames, type LeaderboardFilters } from '../leaderboard/filters';
 import { isUuid } from '../popups/routes';
-import { profilesKey } from './profiles';
+import { profilesKey } from './profileQueries';
 
 /**
  * Statystyki gracza w profilu (PRD STAT-1–STAT-3) z funkcji SQL
@@ -86,9 +85,9 @@ export const filtersKey = (filters: LeaderboardFilters) =>
 export const playerStatsKey = (id: string, filters: LeaderboardFilters) =>
   [...profilesKey, 'stats', id, ...filtersKey(filters)] as const;
 
-/** Statystyki gracza z filtrami; `null` w danych = nie ma profilu. */
-export function usePlayerStats(client: SupabaseClient, id: string, filters: LeaderboardFilters) {
-  return useQuery({
+/** Statystyki gracza z filtrami (opcje zapytania); `null` w danych = nie ma profilu. */
+export function playerStatsQuery(client: SupabaseClient, id: string, filters: LeaderboardFilters) {
+  return {
     queryKey: playerStatsKey(id, filters),
     queryFn: async (): Promise<PlayerStats | null> => {
       if (!isUuid(id)) return null;
@@ -100,8 +99,11 @@ export function usePlayerStats(client: SupabaseClient, id: string, filters: Lead
       return (data ?? null) as PlayerStats | null;
     },
     // Przy zmianie filtrów poprzedni wynik zostaje do czasu nowego (bez migania), jak w rankingu.
-    placeholderData: (previous, query) => (query?.queryKey[2] === id ? previous : undefined),
-  });
+    placeholderData: (
+      previous: PlayerStats | null | undefined,
+      query: { readonly queryKey: readonly unknown[] } | undefined,
+    ) => (query?.queryKey[2] === id ? previous : undefined),
+  };
 }
 
 /** Procent wygranych zaokrąglony do całości; `null` bez partii. */

@@ -8,7 +8,10 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const DIST = join(import.meta.dirname, '..', 'dist');
-/** Limit JS po gzip (KB). Pomiar [040]: ≈ 182 KB (przed podziałem 240 KB); zapas na rozwój bez cofnięcia podziału. */
+/**
+ * Limit JS po gzip (KB). Pomiar [040]: ≈ 182 KB (przed podziałem 240 KB); zapas na rozwój bez cofnięcia
+ * podziału. Po przejściu na Solid 2.0: ≈ 167 KB.
+ */
 const JS_LIMIT_KB = 215;
 /** Limit CSS po gzip (KB). Pomiar [040]: ≈ 15 KB. */
 const CSS_LIMIT_KB = 30;

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Loading, Match, Switch } from 'solid-js';
 import { App } from './App';
 import type { ConfigResult } from './config/env';
 import type { AppView } from './design-system/path';
@@ -14,34 +14,37 @@ interface RootProps {
 }
 
 /** Wybór widoku według ścieżki. Popupy huba są w parametrze `?p=…` (src/popups). */
-export function Root({ config, view }: RootProps) {
-  switch (view) {
-    case 'designSystem':
-      return (
-        <Suspense fallback={null}>
+export function Root(props: RootProps) {
+  return (
+    <Switch>
+      <Match when={props.view === 'designSystem'}>
+        <Loading>
           <DesignSystemPage />
-        </Suspense>
-      );
-    case 'notFound':
-      return <NotFound />;
-    case 'app':
-      return <App config={config} />;
-  }
+        </Loading>
+      </Match>
+      <Match when={props.view === 'notFound'}>
+        <NotFound />
+      </Match>
+      <Match when={props.view === 'app'}>
+        <App config={props.config} />
+      </Match>
+    </Switch>
+  );
 }
 
 /** Nieznana ścieżka (hosting statyczny serwuje aplikację pod każdym adresem). */
 function NotFound() {
   return (
-    <main className="shell">
-      <section className="start-card" aria-labelledby="page-title">
-        <p className="eyebrow">{t.app.name}</p>
-        <h1 id="page-title" className="title">
+    <main class="shell">
+      <section class="start-card" aria-labelledby="page-title">
+        <p class="eyebrow">{t.app.name}</p>
+        <h1 id="page-title" class="title">
           {t.notFound.title}
         </h1>
-        <p className="body">{t.notFound.body}</p>
-        <p className="not-found__action">
-          <a className="btn btn--primary btn--md" href="/">
-            <span className="btn__label">{t.notFound.home}</span>
+        <p class="body">{t.notFound.body}</p>
+        <p class="not-found__action">
+          <a class="btn btn--primary btn--md" href="/">
+            <span class="btn__label">{t.notFound.home}</span>
           </a>
         </p>
       </section>

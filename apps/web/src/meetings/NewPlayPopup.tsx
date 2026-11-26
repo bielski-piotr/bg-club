@@ -1,21 +1,39 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { useAuth } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { JSX } from '@solidjs/web';
+import {
+  action,
+  createEffect,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  createUniqueId,
+  For,
+  Match,
+  Show,
+  Switch,
+  useContext,
+} from 'solid-js';
+import type { OwnProfile } from '../auth/ownProfile';
 import { GameCover } from '../games/GameCover';
-import { gamesKey, useAllExpansions, useGameSearch, type Game } from '../games/games';
+import { createAllExpansions, createGameSearch } from '../games/gameData';
+import { gamesKey, type Game } from '../games/games';
 import { format, plural, t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
+import { compareProfiles, fullName, type Profile } from '../profile/profileQueries';
+import { createActiveScorepads } from '../score-pad/scorepadData';
+import { scorepadsKey, type Scorepad } from '../score-pad/scorepads';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { createMounted } from '../popups/leaveGuard';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { useMounted } from '../popups/useMounted';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { compareProfiles, fullName, useAllProfiles, type Profile } from '../profile/profiles';
-import { scorepadsKey, useActiveScorepads, type Scorepad } from '../score-pad/scorepads';
-import { Banner, Button, EmptyState, Icon, SearchField, Tray, useToast } from '../ui';
-import { cx } from '../ui/cx';
-import { SheetThumbnail } from './MeetingPlays';
-import { meetingsKey, useMeeting, type Meeting } from './meetings';
+import { createAllProfiles } from '../profile/profiles';
+import { Banner, Button, EmptyState, Icon, SearchField, Tray } from '../ui';
+import { ariaBool } from '../ui/dom';
+import { createMeeting, createPublishedGames } from './meetingData';
+import { SheetThumbnail } from './MeetingParts';
+import { meetingsKey, type Meeting } from './meetings';
 import {
   assignSeat,
   boundsLabel,
@@ -45,7 +63,6 @@ import {
   type Seats,
 } from './newPlay';
 import { isMeetingRunner } from './plays';
-import { usePublishedGames } from './voting';
 import './meetings.css';
 
 const text = t.meetings.newPlay;
@@ -57,156 +74,200 @@ const text = t.meetings.newPlay;
  * jeden pasujący notes, krok jest pomijany. Gracze: uczestnicy spotkania w miejscach notesu,
  * każdy najwyżej raz. Rozpoczęcie tworzy szkic partii (`start_play`); kilka partii może trwać
  * naraz. Tylko admin i prowadzący, tylko spotkanie w trakcie (reguły powtarza RPC).
+ * Jedno okno na wczytywanie, kreator i blokadę: fokus ustawiony przez `PopupHost` zostaje.
  */
-export function NewPlayPopup({
-  meetingId,
-  me,
-}: {
-  readonly meetingId: string;
-  readonly me: OwnProfile;
-}) {
-  const { client } = useAuth();
-  const meeting = useMeeting(client, meetingId);
-  const games = useGameSearch(client, '');
-  const published = usePublishedGames(client, meetingId);
-  const pads = useActiveScorepads(client);
-  const profiles = useAllProfiles(client);
-  const expansions = useAllExpansions(client);
-  const queries = [meeting, games, published, pads, profiles, expansions] as const;
+export function NewPlayPopup(props: { readonly meetingId: string; readonly me: OwnProfile }) {
+  const meeting = createMeeting(() => props.meetingId);
+  const games = createGameSearch(() => '');
+  const published = createPublishedGames(() => props.meetingId);
+  const pads = createActiveScorepads();
+  const profiles = createAllProfiles();
+  const expansions = createAllExpansions();
+  const queries = [meeting, games, published, pads, profiles, expansions];
 
-  if (
-    !meeting.isSuccess ||
-    !games.isSuccess ||
-    !expansions.isSuccess ||
-    !published.isSuccess ||
-    !pads.isSuccess ||
-    !profiles.isSuccess
-  ) {
-    return (
-      <PopupModal title={text.title}>
-        <QueryStatus
-          isError={queries.some((query) => query.isError)}
-          onRetry={() => queries.forEach((query) => void query.refetch())}
-        />
-      </PopupModal>
-    );
-  }
-  const current = meeting.data;
-  const blocked = !current
-    ? t.meetings.popup.notFoundBody
-    : !isMeetingRunner(current, me)
-      ? text.notRunner
-      : current.status !== 'in_progress'
-        ? text.notInProgress
-        : null;
-  if (!current || blocked) {
-    return (
-      <PopupModal title={text.title}>
-        <p className="meeting-form__state">{blocked}</p>
-      </PopupModal>
-    );
-  }
+  // Okno (stopka) zależy od danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
+  const loaded = () => queries.every((query) => query.current() !== undefined);
+  /** Wszystkie dane kreatora: treść czeka na nie (błąd któregokolwiek → baner z ponowieniem). */
+  const all = createMemo(() => queries.every((query) => query() !== undefined));
+  const blocked = () => {
+    const current = meeting.current();
+    return !current
+      ? t.meetings.popup.notFoundBody
+      : !isMeetingRunner(current, props.me)
+        ? text.notRunner
+        : current.status !== 'in_progress'
+          ? text.notInProgress
+          : null;
+  };
+  const meetingData = createMemo(() => meeting.current() ?? undefined);
+  const gamesData = createMemo(() => games.current() ?? []);
+  const expansionsData = createMemo(() => expansions.current() ?? []);
+  const publishedIds = createMemo(() => (published.current() ?? []).map((game) => game.id));
+  const padsData = createMemo(() => pads.current() ?? []);
+  const profileMap = createMemo(() => profiles.current() ?? new Map<string, Profile>());
+
+  const wizard = createWizard({
+    meeting: meetingData,
+    games: gamesData,
+    expansions: expansionsData,
+    pads: padsData,
+    profiles: profileMap,
+  });
+  const ready = () => loaded() && blocked() === null;
+
   return (
-    <Wizard
-      meeting={current}
-      games={games.data}
-      expansions={expansions.data}
-      publishedIds={published.data.map((game) => game.id)}
-      pads={pads.data}
-      profiles={profiles.data}
-    />
+    <PopupModal
+      title={text.title}
+      footer={
+        <Show when={ready()}>
+          <wizard.Footer />
+        </Show>
+      }
+    >
+      <QueryBoundary>
+        <Show when={all()}>
+          <Switch>
+            <Match when={blocked()}>
+              {(message) => <p class="meeting-form__state">{message()}</p>}
+            </Match>
+            <Match when={true}>
+              <wizard.Body publishedIds={publishedIds()} />
+            </Match>
+          </Switch>
+        </Show>
+      </QueryBoundary>
+    </PopupModal>
   );
 }
 
-interface WizardProps {
-  readonly meeting: Meeting;
-  readonly games: readonly Game[];
+interface WizardData {
+  readonly meeting: () => Meeting | undefined;
+  readonly games: () => readonly Game[];
   /** Aktywne dodatki wszystkich gier: wybór dodatków partii i ich notesy. */
-  readonly expansions: readonly Game[];
-  readonly publishedIds: readonly string[];
-  readonly pads: readonly Scorepad[];
-  readonly profiles: ReadonlyMap<string, Profile>;
+  readonly expansions: () => readonly Game[];
+  readonly pads: () => readonly Scorepad[];
+  readonly profiles: () => ReadonlyMap<string, Profile>;
 }
 
-function Wizard({ meeting, games, expansions, publishedIds, pads, profiles }: WizardProps) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const { back, replace } = usePopups();
-  const mounted = useMounted();
+/**
+ * Stan kreatora i jego dwie części w oknie: treść kroku i stopka z przyciskami. Dane są
+ * akcesorami: kreator pokazuje się dopiero po wczytaniu wszystkich zapytań.
+ */
+function createWizard(data: WizardData) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const popups = useContext(PopupsContext);
+  const mounted = createMounted();
   // Id partii: to samo przy ponowieniu (błąd sieci nie zdubluje partii), nowe po każdej zmianie
   // wyboru, bo baza zwraca istniejącą partię tylko dla identycznej treści.
-  const [playId, setPlayId] = useState(() => crypto.randomUUID());
-  const [step, setStep] = useState<NewPlayStep>('game');
-  const [gameId, setGameId] = useState<string | null>(null);
-  const [scorepadId, setScorepadId] = useState<string | null>(null);
-  const [seats, setSeats] = useState<Seats>([]);
-  const [expansionIds, setExpansionIds] = useState<readonly string[]>([]);
+  const [playId, setPlayId] = createSignal(crypto.randomUUID());
+  const [step, setStep] = createSignal<NewPlayStep>('game');
+  const [gameId, setGameId] = createSignal<string | null>(null);
+  const [scorepadId, setScorepadId] = createSignal<string | null>(null);
+  const [seats, setSeats] = createSignal<Seats>([]);
+  const [expansionIds, setExpansionIds] = createSignal<readonly string[]>([]);
 
   // Gracze: aktywni uczestnicy (usunięty z klubu zostaje w historii, ale nie zagra, MEM-5).
-  const participants = meeting.participants
-    .map((id) => profiles.get(id))
-    .filter((person): person is Profile => person !== undefined && person.deleted_at === null)
-    .sort(compareProfiles);
-  const byGame = scorepadsByGame(pads);
-  const expansionsOf = (baseId: string) => expansions.filter((e) => e.base_game_id === baseId);
+  const participants = createMemo(() =>
+    (data.meeting()?.participants ?? [])
+      .map((id) => data.profiles().get(id))
+      .filter((person): person is Profile => person !== undefined && person.deleted_at === null)
+      .sort(compareProfiles),
+  );
+  const byGame = createMemo(() => scorepadsByGame(data.pads()));
+  const expansionsOf = (baseId: string) =>
+    data.expansions().filter((e) => e.base_game_id === baseId);
   // Niedostępnych dodatków nie da się zaznaczyć: nie liczą się do graczy ani notesów partii.
   const availableExpansionsOf = (baseId: string) => expansionsOf(baseId).filter((e) => e.available);
   // Notesy gry i jej dodatków (notes dodatku tylko w partii z tym dodatkiem).
-  const padsOf = (titles: readonly Game[]) => titles.flatMap((title) => byGame.get(title.id) ?? []);
-  const titles = new Map([...games, ...expansions].map((title) => [title.id, title.title]));
-  const game = games.find((candidate) => candidate.id === gameId) ?? null;
-  const gameExpansions = game ? expansionsOf(game.id) : [];
-  const chosen = gameExpansions.filter(
-    (expansion) => expansion.available && expansionIds.includes(expansion.id),
+  const padsOf = (titles: readonly Game[]) =>
+    titles.flatMap((title) => byGame().get(title.id) ?? []);
+  const titles = createMemo(
+    () => new Map([...data.games(), ...data.expansions()].map((title) => [title.id, title.title])),
   );
-  const range = game ? combinedRange(game, chosen) : null;
-  const gamePads = game ? padsOf([game, ...chosen]) : [];
-  const pad = gamePads.find((candidate) => candidate.id === scorepadId) ?? null;
-  const bounds = range && pad ? playerBounds(range, scorepadSlots(pad), scorepadTeams(pad)) : null;
-  const hasExpansions = gameExpansions.some((expansion) => expansion.available);
-  const steps = newPlaySteps(hasExpansions);
+  const game = createMemo(
+    () => data.games().find((candidate) => candidate.id === gameId()) ?? null,
+  );
+  const gameExpansions = createMemo(() => {
+    const current = game();
+    return current ? expansionsOf(current.id) : [];
+  });
+  const chosen = createMemo(() =>
+    gameExpansions().filter(
+      (expansion) => expansion.available && expansionIds().includes(expansion.id),
+    ),
+  );
+  const range = createMemo(() => {
+    const current = game();
+    return current ? combinedRange(current, chosen()) : null;
+  });
+  const gamePads = createMemo(() => {
+    const current = game();
+    return current ? padsOf([current, ...chosen()]) : [];
+  });
+  const pad = createMemo(
+    () => gamePads().find((candidate) => candidate.id === scorepadId()) ?? null,
+  );
+  const bounds = createMemo(() => {
+    const players = range();
+    const current = pad();
+    return players && current
+      ? playerBounds(players, scorepadSlots(current), scorepadTeams(current))
+      : null;
+  });
+  const hasExpansions = () => gameExpansions().some((expansion) => expansion.available);
+  const steps = createMemo(() => newPlaySteps(hasExpansions()));
   // Jeden notes gry, który pasuje: krok „Notes” jest pomijany (RUN-2: „gdy gra ma ich kilka”).
-  const singlePad =
-    range && gamePads.length === 1 && fittingScorepads(range, gamePads).length === 1
-      ? gamePads[0]
+  const singlePad = createMemo(() => {
+    const players = range();
+    const list = gamePads();
+    return players && list.length === 1 && fittingScorepads(players, list).length === 1
+      ? list[0]
       : undefined;
+  });
 
-  const start = useMutation({
-    mutationFn: () => {
-      if (!pad) throw new StartPlayError('scorepadGone');
-      return startPlay(client, {
-        playId,
-        meetingId: meeting.id,
-        scorepadId: pad.id,
-        seats,
-        expansionIds: chosen.map((expansion) => expansion.id),
+  const [starting, setStarting] = createOptimistic(false);
+  const [started, setStarted] = createSignal(false);
+  const [failure, setFailure] = createSignal<string | null>(null);
+  const start = action(function* (id: string) {
+    setStarting(true);
+    setFailure(null);
+    try {
+      const current = pad();
+      const found = data.meeting();
+      if (!current || !found) throw new StartPlayError('scorepadGone');
+      yield startPlay(auth.client, {
+        playId: id,
+        meetingId: found.id,
+        scorepadId: current.id,
+        seats: seats(),
+        expansionIds: chosen().map((expansion) => expansion.id),
       });
-    },
-    onSuccess: () => {
-      toast.show(format(t.meetings.toasts.playStarted, { title: game?.title ?? '' }), 'success');
-      // Kreator ustępuje notesowi partii (PAD-4); Wstecz wraca do spotkania.
-      if (mounted.current) replace({ kind: 'play', id: playId });
-    },
-    // Także po błędzie: notes, gra albo spotkanie mogły się zmienić w innej karcie.
-    onSettled: (_, error) =>
-      Promise.all([
+    } catch (error) {
+      setFailure(error instanceof StartPlayError ? text.errors[error.reason] : text.errors.save);
+      // Także po błędzie: notes, gra albo spotkanie mogły się zmienić w innej karcie.
+      yield Promise.all([
         queryClient.invalidateQueries({ queryKey: meetingsKey }),
-        ...(error
-          ? [
-              queryClient.invalidateQueries({ queryKey: scorepadsKey }),
-              queryClient.invalidateQueries({ queryKey: gamesKey }),
-            ]
-          : []),
-      ]),
+        queryClient.invalidateQueries({ queryKey: scorepadsKey }),
+        queryClient.invalidateQueries({ queryKey: gamesKey }),
+      ]);
+      return;
+    }
+    setStarted(true);
+    toast.show(format(t.meetings.toasts.playStarted, { title: game()?.title ?? '' }), 'success');
+    // Kreator ustępuje notesowi partii (PAD-4); Wstecz wraca do spotkania. Zmiana stosu nie
+    // czeka na odświeżenie spotkań.
+    if (mounted()) popups.replace({ kind: 'play', id });
+    void queryClient.invalidateQueries({ queryKey: meetingsKey });
   });
   const changed = () => {
-    start.reset();
+    setFailure(null);
     setPlayId(crypto.randomUUID());
   };
 
   const chooseGame = (id: string) => {
-    if (id === gameId) return;
+    if (id === gameId()) return;
     setGameId(id);
     setScorepadId(null);
     setSeats([]);
@@ -214,19 +275,19 @@ function Wizard({ meeting, games, expansions, publishedIds, pads, profiles }: Wi
     changed();
   };
   const toggleExpansion = (id: string) => {
-    const next = expansionIds.includes(id)
-      ? expansionIds.filter((current) => current !== id)
-      : [...expansionIds, id];
+    const current = expansionIds();
+    const next = current.includes(id) ? current.filter((each) => each !== id) : [...current, id];
     setExpansionIds(next);
     // Notes odznaczonego dodatku nie pasuje już do partii: wybór notesu od nowa.
-    if (pad && pad.game_id !== gameId && !next.includes(pad.game_id)) {
+    const selected = pad();
+    if (selected && selected.game_id !== gameId() && !next.includes(selected.game_id)) {
       setScorepadId(null);
       setSeats([]);
     }
     changed();
   };
   const chooseScorepad = (next: Scorepad) => {
-    if (next.id === scorepadId) return;
+    if (next.id === scorepadId()) return;
     setScorepadId(next.id);
     setSeats(emptySeats(scorepadSlots(next)));
     changed();
@@ -241,130 +302,173 @@ function Wizard({ meeting, games, expansions, publishedIds, pads, profiles }: Wi
   const gameReasonOf = (candidate: Game) => {
     if (!candidate.available) return t.meetings.newPlay.reasons.unavailable;
     const full = fullRange(candidate);
-    return gameReason(full.range, full.pads, participants.length);
+    return gameReason(full.range, full.pads, participants().length);
   };
-  const gameReady = game !== null && gameReasonOf(game) === null;
-  const padReady = range !== null && pad !== null && scorepadReason(range, pad) === null;
-  const done: Record<NewPlayStep, boolean> = {
-    game: gameReady && step !== 'game',
-    expansions: gameReady && (step === 'scorepad' || step === 'players'),
-    scorepad: padReady && step === 'players',
+  const gameReady = createMemo(() => {
+    const current = game();
+    return current !== null && gameReasonOf(current) === null;
+  });
+  const padReady = createMemo(() => {
+    const players = range();
+    const current = pad();
+    return players !== null && current !== null && scorepadReason(players, current) === null;
+  });
+  const done = createMemo<Record<NewPlayStep, boolean>>(() => ({
+    game: gameReady() && step() !== 'game',
+    expansions: gameReady() && (step() === 'scorepad' || step() === 'players'),
+    scorepad: padReady() && step() === 'players',
     players: false,
-  };
+  }));
 
   const afterExpansions = () => {
-    if (singlePad) {
-      chooseScorepad(singlePad);
+    const only = singlePad();
+    if (only) {
+      chooseScorepad(only);
       setStep('players');
     } else {
       setStep('scorepad');
     }
   };
   const next = () => {
-    if (step === 'game' && gameReady) {
-      if (hasExpansions) setStep('expansions');
+    const current = step();
+    if (current === 'game' && gameReady()) {
+      if (hasExpansions()) setStep('expansions');
       else afterExpansions();
-    } else if (step === 'expansions') {
+    } else if (current === 'expansions') {
       afterExpansions();
-    } else if (step === 'scorepad' && padReady) {
+    } else if (current === 'scorepad' && padReady()) {
       setStep('players');
     }
   };
-  const beforeScorepad: NewPlayStep = hasExpansions ? 'expansions' : 'game';
+  const beforeScorepad = (): NewPlayStep => (hasExpansions() ? 'expansions' : 'game');
   const previous = () => {
-    if (step === 'players') setStep(singlePad ? beforeScorepad : 'scorepad');
-    else if (step === 'scorepad') setStep(beforeScorepad);
-    else if (step === 'expansions') setStep('game');
+    const current = step();
+    if (current === 'players') setStep(singlePad() ? beforeScorepad() : 'scorepad');
+    else if (current === 'scorepad') setStep(beforeScorepad());
+    else if (current === 'expansions') setStep('game');
   };
 
-  const problem = bounds ? seatsProblem(seats, bounds) : 'tooFew';
-  const failure =
-    start.error instanceof StartPlayError ? text.errors[start.error.reason] : text.errors.save;
-  const busy = start.isPending || start.isSuccess;
+  const problem = () => {
+    const limits = bounds();
+    return limits ? seatsProblem(seats(), limits) : 'tooFew';
+  };
+  const busy = () => starting() || started();
 
-  return (
-    <PopupModal
-      title={text.title}
-      footer={
-        <>
-          <Button variant="secondary" disabled={busy} onClick={step === 'game' ? back : previous}>
-            {step === 'game' ? text.cancel : text.back}
-          </Button>
-          {step === 'players' ? (
+  function Footer() {
+    return (
+      <>
+        <Button
+          variant="secondary"
+          disabled={busy()}
+          onClick={() => (step() === 'game' ? popups.back() : previous())}
+        >
+          {step() === 'game' ? text.cancel : text.back}
+        </Button>
+        <Show
+          when={step() === 'players'}
+          fallback={
             <Button
-              icon="play"
-              loading={start.isPending}
-              disabled={problem !== null || start.isSuccess}
-              onClick={() => start.mutate()}
-            >
-              {text.start}
-            </Button>
-          ) : (
-            <Button
-              disabled={step === 'game' ? !gameReady : step === 'scorepad' ? !padReady : false}
+              disabled={
+                step() === 'game' ? !gameReady() : step() === 'scorepad' ? !padReady() : false
+              }
               onClick={next}
             >
               {text.next}
             </Button>
-          )}
-        </>
-      }
-    >
-      <div className="meeting-view new-play">
+          }
+        >
+          <Button
+            icon="play"
+            loading={starting()}
+            disabled={problem() !== null || started()}
+            onClick={() => void start(playId())}
+          >
+            {text.start}
+          </Button>
+        </Show>
+      </>
+    );
+  }
+
+  function Body(props: { readonly publishedIds: readonly string[] }) {
+    return (
+      <div class="meeting-view new-play">
         <StepPills
-          steps={steps}
-          step={step}
-          done={done}
-          skipped={singlePad ? 'scorepad' : null}
-          onBack={busy ? undefined : setStep}
+          steps={steps()}
+          step={step()}
+          done={done()}
+          skipped={singlePad() ? 'scorepad' : null}
+          onBack={busy() ? undefined : setStep}
         />
-        {start.isError ? <Banner variant="error">{failure}</Banner> : null}
-        {step === 'game' ? (
-          <GameStep
-            games={games}
-            publishedIds={publishedIds}
-            padsFor={(candidate) => fullRange(candidate).pads}
-            reasonFor={gameReasonOf}
-            value={gameId}
-            onChange={chooseGame}
-          />
-        ) : null}
-        {step === 'expansions' && game ? (
-          <ExpansionsStep
-            game={game}
-            expansions={gameExpansions}
-            value={expansionIds}
-            onToggle={toggleExpansion}
-          />
-        ) : null}
-        {step === 'scorepad' && game && range ? (
-          <ScorepadStep
-            game={game}
-            range={range}
-            pads={gamePads}
-            titles={titles}
-            value={scorepadId}
-            onChange={chooseScorepad}
-          />
-        ) : null}
-        {step === 'players' && game && pad && bounds ? (
-          <PlayersStep
-            game={game}
-            expansions={chosen}
-            pad={pad}
-            bounds={bounds}
-            participants={participants}
-            seats={seats}
-            onChange={(nextSeats) => {
-              setSeats(nextSeats);
-              changed();
-            }}
-            disabled={busy}
-          />
-        ) : null}
+        <Show when={failure()}>{(message) => <Banner variant="error">{message()}</Banner>}</Show>
+        <Switch>
+          <Match when={step() === 'game'}>
+            <GameStep
+              games={data.games()}
+              publishedIds={props.publishedIds}
+              padsFor={(candidate) => fullRange(candidate).pads}
+              reasonFor={gameReasonOf}
+              value={gameId()}
+              onChange={chooseGame}
+            />
+          </Match>
+          <Match when={step() === 'expansions' && game()}>
+            {(current) => (
+              <ExpansionsStep
+                game={current()}
+                expansions={gameExpansions()}
+                value={expansionIds()}
+                onToggle={toggleExpansion}
+              />
+            )}
+          </Match>
+          <Match when={step() === 'scorepad' && game()}>
+            {(current) => (
+              <Show when={range()}>
+                {(players) => (
+                  <ScorepadStep
+                    game={current()}
+                    range={players()}
+                    pads={gamePads()}
+                    titles={titles()}
+                    value={scorepadId()}
+                    onChange={chooseScorepad}
+                  />
+                )}
+              </Show>
+            )}
+          </Match>
+          <Match when={step() === 'players' && game()}>
+            {(current) => (
+              <Show when={pad()}>
+                {(selected) => (
+                  <Show when={bounds()}>
+                    {(limits) => (
+                      <PlayersStep
+                        game={current()}
+                        expansions={chosen()}
+                        pad={selected()}
+                        bounds={limits()}
+                        participants={participants()}
+                        seats={seats()}
+                        onChange={(nextSeats) => {
+                          setSeats(nextSeats);
+                          changed();
+                        }}
+                        disabled={busy()}
+                      />
+                    )}
+                  </Show>
+                )}
+              </Show>
+            )}
+          </Match>
+        </Switch>
       </div>
-    </PopupModal>
-  );
+    );
+  }
+
+  return { Footer, Body };
 }
 
 /**
@@ -372,13 +476,7 @@ function Wizard({ meeting, games, expansions, publishedIds, pads, profiles }: Wi
  * z ptaszkiem w kolorze akcentu (przycisk powrotu do kroku), kolejny z obramowaniem.
  * Pominięty krok (jedyny pasujący notes) jest ukończony, ale bez powrotu.
  */
-function StepPills({
-  steps,
-  step,
-  done,
-  skipped,
-  onBack,
-}: {
+function StepPills(props: {
   readonly steps: readonly NewPlayStep[];
   readonly step: NewPlayStep;
   readonly done: Readonly<Record<NewPlayStep, boolean>>;
@@ -386,113 +484,98 @@ function StepPills({
   readonly onBack: ((step: NewPlayStep) => void) | undefined;
 }) {
   return (
-    <ol className="step-pills" aria-label={text.stepsLabel}>
-      {steps.map((id, index) => {
-        const name = text.steps[id];
-        const n = index + 1;
-        if (id === step) {
+    <ol class="step-pills" aria-label={text.stepsLabel}>
+      <For each={props.steps}>
+        {(id, index) => {
+          const name = text.steps[id];
           return (
-            <li key={id} className="step-pill step-pill--current" aria-current="step">
-              {format(text.stepCurrent, { n, name })}
-            </li>
+            <Switch
+              fallback={
+                <li class="step-pill step-pill--upcoming">
+                  {format(text.stepUpcoming, { n: index() + 1, name })}
+                </li>
+              }
+            >
+              <Match when={id === props.step}>
+                <li class="step-pill step-pill--current" aria-current="step">
+                  {format(text.stepCurrent, { n: index() + 1, name })}
+                </li>
+              </Match>
+              <Match when={props.done[id] && id === props.skipped}>
+                <li class="step-pill step-pill--done">
+                  <Icon name="check" size={14} />
+                  <span aria-hidden="true">{name}</span>
+                  <span class="sr-only">{format(text.stepSkipped, { name })}</span>
+                </li>
+              </Match>
+              <Match when={props.done[id]}>
+                <li>
+                  <button
+                    type="button"
+                    class="step-pill step-pill--done"
+                    aria-label={format(text.stepDone, { name })}
+                    disabled={!props.onBack}
+                    onClick={() => props.onBack?.(id)}
+                  >
+                    <Icon name="check" size={14} />
+                    <span aria-hidden="true">{name}</span>
+                  </button>
+                </li>
+              </Match>
+            </Switch>
           );
-        }
-        if (done[id] && id === skipped) {
-          return (
-            <li key={id} className="step-pill step-pill--done">
-              <Icon name="check" size={14} />
-              <span aria-hidden="true">{name}</span>
-              <span className="sr-only">{format(text.stepSkipped, { name })}</span>
-            </li>
-          );
-        }
-        if (done[id]) {
-          return (
-            <li key={id}>
-              <button
-                type="button"
-                className="step-pill step-pill--done"
-                aria-label={format(text.stepDone, { name })}
-                disabled={!onBack}
-                onClick={() => onBack?.(id)}
-              >
-                <Icon name="check" size={14} />
-                <span aria-hidden="true">{name}</span>
-              </button>
-            </li>
-          );
-        }
-        return (
-          <li key={id} className="step-pill step-pill--upcoming">
-            {format(text.stepUpcoming, { n, name })}
-          </li>
-        );
-      })}
+        }}
+      </For>
     </ol>
   );
 }
 
 /** Wiersz wyboru h64 (gra) albo h72 (notes) z radiem i powodem wyłączenia (DS §15). */
-function PickRow({
-  name,
-  value,
-  checked,
-  reason,
-  onSelect,
-  thumb,
-  title,
-  sub,
-  tall = false,
-}: {
+function PickRow(props: {
   readonly name: string;
   readonly value: string;
   readonly checked: boolean;
   readonly reason: string | null;
   readonly onSelect: () => void;
-  readonly thumb: ReactNode;
+  readonly thumb: JSX.Element;
   readonly title: string;
   readonly sub: string;
-  readonly tall?: boolean;
+  readonly tall?: boolean | undefined;
 }) {
-  const disabled = reason !== null;
+  const disabled = () => props.reason !== null;
   return (
-    <li className="tray__item">
+    <li class="tray__item">
       <label
-        className={cx(
+        class={[
           'choice row pick-row',
-          tall ? 'pick-row--tall' : 'row--64',
-          disabled && 'choice--disabled pick-row--disabled',
-        )}
+          props.tall ? 'pick-row--tall' : 'row--64',
+          disabled() ? 'choice--disabled pick-row--disabled' : undefined,
+        ]}
       >
         <input
           type="radio"
-          className="choice__input"
-          name={name}
-          value={value}
-          checked={checked}
-          disabled={disabled}
-          onChange={onSelect}
+          class="choice__input"
+          name={props.name}
+          value={props.value}
+          checked={props.checked}
+          disabled={disabled()}
+          onChange={() => props.onSelect()}
         />
-        <span className="radio" aria-hidden="true" />
-        <span className="pick-row__thumb">{thumb}</span>
-        <span className="pick-row__body">
-          <span className="pick-row__name">{title}</span>
-          <span className="pick-row__sub">{sub}</span>
-          {reason ? <span className="pick-row__reason">{reason}</span> : null}
+        <span class="radio" aria-hidden="true" />
+        <span class="pick-row__thumb">{props.thumb}</span>
+        <span class="pick-row__body">
+          <span class="pick-row__name">{props.title}</span>
+          <span class="pick-row__sub">{props.sub}</span>
+          <Show when={props.reason}>
+            <span class="pick-row__reason">{props.reason}</span>
+          </Show>
         </span>
       </label>
     </li>
   );
 }
 
-function GameStep({
-  games,
-  publishedIds,
-  padsFor,
-  reasonFor,
-  value,
-  onChange,
-}: {
+function GameStep(props: {
   readonly games: readonly Game[];
   readonly publishedIds: readonly string[];
   /** Notesy gry i jej dodatków. */
@@ -502,79 +585,86 @@ function GameStep({
   readonly value: string | null;
   readonly onChange: (id: string) => void;
 }) {
-  const name = useId();
-  const [query, setQuery] = useState('');
-  const groups = groupGames(games, publishedIds, query);
+  const name = createUniqueId();
+  const [query, setQuery] = createSignal('');
+  const groups = createMemo(() => groupGames(props.games, props.publishedIds, query()));
   const voting = t.meetings.voting;
-  const searching = query.trim() !== '';
-  const count = groups.published.length + groups.others.length;
-  const row = (game: Game) => {
-    const pads = padsFor(game);
-    return (
-      <PickRow
-        key={game.id}
-        name={name}
-        value={game.id}
-        checked={value === game.id}
-        reason={reasonFor(game)}
-        onSelect={() => onChange(game.id)}
-        thumb={
-          <GameCover
-            id={game.id}
-            title={game.title}
-            coverPath={game.cover_path}
-            size="thumb"
-            unavailable={!game.available}
-          />
-        }
-        title={game.title}
-        sub={gameSubtitle(game, pads)}
-      />
-    );
-  };
-  if (games.length === 0) {
-    return <EmptyState icon="dice" title={text.noGamesTitle} helper={text.noGamesHelper} />;
-  }
+  const searching = () => query().trim() !== '';
+  const count = () => groups().published.length + groups().others.length;
+  const GameRow = (row: { readonly game: Game }) => (
+    <PickRow
+      name={name}
+      value={row.game.id}
+      checked={props.value === row.game.id}
+      reason={props.reasonFor(row.game)}
+      onSelect={() => props.onChange(row.game.id)}
+      thumb={
+        <GameCover
+          id={row.game.id}
+          title={row.game.title}
+          coverPath={row.game.cover_path}
+          size="thumb"
+          unavailable={!row.game.available}
+        />
+      }
+      title={row.game.title}
+      sub={gameSubtitle(row.game, props.padsFor(row.game))}
+    />
+  );
   return (
-    <>
-      <p className="meeting-form__state">{text.gameIntro}</p>
+    <Show
+      when={props.games.length > 0}
+      fallback={<EmptyState icon="dice" title={text.noGamesTitle} helper={text.noGamesHelper} />}
+    >
+      <p class="meeting-form__state">{text.gameIntro}</p>
       <SearchField
         label={voting.searchLabel}
         placeholder={voting.searchPlaceholder}
-        value={query}
+        value={query()}
         onValueChange={setQuery}
       />
-      <p className="sr-only" role="status">
-        {searching ? plural(count, voting.results) : ''}
+      <p class="sr-only" role="status">
+        {searching() ? plural(count(), voting.results) : ''}
       </p>
-      {count === 0 ? (
-        <EmptyState
-          icon="search"
-          title={format(voting.noResultsTitle, { query: query.trim() })}
-          helper={voting.noResultsHelper}
-        />
-      ) : (
-        <fieldset className="new-play__group">
-          <legend className="sr-only">{text.gamesLabel}</legend>
-          {groups.published.length > 0 ? (
-            <section className="new-play__section" aria-labelledby={`${name}-published`}>
-              <h3 id={`${name}-published`} className="meeting-view__head">
+      <Show
+        when={count() > 0}
+        fallback={
+          <EmptyState
+            icon="search"
+            title={format(voting.noResultsTitle, { query: query().trim() })}
+            helper={voting.noResultsHelper}
+          />
+        }
+      >
+        <fieldset class="new-play__group">
+          <legend class="sr-only">{text.gamesLabel}</legend>
+          <Show when={groups().published.length > 0}>
+            <section class="new-play__section" aria-labelledby={`${name}-published`}>
+              <h3 id={`${name}-published`} class="meeting-view__head">
                 {text.published}
               </h3>
-              <Tray label={text.published}>{groups.published.map(row)}</Tray>
+              <Tray label={text.published}>
+                <For each={groups().published} keyed={(game) => game.id}>
+                  {(game) => <GameRow game={game()} />}
+                </For>
+              </Tray>
             </section>
-          ) : null}
-          {groups.others.length > 0 ? (
-            <section className="new-play__section" aria-labelledby={`${name}-others`}>
-              <h3 id={`${name}-others`} className="meeting-view__head">
-                {groups.published.length > 0 ? text.others : text.gamesLabel}
+          </Show>
+          <Show when={groups().others.length > 0}>
+            <section class="new-play__section" aria-labelledby={`${name}-others`}>
+              <h3 id={`${name}-others`} class="meeting-view__head">
+                {groups().published.length > 0 ? text.others : text.gamesLabel}
               </h3>
-              <Tray label={text.others}>{groups.others.map(row)}</Tray>
+              <Tray label={text.others}>
+                <For each={groups().others} keyed={(game) => game.id}>
+                  {(game) => <GameRow game={game()} />}
+                </For>
+              </Tray>
             </section>
-          ) : null}
+          </Show>
         </fieldset>
-      )}
-    </>
+      </Show>
+    </Show>
   );
 }
 
@@ -582,90 +672,78 @@ function GameStep({
  * Dodatki partii (pola wyboru): prowadzący zaznacza dodatki użyte w partii albo żaden. Dodatek
  * nie ma własnego rankingu: wyniki trafiają do gry podstawowej.
  */
-function ExpansionsStep({
-  game,
-  expansions,
-  value,
-  onToggle,
-}: {
+function ExpansionsStep(props: {
   readonly game: Game;
   readonly expansions: readonly Game[];
   readonly value: readonly string[];
   readonly onToggle: (id: string) => void;
 }) {
-  const label = format(text.expansionsLabel, { title: game.title });
+  const label = () => format(text.expansionsLabel, { title: props.game.title });
   return (
     <>
-      <p className="meeting-form__state">{format(text.expansionsIntro, { title: game.title })}</p>
-      <fieldset className="new-play__group">
-        <legend className="sr-only">{label}</legend>
-        <Tray label={label}>
-          {expansions.map((expansion) => {
-            const players = boundsLabel({
-              min: expansion.min_players,
-              max: expansion.max_players,
-            });
-            const disabled = !expansion.available;
-            return (
-              <li key={expansion.id} className="tray__item">
-                <label
-                  className={cx(
-                    'choice row pick-row row--64',
-                    disabled && 'choice--disabled pick-row--disabled',
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    className="choice__input"
-                    value={expansion.id}
-                    checked={!disabled && value.includes(expansion.id)}
-                    disabled={disabled}
-                    onChange={() => onToggle(expansion.id)}
-                  />
-                  <span className="checkbox" aria-hidden="true">
-                    <Icon name="check" size={14} />
-                  </span>
-                  <span className="pick-row__thumb">
-                    <GameCover
-                      id={expansion.id}
-                      title={expansion.title}
-                      coverPath={expansion.cover_path}
-                      size="thumb"
-                      unavailable={disabled}
+      <p class="meeting-form__state">{format(text.expansionsIntro, { title: props.game.title })}</p>
+      <fieldset class="new-play__group">
+        <legend class="sr-only">{label()}</legend>
+        <Tray label={label()}>
+          <For each={props.expansions} keyed={(expansion) => expansion.id}>
+            {(expansion) => {
+              const players = () =>
+                boundsLabel({ min: expansion().min_players, max: expansion().max_players });
+              const disabled = () => !expansion().available;
+              return (
+                <li class="tray__item">
+                  <label
+                    class={[
+                      'choice row pick-row row--64',
+                      disabled() ? 'choice--disabled pick-row--disabled' : undefined,
+                    ]}
+                  >
+                    <input
+                      type="checkbox"
+                      class="choice__input"
+                      value={expansion().id}
+                      checked={!disabled() && props.value.includes(expansion().id)}
+                      disabled={disabled()}
+                      onChange={() => props.onToggle(expansion().id)}
                     />
-                  </span>
-                  <span className="pick-row__body">
-                    <span className="pick-row__name">{expansion.title}</span>
-                    <span className="pick-row__sub">
-                      {expansion.complexity !== null
-                        ? format(text.expansionSub, {
-                            players,
-                            complexity: String(expansion.complexity).replace('.', ','),
-                          })
-                        : format(text.expansionSubNoComplexity, { players })}
+                    <span class="checkbox" aria-hidden="true">
+                      <Icon name="check" size={14} />
                     </span>
-                    {disabled ? (
-                      <span className="pick-row__reason">{text.reasons.expansionUnavailable}</span>
-                    ) : null}
-                  </span>
-                </label>
-              </li>
-            );
-          })}
+                    <span class="pick-row__thumb">
+                      <GameCover
+                        id={expansion().id}
+                        title={expansion().title}
+                        coverPath={expansion().cover_path}
+                        size="thumb"
+                        unavailable={disabled()}
+                      />
+                    </span>
+                    <span class="pick-row__body">
+                      <span class="pick-row__name">{expansion().title}</span>
+                      <span class="pick-row__sub">
+                        {expansion().complexity !== null
+                          ? format(text.expansionSub, {
+                              players: players(),
+                              complexity: String(expansion().complexity).replace('.', ','),
+                            })
+                          : format(text.expansionSubNoComplexity, { players: players() })}
+                      </span>
+                      <Show when={disabled()}>
+                        <span class="pick-row__reason">{text.reasons.expansionUnavailable}</span>
+                      </Show>
+                    </span>
+                  </label>
+                </li>
+              );
+            }}
+          </For>
         </Tray>
       </fieldset>
     </>
   );
 }
 
-function ScorepadStep({
-  game,
-  range,
-  pads,
-  titles,
-  value,
-  onChange,
-}: {
+function ScorepadStep(props: {
   readonly game: Game;
   /** Liczba graczy gry z wybranymi dodatkami. */
   readonly range: Pick<Game, 'min_players' | 'max_players'>;
@@ -675,48 +753,43 @@ function ScorepadStep({
   readonly value: string | null;
   readonly onChange: (pad: Scorepad) => void;
 }) {
-  const name = useId();
-  const label = format(text.scorepadsLabel, { title: game.title });
+  const name = createUniqueId();
+  const label = () => format(text.scorepadsLabel, { title: props.game.title });
   return (
     <>
-      <p className="meeting-form__state">{format(text.scorepadIntro, { title: game.title })}</p>
-      <fieldset className="new-play__group">
-        <legend className="sr-only">{label}</legend>
-        <Tray label={label}>
-          {pads.map((pad) => (
-            <PickRow
-              key={pad.id}
-              name={name}
-              value={pad.id}
-              checked={value === pad.id}
-              reason={scorepadReason(range, pad)}
-              onSelect={() => onChange(pad)}
-              thumb={<SheetThumbnail gameId={game.id} small />}
-              title={
-                pad.game_id === game.id
-                  ? pad.name
-                  : format(text.scorepadOf, { pad: pad.name, title: titles.get(pad.game_id) ?? '' })
-              }
-              sub={scorepadSubtitle(pad)}
-              tall
-            />
-          ))}
+      <p class="meeting-form__state">{format(text.scorepadIntro, { title: props.game.title })}</p>
+      <fieldset class="new-play__group">
+        <legend class="sr-only">{label()}</legend>
+        <Tray label={label()}>
+          <For each={props.pads} keyed={(pad) => pad.id}>
+            {(pad) => (
+              <PickRow
+                name={name}
+                value={pad().id}
+                checked={props.value === pad().id}
+                reason={scorepadReason(props.range, pad())}
+                onSelect={() => props.onChange(pad())}
+                thumb={<SheetThumbnail gameId={props.game.id} small />}
+                title={
+                  pad().game_id === props.game.id
+                    ? pad().name
+                    : format(text.scorepadOf, {
+                        pad: pad().name,
+                        title: props.titles.get(pad().game_id) ?? '',
+                      })
+                }
+                sub={scorepadSubtitle(pad())}
+                tall
+              />
+            )}
+          </For>
         </Tray>
       </fieldset>
     </>
   );
 }
 
-function PlayersStep({
-  game,
-  expansions,
-  pad,
-  bounds,
-  participants,
-  seats,
-  onChange,
-  disabled,
-}: {
+function PlayersStep(props: {
   readonly game: Game;
   /** Wybrane dodatki partii. */
   readonly expansions: readonly Game[];
@@ -727,112 +800,124 @@ function PlayersStep({
   readonly onChange: (seats: Seats) => void;
   readonly disabled: boolean;
 }) {
-  const headingId = useId();
-  const [openSeat, setOpenSeat] = useState<number | null>(null);
-  const teams = scorepadTeams(pad);
-  const seated = seatedPlayers(seats);
-  const full = seated.length >= bounds.max;
-  const outside = participants.filter((person) => !seated.includes(person.id));
-  const free = firstFreeSeat(seats);
-  const problem = seatsProblem(seats, bounds);
-  const byId = new Map(participants.map((person) => [person.id, person]));
+  const headingId = createUniqueId();
+  const [openSeat, setOpenSeat] = createSignal<number | null>(null);
+  const teams = () => scorepadTeams(props.pad);
+  const seated = createMemo(() => seatedPlayers(props.seats));
+  const full = () => seated().length >= props.bounds.max;
+  const outside = createMemo(() =>
+    props.participants.filter((person) => !seated().includes(person.id)),
+  );
+  const free = () => firstFreeSeat(props.seats);
+  const problem = () => seatsProblem(props.seats, props.bounds);
+  const byId = createMemo(() => new Map(props.participants.map((person) => [person.id, person])));
   return (
-    <section className="new-play__section" aria-labelledby={headingId}>
-      <p className="meeting-form__state">
+    <section class="new-play__section" aria-labelledby={headingId}>
+      <p class="meeting-form__state">
         {format(text.seatsIntro, {
           title:
-            expansions.length > 0
+            props.expansions.length > 0
               ? format(text.withExpansions, {
-                  title: game.title,
-                  expansions: expansions.map((expansion) => expansion.title).join(', '),
+                  title: props.game.title,
+                  expansions: props.expansions.map((expansion) => expansion.title).join(', '),
                 })
-              : game.title,
-          notes: pad.name,
-          range: boundsLabel(bounds),
+              : props.game.title,
+          notes: props.pad.name,
+          range: boundsLabel(props.bounds),
         })}
       </p>
-      {expansions.length > 0 ? (
-        <p className="meeting-form__hint" aria-live="polite">
+      <Show when={props.expansions.length > 0}>
+        <p class="meeting-form__hint" aria-live="polite">
           {format(text.scoring, {
-            title: scoringTitle(game, expansions, Math.max(seated.length, bounds.min)).title,
+            title: scoringTitle(
+              props.game,
+              props.expansions,
+              Math.max(seated().length, props.bounds.min),
+            ).title,
           })}
         </p>
-      ) : null}
-      <div className="meeting-view__head-row">
-        <h3 id={headingId} className="meeting-view__head">
+      </Show>
+      <div class="meeting-view__head-row">
+        <h3 id={headingId} class="meeting-view__head">
           {text.seatsTitle}
         </h3>
-        <span className="meeting-view__note" aria-live="polite">
-          {teams
+        <span class="meeting-view__note" aria-live="polite">
+          {teams()
             ? format(text.teamsCount, {
-                n: seated.length,
-                seats: seats.filter((ids) => ids.length > 0).length,
-                total: seats.length,
+                n: seated().length,
+                seats: props.seats.filter((ids) => ids.length > 0).length,
+                total: props.seats.length,
               })
-            : format(text.seatsCount, { n: seated.length, total: seats.length })}
+            : format(text.seatsCount, { n: seated().length, total: props.seats.length })}
         </span>
       </div>
-      {teams ? <p className="meeting-form__hint">{text.teamsHint}</p> : null}
-      <ol className="seat-list" aria-label={text.seatsLabel}>
-        {seats.map((ids, index) => (
-          <SeatRow
-            key={index}
-            index={index}
-            players={ids.flatMap((id) => {
-              const person = byId.get(id);
-              return person ? [person] : [];
-            })}
-            seats={seats}
-            participants={participants}
-            teams={teams}
-            canAdd={!full}
-            open={openSeat === index}
-            disabled={disabled}
-            onToggle={() => setOpenSeat((current) => (current === index ? null : index))}
-            onPick={(profileId) => {
-              if (teams && profileId !== null) {
-                // Zespół: lista zostaje otwarta, żeby dodać kolejnych graczy.
-                onChange(toggleTeamMember(seats, index, profileId));
-                return;
-              }
-              onChange(assignSeat(seats, index, profileId));
-              setOpenSeat(null);
-            }}
-            onClose={() => setOpenSeat(null)}
-          />
-        ))}
+      <Show when={teams()}>
+        <p class="meeting-form__hint">{text.teamsHint}</p>
+      </Show>
+      <ol class="seat-list" aria-label={text.seatsLabel}>
+        <For each={props.seats} keyed={false}>
+          {(ids, index) => (
+            <SeatRow
+              index={index}
+              players={ids().flatMap((id) => {
+                const person = byId().get(id);
+                return person ? [person] : [];
+              })}
+              seats={props.seats}
+              participants={props.participants}
+              teams={teams()}
+              canAdd={!full()}
+              open={openSeat() === index}
+              disabled={props.disabled}
+              onToggle={() => setOpenSeat((current) => (current === index ? null : index))}
+              onPick={(profileId) => {
+                if (teams() && profileId !== null) {
+                  // Zespół: lista zostaje otwarta, żeby dodać kolejnych graczy.
+                  props.onChange(toggleTeamMember(props.seats, index, profileId));
+                  return;
+                }
+                props.onChange(assignSeat(props.seats, index, profileId));
+                setOpenSeat(null);
+              }}
+              onClose={() => setOpenSeat(null)}
+            />
+          )}
+        </For>
       </ol>
-      <div className="seat-outside">
-        <span className="seat-outside__label">{text.outside}</span>
-        {outside.length === 0 ? (
-          <span className="seat-outside__none">{text.allSeated}</span>
-        ) : (
-          <ul className="seat-outside__list" aria-label={text.outsideLabel}>
-            {outside.map((person) => (
-              <li key={person.id}>
-                <button
-                  type="button"
-                  className="seat-pill"
-                  aria-label={format(text.addToSeat, { name: fullName(person) })}
-                  disabled={disabled || full || free < 0}
-                  onClick={() => onChange(assignSeat(seats, free, person.id))}
-                >
-                  <ProfileAvatar profile={person} size={20} decorative />
-                  <span aria-hidden="true">{fullName(person)}</span>
-                </button>
-              </li>
-            ))}
+      <div class="seat-outside">
+        <span class="seat-outside__label">{text.outside}</span>
+        <Show
+          when={outside().length > 0}
+          fallback={<span class="seat-outside__none">{text.allSeated}</span>}
+        >
+          <ul class="seat-outside__list" aria-label={text.outsideLabel}>
+            <For each={outside()} keyed={(person) => person.id}>
+              {(person) => (
+                <li>
+                  <button
+                    type="button"
+                    class="seat-pill"
+                    aria-label={format(text.addToSeat, { name: fullName(person()) })}
+                    disabled={props.disabled || full() || free() < 0}
+                    onClick={() => props.onChange(assignSeat(props.seats, free(), person().id))}
+                  >
+                    <ProfileAvatar profile={person()} size={20} decorative />
+                    <span aria-hidden="true">{fullName(person())}</span>
+                  </button>
+                </li>
+              )}
+            </For>
           </ul>
-        )}
+        </Show>
       </div>
-      <p className="meeting-form__hint" aria-live="polite">
-        {problem === 'tooFew'
-          ? plural(bounds.min, text.tooFew)
-          : problem === 'tooMany'
-            ? plural(bounds.max, text.tooMany)
-            : problem === 'sides'
+      <p class="meeting-form__hint" aria-live="polite">
+        {problem() === 'tooFew'
+          ? plural(props.bounds.min, text.tooFew)
+          : problem() === 'tooMany'
+            ? plural(props.bounds.max, text.tooMany)
+            : problem() === 'sides'
               ? text.tooFewSides
-              : full && outside.length > 0 && free >= 0
+              : full() && outside().length > 0 && free() >= 0
                 ? text.full
                 : ''}
       </p>
@@ -845,19 +930,7 @@ function PlayersStep({
  * strzałka; wolne: przerywane obramowanie „Wybierz gracza”. Pole rozwija listę uczestników
  * (PAD-2: wybór zamiast wpisywania imion); gracz z innego miejsca przesiada się.
  */
-function SeatRow({
-  index,
-  players,
-  seats,
-  participants,
-  teams,
-  canAdd,
-  open,
-  disabled,
-  onToggle,
-  onPick,
-  onClose,
-}: {
+function SeatRow(props: {
   readonly index: number;
   readonly players: readonly Profile[];
   readonly seats: Seats;
@@ -871,117 +944,130 @@ function SeatRow({
   readonly onPick: (profileId: string | null) => void;
   readonly onClose: () => void;
 }) {
-  const n = index + 1;
-  const player = players[0] ?? null;
-  const names = players.map(fullName).join(', ');
-  const listId = useId();
-  const button = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLUListElement>(null);
-  const wasOpen = useRef(false);
+  const n = () => props.index + 1;
+  const player = () => props.players[0] ?? null;
+  const names = () => props.players.map(fullName).join(', ');
+  const listId = createUniqueId();
+  let button: HTMLButtonElement | undefined;
+  let list: HTMLUListElement | undefined;
+  let wasOpen = false;
 
-  useEffect(() => {
-    if (open) {
-      list.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
-    } else if (wasOpen.current) {
-      button.current?.focus();
-    }
-    wasOpen.current = open;
-  }, [open]);
+  createEffect(
+    () => props.open,
+    (open) => {
+      if (open) {
+        list?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+      } else if (wasOpen) {
+        button?.focus();
+      }
+      wasOpen = open;
+    },
+  );
 
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Escape' && open) {
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && props.open) {
       // Esc zamyka listę, a nie popup pod nią.
       event.preventDefault();
       event.stopPropagation();
-      onClose();
+      props.onClose();
     }
   };
 
   return (
-    <li className="seat" onKeyDown={onKeyDown}>
-      <div className="seat__row">
-        <span className="seat__number" aria-hidden="true">
-          {n}
+    <li class="seat" onKeyDown={onKeyDown}>
+      <div class="seat__row">
+        <span class="seat__number" aria-hidden="true">
+          {n()}
         </span>
         <button
-          ref={button}
+          ref={(el) => (button = el)}
           type="button"
-          className={cx('seat__field', player ? 'seat__field--filled' : 'seat__field--empty')}
+          class={['seat__field', player() ? 'seat__field--filled' : 'seat__field--empty']}
           aria-label={
-            player
-              ? format(teams ? text.teamFilled : text.seatFilled, { n, name: names })
-              : format(teams ? text.teamChoose : text.seatChoose, { n })
+            player()
+              ? format(props.teams ? text.teamFilled : text.seatFilled, { n: n(), name: names() })
+              : format(props.teams ? text.teamChoose : text.seatChoose, { n: n() })
           }
-          aria-expanded={open}
-          aria-controls={open ? listId : undefined}
-          disabled={disabled}
-          onClick={onToggle}
+          aria-expanded={ariaBool(props.open)}
+          aria-controls={props.open ? listId : undefined}
+          disabled={props.disabled}
+          onClick={() => props.onToggle()}
         >
-          {player ? (
-            <>
-              <span className="seat__avatars">
-                {players.map((person) => (
-                  <ProfileAvatar key={person.id} profile={person} size={32} decorative />
-                ))}
-              </span>
-              <span className="seat__name">{names}</span>
-              <Icon name="chevron-down" className="seat__chevron" />
-            </>
-          ) : (
-            <>
-              <Icon name="plus" className="seat__chevron" />
-              <span className="seat__name">{teams ? text.teamEmpty : text.seatEmpty}</span>
-            </>
-          )}
+          <Show
+            when={player()}
+            fallback={
+              <>
+                <Icon name="plus" class="seat__chevron" />
+                <span class="seat__name">{props.teams ? text.teamEmpty : text.seatEmpty}</span>
+              </>
+            }
+          >
+            <span class="seat__avatars">
+              <For each={props.players} keyed={(person) => person.id}>
+                {(person) => <ProfileAvatar profile={person()} size={32} decorative />}
+              </For>
+            </span>
+            <span class="seat__name">{names()}</span>
+            <Icon name="chevron-down" class="seat__chevron" />
+          </Show>
         </button>
       </div>
-      {open ? (
+      <Show when={props.open}>
         <ul
-          ref={list}
+          ref={(el) => (list = el)}
           id={listId}
-          className="seat-picker"
-          aria-label={format(text.pickerLabel, { n })}
+          class="seat-picker"
+          aria-label={format(text.pickerLabel, { n: n() })}
         >
-          {participants.map((person) => {
-            const at = seatOf(seats, person.id);
-            const here = at === index;
-            // Nowy gracz z listy (nie przesiadka) tylko, gdy partia ma jeszcze wolne miejsce;
-            // w zespole każdy nowy gracz zwiększa liczbę graczy partii.
-            const blocked = at < 0 && (teams || !player) && !canAdd;
-            return (
-              <li key={person.id}>
-                <button
-                  type="button"
-                  className={cx('seat-picker__option', here && 'seat-picker__option--current')}
-                  aria-pressed={here}
-                  disabled={blocked}
-                  onClick={() => onPick(person.id)}
-                >
-                  <ProfileAvatar profile={person} size={32} decorative />
-                  <span className="seat__name">{fullName(person)}</span>
-                  {here ? (
-                    <Icon name="check" size={16} className="seat-picker__check" />
-                  ) : at >= 0 ? (
-                    <span className="seat-picker__seat">{format(text.seat, { n: at + 1 })}</span>
-                  ) : null}
-                </button>
-              </li>
-            );
-          })}
-          {player ? (
+          <For each={props.participants} keyed={(person) => person.id}>
+            {(person) => {
+              const at = () => seatOf(props.seats, person().id);
+              const here = () => at() === props.index;
+              // Nowy gracz z listy (nie przesiadka) tylko, gdy partia ma jeszcze wolne miejsce;
+              // w zespole każdy nowy gracz zwiększa liczbę graczy partii.
+              const blocked = () => at() < 0 && (props.teams || !player()) && !props.canAdd;
+              return (
+                <li>
+                  <button
+                    type="button"
+                    class={['seat-picker__option', { 'seat-picker__option--current': here() }]}
+                    aria-pressed={ariaBool(here())}
+                    disabled={blocked()}
+                    onClick={() => props.onPick(person().id)}
+                  >
+                    <ProfileAvatar profile={person()} size={32} decorative />
+                    <span class="seat__name">{fullName(person())}</span>
+                    <Show
+                      when={here()}
+                      fallback={
+                        <Show when={at() >= 0}>
+                          <span class="seat-picker__seat">
+                            {format(text.seat, { n: at() + 1 })}
+                          </span>
+                        </Show>
+                      }
+                    >
+                      <Icon name="check" size={16} class="seat-picker__check" />
+                    </Show>
+                  </button>
+                </li>
+              );
+            }}
+          </For>
+          <Show when={player()}>
             <li>
               <button
                 type="button"
-                className="seat-picker__option seat-picker__option--clear"
-                onClick={() => onPick(null)}
+                class="seat-picker__option seat-picker__option--clear"
+                onClick={() => props.onPick(null)}
               >
                 <Icon name="x" size={16} />
                 <span>{text.clearSeat}</span>
               </button>
             </li>
-          ) : null}
+          </Show>
         </ul>
-      ) : null}
+      </Show>
     </li>
   );
 }

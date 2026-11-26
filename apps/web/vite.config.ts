@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import react from '@vitejs/plugin-react';
+import solid from '@solidjs/vite-plugin';
 import { loadEnv, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { isSecretKey } from './src/config/secretKey';
@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
   return {
     // Service worker powłoki (NFR-3): `dist/sw.js` z listą plików tego buildu.
     plugins: [
-      react(),
+      solid(),
       pwaPlugin(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url))),
       preconnectPlugin(env.VITE_SUPABASE_URL),
     ],

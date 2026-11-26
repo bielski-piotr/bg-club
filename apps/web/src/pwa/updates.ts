@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { createMemo, createSignal, onCleanup, type Accessor } from 'solid-js';
 
 /*
  * Aktualizacje aplikacji (PRD NFR-3, PAD-4). Nowy service worker instaluje się w tle i czeka;
@@ -113,8 +113,18 @@ export class PwaStore {
 
 export const pwa = new PwaStore();
 
-export function usePwa(store: PwaStore = pwa): PwaSnapshot {
-  return useSyncExternalStore(store.subscribe, store.getSnapshot);
+/** Stan aktualizacji jako akcesor; `store` domyślnie sklep karty (`pwa`). */
+export function createPwa(store: Accessor<PwaStore> = () => pwa): Accessor<PwaSnapshot> {
+  const [version, setVersion] = createSignal(0);
+  const current = createMemo(() => {
+    const value = store();
+    onCleanup(value.subscribe(() => setVersion((n) => n + 1)));
+    return value;
+  });
+  return createMemo(() => {
+    version();
+    return current().getSnapshot();
+  });
 }
 
 export interface RegisterOptions {
@@ -168,15 +178,14 @@ export async function registerServiceWorker(
 }
 
 /** Stan połączenia przeglądarki (`navigator.onLine`, zdarzenia `online`/`offline`). */
-export function useOnline(): boolean {
-  return useSyncExternalStore(subscribeOnline, () => navigator.onLine);
-}
-
-function subscribeOnline(listener: () => void) {
+export function createOnline(): Accessor<boolean> {
+  const [online, setOnline] = createSignal(navigator.onLine);
+  const listener = () => setOnline(navigator.onLine);
   window.addEventListener('online', listener);
   window.addEventListener('offline', listener);
-  return () => {
+  onCleanup(() => {
     window.removeEventListener('online', listener);
     window.removeEventListener('offline', listener);
-  };
+  });
+  return online;
 }

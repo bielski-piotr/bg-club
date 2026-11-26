@@ -1,14 +1,8 @@
-import type { ReactNode } from 'react';
-import { useAuth } from '../auth/authContext';
+import type { JSX } from '@solidjs/web';
+import { Show } from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
-import { useClub } from '../hub/club';
 import { format, t } from '../i18n';
-import { todayIn } from '../meetings/datetime';
-import { Button } from '../ui';
-import { datesValue, gamesValue, useGameTitles } from './filterLabels';
-import { DateRangeCalendar } from './DateRangeCalendar';
-import { FilterPopover } from './FilterPopover';
-import { GameFilterPanel } from './GameFilter';
+import { datesValue, gamesValue } from './filterLabels';
 import {
   hasDateFilter,
   hasFilters,
@@ -17,22 +11,27 @@ import {
   withGames,
   type LeaderboardFilters,
 } from './filters';
+import { todayIn } from '../meetings/datetime';
+import { createClub } from '../club/clubData';
+import { Button } from '../ui/Button';
+import { createSlot } from '../ui/dom';
+import { DateRangeCalendar } from './DateRangeCalendar';
+import { FilterPopover } from './FilterPopover';
+import { GameFilterPanel } from './GameFilter';
+import { createGameTitles } from './gameTitles';
 
-/** Panel gier: kolekcja wczytywana przy otwarciu panelu. */
-function GamesPanel({
-  selected,
-  onChange,
-}: {
+/** Panel gier: kolekcja wczytywana przy otwarciu panelu; stany listy pokazuje sam panel. */
+function GamesPanel(props: {
   readonly selected: readonly string[];
   readonly onChange: (games: readonly string[]) => void;
 }) {
-  const { games } = useGameTitles(true);
+  const { games } = createGameTitles(() => true);
   return (
     <GameFilterPanel
-      games={games.data}
-      failed={games.isError && !games.data}
-      selected={selected}
-      onChange={onChange}
+      games={games.current()}
+      failed={games.state()?.isError === true && games.current() === undefined}
+      selected={props.selected}
+      onChange={(next) => props.onChange(next)}
     />
   );
 }
@@ -41,70 +40,71 @@ export interface FilterBarProps {
   readonly filters: LeaderboardFilters;
   readonly onChange: (filters: LeaderboardFilters) => void;
   /** Dodatkowa akcja na końcu paska (np. „Remisy”). */
-  readonly extra?: ReactNode | undefined;
+  readonly extra?: JSX.Element | undefined;
   /** Nazwa grupy filtrów dla czytników ekranu; domyślnie „Filtry rankingu”. */
   readonly label?: string | undefined;
 }
 
 /**
- * Pasek filtrów rankingu (widżet i popup): zakres dat w kalendarzu, gry z autouzupełnianiem
- * i „Wyczyść filtry” (wszystkie gry, cała historia). Filtry działają osobno i razem; bez
- * filtrów kontrolki nie mają nic zaznaczonego.
+ * Pasek filtrów rankingu (widżet, popup, profil): zakres dat w kalendarzu, gry
+ * z autouzupełnianiem i „Wyczyść filtry” (wszystkie gry, cała historia).
  */
-export function FilterBar({ filters, onChange, extra, label }: FilterBarProps) {
-  const { client } = useAuth();
-  const club = useClub(client);
-  const today = todayIn(club.data?.timezone ?? FALLBACK_TIMEZONE);
-  const { titles } = useGameTitles(filters.games.length > 0);
+export function FilterBar(props: FilterBarProps) {
   const text = t.leaderboard.filters;
-  const dates = datesValue(filters);
-  const gamesText = gamesValue(filters, titles);
+  const club = createClub();
+  const today = () => todayIn(club.current()?.timezone ?? FALLBACK_TIMEZONE);
+  const { titles } = createGameTitles(() => props.filters.games.length > 0);
+  const dates = () => datesValue(props.filters);
+  const gamesText = () => gamesValue(props.filters, titles());
+  const extra = createSlot(() => props.extra);
 
   return (
-    <div className="lb-filters" role="group" aria-label={label ?? text.label}>
+    <div class="lb-filters" role="group" aria-label={props.label ?? text.label}>
       <FilterPopover
         label={text.dates}
-        triggerLabel={format(text.datesLabel, { value: dates })}
-        value={dates}
+        triggerLabel={format(text.datesLabel, { value: dates() })}
+        value={dates()}
         icon="calendar"
-        active={hasDateFilter(filters)}
+        active={hasDateFilter(props.filters)}
         clearLabel={text.clearDates}
-        onClear={() => onChange(withDates(filters, null, null))}
+        onClear={() => props.onChange(withDates(props.filters, null, null))}
       >
         <DateRangeCalendar
-          from={filters.from}
-          to={filters.to}
-          today={today}
-          onChange={(from, to) => onChange(withDates(filters, from, to))}
+          from={props.filters.from}
+          to={props.filters.to}
+          today={today()}
+          onChange={(from, to) => props.onChange(withDates(props.filters, from, to))}
         />
       </FilterPopover>
       <FilterPopover
         label={text.games}
-        triggerLabel={format(text.gamesLabel, { value: gamesText })}
-        value={gamesText}
+        triggerLabel={format(text.gamesLabel, { value: gamesText() })}
+        value={gamesText()}
         icon="dice"
-        active={filters.games.length > 0}
+        active={props.filters.games.length > 0}
         clearLabel={text.clearGames}
-        onClear={() => onChange(withGames(filters, []))}
+        onClear={() => props.onChange(withGames(props.filters, []))}
       >
         <GamesPanel
-          selected={filters.games}
-          onChange={(next) => onChange(withGames(filters, next))}
+          selected={props.filters.games}
+          onChange={(next) => props.onChange(withGames(props.filters, next))}
         />
       </FilterPopover>
-      {hasFilters(filters) ? (
+      <Show when={hasFilters(props.filters)}>
         <Button
           size="sm"
           variant="secondary"
           icon="undo"
-          className="lb-filters__reset"
+          class="lb-filters__reset"
           aria-label={text.resetLabel}
-          onClick={() => onChange(NO_FILTERS)}
+          onClick={() => props.onChange(NO_FILTERS)}
         >
           {text.reset}
         </Button>
-      ) : null}
-      {extra ? <div className="lb-filters__extra">{extra}</div> : null}
+      </Show>
+      <Show when={extra()}>
+        <div class="lb-filters__extra">{extra()}</div>
+      </Show>
     </div>
   );
 }

@@ -1,13 +1,16 @@
 import { AuthApiError, type SupabaseClient } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/query-core';
+import { QueryClientContext } from '../lib/queryClient';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
+import { act } from '../test/render';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
-import { ownProfileKey, type OwnProfile } from '../auth/useOwnProfile';
-import { Hub } from '../hub/Hub';
+import { ownProfileKey, type OwnProfile } from '../auth/ownProfile';
+import { Hub } from './Hub';
 import { PopupRouter } from '../popups/PopupRouter';
-import { useProfileTheme } from '../theme/useProfileTheme';
-import { getThemePreference, setThemePreference } from '../theme/useTheme';
+import { createProfileTheme } from '../theme/createTheme';
+import { getThemePreference, setThemePreference } from '../theme/themeStore';
+import { createSignal, flush } from 'solid-js';
 import { ToastProvider } from '../ui';
 
 const BEA: OwnProfile = {
@@ -85,21 +88,22 @@ function renderHub(me: OwnProfile, options: FakeOptions = {}) {
   } as unknown as AuthContextValue;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   queryClient.setQueryData(ownProfileKey(me.id), me);
-  const view = render(
-    <QueryClientProvider client={queryClient}>
+  const view = render(() => (
+    <QueryClientContext value={queryClient}>
       <ToastProvider>
-        <AuthContext.Provider value={auth}>
+        <AuthContext value={auth}>
           <PopupRouter>
             <Hub me={me} />
           </PopupRouter>
-        </AuthContext.Provider>
+        </AuthContext>
       </ToastProvider>
-    </QueryClientProvider>,
-  );
+    </QueryClientContext>
+  ));
   return { ...fake, auth, queryClient, view };
 }
 
-const type = (field: HTMLElement, value: string) => fireEvent.change(field, { target: { value } });
+// Wartość pola idzie zdarzeniem `input` (jak przy pisaniu).
+const type = (field: HTMLElement, value: string) => fireEvent.input(field, { target: { value } });
 
 describe('ustawienia (USR-5, USR-8)', () => {
   it('zapisuje imię i nazwisko z przyciętymi spacjami i wraca do huba', async () => {
@@ -155,23 +159,30 @@ describe('ustawienia (USR-5, USR-8)', () => {
 });
 
 describe('motyw z profilu (USR-8)', () => {
-  function Probe({ theme }: { readonly theme: OwnProfile['theme'] | undefined }) {
-    useProfileTheme(theme);
-    return null;
-  }
-
   it('stosuje motyw zapisany w profilu, gdy różni się od lokalnej kopii', () => {
     setThemePreference('light');
-    const view = render(<Probe theme={undefined} />);
+    /** Profil z cache; każdy zapis to świeży obiekt (jak po ponownym pobraniu). */
+    const [profile, setProfile] = createSignal<{ theme: OwnProfile['theme'] | undefined }>({
+      theme: undefined,
+    });
+    function Probe() {
+      createProfileTheme(() => profile().theme);
+      return null;
+    }
+    render(() => <Probe />);
+    flush();
     expect(getThemePreference()).toBe('light');
-    view.rerender(<Probe theme="dark" />);
+    setProfile({ theme: 'dark' });
+    flush();
     expect(getThemePreference()).toBe('dark');
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
     // Lokalny wybór (np. w ustawieniach) nie jest cofany, dopóki profil się nie zmieni.
     act(() => setThemePreference('light'));
-    view.rerender(<Probe theme="dark" />);
+    setProfile({ theme: 'dark' });
+    flush();
     expect(getThemePreference()).toBe('light');
-    view.rerender(<Probe theme="system" />);
+    setProfile({ theme: 'system' });
+    flush();
     expect(getThemePreference()).toBe('system');
     expect(document.documentElement).not.toHaveAttribute('data-theme');
   });
@@ -185,14 +196,15 @@ describe('zmiana hasła (USR-5)', () => {
     });
     const dialog = await screen.findByRole('dialog', { name: 'Zmiana hasła' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zmień hasło' }));
-    expect(within(dialog).getByText('Wpisz obecne hasło.')).toBeInTheDocument();
+    // Komunikaty pojawiają się w mikrozadaniu po zdarzeniu.
+    expect(await within(dialog).findByText('Wpisz obecne hasło.')).toBeInTheDocument();
     expect(within(dialog).getByText('Wpisz nowe hasło.')).toBeInTheDocument();
     expect(within(dialog).getByText('Powtórz nowe hasło.')).toBeInTheDocument();
 
     type(within(dialog).getByLabelText('Obecne hasło'), 'zle-haslo');
     type(within(dialog).getByLabelText('Nowe hasło'), 'nowe-haslo-123');
     type(within(dialog).getByLabelText('Powtórz nowe hasło'), 'nowe-haslo-124');
-    expect(within(dialog).getByText('Hasła nie są takie same.')).toBeInTheDocument();
+    expect(await within(dialog).findByText('Hasła nie są takie same.')).toBeInTheDocument();
     expect(fake.updateUser).not.toHaveBeenCalled();
 
     type(within(dialog).getByLabelText('Powtórz nowe hasło'), 'nowe-haslo-123');

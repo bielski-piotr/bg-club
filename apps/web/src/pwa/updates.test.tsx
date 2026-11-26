@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@solidjs/testing-library';
+import { act } from '../test/render';
 import { describe, expect, it, vi } from 'vitest';
 import { AppStatus } from './AppStatus';
 import { PwaStore, registerServiceWorker } from './updates';
@@ -146,26 +147,26 @@ describe('aktualizacje aplikacji (NFR-3)', () => {
 });
 
 describe('AppStatus', () => {
-  it('bez sieci mówi wprost, że aplikacja potrzebuje internetu', () => {
+  it('bez sieci mówi wprost, że aplikacja potrzebuje internetu', async () => {
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
-    render(<AppStatus store={new PwaStore()} />);
+    render(() => <AppStatus store={new PwaStore()} />);
     expect(screen.getByRole('status')).toHaveTextContent(
       'Brak połączenia z internetem. BG Club potrzebuje sieci; wpisy w notesie czekają na tym urządzeniu.',
     );
     online.mockReturnValue(true);
-    act(() => {
+    await act(() => {
       window.dispatchEvent(new Event('online'));
     });
     expect(screen.queryByRole('status')).toBeNull();
   });
 
-  it('nowa wersja: „Odśwież” nieaktywne, póki szkic nie jest w bazie', () => {
+  it('nowa wersja: „Odśwież” nieaktywne, póki szkic nie jest w bazie', async () => {
     const reload = vi.fn();
     const store = new PwaStore({ reload });
     const worker = new FakeWorker();
-    render(<AppStatus store={store} />);
+    render(() => <AppStatus store={store} />);
     expect(screen.queryByRole('status')).toBeNull();
-    act(() => {
+    await act(() => {
       store.setWaiting(worker as unknown as ServiceWorker);
       store.setDraft('p1', true);
     });
@@ -175,9 +176,9 @@ describe('AppStatus', () => {
     );
     const button = screen.getByRole('button', { name: 'Odśwież' });
     expect(button).toBeDisabled();
-    act(() => store.setDraft('p1', false));
+    await act(() => store.setDraft('p1', false));
     expect(button).toBeEnabled();
-    fireEvent.click(button);
+    await act(() => fireEvent.click(button));
     expect(worker.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
     expect(button).toBeDisabled();
   });

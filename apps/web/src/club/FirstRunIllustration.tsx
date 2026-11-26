@@ -1,3 +1,5 @@
+import { For } from 'solid-js';
+import { notFocusable } from '../ui/dom';
 /**
  * Jedyna ilustracja aplikacji (DS §14, §17): stół z planszówkami widziany z góry. Płaskie
  * kształty, linie włosowe tylko w kolorze ramki. Stół, cień i ciemna kostka biorą kolory
@@ -17,10 +19,18 @@ const CARDS = [
   { angle: 18, fill: '#D9479A' },
 ] as const;
 
-function Pawn({ x, y, fill, stroke }: { x: number; y: number; fill: string; stroke?: boolean }) {
-  const line = stroke ? { stroke: 'var(--illu-hairline)', strokeWidth: 1 } : {};
+type PawnSpec = (typeof PAWNS)[number];
+
+/** Pionek ze stałych danych (`PAWNS`): zwykła funkcja, bez reaktywnych propsów. */
+function pawnShape(pawn: PawnSpec) {
+  const { x, y, fill } = pawn;
+  const stroke = 'stroke' in pawn;
   return (
-    <g fill={fill} {...line}>
+    <g
+      fill={fill}
+      stroke={stroke ? 'var(--illu-hairline)' : undefined}
+      stroke-width={stroke ? 1 : undefined}
+    >
       <path
         d={`M${x - 7} ${y + 16}C${x - 7} ${y + 9} ${x - 3} ${y + 5} ${x} ${y + 5}C${x + 3} ${y + 5} ${x + 7} ${y + 9} ${x + 7} ${y + 16}Z`}
       />
@@ -29,14 +39,14 @@ function Pawn({ x, y, fill, stroke }: { x: number; y: number; fill: string; stro
   );
 }
 
-export function FirstRunIllustration({ className }: { readonly className?: string }) {
+export function FirstRunIllustration(props: { readonly class?: string }) {
   return (
     <svg
-      className={className}
+      class={props.class}
       viewBox="0 0 320 224"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      focusable="false"
+      {...notFocusable}
     >
       {/* Cień i stół */}
       <ellipse cx="160" cy="208" rx="138" ry="12" fill="var(--illu-shadow)" />
@@ -62,11 +72,9 @@ export function FirstRunIllustration({ className }: { readonly className?: strin
         rx="12"
         fill="none"
         stroke="#FFFFFF59"
-        strokeWidth="2"
+        stroke-width="2"
       />
-      {PAWNS.map((pawn) => (
-        <Pawn key={`${pawn.x}-${pawn.y}`} {...pawn} />
-      ))}
+      <For each={PAWNS}>{(pawn) => pawnShape(pawn)}</For>
 
       {/* Karteczka z wynikami (kolory z DS §15) */}
       <g transform="rotate(7 222 82)">
@@ -75,27 +83,28 @@ export function FirstRunIllustration({ className }: { readonly className?: strin
         <path
           d="M198 70H246M198 84H238M198 98H246M198 112H230"
           stroke="#E4E7F0"
-          strokeWidth="3"
-          strokeLinecap="round"
+          stroke-width="3"
+          stroke-linecap="round"
         />
-        <path d="M232 64V118" stroke="#E4E7F0" strokeWidth="1.5" />
+        <path d="M232 64V118" stroke="#E4E7F0" stroke-width="1.5" />
       </g>
 
       {/* Wachlarz kart */}
-      {CARDS.map((card) => (
-        <rect
-          key={card.angle}
-          x="232"
-          y="136"
-          width="30"
-          height="42"
-          rx="5"
-          fill={card.fill}
-          stroke="var(--illu-table)"
-          strokeWidth="1.5"
-          transform={`rotate(${card.angle} 247 176)`}
-        />
-      ))}
+      <For each={CARDS}>
+        {(card) => (
+          <rect
+            x="232"
+            y="136"
+            width="30"
+            height="42"
+            rx="5"
+            fill={card.fill}
+            stroke="var(--illu-table)"
+            stroke-width="1.5"
+            transform={`rotate(${card.angle} 247 176)`}
+          />
+        )}
+      </For>
 
       {/* Kostki */}
       <g transform="rotate(-10 180 172)">

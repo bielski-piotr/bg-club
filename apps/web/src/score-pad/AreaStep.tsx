@@ -4,12 +4,12 @@ import type {
   ScorePadEditorStatus,
   ScorePadZoomAction,
 } from '@bg-club/score-pad';
-import type { KeyboardEvent } from 'react';
+import { Show, createMemo } from 'solid-js';
 import { format, plural, t } from '../i18n';
 import { ColorSwatches, IconButton, SegmentedControl, Slider, Switch, TextField } from '../ui';
 import { SCOREPAD_NAME_MAX } from './scorepads';
 import { SPINE_COLORS, areaHint, clampCm, formatCm, parseCm } from './area';
-import { useDraft } from './useDraft';
+import { createDraft } from './createDraft';
 import { ZoomButtons } from './ZoomButtons';
 
 const text = t.scorepads.wizard.area;
@@ -18,14 +18,7 @@ const text = t.scorepads.wizard.area;
  * Pływający pasek sceny w kroku 2 (DS §18): obrót o 90° w lewo i w prawo, cofnij oraz
  * powiększenie zdjęcia (precyzyjne ustawianie punktów obszaru).
  */
-export function AreaToolbar({
-  canUndo,
-  disabled,
-  zoom,
-  onRotate,
-  onUndo,
-  onZoom,
-}: {
+export function AreaToolbar(props: {
   readonly canUndo: boolean;
   readonly disabled: boolean;
   readonly zoom: ScorePadEditorStatus['zoom'];
@@ -34,35 +27,35 @@ export function AreaToolbar({
   readonly onZoom: (by: ScorePadZoomAction) => void;
 }) {
   return (
-    <div className="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
+    <div class="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
       <IconButton
         icon="rotate-left"
         label={text.rotateLeft}
-        className="wizard-toolbar__btn"
-        disabled={disabled}
-        onClick={() => onRotate(-1)}
+        class="wizard-toolbar__btn"
+        disabled={props.disabled}
+        onClick={() => props.onRotate(-1)}
       />
       <IconButton
         icon="rotate-right"
         label={text.rotateRight}
-        className="wizard-toolbar__btn"
-        disabled={disabled}
-        onClick={() => onRotate(1)}
+        class="wizard-toolbar__btn"
+        disabled={props.disabled}
+        onClick={() => props.onRotate(1)}
       />
       <IconButton
         icon="undo"
         label={text.undo}
-        className="wizard-toolbar__btn"
-        disabled={disabled || !canUndo}
-        onClick={onUndo}
+        class="wizard-toolbar__btn"
+        disabled={props.disabled || !props.canUndo}
+        onClick={() => props.onUndo()}
       />
-      <ZoomButtons zoom={zoom} disabled={disabled} onZoom={onZoom} />
+      <ZoomButtons zoom={props.zoom} disabled={props.disabled} onZoom={(by) => props.onZoom(by)} />
       <IconButton
         icon="target"
         label={text.fit}
-        className="wizard-toolbar__btn"
-        disabled={disabled || zoom.level <= 1}
-        onClick={() => onZoom('fit')}
+        class="wizard-toolbar__btn"
+        disabled={props.disabled || props.zoom.level <= 1}
+        onClick={() => props.onZoom('fit')}
       />
     </div>
   );
@@ -73,77 +66,73 @@ export function AreaToolbar({
  * wyznaczenia obszaru z podpowiedzią, wygładzanie krawędzi, rozmiar kartki w centymetrach
  * i strona grzbietu. Zmiany idą od razu do edytora (`onChange`), który trzyma stan.
  */
-export function AreaPanel({
-  settings,
-  onChange,
-}: {
+export function AreaPanel(props: {
   readonly settings: ScorePadEditorArea;
   readonly onChange: (patch: ScorePadEditorAreaPatch) => void;
 }) {
-  const name = useDraft(settings.name);
-  const width = useDraft(formatCm(settings.size.w));
-  const height = useDraft(formatCm(settings.size.h));
-  const strength = useDraft(settings.strength);
+  const name = createDraft(() => props.settings.name);
+  const width = createDraft(() => formatCm(props.settings.size.w));
+  const height = createDraft(() => formatCm(props.settings.size.h));
+  const strength = createDraft(() => props.settings.strength);
 
-  const known = SPINE_COLORS.includes(settings.tape);
-  const swatches = [
-    ...(known
-      ? []
-      : [
-          {
-            value: settings.tape,
-            label: format(text.spineCustom, { hex: settings.tape }),
-            color: settings.tape,
-          },
-        ]),
-    ...SPINE_COLORS.map((color, index) => ({
-      value: color,
-      label: text.spineColors[index] ?? color,
-      color,
-    })),
-  ];
+  const swatches = createMemo(() => {
+    const tape = props.settings.tape;
+    const known = SPINE_COLORS.includes(tape);
+    return [
+      ...(known
+        ? []
+        : [{ value: tape, label: format(text.spineCustom, { hex: tape }), color: tape }]),
+      ...SPINE_COLORS.map((color, index) => ({
+        value: color,
+        label: text.spineColors[index] ?? color,
+        color,
+      })),
+    ];
+  });
 
   const commitSize = (key: 'w' | 'h', raw: string) => {
     const value = parseCm(raw);
     const field = key === 'w' ? width : height;
     if (value === null) {
       // Niepoprawna wartość wraca do bieżącego rozmiaru.
-      field.setDraft(formatCm(settings.size[key]));
+      field.setDraft(formatCm(props.settings.size[key]));
       return;
     }
     // Pole pokazuje wartość tak, jak ją zapisze edytor (zakres i zaokrąglenie), także wtedy,
     // gdy rozmiar się nie zmienia (np. 100 przy 60 cm).
     const size = clampCm(value);
     field.setDraft(formatCm(size));
-    onChange({ size: { [key]: size } });
+    props.onChange({ size: { [key]: size } });
   };
-  const onSizeKey = (key: 'w' | 'h') => (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') commitSize(key, event.currentTarget.value);
-  };
+  const onSizeKey =
+    (key: 'w' | 'h') => (event: KeyboardEvent & { currentTarget: HTMLInputElement }) => {
+      if (event.key === 'Enter') commitSize(key, event.currentTarget.value);
+    };
 
-  const nameError = name.draft.trim() === '' ? text.nameRequired : undefined;
+  const nameError = () => (name.draft().trim() === '' ? text.nameRequired : undefined);
 
   return (
-    <div className="wizard-panel">
+    <div class="wizard-panel">
       <TextField
         label={text.name}
-        value={name.draft}
+        value={name.draft()}
         onFocus={name.onFocus}
         onBlur={name.onBlur}
-        maxLength={SCOREPAD_NAME_MAX}
-        error={nameError}
-        onChange={(event) => {
-          name.setDraft(event.target.value);
-          onChange({ name: event.target.value });
+        maxlength={SCOREPAD_NAME_MAX}
+        error={nameError()}
+        onInput={(event) => {
+          const value = event.currentTarget.value;
+          name.setDraft(value);
+          props.onChange({ name: value });
         }}
       />
       <ColorSwatches
         legend={text.spine}
-        options={swatches}
-        value={settings.tape}
-        onChange={(tape) => onChange({ tape })}
+        options={swatches()}
+        value={props.settings.tape}
+        onChange={(tape) => props.onChange({ tape })}
       />
-      <div className="wizard-field">
+      <div class="wizard-field">
         <SegmentedControl
           legend={text.mode}
           hideLegend={false}
@@ -151,69 +140,69 @@ export function AreaPanel({
             value: mode,
             label: text.modes[mode],
           }))}
-          value={settings.mode}
-          onChange={(mode) => onChange({ mode })}
+          value={props.settings.mode}
+          onChange={(mode) => props.onChange({ mode })}
         />
-        <p className="wizard-hint" aria-live="polite">
-          {format(areaHint(settings), {
-            points: plural(settings.points, text.points),
+        <p class="wizard-hint" aria-live="polite">
+          {format(areaHint(props.settings), {
+            points: plural(props.settings.points, text.points),
           })}
         </p>
       </div>
-      <div className="wizard-field">
+      <div class="wizard-field">
         <Switch
           label={text.smoothing}
           description={text.smoothingHint}
-          checked={settings.smoothing}
-          onCheckedChange={(smoothing) => onChange({ smoothing })}
+          checked={props.settings.smoothing}
+          onCheckedChange={(smoothing) => props.onChange({ smoothing })}
         />
-        {settings.smoothing ? (
+        <Show when={props.settings.smoothing}>
           <Slider
             label={text.strength}
             min={0}
             max={10}
             step={1}
-            value={strength.draft}
+            value={strength.draft()}
             onFocus={strength.onFocus}
             onBlur={strength.onBlur}
             onValueChange={(value) => {
               strength.setDraft(value);
-              onChange({ strength: value });
+              props.onChange({ strength: value });
             }}
           />
-        ) : null}
+        </Show>
       </div>
-      <div className="wizard-row">
+      <div class="wizard-row">
         <TextField
           label={text.width}
-          inputMode="decimal"
+          inputmode="decimal"
           numeric
           trailing={text.unit}
-          value={width.draft}
-          onChange={(event) => width.setDraft(event.target.value)}
+          value={width.draft()}
+          onInput={(event) => width.setDraft(event.currentTarget.value)}
           onFocus={width.onFocus}
           onBlur={(event) => {
             width.onBlur();
-            commitSize('w', event.target.value);
+            commitSize('w', event.currentTarget.value);
           }}
           onKeyDown={onSizeKey('w')}
         />
         <TextField
           label={text.height}
-          inputMode="decimal"
+          inputmode="decimal"
           numeric
           trailing={text.unit}
-          value={height.draft}
-          onChange={(event) => height.setDraft(event.target.value)}
+          value={height.draft()}
+          onInput={(event) => height.setDraft(event.currentTarget.value)}
           onFocus={height.onFocus}
           onBlur={(event) => {
             height.onBlur();
-            commitSize('h', event.target.value);
+            commitSize('h', event.currentTarget.value);
           }}
           onKeyDown={onSizeKey('h')}
         />
       </div>
-      <p className="wizard-hint wizard-hint--tight">{text.sizeHint}</p>
+      <p class="wizard-hint wizard-hint--tight">{text.sizeHint}</p>
       <SegmentedControl
         legend={text.spineSide}
         hideLegend={false}
@@ -221,8 +210,8 @@ export function AreaPanel({
           value: side,
           label: text.spineSides[side],
         }))}
-        value={settings.binding}
-        onChange={(binding) => onChange({ binding })}
+        value={props.settings.binding}
+        onChange={(binding) => props.onChange({ binding })}
       />
     </div>
   );

@@ -1,5 +1,3 @@
-import { useAuth } from '../auth/authContext';
-import { useGameSearch } from '../games/games';
 import { format, plural, t } from '../i18n';
 import type { LeaderboardFilters } from './filters';
 
@@ -40,15 +38,4 @@ export function gamesValue(
   if (filters.games.length === 0) return text.gamesAll;
   if (filters.games.length === 1) return titles.get(filters.games[0] ?? '') ?? text.unknownGame;
   return plural(filters.games.length, text.gamesCount);
-}
-
-/**
- * Tytuły gier z kolekcji do opisów filtrów. Kolekcję pobieramy dopiero, gdy jest potrzebna
- * (wybrane gry albo otwarty panel), a nie przy każdym wyświetleniu rankingu.
- */
-export function useGameTitles(enabled: boolean) {
-  const { client } = useAuth();
-  const games = useGameSearch(client, '', enabled);
-  const titles = new Map((games.data ?? []).map((game) => [game.id, game.title] as const));
-  return { games, titles };
 }

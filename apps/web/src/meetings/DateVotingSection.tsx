@@ -1,20 +1,29 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { useAuth } from '../auth/authContext';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import {
+  action,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  For,
+  Show,
+  flush,
+  untrack,
+  useContext,
+} from 'solid-js';
+import type { OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
-import { QueryStatus } from '../popups/QueryStatus';
-import { avatarPerson, type Profile } from '../profile/profiles';
-import { AvatarStack, Badge, Button, Icon, Select, TextField, Tray, useToast } from '../ui';
-import { cx } from '../ui/cx';
+import { avatarPerson, type Profile } from '../profile/profileQueries';
+import { AuthContext } from '../auth/authContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
+import { QueryBoundary } from '../popups/QueryStatus';
+import { AvatarStack, Badge, Button, Icon, Select, TextField, Tray } from '../ui';
+import { ariaBool } from '../ui/dom';
 import {
   castDateVote,
   DateVotingError,
   leadingDateOptions,
   meetingDateOptionsKey,
   proposeMeetingDate,
-  useDateDecision,
-  useMeetingDateOptions,
   withdrawDateVote,
   type DateOption,
 } from './dateVoting';
@@ -26,6 +35,7 @@ import {
   TIME_SLOTS,
   todayIn,
 } from './datetime';
+import { createDateDecision, createMeetingDateOptions, type DateDecision } from './meetingData';
 import { meetingsKey, type Meeting } from './meetings';
 import { votesLabel } from './voting';
 
@@ -38,147 +48,165 @@ const text = t.meetings.dateVoting;
  * (termin spotkania, zamyka głosowanie) i ponowne otwarcie. Głosy są opinią: termin spotkania
  * nie musi być tym z największą liczbą głosów.
  */
-export function DateVotingSection({
-  meeting,
-  me,
-  members,
-  timeZone,
-}: {
+export function DateVotingSection(props: {
   readonly meeting: Meeting;
   readonly me: OwnProfile;
   readonly members: readonly Profile[];
   readonly timeZone: string;
 }) {
-  const { client } = useAuth();
-  const options = useMeetingDateOptions(client, meeting.id);
-  const decision = useDateDecision(client);
-  const isAdmin = me.role === 'admin';
-  const canVote = meeting.date_voting_open && meeting.participants.includes(me.id);
-  const canPropose = meeting.date_voting_open && (canVote || isAdmin);
-  const headingId = `${meeting.id}-date-voting`;
+  const options = createMeetingDateOptions(() => props.meeting.id);
+  const decision = createDateDecision();
+  const isAdmin = () => props.me.role === 'admin';
+  const canVote = () =>
+    props.meeting.date_voting_open && props.meeting.participants.includes(props.me.id);
+  const canPropose = () => props.meeting.date_voting_open && (canVote() || isAdmin());
+  const headingId = () => `${props.meeting.id}-date-voting`;
+  // Bez głosowania i bez propozycji sekcji nie ma (termin podał administrator). Sekcja zależy od
+  // danych w cache (bez czekania), lista czeka pod `<QueryBoundary>`.
+  const visible = () => {
+    const data = options.current();
+    if (!props.meeting.date_voting_open && data?.length === 0) return false;
+    return data !== undefined || options.state()?.isError === true;
+  };
+  /** Propozycje: czekają na dane pod `<QueryBoundary>`. */
+  const list = createMemo(() => options() ?? []);
+  const leading = createMemo(() => leadingDateOptions(list()));
+  /** Decyzja w toku (który termin albo ponowne otwarcie); cofa się po jej zakończeniu. */
+  const [pending, setPending] = createOptimistic<DateDecision | undefined>(undefined);
+  const decide = action(function* (next: DateDecision) {
+    setPending(next);
+    yield decision.run(next);
+  });
 
-  // Bez głosowania i bez propozycji sekcji nie ma (termin podał administrator).
-  if (!meeting.date_voting_open && options.data?.length === 0) return null;
-  if (!options.data && !options.isError) return null;
-  const leading = leadingDateOptions(options.data ?? []);
   return (
-    <section className="meeting-view__section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="meeting-view__head">
-        {text.title}
-      </h3>
-      <p className="meeting-form__hint meeting-view__intro">
-        {!meeting.date_voting_open
-          ? text.introClosed
-          : meeting.participants.includes(me.id)
-            ? text.intro
-            : text.notParticipant}
-      </p>
-      {!options.data ? (
-        <QueryStatus isError={options.isError} onRetry={() => void options.refetch()} />
-      ) : options.data.length === 0 ? (
-        <p className="meeting-form__state">{text.empty}</p>
-      ) : (
-        <Tray label={text.listLabel} className="vote-list">
-          {options.data.map((option) => (
-            <DateOptionItem
-              key={option.id}
-              option={option}
-              meeting={meeting}
-              me={me}
-              members={members}
-              timeZone={timeZone}
-              canVote={canVote}
-              leading={leading.has(option.id)}
-              onChoose={
-                isAdmin
-                  ? () =>
-                      decision.mutate({
-                        kind: 'decide',
-                        meetingId: meeting.id,
-                        optionId: option.id,
-                      })
-                  : undefined
-              }
-              choosing={
-                decision.isPending &&
-                decision.variables.kind === 'decide' &&
-                decision.variables.optionId === option.id
-              }
-            />
-          ))}
-        </Tray>
-      )}
-      {canPropose ? <ProposeDate meeting={meeting} timeZone={timeZone} /> : null}
-      {isAdmin ? (
-        <div className="date-voting__admin">
-          {meeting.date_voting_open ? (
-            <p className="meeting-form__hint">{text.adminNote}</p>
-          ) : (
-            <Button
-              size="sm"
-              variant="secondary"
-              icon="refresh"
-              loading={decision.isPending && decision.variables.kind === 'reopen'}
-              onClick={() => decision.mutate({ kind: 'reopen', meetingId: meeting.id })}
+    <Show when={visible()}>
+      <section class="meeting-view__section" aria-labelledby={headingId()}>
+        <h3 id={headingId()} class="meeting-view__head">
+          {text.title}
+        </h3>
+        <p class="meeting-form__hint meeting-view__intro">
+          {!props.meeting.date_voting_open
+            ? text.introClosed
+            : props.meeting.participants.includes(props.me.id)
+              ? text.intro
+              : text.notParticipant}
+        </p>
+        <QueryBoundary>
+          <Show when={list().length > 0} fallback={<p class="meeting-form__state">{text.empty}</p>}>
+            <Tray label={text.listLabel} class="vote-list">
+              <For each={list()} keyed={(option) => option.id}>
+                {(option) => (
+                  <DateOptionItem
+                    option={option()}
+                    meeting={props.meeting}
+                    me={props.me}
+                    members={props.members}
+                    timeZone={props.timeZone}
+                    canVote={canVote()}
+                    leading={leading().has(option().id)}
+                    onChoose={
+                      isAdmin()
+                        ? () =>
+                            void decide({
+                              kind: 'decide',
+                              meetingId: props.meeting.id,
+                              optionId: option().id,
+                            })
+                        : undefined
+                    }
+                    choosing={(() => {
+                      const current = pending();
+                      return current?.kind === 'decide' && current.optionId === option().id;
+                    })()}
+                  />
+                )}
+              </For>
+            </Tray>
+          </Show>
+        </QueryBoundary>
+        <Show when={canPropose()}>
+          <ProposeDate meeting={props.meeting} timeZone={props.timeZone} />
+        </Show>
+        <Show when={isAdmin()}>
+          <div class="date-voting__admin">
+            <Show
+              when={!props.meeting.date_voting_open}
+              fallback={<p class="meeting-form__hint">{text.adminNote}</p>}
             >
-              {text.reopen}
-            </Button>
-          )}
-        </div>
-      ) : null}
-    </section>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="refresh"
+                loading={pending()?.kind === 'reopen'}
+                onClick={() => void decide({ kind: 'reopen', meetingId: props.meeting.id })}
+              >
+                {text.reopen}
+              </Button>
+            </Show>
+          </div>
+        </Show>
+      </section>
+    </Show>
   );
 }
 
 /** „Zaproponuj termin”: data i godzina w strefie klubu; proponujący od razu na nią głosuje. */
-function ProposeDate({
-  meeting,
-  timeZone,
-}: {
-  readonly meeting: Meeting;
-  readonly timeZone: string;
-}) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const today = todayIn(timeZone);
-  const [value, setValue] = useState(() => ({
-    date: localDateTime(meeting.starts_at, timeZone).date,
-    time: localDateTime(meeting.starts_at, timeZone).time || DEFAULT_TIME,
-  }));
-  const propose = useMutation({
-    mutationFn: () => proposeMeetingDate(client, meeting.id, value),
-    onSuccess: () => toast.show(text.proposed, 'success'),
-    onError: (error) =>
-      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error'),
-    onSettled: (_, error) =>
-      queryClient.invalidateQueries({
-        queryKey: error ? meetingsKey : meetingDateOptionsKey(meeting.id),
-      }),
+function ProposeDate(props: { readonly meeting: Meeting; readonly timeZone: string }) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const today = () => todayIn(props.timeZone);
+  // Wartość startowa jednorazowo z terminu spotkania.
+  const [value, setValue] = createSignal(
+    untrack(() => {
+      const start = localDateTime(props.meeting.starts_at, props.timeZone);
+      return { date: start.date, time: start.time || DEFAULT_TIME };
+    }),
+  );
+  const [proposing, setProposing] = createOptimistic(false);
+  const propose = action(function* () {
+    setProposing(true);
+    let failed = false;
+    try {
+      yield proposeMeetingDate(auth.client, props.meeting.id, value());
+    } catch (error) {
+      failed = true;
+      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error');
+    }
+    if (!failed) toast.show(text.proposed, 'success');
+    yield queryClient.invalidateQueries({
+      queryKey: failed ? meetingsKey : meetingDateOptionsKey(props.meeting.id),
+    });
   });
-  const slots = TIME_SLOTS.includes(value.time) ? TIME_SLOTS : [...TIME_SLOTS, value.time].sort();
-  const submit = (event: FormEvent) => {
+  const slots = createMemo(() => {
+    const time = value().time;
+    return TIME_SLOTS.includes(time) ? TIME_SLOTS : [...TIME_SLOTS, time].sort();
+  });
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
-    if (value.date === '' || value.time === '' || propose.isPending) return;
-    propose.mutate();
+    // Wpis z tego samego zadania (autouzupełnianie + Enter) widać dopiero po flushu.
+    flush();
+    const current = value();
+    if (current.date === '' || current.time === '' || proposing()) return;
+    void propose();
   };
   return (
-    <form className="date-propose" aria-label={text.proposeLegend} onSubmit={submit}>
+    <form class="date-propose" aria-label={text.proposeLegend} onSubmit={submit}>
       <TextField
         label={text.proposeDate}
         type="date"
-        value={value.date}
-        min={today}
+        value={value().date}
+        min={today()}
         required
-        onChange={(event) => {
-          const date = event.target.value;
+        onInput={(event) => {
+          const date = event.currentTarget.value;
           setValue((current) => ({ ...current, date }));
         }}
       />
       <Select
         label={text.proposeTime}
-        options={slots.map((slot) => ({ value: slot, label: slot }))}
-        value={value.time}
+        options={slots().map((slot) => ({ value: slot, label: slot }))}
+        value={value().time}
         leadingIcon="clock"
         onChange={(time) => setValue((current) => ({ ...current, time }))}
       />
@@ -187,9 +215,9 @@ function ProposeDate({
         size="sm"
         variant="secondary"
         icon="plus"
-        className="date-propose__submit"
-        loading={propose.isPending}
-        disabled={value.date === ''}
+        class="date-propose__submit"
+        loading={proposing()}
+        disabled={value().date === ''}
       >
         {text.propose}
       </Button>
@@ -197,17 +225,7 @@ function ProposeDate({
   );
 }
 
-function DateOptionItem({
-  option,
-  meeting,
-  me,
-  members,
-  timeZone,
-  canVote,
-  leading,
-  onChoose,
-  choosing,
-}: {
+function DateOptionItem(props: {
   readonly option: DateOption;
   readonly meeting: Meeting;
   readonly me: OwnProfile;
@@ -218,78 +236,97 @@ function DateOptionItem({
   readonly onChoose: (() => void) | undefined;
   readonly choosing: boolean;
 }) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const date = formatMeetingDate(option.starts_at, timeZone);
-  const mineNow = option.voters.includes(me.id);
-  const voters = option.voters.flatMap((id) => {
-    const member = members.find((m) => m.id === id);
-    return member ? [avatarPerson(member)] : [];
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const date = () => formatMeetingDate(props.option.starts_at, props.timeZone);
+  const mineNow = () => props.option.voters.includes(props.me.id);
+  const voters = createMemo(() =>
+    props.option.voters.flatMap((id) => {
+      const member = props.members.find((m) => m.id === id);
+      return member ? [avatarPerson(member)] : [];
+    }),
+  );
+  const chosen = () =>
+    new Date(props.option.starts_at).getTime() === new Date(props.meeting.starts_at).getTime();
+  /** Głos w toku (oczekiwany stan przełącznika); cofa się po zakończeniu akcji. */
+  const [voting, setVoting] = createOptimistic<boolean | undefined>(undefined);
+  const toggle = action(function* (on: boolean) {
+    setVoting(on);
+    const target = {
+      meetingId: props.meeting.id,
+      optionId: props.option.id,
+      profileId: props.me.id,
+    };
+    let failed = false;
+    try {
+      yield on ? castDateVote(auth.client, target) : withdrawDateVote(auth.client, target);
+    } catch (error) {
+      failed = true;
+      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error');
+    }
+    if (!failed) toast.show(on ? t.meetings.toasts.voted : t.meetings.toasts.withdrawn, 'success');
+    // Jak głos na grę: akcja trwa do odświeżenia, a po błędzie odświeżamy też spotkanie.
+    yield queryClient.invalidateQueries({
+      queryKey: failed ? meetingsKey : meetingDateOptionsKey(props.meeting.id),
+    });
   });
-  const chosen = new Date(option.starts_at).getTime() === new Date(meeting.starts_at).getTime();
-  const toggle = useMutation({
-    mutationFn: (on: boolean) => {
-      const target = { meetingId: meeting.id, optionId: option.id, profileId: me.id };
-      return on ? castDateVote(client, target) : withdrawDateVote(client, target);
-    },
-    onSuccess: (_, on) =>
-      toast.show(on ? t.meetings.toasts.voted : t.meetings.toasts.withdrawn, 'success'),
-    onError: (error) =>
-      toast.show(text.errors[error instanceof DateVotingError ? error.reason : 'save'], 'error'),
-    // Jak głos na grę: mutacja trwa do odświeżenia, a po błędzie odświeżamy też spotkanie.
-    onSettled: (_, error) =>
-      queryClient.invalidateQueries({
-        queryKey: error ? meetingsKey : meetingDateOptionsKey(meeting.id),
-      }),
-  });
-  const mine = toggle.isPending ? toggle.variables : mineNow;
+  const mine = () => voting() ?? mineNow();
+  const choosable = () => !!props.onChoose && (!chosen() || props.meeting.date_voting_open);
   return (
-    <li className="tray__item">
-      <div className={cx('row row--64 vote-row date-row', chosen && 'date-row--chosen')}>
-        <span className="date-row__icon" aria-hidden="true">
+    <li class="tray__item">
+      <div class={['row row--64 vote-row date-row', { 'date-row--chosen': chosen() }]}>
+        <span class="date-row__icon" aria-hidden="true">
           <Icon name="calendar" />
         </span>
-        <span className="vote-row__body">
-          <span className="vote-row__name">
-            <span aria-hidden="true">{date}</span>
-            <span className="sr-only">{longMeetingDate(option.starts_at, timeZone)}</span>
+        <span class="vote-row__body">
+          <span class="vote-row__name">
+            <span aria-hidden="true">{date()}</span>
+            <span class="sr-only">{longMeetingDate(props.option.starts_at, props.timeZone)}</span>
           </span>
-          <span className="vote-row__meta">
-            {voters.length > 0 ? <AvatarStack people={voters.slice(0, 5)} size={20} /> : null}
-            <span>{votesLabel(option.voters.length)}</span>
-            {chosen ? <Badge tone="success">{text.chosen}</Badge> : null}
-            {leading && !chosen ? <Badge tone="accent">{text.leading}</Badge> : null}
+          <span class="vote-row__meta">
+            <Show when={voters().length > 0}>
+              <AvatarStack people={voters().slice(0, 5)} size={20} />
+            </Show>
+            <span>{votesLabel(props.option.voters.length)}</span>
+            <Show when={chosen()}>
+              <Badge tone="success">{text.chosen}</Badge>
+            </Show>
+            <Show when={props.leading && !chosen()}>
+              <Badge tone="accent">{text.leading}</Badge>
+            </Show>
           </span>
         </span>
-        {canVote || (onChoose && (!chosen || meeting.date_voting_open)) ? (
-          <span className="date-row__actions">
-            {canVote ? (
+        <Show when={props.canVote || choosable()}>
+          <span class="date-row__actions">
+            <Show when={props.canVote}>
               <button
                 type="button"
-                className={cx('vote-toggle', mine && 'vote-toggle--on')}
-                aria-pressed={mine}
-                aria-label={format(mine ? text.voteOff : text.voteOn, { date })}
-                disabled={toggle.isPending}
-                onClick={() => toggle.mutate(!mineNow)}
+                class={['vote-toggle', { 'vote-toggle--on': mine() }]}
+                aria-pressed={ariaBool(mine())}
+                aria-label={format(mine() ? text.voteOff : text.voteOn, { date: date() })}
+                disabled={voting() !== undefined}
+                onClick={() => void toggle(!mineNow())}
               >
-                {mine ? <Icon name="check" size={14} /> : null}
-                <span aria-hidden="true">{mine ? text.voted : text.vote}</span>
+                <Show when={mine()}>
+                  <Icon name="check" size={14} />
+                </Show>
+                <span aria-hidden="true">{mine() ? text.voted : text.vote}</span>
               </button>
-            ) : null}
-            {onChoose && (!chosen || meeting.date_voting_open) ? (
+            </Show>
+            <Show when={choosable()}>
               <Button
                 size="sm"
                 variant="secondary"
-                loading={choosing}
-                aria-label={format(text.chooseLabel, { date })}
-                onClick={onChoose}
+                loading={props.choosing}
+                aria-label={format(text.chooseLabel, { date: date() })}
+                onClick={() => props.onChoose?.()}
               >
                 {text.choose}
               </Button>
-            ) : null}
+            </Show>
           </span>
-        ) : null}
+        </Show>
       </div>
     </li>
   );

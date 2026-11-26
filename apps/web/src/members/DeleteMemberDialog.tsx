@@ -1,14 +1,17 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../auth/authContext';
+import { action, createOptimistic, createSignal, Show, useContext } from 'solid-js';
 import { gameVoteTotalsKey } from '../games/gameVoteTotal';
 import { format, t } from '../i18n';
+import { fullName } from '../profile/profileQueries';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
 import { InvalidPopup } from '../popups/InvalidPopup';
-import { usePopups } from '../popups/popupContext';
-import { useMounted } from '../popups/useMounted';
+import { createMounted } from '../popups/leaveGuard';
 import { PopupDialog } from '../popups/PopupDialog';
-import { QueryStatus } from '../popups/QueryStatus';
-import { fullName, useProfile } from '../profile/profiles';
-import { Banner, Button, useToast } from '../ui';
+import { QueryBoundary } from '../popups/QueryStatus';
+import { createProfile } from '../profile/profiles';
+import { Banner, Button } from '../ui';
 import { deleteMember, DeletionError, type DeletionFailure } from './deletion';
 
 const text = t.deleteMember;
@@ -33,69 +36,83 @@ const ERRORS: Readonly<Record<DeletionFailure, string>> = {
  *
  * Usunięcie jest idempotentne, więc po błędzie można je bezpiecznie ponowić.
  */
-export function DeleteMemberDialog({ id }: { readonly id: string }) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const { back } = usePopups();
-  const mounted = useMounted();
-  const profile = useProfile(client, id);
-  const member = profile.data;
+export function DeleteMemberDialog(props: { readonly id: string }) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const popups = useContext(PopupsContext);
+  const mounted = createMounted();
+  const profile = createProfile(() => props.id);
+  const [removing, setRemoving] = createOptimistic(false);
+  const [removed, setRemoved] = createSignal(false);
+  const [failure, setFailure] = createSignal<DeletionFailure | null>(null);
 
-  const remove = useMutation({
-    mutationFn: () => deleteMember(client, id),
-    onSuccess: () => {
-      if (member) toast.show(format(text.toast, { name: fullName(member) }), 'success');
-      if (mounted.current) back();
-      void queryClient.invalidateQueries({ queryKey: gameVoteTotalsKey });
-      // Profil (stan „usunięty”), lista i widżet członków odświeżają się z bazy.
-      void queryClient.invalidateQueries({
-        queryKey: ['profiles'],
-        predicate: (query) => query.queryKey[1] !== 'own',
-      });
-    },
+  const remove = action(function* () {
+    setRemoving(true);
+    setFailure(null);
+    const target = profile.current() ?? undefined;
+    try {
+      yield deleteMember(auth.client, props.id);
+    } catch (error) {
+      setFailure(error instanceof DeletionError ? error.reason : 'unknown');
+      return;
+    }
+    setRemoved(true);
+    if (target) toast.show(format(text.toast, { name: fullName(target) }), 'success');
+    if (mounted()) popups.back();
+    void queryClient.invalidateQueries({ queryKey: gameVoteTotalsKey });
+    // Profil (stan „usunięty”), lista i widżet członków odświeżają się z bazy.
+    void queryClient.invalidateQueries({
+      queryKey: ['profiles'],
+      predicate: (query) => query.queryKey[1] !== 'own',
+    });
   });
 
   // Po sukcesie dialog zostaje do zamknięcia (Wstecz jest asynchroniczne), choć profil jest
   // już usunięty. Wcześniej: z linku nie usuniemy admina, usuniętego ani nieistniejącego.
-  if (
-    !remove.isSuccess &&
-    profile.isSuccess &&
-    (!member || member.role === 'admin' || member.deleted_at !== null)
-  ) {
-    return <InvalidPopup />;
-  }
+  // Okno zależy od danych w cache (bez czekania), treść czeka pod `<QueryBoundary>`.
+  const unavailable = () => {
+    const target = profile.current();
+    return (
+      !removed() &&
+      target !== undefined &&
+      (!target || target.role === 'admin' || target.deleted_at !== null)
+    );
+  };
 
-  const failure = remove.error instanceof DeletionError ? remove.error.reason : 'unknown';
   return (
-    <PopupDialog
-      title={text.title}
-      icon="trash"
-      tone="danger"
-      description={
-        member ? (
-          <p>{format(text.description, { name: fullName(member) })}</p>
-        ) : (
-          <QueryStatus isError={profile.isError} onRetry={() => void profile.refetch()} />
-        )
-      }
-      footer={
-        <>
-          <Button variant="secondary" disabled={remove.isPending} onClick={back}>
-            {text.cancel}
-          </Button>
-          <Button
-            variant="destructive"
-            loading={remove.isPending}
-            disabled={!member || remove.isSuccess}
-            onClick={() => remove.mutate()}
-          >
-            {text.submit}
-          </Button>
-        </>
-      }
-    >
-      {remove.isError ? <Banner variant="error">{ERRORS[failure]}</Banner> : null}
-    </PopupDialog>
+    <Show when={!unavailable()} fallback={<InvalidPopup />}>
+      <PopupDialog
+        title={text.title}
+        icon="trash"
+        tone="danger"
+        description={
+          <QueryBoundary>
+            <Show when={profile()}>
+              {(target) => <p>{format(text.description, { name: fullName(target()) })}</p>}
+            </Show>
+          </QueryBoundary>
+        }
+        footer={
+          <>
+            <Button variant="secondary" disabled={removing()} onClick={() => popups.back()}>
+              {text.cancel}
+            </Button>
+            <Button
+              variant="destructive"
+              loading={removing()}
+              disabled={!profile.current() || removed()}
+              onClick={() => void remove()}
+            >
+              {text.submit}
+            </Button>
+          </>
+        }
+      >
+        <Show when={failure()}>
+          {(reason) => <Banner variant="error">{ERRORS[reason()]}</Banner>}
+        </Show>
+      </PopupDialog>
+    </Show>
   );
 }

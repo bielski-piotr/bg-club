@@ -1,17 +1,10 @@
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import type { JSX } from '@solidjs/web';
+import { createEffect, createSignal, createUniqueId, Show } from 'solid-js';
 import { t } from '../i18n';
-import { Button, Icon, type IconName } from '../ui';
-import { cx } from '../ui/cx';
 import { focusableIn } from '../ui/focusable';
+import { ariaBool } from '../ui/dom';
+import { Button } from '../ui/Button';
+import { Icon, type IconName } from '../ui/Icon';
 import '../ui/Field.css';
 import '../ui/Select.css';
 
@@ -19,8 +12,11 @@ const GAP = 6;
 const MARGIN = 8;
 const PANEL_WIDTH = 340;
 
-/** Panel pod pigułką, względem okna: przewijany popup ani karta widżetu go nie przycinają. */
-function panelStyle(trigger: HTMLElement): CSSProperties {
+/**
+ * Ustawia panel pod pigułką względem okna (przewijany popup ani karta go nie przycinają).
+ * `last` to poprzednie położenie: styl zmienia się tylko przy innym. Zwraca nowe położenie.
+ */
+function placePanel(panel: HTMLElement, trigger: HTMLElement, last: string): string {
   const rect = trigger.getBoundingClientRect();
   const viewport = window.visualViewport;
   const viewTop = viewport?.offsetTop ?? 0;
@@ -31,15 +27,22 @@ function panelStyle(trigger: HTMLElement): CSSProperties {
   const below = viewTop + viewHeight - rect.bottom - GAP - MARGIN;
   const above = rect.top - viewTop - GAP - MARGIN;
   const down = below >= 320 || below >= above;
-  return {
+  const style: Record<string, string> = {
     position: 'fixed',
-    left,
-    width,
-    maxHeight: Math.max(160, down ? below : above),
-    ...(down
-      ? { top: rect.bottom + GAP }
-      : { bottom: document.documentElement.clientHeight - rect.top + GAP }),
+    left: `${left}px`,
+    width: `${width}px`,
+    'max-height': `${Math.max(160, down ? below : above)}px`,
+    top: down ? `${rect.bottom + GAP}px` : '',
+    bottom: down ? '' : `${document.documentElement.clientHeight - rect.top + GAP}px`,
   };
+  const key = JSON.stringify(style);
+  if (key !== last) {
+    for (const [name, value] of Object.entries(style)) {
+      if (value === '') panel.style.removeProperty(name);
+      else panel.style.setProperty(name, value);
+    }
+  }
+  return key;
 }
 
 export interface FilterPopoverProps {
@@ -56,71 +59,55 @@ export interface FilterPopoverProps {
   readonly clearLabel: string;
   /** Przywraca stan domyślny tego filtru. */
   readonly onClear: () => void;
-  readonly children: ReactNode;
+  /** Treść panelu; tworzona dopiero po otwarciu (np. pobranie kolekcji). */
+  readonly children: JSX.Element;
 }
 
 /**
  * Pigułka filtru z panelem (DS §10 „Select trigger” w wariancie pill). Panel to dialog
  * nie-modalny: Esc i kliknięcie poza nim zamykają go, fokus wraca na pigułkę.
  */
-export function FilterPopover({
-  label,
-  triggerLabel,
-  value,
-  icon,
-  active,
-  clearLabel,
-  onClear,
-  children,
-}: FilterPopoverProps) {
-  const id = useId();
-  const [open, setOpen] = useState(false);
-  const [style, setStyle] = useState<CSSProperties | undefined>(undefined);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+export function FilterPopover(props: FilterPopoverProps) {
+  const id = createUniqueId();
+  const [open, setOpen] = createSignal(false);
+  let root: HTMLDivElement | undefined;
+  let trigger: HTMLButtonElement | undefined;
+  let panel: HTMLDivElement | undefined;
 
   const close = (refocus = true) => {
     setOpen(false);
-    if (refocus) triggerRef.current?.focus();
+    if (refocus) trigger?.focus();
   };
 
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    const first =
-      panel?.querySelector<HTMLElement>('[data-autofocus]') ??
-      (panel ? focusableIn(panel)[0] : undefined);
-    first?.focus();
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
+  createEffect(
+    () => open(),
+    (isOpen) => {
+      if (!isOpen) return;
+      const first =
+        panel?.querySelector<HTMLElement>('[data-autofocus]') ??
+        (panel ? focusableIn(panel)[0] : undefined);
+      first?.focus();
+      const onPointerDown = (event: PointerEvent) => {
+        if (!root?.contains(event.target as Node)) setOpen(false);
+      };
+      document.addEventListener('pointerdown', onPointerDown);
+      // Pigułka może się przesunąć (przewijanie, zmiana rankingu, klawiatura ekranowa), więc
+      // panel idzie za nią w każdej klatce; styl zmienia się tylko przy innym położeniu.
+      let frame = 0;
+      let last = '';
+      const place = () => {
+        if (panel && trigger) last = placePanel(panel, trigger, last);
+        frame = requestAnimationFrame(place);
+      };
+      place();
+      return () => {
+        document.removeEventListener('pointerdown', onPointerDown);
+        cancelAnimationFrame(frame);
+      };
+    },
+  );
 
-  useLayoutEffect(() => {
-    if (!open) return;
-    // Pigułka może się przesunąć (przewijanie, zmiana rankingu pod filtrem, klawiatura ekranowa),
-    // więc panel idzie za nią w każdej klatce; stan zmienia się tylko przy innym położeniu.
-    let last = '';
-    let frame = 0;
-    const place = () => {
-      if (triggerRef.current) {
-        const next = panelStyle(triggerRef.current);
-        const key = JSON.stringify(next);
-        if (key !== last) {
-          last = key;
-          setStyle(next);
-        }
-      }
-      frame = requestAnimationFrame(place);
-    };
-    place();
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
-
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       // Esc zamyka panel, a nie popup pod nim (PopupHost pomija obsłużone zdarzenia).
       event.preventDefault();
@@ -131,54 +118,47 @@ export function FilterPopover({
 
   return (
     <div
-      className="lb-filter"
-      ref={rootRef}
-      onBlur={(event) => {
-        if (
-          open &&
-          !rootRef.current?.contains(event.relatedTarget as Node | null) &&
-          event.relatedTarget
-        ) {
-          setOpen(false);
-        }
+      class="lb-filter"
+      ref={(el) => (root = el)}
+      onFocusOut={(event) => {
+        const next = event.relatedTarget as Node | null;
+        if (open() && next && !root?.contains(next)) setOpen(false);
       }}
     >
       <button
-        ref={triggerRef}
+        ref={(el) => (trigger = el)}
         type="button"
-        className={cx(
+        class={[
           'select__pill lb-filter__pill',
-          active && 'lb-filter__pill--active',
-          open && 'select--open',
-        )}
+          { 'lb-filter__pill--active': props.active, 'select--open': open() },
+        ]}
         aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? `${id}-panel` : undefined}
-        aria-label={triggerLabel}
-        onClick={() => (open ? close(false) : setOpen(true))}
+        aria-expanded={ariaBool(open())}
+        aria-controls={open() ? `${id}-panel` : undefined}
+        aria-label={props.triggerLabel}
+        onClick={() => (open() ? close(false) : setOpen(true))}
       >
-        <Icon name={icon} className="select__lead" />
-        <span className="select__value">{value}</span>
-        <Icon name={open ? 'chevron-up' : 'chevron-down'} className="select__chevron" />
+        <Icon name={props.icon} class="select__lead" />
+        <span class="select__value">{props.value}</span>
+        <Icon name={open() ? 'chevron-up' : 'chevron-down'} class="select__chevron" />
       </button>
-      {open ? (
+      <Show when={open()}>
         <div
-          ref={panelRef}
+          ref={(el) => (panel = el)}
           id={`${id}-panel`}
           role="dialog"
-          aria-label={label}
-          className="lb-filter__panel"
-          style={style}
+          aria-label={props.label}
+          class="lb-filter__panel"
           onKeyDown={onKeyDown}
         >
-          {children}
-          <div className="lb-filter__footer">
+          {props.children}
+          <div class="lb-filter__footer">
             <Button
               size="sm"
               variant="secondary"
-              aria-label={clearLabel}
-              disabled={!active}
-              onClick={onClear}
+              aria-label={props.clearLabel}
+              disabled={!props.active}
+              onClick={() => props.onClear()}
             >
               {t.leaderboard.filters.clear}
             </Button>
@@ -187,7 +167,7 @@ export function FilterPopover({
             </Button>
           </div>
         </div>
-      ) : null}
+      </Show>
     </div>
   );
 }

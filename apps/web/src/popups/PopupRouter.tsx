@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { JSX } from '@solidjs/web';
+import { createMemo, createSignal, onSettled } from 'solid-js';
 import {
-  PopupContext,
   PopupGuardsContext,
   PopupOpenersContext,
+  PopupsContext,
   type LeaveGuard,
   type PopupApi,
   type PopupGuards,
@@ -60,109 +61,107 @@ function lostGuardLevel(
  *   z linku albo po odświeżeniu nie ma czego cofać, więc wpis jest podmieniany (Wstecz nie
  *   wyprowadza wtedy z aplikacji ani nie otwiera popupu ponownie).
  * - × zamyka cały stos: cofa wszystkie wpisy dodane przez aplikację i czyści resztę z adresu.
- * - Popup z ochroną (`useLeaveGuard`, np. niezapisane zmiany) sam decyduje o zamknięciu przez
+ * - Popup z ochroną (`createLeaveGuard`, np. niezapisane zmiany) sam decyduje o zamknięciu przez
  *   Esc, ←, × i tło. Wstecz w przeglądarce cofa się od razu, więc router przywraca adres popupu
  *   (nowy wpis historii) i pyta ochronę; potwierdzenie cofa ten wpis.
+ *
+ * Decyzje zapadają na bieżącym adresie (`window.location`), nie na sygnale: zapis sygnału
+ * widać dopiero po flushu, a adres zmienia się od razu.
  */
-export function PopupRouter({ children }: { readonly children: ReactNode }) {
-  const [search, setSearch] = useState(() => window.location.search);
-  const stack = useMemo(() => parseStack(search), [search]);
+export function PopupRouter(props: { readonly children: JSX.Element }) {
+  const [search, setSearch] = createSignal(window.location.search);
+  const stack = createMemo(() => parseStack(search()));
   /** Po `history.go(-n)` z „zamknij wszystko”: wyczyść popupy z wpisu, na który wrócimy. */
-  const clearAfterPop = useRef(false);
+  let clearAfterPop = false;
   /**
    * Trwa cofanie historii zlecone przez aplikację (`history.back` / `go` są asynchroniczne).
    * Do zdarzenia `popstate` adres jest jeszcze stary, więc kolejne Esc, ← albo × byłyby liczone
    * od złego wpisu i mogłyby wyjść poza aplikację; do tego czasu są ignorowane.
    */
-  const navigating = useRef(false);
-  const openerList = useRef<(Element | null)[]>([]);
-  const guardMap = useRef(new Map<number, LeaveGuard>());
+  let navigating = false;
+  const openerList: (Element | null)[] = [];
+  const guardMap = new Map<number, LeaveGuard>();
   /** Adres (część `search`) ostatnio pokazanego stosu: do przywrócenia po Wstecz z ochroną. */
-  const shownSearch = useRef(search);
-  const guards = useMemo<PopupGuards>(
-    () => ({
-      set: (level, guard) => {
-        if (guard) guardMap.current.set(level, guard);
-        else guardMap.current.delete(level);
-      },
-    }),
-    [],
-  );
+  let shownSearch = window.location.search;
 
-  useEffect(() => {
-    shownSearch.current = search;
-  }, [search]);
-  const openers = useMemo<PopupOpeners>(
-    () => ({
-      remember: (level, opener) => {
-        openerList.current[level] = opener;
-      },
-      take: (level) => {
-        const opener = openerList.current[level] ?? null;
-        openerList.current.length = Math.min(openerList.current.length, level);
-        return opener;
-      },
-    }),
-    [],
-  );
+  /** Nowy adres jako stan routera. */
+  const sync = () => {
+    shownSearch = window.location.search;
+    setSearch(shownSearch);
+  };
 
-  useEffect(() => {
+  const guards: PopupGuards = {
+    set: (level, guard) => {
+      if (guard) guardMap.set(level, guard);
+      else guardMap.delete(level);
+    },
+  };
+
+  const openers: PopupOpeners = {
+    remember: (level, opener) => {
+      openerList[level] = opener;
+    },
+    take: (level) => {
+      const opener = openerList[level] ?? null;
+      openerList.length = Math.min(openerList.length, level);
+      return opener;
+    },
+  };
+
+  onSettled(() => {
     const onPopState = () => {
-      const fromApp = navigating.current;
-      navigating.current = false;
+      const fromApp = navigating;
+      navigating = false;
       if (!fromApp) {
-        const before = shownSearch.current;
+        const before = shownSearch;
         const level = lostGuardLevel(
-          guardMap.current,
+          guardMap,
           parseStack(before),
           parseStack(window.location.search),
         );
-        const guard = level === undefined ? undefined : guardMap.current.get(level);
+        const guard = level === undefined ? undefined : guardMap.get(level);
         if (guard) {
           const { pathname, hash } = window.location;
           const state: PopupHistoryState = { bgPopupDepth: currentDepth() + 1 };
           window.history.pushState(state, '', `${pathname}${before}${hash}`);
           guard(() => {
-            if (navigating.current) return;
-            navigating.current = true;
+            if (navigating) return;
+            navigating = true;
             window.history.back();
           });
           return;
         }
       }
-      if (clearAfterPop.current) {
-        clearAfterPop.current = false;
+      if (clearAfterPop) {
+        clearAfterPop = false;
         if (parseStack(window.location.search).length > 0) {
           window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith([]));
         }
       }
-      setSearch(window.location.search);
+      sync();
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  });
 
-  const open = useCallback(
-    (route: PopupRoute) => {
-      if (navigating.current) return;
-      const current = parseStack(window.location.search);
-      openers.remember(current.length, document.activeElement);
-      const state: PopupHistoryState = { bgPopupDepth: currentDepth() + 1 };
-      window.history.pushState(state, '', urlWith([...current, route]));
-      setSearch(window.location.search);
-    },
-    [openers],
-  );
+  const open = (route: PopupRoute) => {
+    if (navigating) return;
+    const current = parseStack(window.location.search);
+    openers.remember(current.length, document.activeElement);
+    const state: PopupHistoryState = { bgPopupDepth: currentDepth() + 1 };
+    window.history.pushState(state, '', urlWith([...current, route]));
+    sync();
+  };
 
   /**
    * Pyta po kolei ochrony poziomów `levels` (od góry); `done` dopiero po zgodzie wszystkich.
    * Ochrony zostają zarejestrowane: anulowanie albo nieudana nawigacja nie zostawia popupu
    * ze zmianami bez ochrony.
    */
-  const askGuards = useCallback((levels: readonly number[], done: () => void) => {
+  const askGuards = (levels: readonly number[], done: () => void) => {
     const ask = (index: number) => {
       const level = levels[index];
-      const guard = level === undefined ? undefined : guardMap.current.get(level);
+      const guard = level === undefined ? undefined : guardMap.get(level);
       if (!guard) {
         if (index >= levels.length) done();
         else ask(index + 1);
@@ -171,91 +170,85 @@ export function PopupRouter({ children }: { readonly children: ReactNode }) {
       guard(() => ask(index + 1));
     };
     ask(0);
-  }, []);
+  };
 
-  const backBy = useCallback(
-    (count: number) => {
-      if (navigating.current) return;
-      const current = parseStack(window.location.search);
-      const n = Math.min(Number.isInteger(count) && count > 1 ? count : 1, current.length);
-      if (current.length === 0) return;
-      const levels = current
-        .map((_, level) => level)
-        .slice(-n)
-        .reverse();
-      askGuards(levels, () => {
-        // Stos mógł się zmienić, gdy ochrona czekała na odpowiedź.
-        if (navigating.current || !sameStack(parseStack(window.location.search), current)) return;
-        const depth = currentDepth();
-        if (depth >= n) {
-          navigating.current = true;
-          if (n === 1) window.history.back();
-          else window.history.go(-n);
-          return;
-        }
-        // Część popupów nie ma własnych wpisów historii (link, odświeżenie): cofamy te, które
-        // mają, a resztę zdejmujemy z adresu po powrocie.
-        if (depth > 0) {
-          navigating.current = true;
-          const rest = urlWith(current.slice(0, -n));
-          const onPop = () => {
-            window.history.replaceState({ bgPopupDepth: 0 }, '', rest);
-            setSearch(window.location.search);
-          };
-          window.addEventListener('popstate', onPop, { once: true });
-          window.history.go(-depth);
-          return;
-        }
-        window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith(current.slice(0, -n)));
-        setSearch(window.location.search);
-      });
-    },
-    [askGuards],
-  );
-  const back = useCallback(() => backBy(1), [backBy]);
-
-  const replace = useCallback((route: PopupRoute) => {
-    if (navigating.current) return;
+  const backBy = (count: number) => {
+    if (navigating) return;
     const current = parseStack(window.location.search);
+    const n = Math.min(Number.isInteger(count) && count > 1 ? count : 1, current.length);
     if (current.length === 0) return;
-    const state: PopupHistoryState = { bgPopupDepth: currentDepth() };
-    window.history.replaceState(state, '', urlWith([...current.slice(0, -1), route]));
-    setSearch(window.location.search);
-  }, []);
-
-  const closeAll = useCallback(() => {
-    const current = parseStack(window.location.search);
-    if (navigating.current || current.length === 0) return;
-    const levels = current.map((_, level) => level).reverse();
+    const levels = current
+      .map((_, level) => level)
+      .slice(-n)
+      .reverse();
     askGuards(levels, () => {
-      if (navigating.current || !sameStack(parseStack(window.location.search), current)) return;
+      // Stos mógł się zmienić, gdy ochrona czekała na odpowiedź.
+      if (navigating || !sameStack(parseStack(window.location.search), current)) return;
       const depth = currentDepth();
+      if (depth >= n) {
+        navigating = true;
+        if (n === 1) window.history.back();
+        else window.history.go(-n);
+        return;
+      }
+      // Część popupów nie ma własnych wpisów historii (link, odświeżenie): cofamy te, które
+      // mają, a resztę zdejmujemy z adresu po powrocie.
       if (depth > 0) {
-        navigating.current = true;
-        clearAfterPop.current = true;
+        navigating = true;
+        const rest = urlWith(current.slice(0, -n));
+        const onPop = () => {
+          window.history.replaceState({ bgPopupDepth: 0 }, '', rest);
+          sync();
+        };
+        window.addEventListener('popstate', onPop, { once: true });
         window.history.go(-depth);
         return;
       }
-      window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith([]));
-      setSearch(window.location.search);
+      window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith(current.slice(0, -n)));
+      sync();
     });
-  }, [askGuards]);
+  };
 
-  const hrefFor = useCallback(
-    (route: PopupRoute) => `${window.location.pathname}${stackSearch(search, [...stack, route])}`,
-    [search, stack],
-  );
-
-  const api = useMemo<PopupApi>(
-    () => ({ stack, open, back, backBy, replace, closeAll, hrefFor }),
-    [stack, open, back, backBy, replace, closeAll, hrefFor],
-  );
+  const api: PopupApi = {
+    get stack() {
+      return stack();
+    },
+    open,
+    back: () => backBy(1),
+    backBy,
+    replace: (route) => {
+      if (navigating) return;
+      const current = parseStack(window.location.search);
+      if (current.length === 0) return;
+      const state: PopupHistoryState = { bgPopupDepth: currentDepth() };
+      window.history.replaceState(state, '', urlWith([...current.slice(0, -1), route]));
+      sync();
+    },
+    closeAll: () => {
+      const current = parseStack(window.location.search);
+      if (navigating || current.length === 0) return;
+      const levels = current.map((_, level) => level).reverse();
+      askGuards(levels, () => {
+        if (navigating || !sameStack(parseStack(window.location.search), current)) return;
+        const depth = currentDepth();
+        if (depth > 0) {
+          navigating = true;
+          clearAfterPop = true;
+          window.history.go(-depth);
+          return;
+        }
+        window.history.replaceState({ bgPopupDepth: 0 }, '', urlWith([]));
+        sync();
+      });
+    },
+    hrefFor: (route) => `${window.location.pathname}${stackSearch(search(), [...stack(), route])}`,
+  };
 
   return (
-    <PopupOpenersContext.Provider value={openers}>
-      <PopupGuardsContext.Provider value={guards}>
-        <PopupContext.Provider value={api}>{children}</PopupContext.Provider>
-      </PopupGuardsContext.Provider>
-    </PopupOpenersContext.Provider>
+    <PopupOpenersContext value={openers}>
+      <PopupGuardsContext value={guards}>
+        <PopupsContext value={api}>{props.children}</PopupsContext>
+      </PopupGuardsContext>
+    </PopupOpenersContext>
   );
 }

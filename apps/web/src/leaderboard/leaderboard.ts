@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
-import { profilesKey } from '../profile/profiles';
+import { profilesKey } from '../profile/profileQueries';
 import { normalizeGames, type LeaderboardFilters } from './filters';
 import type { LeaderboardKind } from './kinds';
 
@@ -108,12 +107,13 @@ export function leaderboardArgs(kind: LeaderboardKind, filters: LeaderboardFilte
   };
 }
 
-export function useLeaderboard(
+/** Opcje zapytania rankingu (wspólny cache, `createQuery`). */
+export function leaderboardQuery(
   client: SupabaseClient,
   kind: LeaderboardKind,
   filters: LeaderboardFilters,
 ) {
-  return useQuery({
+  return {
     queryKey: leaderboardKey(kind, filters),
     queryFn: async (): Promise<readonly LeaderboardEntry[]> => {
       const { data, error } = await client.rpc('leaderboard', leaderboardArgs(kind, filters));
@@ -122,6 +122,9 @@ export function useLeaderboard(
     },
     // Przy zmianie filtrów w tej samej zakładce poprzedni wynik zostaje do czasu nowego (bez
     // migania); po zmianie zakładki nie, bo miałby jednostki innej klasyfikacji.
-    placeholderData: (previous, query) => (query?.queryKey[2] === kind ? previous : undefined),
-  });
+    placeholderData: (
+      previous: readonly LeaderboardEntry[] | undefined,
+      query: { readonly queryKey: readonly unknown[] } | undefined,
+    ) => (query?.queryKey[2] === kind ? previous : undefined),
+  };
 }

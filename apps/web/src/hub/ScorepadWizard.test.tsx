@@ -9,20 +9,25 @@ import type {
   ScorePadZoomAction,
 } from '@bg-club/score-pad';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useEffect, useImperativeHandle } from 'react';
+import { QueryClient } from '@tanstack/query-core';
+import { QueryClientContext } from '../lib/queryClient';
+import { fireEvent as fire, render, screen, waitFor, within } from '@solidjs/testing-library';
+import { act } from '../test/render';
+import { flush, onSettled } from 'solid-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import type { Game } from '../games/games';
 import { PopupHost } from '../popups/PopupHost';
 import { PopupRouter } from '../popups/PopupRouter';
 import { ToastProvider } from '../ui';
-import type { ScorePadEditorViewProps } from './ScorePadEditorView';
-import type { ScorePadViewProps } from './ScorePadView';
-import { ScorepadWizard } from './ScorepadWizard';
-import type * as Scorepads from './scorepads';
-import type { Scorepad } from './scorepads';
+import type {
+  ScorePadEditorHandle,
+  ScorePadEditorViewProps,
+} from '../score-pad/ScorePadEditorView';
+import type { ScorePadHandle, ScorePadViewProps } from '../score-pad/ScorePadView';
+import { ScorepadWizard } from '../score-pad/ScorepadWizard';
+import type * as Scorepads from '../score-pad/scorepads';
+import type { Scorepad } from '../score-pad/scorepads';
 
 /*
  * Kreator edytora notesu (PRD §5.5.2, EDT-1, EDT-9, DS §18, zadanie [016]): pięć kroków,
@@ -190,16 +195,14 @@ const padFake = vi.hoisted(() => ({
   resetView: vi.fn(),
 }));
 
-vi.mock('./ScorePadView', () => ({
+/*
+ * Atrapy widoków notesu są komponentami, które tworzą DOM bez JSX (jak prawdziwy element notesu);
+ * kreator działa na prawdziwym `PopupRouter`/`PopupHost` z ochroną przed zamknięciem i fokusem.
+ */
+vi.mock('../score-pad/ScorePadView', () => ({
   ScorePadView: function FakePad(props: ScorePadViewProps) {
     padFake.props = props;
-    const { onReady, ref } = props;
-    useEffect(() => {
-      padFake.sheet = props.config?.sheet ?? null;
-      onReady?.();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    useImperativeHandle(ref, () => ({
+    const handle: ScorePadHandle = {
       setSheet: (sheet) => {
         padFake.setSheet(sheet);
         padFake.sheet = sheet;
@@ -222,32 +225,42 @@ vi.mock('./ScorePadView', () => ({
         });
       },
       resetView: () => padFake.resetView(),
-    }));
-    return <div data-testid="pad" />;
+    };
+    const ref = props.ref;
+    if (typeof ref === 'function') ref(handle);
+    onSettled(() => {
+      padFake.sheet = props.config?.sheet ?? null;
+      props.onReady?.();
+    });
+    const element = document.createElement('div');
+    element.dataset.testid = 'pad';
+    return element;
   },
 }));
 
 function update(patch: Partial<ScorePadEditorStatus>) {
   fake.status = { ...(fake.status as ScorePadEditorStatus), ...patch };
-  act(() => fake.emit(fake.status as ScorePadEditorStatus));
+  act(() => {
+    fake.emit(fake.status as ScorePadEditorStatus);
+    flush();
+  });
 }
 
-vi.mock('./ScorePadEditorView', () => ({
-  ScorePadEditorView: function FakeEditor({
-    template,
-    onStatus,
-    onLoadState,
-    ref,
-  }: ScorePadEditorViewProps) {
-    useEffect(() => {
-      fake.emit = (status) => onStatus?.(status);
-      fake.status = template
-        ? { ...EMPTY, ...MAPPED, photo: true, area: true, photoUrl: 'data:image/jpeg;base64,old' }
-        : EMPTY;
-      onLoadState?.('ready', () => undefined);
-      onStatus?.(fake.status);
-    }, [onStatus, onLoadState, template]);
-    useImperativeHandle(ref, () => ({
+/** Zdarzenie DOM i zastosowanie zmian przed asercją (DOM zmienia się w mikrozadaniu). */
+const fireEvent = new Proxy(fire, {
+  get: (target, key: keyof typeof fire) => {
+    const event = target[key] as (...args: unknown[]) => boolean;
+    return (...args: unknown[]) => {
+      const result = event(...args);
+      flush();
+      return result;
+    };
+  },
+});
+
+vi.mock('../score-pad/ScorePadEditorView', () => ({
+  ScorePadEditorView: function FakeEditor(props: ScorePadEditorViewProps) {
+    const handle: ScorePadEditorHandle = {
       exportConfig: () => ({
         format: 'score-pad',
         version: 2,
@@ -310,13 +323,25 @@ vi.mock('./ScorePadEditorView', () => ({
             },
           });
       },
-    }));
-    return <div data-testid="editor" />;
+    };
+    const ref = props.ref;
+    if (typeof ref === 'function') ref(handle);
+    onSettled(() => {
+      fake.emit = (status) => props.onStatus?.(status);
+      fake.status = props.template
+        ? { ...EMPTY, ...MAPPED, photo: true, area: true, photoUrl: 'data:image/jpeg;base64,old' }
+        : EMPTY;
+      props.onLoadState?.('ready', () => undefined);
+      props.onStatus?.(fake.status);
+    });
+    const element = document.createElement('div');
+    element.dataset.testid = 'editor';
+    return element;
   },
 }));
 
 const save = vi.hoisted(() => vi.fn());
-vi.mock('./scorepads', async (original) => ({
+vi.mock('../score-pad/scorepads', async (original) => ({
   ...(await original<typeof Scorepads>()),
   saveScorepad: save,
 }));
@@ -347,29 +372,29 @@ function renderWizard(pad: Scorepad | null = null, template?: ScorePadTemplate) 
     signIn: vi.fn(),
     signOut: vi.fn(async () => undefined),
   } as unknown as AuthContextValue;
-  render(
-    <QueryClientProvider client={new QueryClient()}>
+  render(() => (
+    <QueryClientContext value={new QueryClient()}>
       <ToastProvider>
-        <AuthContext.Provider value={auth}>
+        <AuthContext value={auth}>
           <PopupRouter>
             <PopupHost
               fallbackFocusId="main"
               renderPopup={() => (
                 <ScorepadWizard
-                  game={GAME}
+                  mode={pad ? 'edit' : 'add'}
                   scorepadId="00000000-0000-4000-d000-000000000009"
-                  pad={pad}
-                  template={template}
+                  source={{ game: GAME, pad, template }}
+                  notFound={false}
                 />
               )}
             >
-              <main id="main" tabIndex={-1} />
+              <main id="main" tabindex={-1} />
             </PopupHost>
           </PopupRouter>
-        </AuthContext.Provider>
+        </AuthContext>
       </ToastProvider>
-    </QueryClientProvider>,
-  );
+    </QueryClientContext>
+  ));
   return screen.getByRole('dialog', { name: pad ? 'Edytuj notes' : 'Nowy notes' });
 }
 
@@ -479,6 +504,7 @@ describe('kreator edytora notesu', () => {
     // Po mapowaniu pól zastąpienie zdjęcia trzeba potwierdzić; tu jesteśmy jeszcze w kroku 1.
     act(() => {
       document.dispatchEvent(event);
+      flush();
     });
     await waitFor(() => expect(fake.loadPhoto).toHaveBeenLastCalledWith(pasted));
     expect(event.defaultPrevented).toBe(true);
@@ -687,7 +713,10 @@ describe('kreator edytora notesu', () => {
     ).toBeGreaterThanOrEqual(2);
 
     // Oderwanie pustej kartki (bez wyniku) kończy poprzedni wynik testu.
-    act(() => padFake.props?.onTear?.());
+    act(() => {
+      padFake.props?.onTear?.();
+      flush();
+    });
     expect(within(result).queryAllByRole('listitem')).toHaveLength(0);
     expect(within(dialog).getByText(/Oderwij wypełnioną kartkę/)).toBeInTheDocument();
 
@@ -717,11 +746,11 @@ describe('kreator edytora notesu', () => {
     expect(within(dialog).getByText(/Przeciągnij narożnik na róg kartki/)).toBeInTheDocument();
 
     // Nazwa jest wymagana: bez niej „Dalej” jest wyłączone.
-    fireEvent.change(name, { target: { value: '  ' } });
+    fireEvent.input(name, { target: { value: '  ' } });
     expect(fake.setArea).toHaveBeenLastCalledWith({ name: '  ' });
     expect(within(dialog).getByText('Wpisz nazwę notesu.')).toBeInTheDocument();
     expect(next()).toBeDisabled();
-    fireEvent.change(name, { target: { value: 'Turniejowy' } });
+    fireEvent.input(name, { target: { value: 'Turniejowy' } });
     expect(next()).toBeEnabled();
 
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Zielony' }));
@@ -738,21 +767,21 @@ describe('kreator edytora notesu', () => {
     expect(fake.setArea).toHaveBeenLastCalledWith({ smoothing: true });
     const strength = within(dialog).getByRole('slider', { name: 'Siła' });
     expect(strength).toHaveAttribute('max', '10');
-    fireEvent.change(strength, { target: { value: '7' } });
+    fireEvent.input(strength, { target: { value: '7' } });
     expect(fake.setArea).toHaveBeenLastCalledWith({ strength: 7 });
 
     // Rozmiar w cm: przecinek dziesiętny, zapis po wyjściu z pola; zła wartość wraca.
     const width = within(dialog).getByRole('textbox', { name: 'Szerokość kartki' });
-    fireEvent.change(width, { target: { value: '12,5' } });
+    fireEvent.input(width, { target: { value: '12,5' } });
     fireEvent.blur(width);
     expect(fake.setArea).toHaveBeenLastCalledWith({ size: { w: 12.5 } });
     // Poza zakresem: pole od razu pokazuje wartość zapisaną przez edytor.
-    fireEvent.change(width, { target: { value: '100' } });
+    fireEvent.input(width, { target: { value: '100' } });
     fireEvent.blur(width);
     expect(fake.setArea).toHaveBeenLastCalledWith({ size: { w: 60 } });
     expect(width).toHaveValue('60');
     const height = within(dialog).getByRole('textbox', { name: 'Wysokość kartki' });
-    fireEvent.change(height, { target: { value: 'abc' } });
+    fireEvent.input(height, { target: { value: 'abc' } });
     fireEvent.blur(height);
     expect(height).toHaveValue('14,8');
 
@@ -986,7 +1015,7 @@ describe('kreator edytora notesu', () => {
 
     const name = within(dialog).getByRole('textbox', { name: 'Nazwa' });
     expect(name).toHaveValue('Ptaki');
-    fireEvent.change(name, { target: { value: 'Ptaki na planszy' } });
+    fireEvent.input(name, { target: { value: 'Ptaki na planszy' } });
     expect(fake.editCategories).toHaveBeenLastCalledWith({
       type: 'update',
       index: 1,
@@ -997,12 +1026,12 @@ describe('kreator edytora notesu', () => {
     // Zakres min–max–krok: tylko liczby całkowite trafiają do edytora.
     expect(within(dialog).getByRole('radio', { name: 'Min–max' })).toBeChecked();
     const max = within(dialog).getByRole('textbox', { name: 'Max' });
-    fireEvent.change(max, { target: { value: '12,5' } });
+    fireEvent.input(max, { target: { value: '12,5' } });
     expect(within(dialog).getByText('Wpisz liczbę całkowitą.')).toBeVisible();
     expect(fake.editCategories).not.toHaveBeenCalledWith(
       expect.objectContaining({ patch: { max: 12.5 } }),
     );
-    fireEvent.change(max, { target: { value: '120' } });
+    fireEvent.input(max, { target: { value: '120' } });
     expect(fake.editCategories).toHaveBeenLastCalledWith({
       type: 'update',
       index: 1,
@@ -1015,7 +1044,7 @@ describe('kreator edytora notesu', () => {
       index: 1,
       patch: { range: 'list' },
     });
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Dozwolone wartości' }), {
+    fireEvent.input(within(dialog).getByRole('textbox', { name: 'Dozwolone wartości' }), {
       target: { value: '0, 3, 7' },
     });
     expect(fake.editCategories).toHaveBeenLastCalledWith({
@@ -1023,7 +1052,7 @@ describe('kreator edytora notesu', () => {
       index: 1,
       patch: { values: [0, 3, 7] },
     });
-    fireEvent.change(within(dialog).getByRole('textbox', { name: /Opis/ }), {
+    fireEvent.input(within(dialog).getByRole('textbox', { name: /Opis/ }), {
       target: { value: '1 pkt za ptaka' },
     });
     expect(fake.editCategories).toHaveBeenLastCalledWith({

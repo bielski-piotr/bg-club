@@ -1,12 +1,9 @@
-import { useCallback, useSyncExternalStore } from 'react';
-import {
-  applyTheme,
-  readStoredPreference,
-  resolveTheme,
-  storePreference,
-  type ResolvedTheme,
-  type ThemePreference,
-} from './theme';
+import { applyTheme, readStoredPreference, storePreference, type ThemePreference } from './theme';
+
+/*
+ * Wybór motywu w karcie: jeden stan dla całej aplikacji (`createTheme` w komponentach,
+ * `initTheme` przy starcie).
+ */
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 const listeners = new Set<() => void>();
@@ -20,7 +17,8 @@ function storage(): Storage | undefined {
   }
 }
 
-function systemDark(): boolean {
+/** Czy system ma ciemny motyw (`prefers-color-scheme`). */
+export function systemDark(): boolean {
   return typeof window.matchMedia === 'function' && window.matchMedia(DARK_QUERY).matches;
 }
 
@@ -29,7 +27,8 @@ function current(): ThemePreference {
   return preference;
 }
 
-function subscribe(listener: () => void): () => void {
+/** Nasłuch zmian wyboru motywu i motywu systemu; zwraca funkcję wypisania. */
+export function subscribeTheme(listener: () => void): () => void {
   listeners.add(listener);
   const media = typeof window.matchMedia === 'function' ? window.matchMedia(DARK_QUERY) : null;
   // Motyw systemowy obsługuje CSS (`prefers-color-scheme`); tu tylko odświeżamy `resolved`.
@@ -56,17 +55,4 @@ export function setThemePreference(next: ThemePreference): void {
 /** Stosuje zapamiętany motyw przy starcie (uzupełnia skrypt z `index.html`). */
 export function initTheme(): void {
   applyTheme(document.documentElement, current());
-}
-
-export interface ThemeState {
-  readonly preference: ThemePreference;
-  readonly resolved: ResolvedTheme;
-  readonly setPreference: (next: ThemePreference) => void;
-}
-
-export function useTheme(): ThemeState {
-  const pref = useSyncExternalStore(subscribe, current, () => 'system' as const);
-  const dark = useSyncExternalStore(subscribe, systemDark, () => false);
-  const setPreference = useCallback((next: ThemePreference) => setThemePreference(next), []);
-  return { preference: pref, resolved: resolveTheme(pref, dark), setPreference };
 }

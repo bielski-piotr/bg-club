@@ -5,7 +5,7 @@ import {
   type SupabaseClient,
 } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import {
   changePassword,
   newAvatarPath,

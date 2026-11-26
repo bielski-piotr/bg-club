@@ -1,14 +1,26 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { useAuth } from '../auth/authContext';
+import {
+  action,
+  createEffect,
+  createMemo,
+  createOptimistic,
+  createSignal,
+  createUniqueId,
+  flush,
+  For,
+  onSettled,
+  Show,
+  useContext,
+} from 'solid-js';
 import { format, t } from '../i18n';
-import { usePopups } from '../popups/popupContext';
+import { AuthContext } from '../auth/authContext';
+import { PopupsContext } from '../popups/popupContext';
+import { QueryClientContext } from '../lib/queryClient';
+import { ToastContext } from '../ui/toastContext';
 import { PopupModal } from '../popups/PopupModal';
-import { QueryStatus } from '../popups/QueryStatus';
-import { Banner, Button, Icon, Stepper, Switch, TextField, useToast } from '../ui';
+import { QueryBoundary } from '../popups/QueryStatus';
+import { Banner, Button, Icon, Stepper, Switch as Toggle, TextField } from '../ui';
 import { clipboardImage, downloadCover, type CroppedCover } from './cover';
 import { CoverEditor, type CoverEditorResult, type CoverEditorStart } from './CoverEditor';
-import { GameCover } from './GameCover';
 import {
   emptyGameForm,
   GAME_TITLE_MAX,
@@ -23,11 +35,12 @@ import {
   type GameFormValues,
   type PointsError,
 } from './form';
+import { GameCover } from './GameCover';
+import { createGame } from './gameData';
 import {
   GameSaveError,
   gamesKey,
   saveGame,
-  useGame,
   type CoverChange,
   type Game,
   type GameSaveFailure,
@@ -41,59 +54,33 @@ const form = t.games.form;
  * „Edytuj grę” (GAME-3): formularz zapisanej gry. Gra usunięta albo nieistniejąca (np. stary
  * link) daje czytelny stan „Nie znaleziono gry”.
  */
-export function EditGamePopup({ id }: { readonly id: string }) {
-  const { client } = useAuth();
-  const game = useGame(client, id);
-  if (!game.isSuccess) {
-    return (
-      <PopupModal title={form.editTitle}>
-        <QueryStatus isError={game.isError} onRetry={() => void game.refetch()} />
-      </PopupModal>
-    );
-  }
-  if (!game.data) {
-    return (
-      <PopupModal title={form.notFoundTitle}>
-        <p className="games-not-found">{form.notFoundBody}</p>
-      </PopupModal>
-    );
-  }
-  return <GameForm game={game.data} base={null} />;
+export function EditGamePopup(props: { readonly id: string }) {
+  return <GameFormPopup mode="edit" id={props.id} />;
 }
 
 /** „Dodaj grę” (GAME-3). */
 export function AddGamePopup() {
-  return <GameForm game={null} base={null} />;
+  return <GameFormPopup mode="add" id="" />;
 }
 
 /**
  * „Dodaj dodatek” do gry podstawowej (z widoku gry i menu gry w kolekcji). Dodatek ma te same
  * pola co gra; nie trafia do kolekcji ani głosowania.
  */
-export function AddExpansionPopup({ baseId }: { readonly baseId: string }) {
-  const { client } = useAuth();
-  const base = useGame(client, baseId);
-  if (!base.isSuccess) {
-    return (
-      <PopupModal title={form.addExpansionTitle}>
-        <QueryStatus isError={base.isError} onRetry={() => void base.refetch()} />
-      </PopupModal>
-    );
-  }
-  if (!base.data || base.data.base_game_id !== null) {
-    return (
-      <PopupModal title={form.notFoundTitle}>
-        <p className="games-not-found">{form.notFoundBody}</p>
-      </PopupModal>
-    );
-  }
-  return <GameForm game={null} base={base.data} />;
+export function AddExpansionPopup(props: { readonly baseId: string }) {
+  return <GameFormPopup mode="expansion" id={props.baseId} />;
 }
 
 type CoverState =
   | { readonly kind: 'keep' }
   | { readonly kind: 'remove' }
   | ({ readonly kind: 'new'; readonly preview: string } & CroppedCover);
+
+/** Gra edytowana (`game`) albo gra podstawowa nowego dodatku (`base`). */
+interface FormTarget {
+  readonly game: Game | null;
+  readonly base: Game | null;
+}
 
 const SAVE_ERRORS: Readonly<Record<GameSaveFailure, string>> = {
   forbidden: form.errors.forbidden,
@@ -118,92 +105,138 @@ const POINTS_ERRORS: Readonly<Record<PointsError, string>> = {
  * Formularz gry (GAME-3…GAME-6, DS „Kolekcja / Edytuj grę”, „Dodaj grę”): okładka, tytuł,
  * min. i max. liczba graczy (1 ≤ min ≤ max, bez górnego limitu) oraz punkty za każde miejsce
  * 1…max. Zmiana „max” dodaje lub usuwa pola punktów. Rosnąca punktacja daje ostrzeżenie, ale
- * nie blokuje zapisu.
+ * nie blokuje zapisu. Jedno okno na wczytywanie gry, formularz i „Nie znaleziono gry”: fokus
+ * ustawiony przez `PopupHost` zostaje na oknie po wczytaniu danych.
  */
-function GameForm({ game, base }: { readonly game: Game | null; readonly base: Game | null }) {
-  const { client } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const { back } = usePopups();
-  const formId = useId();
-  const creating = game === null;
-  const expansion = base !== null || (game?.base_game_id ?? null) !== null;
+function GameFormPopup(props: {
+  readonly mode: 'add' | 'edit' | 'expansion';
+  /** `edit`: id gry, `expansion`: id gry podstawowej, `add`: pusty. */
+  readonly id: string;
+}) {
+  const auth = useContext(AuthContext);
+  const queryClient = useContext(QueryClientContext);
+  const toast = useContext(ToastContext);
+  const popups = useContext(PopupsContext);
+  const formId = createUniqueId();
   // Id nowej gry od razu: kolor monogramu w podglądzie jest ten sam co po zapisie.
-  const [id] = useState(() => game?.id ?? crypto.randomUUID());
-  const [values, setValues] = useState<GameFormValues>(() =>
+  const newId = crypto.randomUUID();
+
+  const source = createGame(() => (props.mode === 'add' ? '' : props.id));
+  // Okno (tytuł, stopka, „nie znaleziono”) i start formularza zależą od danych w cache bez
+  // czekania; treść czeka na grę pod `<QueryBoundary>`.
+  const notFound = () => {
+    if (props.mode === 'add') return false;
+    const data = source.current();
+    if (data === undefined) return false;
+    return !data || (props.mode === 'expansion' && data.base_game_id !== null);
+  };
+  /** Czyta grę z czekaniem (pod `<QueryBoundary>`); nowa gra nie czeka. */
+  const loaded = () => props.mode === 'add' || source() !== undefined;
+  const target = (): FormTarget | undefined => {
+    if (props.mode === 'add') return { game: null, base: null };
+    const data = source.current();
+    if (!data || notFound()) return undefined;
+    return props.mode === 'edit' ? { game: data, base: null } : { game: null, base: data };
+  };
+  // Formularz startuje z pierwszych wczytanych danych (raz, przy montowaniu): odświeżenie
+  // gry w cache nie nadpisuje tego, co wpisano.
+  let first: FormTarget | undefined;
+  const ctx = createMemo(() => (first ??= target()));
+  const game = () => ctx()?.game ?? null;
+  const base = () => ctx()?.base ?? null;
+  const id = () => game()?.id ?? newId;
+  const creating = () => game() === null;
+  const expansion = () => base() !== null || (game()?.base_game_id ?? null) !== null;
+
+  const [values, setValues] = createSignal<GameFormValues>(() => {
+    const current = ctx();
     // Nowy dodatek niedostępnej gry jest niedostępny (tak samo ustawia go baza).
-    game ? gameFormFrom(game) : { ...emptyGameForm(), available: base?.available ?? true },
-  );
+    return current?.game
+      ? gameFormFrom(current.game)
+      : { ...emptyGameForm(), available: current?.base?.available ?? true };
+  });
   // Gra podstawowa dodatku (nowego albo edytowanego): uwaga, gdy jest niedostępna.
-  const baseGame = useGame(client, base?.id ?? game?.base_game_id ?? '');
-  const baseUnavailable = expansion && baseGame.data != null && !baseGame.data.available;
-  const [cover, setCover] = useState<CoverState>({ kind: 'keep' });
+  const baseGame = createGame(() => base()?.id ?? game()?.base_game_id ?? '');
+  const unavailableBase = () => {
+    const data = baseGame.current();
+    return expansion() && data != null && !data.available ? data : undefined;
+  };
+  const [cover, setCover] = createSignal<CoverState>({ kind: 'keep' });
   /** Otwarty edytor okładki i z czym się otworzył. */
-  const [editor, setEditor] = useState<CoverEditorStart | null>(null);
+  const [editor, setEditor] = createSignal<CoverEditorStart | null>(null);
   /** Błędy wszystkich pól po pierwszej próbie zapisu; tytułu także po opuszczeniu pola. */
-  const [showErrors, setShowErrors] = useState(false);
-  const [titleTouched, setTitleTouched] = useState(false);
-  const [saveError, setSaveError] = useState<string | undefined>(undefined);
+  const [showErrors, setShowErrors] = createSignal(false);
+  const [titleTouched, setTitleTouched] = createSignal(false);
+  const [saveError, setSaveError] = createSignal<string | undefined>(undefined);
 
-  // Adres podglądu zwalniamy przy podmianie i przy zamknięciu popupu (jak w formularzu klubu:
-  // ref, bo StrictMode od razu uruchamia sprzątanie efektu).
-  const previewUrl = useRef<string | null>(null);
-  useEffect(
-    () => () => {
-      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-    },
-    [],
-  );
+  // Adres podglądu zwalniamy przy podmianie i przy zamknięciu popupu.
+  let previewUrl: string | null = null;
+  onSettled(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  });
 
-  const errors = validateGameForm(values);
-  const invalid = hasErrors(errors);
+  const errors = createMemo(() => validateGameForm(values()));
+  const invalid = () => hasErrors(errors());
 
-  const save = useMutation({
-    mutationFn: (coverChange: CoverChange) =>
-      saveGame(client, game, { id, values, cover: coverChange, baseGameId: base?.id }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: gamesKey });
-      const title = values.title.trim();
-      const toasts = expansion ? t.games.toasts.expansion : t.games.toasts;
-      toast.show(format(creating ? toasts.created : toasts.updated, { title }), 'success');
-      back();
-    },
-    onError: (error) => {
+  const [saving, setSaving] = createOptimistic(false);
+  const save = action(function* (coverChange: CoverChange) {
+    setSaving(true);
+    try {
+      yield saveGame(auth.client, game(), {
+        id: id(),
+        values: values(),
+        cover: coverChange,
+        baseGameId: base()?.id,
+      });
+    } catch (error) {
       const reason = error instanceof GameSaveError ? error.reason : 'save';
       if (reason === 'gone') void queryClient.invalidateQueries({ queryKey: gamesKey });
       setSaveError(SAVE_ERRORS[reason]);
-    },
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: gamesKey });
+    const title = values().title.trim();
+    const toasts = expansion() ? t.games.toasts.expansion : t.games.toasts;
+    toast.show(format(creating() ? toasts.created : toasts.updated, { title }), 'success');
+    popups.back();
   });
 
-  const hasCover = cover.kind === 'new' || (cover.kind === 'keep' && game?.cover_path != null);
+  const hasCover = () => {
+    const current = cover();
+    return current.kind === 'new' || (current.kind === 'keep' && game()?.cover_path != null);
+  };
 
   /** Edytor z obecną okładką: nowa (jej oryginał) albo zapisana (oryginał z Storage). */
   const openEditor = () => {
-    if (cover.kind === 'new') {
-      const { source, crop } = cover;
+    const current = cover();
+    if (current.kind === 'new') {
+      const { source: original, crop } = current;
       setEditor({
         kind: 'current',
         load: async () => ({
           blob:
-            source.kind === 'upload' ? source.image.blob : await downloadCover(client, source.path),
-          source,
+            original.kind === 'upload'
+              ? original.image.blob
+              : await downloadCover(auth.client, original.path),
+          source: original,
           crop,
         }),
       });
       return;
     }
-    const path = cover.kind === 'keep' ? (game?.cover_path ?? null) : null;
-    if (!game || !path) {
+    const saved = game();
+    const path = current.kind === 'keep' ? (saved?.cover_path ?? null) : null;
+    if (!saved || !path) {
       setEditor({ kind: 'empty' });
       return;
     }
     // Okładka sprzed kadrowania nie ma oryginału: kadruje się sama okładka.
-    const sourcePath = game.cover_source_path ?? path;
-    const crop = game.cover_source_path ? game.cover_crop : null;
+    const sourcePath = saved.cover_source_path ?? path;
+    const crop = saved.cover_source_path ? saved.cover_crop : null;
     setEditor({
       kind: 'current',
       load: async () => ({
-        blob: await downloadCover(client, sourcePath),
+        blob: await downloadCover(auth.client, sourcePath),
         source: { kind: 'existing', path: sourcePath },
         crop,
       }),
@@ -215,19 +248,20 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
     if (result.kind === 'unchanged') return;
     if (result.kind === 'remove') {
       // Gra bez zapisanej okładki: wystarczy porzucić nową.
-      setCover(game?.cover_path ? { kind: 'remove' } : { kind: 'keep' });
+      setCover(game()?.cover_path ? { kind: 'remove' } : { kind: 'keep' });
       return;
     }
     const preview = URL.createObjectURL(result.image.blob);
-    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-    previewUrl.current = preview;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = preview;
     setCover({ ...result, preview });
   };
 
   // Wklejenie obrazu (Ctrl+V / ⌘V) w dowolnym miejscu formularza otwiera edytor okładki z tym
   // obrazem: pola tekstowe nie przyjmują obrazów.
-  useEffect(() => {
-    if (editor) return;
+  const pasting = createMemo(() => !!ctx() && editor() === null);
+  createEffect(pasting, (active) => {
+    if (!active) return;
     const onPaste = (event: ClipboardEvent) => {
       const file = clipboardImage(event.clipboardData);
       if (!file) return;
@@ -236,231 +270,267 @@ function GameForm({ game, base }: { readonly game: Game | null; readonly base: G
     };
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-  }, [editor]);
+  });
 
-  const setMax = (maxPlayers: number) =>
-    setValues((current) => withMaxPlayers(current, maxPlayers));
-  const complexityError = errors.complexity && (showErrors || values.complexity !== '');
+  const update = (change: (current: GameFormValues) => GameFormValues) =>
+    setValues((current) => change(current));
   const setPoint = (index: number, text: string) =>
-    setValues((current) => ({
+    update((current) => ({
       ...current,
       points: current.points.map((value, i) => (i === index ? text : value)),
     }));
 
-  const coverPath = cover.kind === 'keep' ? (game?.cover_path ?? null) : null;
-  const coverSrc = cover.kind === 'new' ? cover.preview : undefined;
+  const coverPath = () => (cover().kind === 'keep' ? (game()?.cover_path ?? null) : null);
+  const coverSrc = () => {
+    const current = cover();
+    return current.kind === 'new' ? current.preview : undefined;
+  };
 
-  const titleMessage =
-    (showErrors || titleTouched) && errors.title
-      ? errors.title === 'required'
-        ? form.errors.titleRequired
-        : format(form.errors.titleTooLong, { max: GAME_TITLE_MAX })
+  const titleMessage = () => {
+    const error = errors().title;
+    if (!(showErrors() || titleTouched()) || !error) return undefined;
+    return error === 'required'
+      ? form.errors.titleRequired
+      : format(form.errors.titleTooLong, { max: GAME_TITLE_MAX });
+  };
+  const complexityMessage = () => {
+    const error = errors().complexity;
+    return error && (showErrors() || values().complexity !== '')
+      ? COMPLEXITY_ERRORS[error]
       : undefined;
+  };
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
     setShowErrors(true);
     setSaveError(undefined);
-    if (invalid || save.isPending) return;
+    // Wpis z tego samego zadania (autouzupełnianie + Enter) widać dopiero po flushu; flush
+    // pokazuje też od razu powyższe zapisy (przed akcją czekałyby na jej koniec).
+    flush();
+    if (invalid() || saving()) return;
+    const current = cover();
     const change: CoverChange =
-      cover.kind === 'new'
-        ? { kind: 'new', image: cover.image, crop: cover.crop, source: cover.source }
-        : cover.kind === 'remove'
-          ? cover
+      current.kind === 'new'
+        ? { kind: 'new', image: current.image, crop: current.crop, source: current.source }
+        : current.kind === 'remove'
+          ? current
           : { kind: 'keep' };
-    save.mutate(change);
+    void save(change);
   };
 
-  if (editor) {
-    return <CoverEditor start={editor} onCancel={() => setEditor(null)} onDone={closeEditor} />;
-  }
-
-  const title = expansion
-    ? creating
-      ? form.addExpansionTitle
-      : form.editExpansionTitle
-    : creating
-      ? form.addTitle
-      : form.editTitle;
+  const title = () => {
+    if (notFound()) return form.notFoundTitle;
+    if (props.mode === 'expansion') return form.addExpansionTitle;
+    if (props.mode === 'add') return form.addTitle;
+    return expansion() ? form.editExpansionTitle : form.editTitle;
+  };
 
   return (
-    <PopupModal
-      title={title}
-      footer={
-        <>
-          <Button variant="secondary" onClick={back}>
-            {form.cancel}
-          </Button>
-          <Button type="submit" form={formId} loading={save.isPending}>
-            {form.save}
-          </Button>
-        </>
+    <Show
+      when={editor()}
+      keyed
+      fallback={
+        <PopupModal
+          title={title()}
+          footer={
+            <Show when={ctx() && !notFound()}>
+              <Button variant="secondary" onClick={() => popups.back()}>
+                {form.cancel}
+              </Button>
+              <Button type="submit" form={formId} loading={saving()}>
+                {form.save}
+              </Button>
+            </Show>
+          }
+        >
+          <Show when={!notFound()} fallback={<p class="games-not-found">{form.notFoundBody}</p>}>
+            <QueryBoundary>
+              <Show when={loaded() && ctx()}>
+                <form id={formId} class="game-form" novalidate onSubmit={submit}>
+                  <Show when={base()}>
+                    {(shown) => (
+                      <p class="game-form__hint">
+                        {format(form.expansionOf, { title: shown().title })}
+                      </p>
+                    )}
+                  </Show>
+                  <Show when={saveError()}>
+                    {(message) => <Banner variant="error">{message()}</Banner>}
+                  </Show>
+                  <Show when={showErrors() && invalid() && !saveError()}>
+                    <Banner variant="error">{form.errors.invalid}</Banner>
+                  </Show>
+
+                  <fieldset class="club-form__logo">
+                    <legend class="sr-only">{form.coverLabel}</legend>
+                    <button
+                      type="button"
+                      class="club-form__tile game-form__cover"
+                      aria-label={hasCover() ? form.editCover : form.addCover}
+                      onClick={openEditor}
+                    >
+                      <GameCover
+                        id={id()}
+                        title={values().title}
+                        coverPath={coverPath()}
+                        src={coverSrc()}
+                        size="form"
+                      />
+                      <span class="club-form__badge" aria-hidden="true">
+                        <Icon name="pencil" />
+                      </span>
+                    </button>
+                    <div class="club-form__logo-text">
+                      <p class="club-form__helper">
+                        {form.coverHelper}
+                        <br />
+                        {cover().kind === 'new'
+                          ? form.coverChanged
+                          : cover().kind === 'remove'
+                            ? form.coverRemoved
+                            : form.coverFallback}
+                      </p>
+                    </div>
+                  </fieldset>
+
+                  <TextField
+                    label={form.titleLabel}
+                    placeholder={form.titlePlaceholder}
+                    value={values().title}
+                    autocomplete="off"
+                    required
+                    error={titleMessage()}
+                    onInput={(event) => {
+                      const text = event.currentTarget.value;
+                      update((current) => ({ ...current, title: text }));
+                    }}
+                    onBlur={(event) => {
+                      // Wartość z pola: wpis z tego samego zadania sygnał pokaże dopiero po flushu.
+                      if (event.currentTarget.value !== '') setTitleTouched(true);
+                    }}
+                  />
+
+                  <div class="game-form__group">
+                    <Toggle
+                      label={form.availableLabel}
+                      checked={values().available}
+                      onCheckedChange={(available) =>
+                        update((current) => ({ ...current, available }))
+                      }
+                      description={expansion() ? form.availableHintExpansion : form.availableHint}
+                    />
+                    <Show when={unavailableBase()}>
+                      {(shown) => (
+                        <p class="game-form__hint">
+                          {format(form.availableBaseOff, { title: shown().title })}
+                        </p>
+                      )}
+                    </Show>
+                  </div>
+
+                  <fieldset class="game-form__group">
+                    <legend class="game-form__legend">{form.playersLegend}</legend>
+                    <div class="game-form__players">
+                      <Stepper
+                        label={form.minLabel}
+                        value={values().minPlayers}
+                        min={1}
+                        onChange={(minPlayers) => update((current) => ({ ...current, minPlayers }))}
+                      />
+                      <Stepper
+                        label={form.maxLabel}
+                        value={values().maxPlayers}
+                        min={1}
+                        onChange={(maxPlayers) =>
+                          update((current) => withMaxPlayers(current, maxPlayers))
+                        }
+                        error={errors().maxPlayers ? form.errors.range : undefined}
+                      />
+                    </div>
+                    <p class="game-form__hint">{form.playersHint}</p>
+                  </fieldset>
+
+                  <div class="game-form__group">
+                    <Show when={game()?.complexity === null && values().complexity === ''}>
+                      <Banner variant="warning">{form.complexityMissing}</Banner>
+                    </Show>
+                    <TextField
+                      label={form.complexityLabel}
+                      placeholder={form.complexityPlaceholder}
+                      value={values().complexity}
+                      inputmode="decimal"
+                      autocomplete="off"
+                      numeric
+                      required
+                      hint={form.complexityHint}
+                      error={complexityMessage()}
+                      onInput={(event) => {
+                        const complexity = event.currentTarget.value;
+                        update((current) => withComplexity(current, complexity));
+                      }}
+                    />
+                  </div>
+
+                  <fieldset class="game-form__group">
+                    <legend class="game-form__legend">{form.pointsLegend}</legend>
+                    <p class="game-form__hint">
+                      {form.pointsHint}
+                      <Show when={!creating()}>
+                        <br />
+                        {form.historyNote}
+                      </Show>
+                    </p>
+                    <div class="game-form__points">
+                      {/* Pola są pozycjami (miejsce 1…max), więc lista jest po indeksie. */}
+                      <For each={values().points} keyed={false}>
+                        {(text, index) => (
+                          <TextField
+                            label={format(form.placeLabel, { n: index + 1 })}
+                            value={text()}
+                            inputmode="decimal"
+                            autocomplete="off"
+                            numeric
+                            required
+                            trailing={form.pointsUnit}
+                            error={(() => {
+                              const error = errors().points[index];
+                              return showErrors() && error ? POINTS_ERRORS[error] : undefined;
+                            })()}
+                            onInput={(event) => setPoint(index, event.currentTarget.value)}
+                          />
+                        )}
+                      </For>
+                    </div>
+                    <Show when={pointsEdited(values())}>
+                      <p class="game-form__hint">
+                        {form.pointsEdited}{' '}
+                        <button
+                          type="button"
+                          class="club-form__link"
+                          onClick={() =>
+                            update((current) => withComplexity(current, current.complexity))
+                          }
+                        >
+                          {form.pointsReset}
+                        </button>
+                      </p>
+                    </Show>
+                    <Show when={pointsIncrease(values().points)}>
+                      <Banner variant="warning" class="game-form__warning">
+                        {form.pointsWarning}
+                      </Banner>
+                    </Show>
+                  </fieldset>
+                </form>
+              </Show>
+            </QueryBoundary>
+          </Show>
+        </PopupModal>
       }
     >
-      <form id={formId} className="game-form" noValidate onSubmit={submit}>
-        {base ? (
-          <p className="game-form__hint">{format(form.expansionOf, { title: base.title })}</p>
-        ) : null}
-        {saveError ? <Banner variant="error">{saveError}</Banner> : null}
-        {showErrors && invalid && !saveError ? (
-          <Banner variant="error">{form.errors.invalid}</Banner>
-        ) : null}
-
-        <fieldset className="club-form__logo">
-          <legend className="sr-only">{form.coverLabel}</legend>
-          <button
-            type="button"
-            className="club-form__tile game-form__cover"
-            aria-label={hasCover ? form.editCover : form.addCover}
-            onClick={openEditor}
-          >
-            <GameCover
-              id={id}
-              title={values.title}
-              coverPath={coverPath}
-              src={coverSrc}
-              size="form"
-            />
-            <span className="club-form__badge" aria-hidden="true">
-              <Icon name="pencil" />
-            </span>
-          </button>
-          <div className="club-form__logo-text">
-            <p className="club-form__helper">
-              {form.coverHelper}
-              <br />
-              {cover.kind === 'new'
-                ? form.coverChanged
-                : cover.kind === 'remove'
-                  ? form.coverRemoved
-                  : form.coverFallback}
-            </p>
-          </div>
-        </fieldset>
-
-        <TextField
-          label={form.titleLabel}
-          placeholder={form.titlePlaceholder}
-          value={values.title}
-          autoComplete="off"
-          required
-          error={titleMessage}
-          onChange={(event) => {
-            const title = event.target.value;
-            setValues((current) => ({ ...current, title }));
-          }}
-          onBlur={() => values.title !== '' && setTitleTouched(true)}
-        />
-
-        <div className="game-form__group">
-          <Switch
-            label={form.availableLabel}
-            checked={values.available}
-            onCheckedChange={(available) => setValues((current) => ({ ...current, available }))}
-            description={expansion ? form.availableHintExpansion : form.availableHint}
-          />
-          {baseUnavailable && baseGame.data ? (
-            <p className="game-form__hint">
-              {format(form.availableBaseOff, { title: baseGame.data.title })}
-            </p>
-          ) : null}
-        </div>
-
-        <fieldset className="game-form__group">
-          <legend className="game-form__legend">{form.playersLegend}</legend>
-          <div className="game-form__players">
-            <Stepper
-              label={form.minLabel}
-              value={values.minPlayers}
-              min={1}
-              onChange={(minPlayers) => setValues((current) => ({ ...current, minPlayers }))}
-            />
-            <Stepper
-              label={form.maxLabel}
-              value={values.maxPlayers}
-              min={1}
-              onChange={setMax}
-              error={errors.maxPlayers ? form.errors.range : undefined}
-            />
-          </div>
-          <p className="game-form__hint">{form.playersHint}</p>
-        </fieldset>
-
-        <div className="game-form__group">
-          {game && game.complexity === null && values.complexity === '' ? (
-            <Banner variant="warning">{form.complexityMissing}</Banner>
-          ) : null}
-          <TextField
-            label={form.complexityLabel}
-            placeholder={form.complexityPlaceholder}
-            value={values.complexity}
-            inputMode="decimal"
-            autoComplete="off"
-            numeric
-            required
-            hint={form.complexityHint}
-            error={
-              complexityError && errors.complexity
-                ? COMPLEXITY_ERRORS[errors.complexity]
-                : undefined
-            }
-            onChange={(event) => {
-              const complexity = event.target.value;
-              setValues((current) => withComplexity(current, complexity));
-            }}
-          />
-        </div>
-
-        <fieldset className="game-form__group">
-          <legend className="game-form__legend">{form.pointsLegend}</legend>
-          <p className="game-form__hint">
-            {form.pointsHint}
-            {creating ? null : (
-              <>
-                <br />
-                {form.historyNote}
-              </>
-            )}
-          </p>
-          <div className="game-form__points">
-            {values.points.map((text, index) => {
-              const error = errors.points[index];
-              return (
-                <TextField
-                  // Pola są pozycjami (miejsce 1…max), więc indeks jest stabilnym kluczem.
-                  key={index}
-                  label={format(form.placeLabel, { n: index + 1 })}
-                  value={text}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  numeric
-                  required
-                  trailing={form.pointsUnit}
-                  error={showErrors && error ? POINTS_ERRORS[error] : undefined}
-                  onChange={(event) => setPoint(index, event.target.value)}
-                />
-              );
-            })}
-          </div>
-          {pointsEdited(values) ? (
-            <p className="game-form__hint">
-              {form.pointsEdited}{' '}
-              <button
-                type="button"
-                className="club-form__link"
-                onClick={() => setValues((current) => withComplexity(current, current.complexity))}
-              >
-                {form.pointsReset}
-              </button>
-            </p>
-          ) : null}
-          {pointsIncrease(values.points) ? (
-            <Banner variant="warning" className="game-form__warning">
-              {form.pointsWarning}
-            </Banner>
-          ) : null}
-        </fieldset>
-      </form>
-    </PopupModal>
+      {(start) => (
+        <CoverEditor start={start} onCancel={() => setEditor(null)} onDone={closeEditor} />
+      )}
+    </Show>
   );
 }

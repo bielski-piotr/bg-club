@@ -1,14 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/query-core';
+import { QueryClientContext } from '../lib/queryClient';
+import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/authContext';
 import type { Game } from '../games/games';
-import { Hub } from '../hub/Hub';
+import { Hub } from './Hub';
 import { PopupRouter } from '../popups/PopupRouter';
-import type { Profile } from '../profile/profiles';
+import type { Profile } from '../profile/profileQueries';
 import { ToastProvider } from '../ui';
-import type { Scorepad } from './scorepads';
+import type { Scorepad } from '../score-pad/scorepads';
 
 /*
  * Popup notesów gry (PRD GAME-7, EDT-6, zadanie [015]): lista z liczbą miejsc i wersją,
@@ -180,17 +181,17 @@ function renderPopup(pads: Scorepad[], me: Profile = ADA, search = `?p=game/${GA
     signOut: vi.fn(async () => undefined),
   } as unknown as AuthContextValue;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
+  render(() => (
+    <QueryClientContext value={queryClient}>
       <ToastProvider>
-        <AuthContext.Provider value={auth}>
+        <AuthContext value={auth}>
           <PopupRouter>
             <Hub me={{ ...me, theme: 'system', password_change_suggested: false }} />
           </PopupRouter>
-        </AuthContext.Provider>
+        </AuthContext>
       </ToastProvider>
-    </QueryClientProvider>,
-  );
+    </QueryClientContext>
+  ));
   return fake;
 }
 
@@ -270,10 +271,10 @@ describe('notesy gry (GAME-7)', () => {
     const field = await screen.findByLabelText('Nazwa notesu');
     const dialog = screen.getByRole('dialog', { name: 'Zmień nazwę notesu' });
     expect(field).toHaveValue('Turniejowy');
-    fireEvent.change(field, { target: { value: '' } });
+    fireEvent.input(field, { target: { value: '' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
     expect(await within(dialog).findByText('Wpisz nazwę notesu.')).toBeInTheDocument();
-    fireEvent.change(field, { target: { value: '  Finałowy ' } });
+    fireEvent.input(field, { target: { value: '  Finałowy ' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Zapisz' }));
     expect(await screen.findByText('Zmieniono nazwę notesu na Finałowy')).toBeInTheDocument();
     expect(fake.updates).toEqual([{ row: { name: 'Finałowy' }, id: TURNIEJ.id }]);
@@ -287,11 +288,12 @@ describe('notesy gry (GAME-7)', () => {
     expect(submit).toBeDisabled();
     fireEvent.click(within(dialog).getByRole('button', { name: /Gra albo dodatek/ }));
     // Obecna gra notesu jest wyłączona; dodatek jest pod swoją grą.
-    expect(screen.getByRole('option', { name: 'Żółwie Wyścigi' })).toHaveAttribute(
+    expect(await screen.findByRole('option', { name: 'Żółwie Wyścigi' })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
     fireEvent.click(screen.getByRole('option', { name: 'Żółwie Wyścigi › Turbo' }));
+    await waitFor(() => expect(submit).toBeEnabled());
     fireEvent.click(submit);
     expect(
       await screen.findByText('Przeniesiono notes Turniejowy do: Żółwie Wyścigi › Turbo'),

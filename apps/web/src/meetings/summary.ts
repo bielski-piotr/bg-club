@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData } from '@tanstack/query-core';
 import { format, t } from '../i18n';
 import { normalizeGames } from '../leaderboard/filters';
 import { isUuid } from '../popups/routes';
@@ -41,12 +41,12 @@ export interface SummaryEntry {
 export const meetingSummaryKey = (id: string, games: readonly string[] = []) =>
   [...meetingsKey, 'summary', id, normalizeGames(games).join(',')] as const;
 
-export function useMeetingSummary(
+export function meetingSummaryQuery(
   client: SupabaseClient,
   meetingId: string,
   games: readonly string[] = [],
 ) {
-  return useQuery({
+  return {
     queryKey: meetingSummaryKey(meetingId, games),
     // Zmiana filtra zostawia poprzednią tabelę do czasu nowych danych (bez migania).
     placeholderData: keepPreviousData,
@@ -59,7 +59,7 @@ export function useMeetingSummary(
       if (error) throw error;
       return (data ?? []) as SummaryEntry[];
     },
-  });
+  };
 }
 
 /** Gry zapisanych partii spotkania do filtra, w kolejności pierwszej partii (§5.6.6). */

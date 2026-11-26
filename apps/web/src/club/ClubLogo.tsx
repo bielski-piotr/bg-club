@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { monogram } from '../ui';
-import { cx } from '../ui/cx';
+import { createSignal, Show } from 'solid-js';
+import { monogram, type ClassValue } from '../ui';
 import './club.css';
 
 interface ClubLogoProps {
@@ -9,20 +8,21 @@ interface ClubLogoProps {
   readonly src?: string | undefined;
   /** 36 = nagłówek huba, 88 = formularz klubu (DS §17). */
   readonly size: 36 | 88;
-  readonly className?: string | undefined;
+  readonly class?: ClassValue;
 }
 
 /** Kafelek logo klubu: wgrane logo albo biały monogram nazwy na ciemnym tle (DS §17). */
-export function ClubLogo({ name, src, size, className }: ClubLogoProps) {
-  const [failed, setFailed] = useState<string | undefined>(undefined);
-  const showImage = src !== undefined && src !== failed;
+export function ClubLogo(props: ClubLogoProps) {
+  // Adres, którego obraz się nie wczytał: dla niego monogram, nowy adres próbuje od nowa.
+  const [failed, setFailed] = createSignal<string | undefined>(undefined);
+  const shown = () => (props.src !== undefined && props.src !== failed() ? props.src : undefined);
   return (
-    <span className={cx('club-logo', `club-logo--${size}`, className)} aria-hidden="true">
-      {showImage ? (
-        <img className="club-logo__img" src={src} alt="" onError={() => setFailed(src)} />
-      ) : (
-        monogram(name.trim() === '' ? '?' : name)
-      )}
+    <span class={['club-logo', `club-logo--${props.size}`, props.class]} aria-hidden="true">
+      <Show when={shown()} fallback={monogram(props.name.trim() === '' ? '?' : props.name)}>
+        {(src) => (
+          <img class="club-logo__img" src={src()} alt="" onError={() => setFailed(src())} />
+        )}
+      </Show>
     </span>
   );
 }

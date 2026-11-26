@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { isUuid } from '../popups/routes';
 import { gamesKey } from './games';
 
@@ -63,8 +62,8 @@ export interface GameStats {
 export const gameStatsKey = (id: string) => [...gamesKey, 'stats', id] as const;
 
 /** Statystyki gry; `null` = gry nie ma (albo brak dostępu). */
-export function useGameStats(client: SupabaseClient, id: string) {
-  return useQuery({
+export function gameStatsQuery(client: SupabaseClient, id: string) {
+  return {
     queryKey: gameStatsKey(id),
     queryFn: async (): Promise<GameStats | null> => {
       if (!isUuid(id)) return null;
@@ -72,7 +71,7 @@ export function useGameStats(client: SupabaseClient, id: string) {
       if (error) throw error;
       return (data ?? null) as GameStats | null;
     },
-  });
+  };
 }
 
 /**

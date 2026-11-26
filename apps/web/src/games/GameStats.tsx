@@ -1,193 +1,208 @@
-import { useAuth } from '../auth/authContext';
+import { createMemo, For, Show } from 'solid-js';
 import { format, formatNumber, plural, t } from '../i18n';
 import { shortMeetingDate } from '../meetings/datetime';
+import { fullName, type Profile } from '../profile/profileQueries';
 import { PopupLink } from '../popups/PopupLink';
-import { QueryStatus } from '../popups/QueryStatus';
+import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { ProfileLink } from '../profile/ProfileLink';
-import { fullName, useAllProfiles, type Profile } from '../profile/profiles';
+import { createAllProfiles } from '../profile/profiles';
 import { EmptyState, Icon, ListRow, Tray } from '../ui';
-import { formatScore, useGameStats, type GameRecord, type GameStats } from './gameStatsData';
+import { createGameStats } from './gameData';
+import { formatScore, type GameRecord, type GameStats } from './gameStatsData';
 
 const text = t.games.details.stats;
 
 /**
- * Statystyki gry w szczegółach gry (GAME-10, GAME-11): liczba partii, najczęstszy zwycięzca, średni wynik zwycięzcy, rekord gry (wszyscy rekordziści przy równej
- * wartości, Q25; kto i kiedy, z linkiem do spotkania) i ranking graczy w grze (wygrane, punkty).
- * Datę ostatniej partii pokazuje nagłówek szczegółów gry.
+ * Statystyki gry w szczegółach gry (GAME-10, GAME-11): liczba partii, najczęstszy zwycięzca,
+ * średni wynik zwycięzcy, rekord gry (wszyscy rekordziści przy równej wartości, Q25; kto
+ * i kiedy, z linkiem do spotkania) i ranking graczy w grze (wygrane, punkty). Datę ostatniej
+ * partii pokazuje nagłówek szczegółów gry.
  */
-export function GameStatsSection({
-  gameId,
-  title,
-  timeZone,
-}: {
+export function GameStatsSection(props: {
   readonly gameId: string;
   readonly title: string;
   readonly timeZone: string;
 }) {
-  const { client } = useAuth();
-  const stats = useGameStats(client, gameId);
-  const profiles = useAllProfiles(client);
-  const headingId = `${gameId}-stats`;
+  const stats = createGameStats(() => props.gameId);
+  const profiles = createAllProfiles();
+  const headingId = () => `${props.gameId}-stats`;
+  /** Statystyki z profilami (oba zapytania czekają pod `<QueryBoundary>`); bez partii `null`. */
+  const body = createMemo(() => {
+    const data = stats();
+    const people = profiles();
+    return data?.play_count ? { data, people } : null;
+  });
   return (
-    <section className="meeting-view__section" aria-labelledby={headingId}>
-      <div className="meeting-view__head-row">
-        <h3 id={headingId} className="meeting-view__head">
+    <section class="meeting-view__section" aria-labelledby={headingId()}>
+      <div class="meeting-view__head-row">
+        <h3 id={headingId()} class="meeting-view__head">
           {text.title}
         </h3>
       </div>
-      {stats.data === undefined || !profiles.data ? (
-        <QueryStatus
-          isError={stats.isError || profiles.isError}
-          onRetry={() => {
-            if (stats.isError) void stats.refetch();
-            if (profiles.isError) void profiles.refetch();
-          }}
-        />
-      ) : !stats.data || stats.data.play_count === 0 ? (
-        <EmptyState icon="trophy" title={text.emptyTitle} helper={text.empty} />
-      ) : (
-        <StatsBody stats={stats.data} profiles={profiles.data} title={title} timeZone={timeZone} />
-      )}
+      <QueryBoundary>
+        <Show
+          when={body()}
+          fallback={<EmptyState icon="trophy" title={text.emptyTitle} helper={text.empty} />}
+        >
+          {(shown) => (
+            <StatsBody
+              stats={shown().data}
+              profiles={shown().people}
+              title={props.title}
+              timeZone={props.timeZone}
+            />
+          )}
+        </Show>
+      </QueryBoundary>
     </section>
   );
 }
 
-function StatsBody({
-  stats,
-  profiles,
-  title,
-  timeZone,
-}: {
+function StatsBody(props: {
   readonly stats: GameStats;
   readonly profiles: ReadonlyMap<string, Profile>;
   readonly title: string;
   readonly timeZone: string;
 }) {
   const name = (id: string) => {
-    const person = profiles.get(id);
+    const person = props.profiles.get(id);
     return person ? fullName(person) : t.meetings.plays.unknownPlayer;
   };
-  const topWins = stats.top_winners[0]?.wins ?? 0;
+  const topWins = () => props.stats.top_winners[0]?.wins ?? 0;
   return (
     <>
-      <dl className="game-stats">
-        <div className="game-stats__tile">
-          <dt className="game-stats__label">{text.plays}</dt>
-          <dd className="game-stats__value">{stats.play_count}</dd>
+      <dl class="game-stats">
+        <div class="game-stats__tile">
+          <dt class="game-stats__label">{text.plays}</dt>
+          <dd class="game-stats__value">{props.stats.play_count}</dd>
         </div>
-        <div className="game-stats__tile game-stats__tile--wide">
-          <dt className="game-stats__label">{text.topWinner}</dt>
-          <dd className="game-stats__value">
-            {stats.top_winners.length > 0
-              ? stats.top_winners.map((winner) => name(winner.profile_id)).join(', ')
+        <div class="game-stats__tile game-stats__tile--wide">
+          <dt class="game-stats__label">{text.topWinner}</dt>
+          <dd class="game-stats__value">
+            {props.stats.top_winners.length > 0
+              ? props.stats.top_winners.map((winner) => name(winner.profile_id)).join(', ')
               : text.none}
-            {topWins > 0 ? (
-              <span className="game-stats__sub game-stats__sub--block">
-                {plural(topWins, text.topWins)}
+            <Show when={topWins() > 0}>
+              <span class="game-stats__sub game-stats__sub--block">
+                {plural(topWins(), text.topWins)}
               </span>
-            ) : null}
+            </Show>
           </dd>
         </div>
-        <div className="game-stats__tile">
-          <dt className="game-stats__label">{text.winnerAverage}</dt>
-          <dd className="game-stats__value">
-            {stats.winner_average !== null ? formatScore(stats.winner_average, 1) : text.none}
+        <div class="game-stats__tile">
+          <dt class="game-stats__label">{text.winnerAverage}</dt>
+          <dd class="game-stats__value">
+            {props.stats.winner_average !== null
+              ? formatScore(props.stats.winner_average, 1)
+              : text.none}
           </dd>
         </div>
       </dl>
-      <RecordBlock record={stats.record} profiles={profiles} timeZone={timeZone} />
-      <h4 className="meeting-view__head">{text.ranking}</h4>
-      <Tray label={format(text.rankingLabel, { title })}>
-        {stats.ranking.map((entry) => {
-          const person = profiles.get(entry.profile_id);
-          const label = name(entry.profile_id);
-          return (
-            <ListRow
-              key={entry.profile_id}
-              muted={entry.deleted}
-              leading={
-                <>
-                  <span className="rank">{entry.place}</span>
-                  {person ? (
-                    <ProfileLink id={person.id} name={label}>
-                      <ProfileAvatar profile={person} size={36} decorative />
-                    </ProfileLink>
-                  ) : null}
-                </>
-              }
-              title={entry.deleted ? `${label} ${text.removed}` : label}
-              meta={format(text.rankingMeta, {
-                plays: plural(entry.plays, text.rankingPlays),
-                wins: plural(entry.wins, text.wins),
-              })}
-              trailing={
-                <span className="score">
-                  {formatNumber(entry.points)}
-                  <span className="score__unit">{text.points}</span>
-                </span>
-              }
-            />
-          );
-        })}
+      <RecordBlock
+        record={props.stats.record}
+        profiles={props.profiles}
+        timeZone={props.timeZone}
+      />
+      <h4 class="meeting-view__head">{text.ranking}</h4>
+      <Tray label={format(text.rankingLabel, { title: props.title })}>
+        <For each={props.stats.ranking} keyed={(entry) => entry.profile_id}>
+          {(entry) => {
+            const person = () => props.profiles.get(entry().profile_id);
+            const label = () => name(entry().profile_id);
+            return (
+              <ListRow
+                muted={entry().deleted}
+                leading={
+                  <>
+                    <span class="rank">{entry().place}</span>
+                    <Show when={person()}>
+                      {(shown) => (
+                        <ProfileLink id={shown().id} name={label()}>
+                          <ProfileAvatar profile={shown()} size={36} decorative />
+                        </ProfileLink>
+                      )}
+                    </Show>
+                  </>
+                }
+                title={entry().deleted ? `${label()} ${text.removed}` : label()}
+                meta={format(text.rankingMeta, {
+                  plays: plural(entry().plays, text.rankingPlays),
+                  wins: plural(entry().wins, text.wins),
+                })}
+                trailing={
+                  <span class="score">
+                    {formatNumber(entry().points)}
+                    <span class="score__unit">{text.points}</span>
+                  </span>
+                }
+              />
+            );
+          }}
+        </For>
       </Tray>
     </>
   );
 }
 
-function RecordBlock({
-  record,
-  profiles,
-  timeZone,
-}: {
+function RecordBlock(props: {
   readonly record: GameRecord | null;
   readonly profiles: ReadonlyMap<string, Profile>;
   readonly timeZone: string;
 }) {
   return (
-    <div className="game-record">
-      <span className="game-record__icon" aria-hidden="true">
+    <div class="game-record">
+      <span class="game-record__icon" aria-hidden="true">
         <Icon name="trophy" size={20} />
       </span>
-      <div className="game-record__body">
-        <span className="game-stats__label">{text.record}</span>
-        {record ? (
-          <>
-            <p className="game-record__value">
-              {formatScore(record.value)}
-              {record.dir === 'asc' ? (
-                <span className="game-record__dir">{text.recordAsc}</span>
-              ) : null}
-            </p>
-            <ul className="game-record__holders">
-              {record.holders.map((holder) => {
-                const person = profiles.get(holder.profile_id);
-                const name = person ? fullName(person) : t.meetings.plays.unknownPlayer;
-                const date = shortMeetingDate(holder.starts_at, timeZone);
-                return (
-                  <li key={holder.profile_id} className="game-record__holder">
-                    {person ? <ProfileAvatar profile={person} size={24} decorative /> : null}
-                    <PopupLink
-                      to={{ kind: 'meeting', id: holder.meeting_id }}
-                      aria-label={format(text.recordMeeting, { name, date })}
-                    >
-                      {format(text.recordHolder, { name, date })}
-                    </PopupLink>
-                    {holder.expansions && holder.expansions.length > 0 ? (
-                      <span className="game-record__expansions">
-                        {format(text.recordExpansions, {
-                          titles: holder.expansions.map((expansion) => expansion.title).join(', '),
-                        })}
-                      </span>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        ) : (
-          <p className="game-stats__sub">{text.recordEmpty}</p>
-        )}
+      <div class="game-record__body">
+        <span class="game-stats__label">{text.record}</span>
+        <Show when={props.record} fallback={<p class="game-stats__sub">{text.recordEmpty}</p>}>
+          {(record) => (
+            <>
+              <p class="game-record__value">
+                {formatScore(record().value)}
+                <Show when={record().dir === 'asc'}>
+                  <span class="game-record__dir">{text.recordAsc}</span>
+                </Show>
+              </p>
+              <ul class="game-record__holders">
+                <For each={record().holders} keyed={(holder) => holder.profile_id}>
+                  {(holder) => {
+                    const person = () => props.profiles.get(holder().profile_id);
+                    const name = () => {
+                      const shown = person();
+                      return shown ? fullName(shown) : t.meetings.plays.unknownPlayer;
+                    };
+                    const date = () => shortMeetingDate(holder().starts_at, props.timeZone);
+                    return (
+                      <li class="game-record__holder">
+                        <Show when={person()}>
+                          {(shown) => <ProfileAvatar profile={shown()} size={24} decorative />}
+                        </Show>
+                        <PopupLink
+                          to={{ kind: 'meeting', id: holder().meeting_id }}
+                          aria-label={format(text.recordMeeting, { name: name(), date: date() })}
+                        >
+                          {format(text.recordHolder, { name: name(), date: date() })}
+                        </PopupLink>
+                        <Show when={(holder().expansions?.length ?? 0) > 0}>
+                          <span class="game-record__expansions">
+                            {format(text.recordExpansions, {
+                              titles: (holder().expansions ?? [])
+                                .map((expansion) => expansion.title)
+                                .join(', '),
+                            })}
+                          </span>
+                        </Show>
+                      </li>
+                    );
+                  }}
+                </For>
+              </ul>
+            </>
+          )}
+        </Show>
       </div>
     </div>
   );

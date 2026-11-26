@@ -1,3 +1,6 @@
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
+import { createMemo, Show } from 'solid-js';
 import { ClubPopup } from '../club/ClubPopup';
 import { CollectionPopup } from '../games/CollectionPopup';
 import { DeleteGameDialog } from '../games/DeleteGameDialog';
@@ -24,7 +27,7 @@ import {
 } from '../meetings/RunMeetingDialogs';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
-import type { OwnProfile } from '../auth/useOwnProfile';
+import type { OwnProfile } from '../auth/ownProfile';
 import { DeleteAccountDialog } from '../profile/DeleteAccountDialog';
 import { PasswordPopup } from '../profile/PasswordPopup';
 import { ProfilePopup } from '../profile/ProfilePopup';
@@ -38,106 +41,162 @@ import {
 import { AddScorepadPopup, EditScorepadPopup } from '../score-pad/ScorepadEditorPopup';
 import { ScorepadsPopup } from '../score-pad/ScorepadsPopup';
 
-interface HubPopupProps {
-  readonly route: PopupRoute;
+type RouteOf<K extends PopupRoute['kind']> = Extract<PopupRoute, { readonly kind: K }>;
+
+interface ViewProps<R extends PopupRoute = PopupRoute> {
+  readonly route: R;
   readonly me: OwnProfile;
 }
 
-/** Popup dla adresu `?p=…` (`routes.ts`). Kolejne zadania dopisują tu swoje popupy. */
-export function HubPopup({ route, me }: HubPopupProps) {
-  switch (route.kind) {
-    case 'members':
-      return <MembersPopup isAdmin={me.role === 'admin'} />;
-    case 'add-member':
-      // Członków dodaje tylko administrator (MEM-3); bazę i tak chroni Edge Function (403).
-      return me.role === 'admin' ? <AddMemberPopup /> : <InvalidPopup />;
-    case 'profile':
-      return <ProfilePopup id={route.id} isAdmin={me.role === 'admin'} />;
-    case 'delete-member':
-      // Członków usuwa tylko administrator (MEM-4); Edge Function i tak odrzuci gracza (403).
-      return me.role === 'admin' ? <DeleteMemberDialog id={route.id} /> : <InvalidPopup />;
-    case 'settings':
-      // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć (USR-7).
-      return <SettingsPopup me={me} />;
-    case 'change-password':
-      return <PasswordPopup me={me} variant="change" />;
-    case 'delete-account':
-      // Administrator nie usuwa swojego konta i nie widzi tej opcji (USR-6).
-      return me.role === 'admin' ? <InvalidPopup /> : <DeleteAccountDialog me={me} />;
-    case 'first-login':
-      return <PasswordPopup me={me} variant="first" />;
-    case 'club':
-      // Formularz klubu jest tylko dla administratora (CLUB-2); gracz z linku go nie zobaczy.
-      return me.role === 'admin' ? <ClubPopup /> : <InvalidPopup />;
-    case 'games':
-      return <CollectionPopup isAdmin={me.role === 'admin'} />;
-    case 'game':
-      return <GameDetailsPopup id={route.id} isAdmin={me.role === 'admin'} />;
-    case 'sheet':
-      return <SheetPopup id={route.id} isAdmin={me.role === 'admin'} />;
-    case 'add-game':
-      // Gry dodaje, edytuje i usuwa tylko administrator (GAME-3); bazę chroni RLS.
-      return me.role === 'admin' ? <AddGamePopup /> : <InvalidPopup />;
-    case 'add-expansion':
-      // Dodatki dodaje tylko administrator (jak gry); bazę chroni RLS.
-      return me.role === 'admin' ? <AddExpansionPopup baseId={route.baseId} /> : <InvalidPopup />;
-    case 'edit-game':
-      return me.role === 'admin' ? <EditGamePopup id={route.id} /> : <InvalidPopup />;
-    case 'delete-game':
-      return me.role === 'admin' ? <DeleteGameDialog id={route.id} /> : <InvalidPopup />;
-    case 'scorepads':
-      return <ScorepadsPopup gameId={route.gameId} isAdmin={me.role === 'admin'} />;
-    case 'add-scorepad':
-      // Notesy dodaje, zmienia i usuwa tylko administrator (GAME-7); bazę chroni RLS i RPC.
-      return me.role === 'admin' ? <AddScorepadPopup gameId={route.gameId} /> : <InvalidPopup />;
-    case 'edit-scorepad':
-      return me.role === 'admin' ? <EditScorepadPopup id={route.id} /> : <InvalidPopup />;
-    case 'rename-scorepad':
-      return me.role === 'admin' ? <RenameScorepadDialog id={route.id} /> : <InvalidPopup />;
-    case 'move-scorepad':
-      return me.role === 'admin' ? <MoveScorepadPopup id={route.id} /> : <InvalidPopup />;
-    case 'delete-scorepad':
-      return me.role === 'admin' ? <DeleteScorepadDialog id={route.id} /> : <InvalidPopup />;
-    case 'meeting':
-      return <MeetingPopup id={route.id} me={me} />;
-    case 'calendar':
-      // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi (DS §15.1).
-      return <CalendarPopup isAdmin={me.role === 'admin'} />;
-    case 'leaderboard':
-      return <LeaderboardPopup me={me} tab={route.tab} filters={route.filters} />;
-    case 'leaderboard-ties':
-      return <TiesPopup me={me} tab={route.tab} filters={route.filters} />;
-    case 'add-meeting':
-      // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
-      return me.role === 'admin' ? <AddMeetingPopup me={me} date={route.date} /> : <InvalidPopup />;
-    case 'publish-games':
-      // Gry publikuje tylko administrator (VOTE-5, §2.1); bazę chroni RPC.
-      return me.role === 'admin' ? <PublishGamesPopup id={route.id} me={me} /> : <InvalidPopup />;
-    case 'edit-meeting':
-      return me.role === 'admin' ? <EditMeetingPopup id={route.id} me={me} /> : <InvalidPopup />;
-    case 'delete-meeting':
-      return me.role === 'admin' ? <DeleteMeetingDialog id={route.id} /> : <InvalidPopup />;
-    case 'start-meeting':
-      // Admin albo prowadzący (RUN-1, §2.1); dialog sam sprawdza rolę, bazę chroni RPC.
-      return <StartMeetingDialog id={route.id} me={me} />;
-    case 'finish-meeting':
-      return <FinishMeetingDialog id={route.id} me={me} />;
-    case 'reopen-meeting':
-      return me.role === 'admin' ? <ReopenMeetingDialog id={route.id} /> : <InvalidPopup />;
-    case 'new-play':
-      // Admin albo prowadzący spotkania w trakcie (RUN-2, PAD-9); popup sprawdza rolę i status,
-      // bazę chroni RPC start_play.
-      return <NewPlayPopup meetingId={route.meetingId} me={me} />;
-    case 'play':
-      // Notes tylko dla admina i prowadzącego trwającego spotkania, inni widzą „Trwa partia”
-      // (PAD-9); popup sprawdza rolę i status, bazę chroni RPC save_play_draft.
-      return <PlayPopup id={route.id} me={me} />;
-    case 'discard-play':
-      return <DiscardPlayDialog id={route.id} me={me} />;
-    case 'delete-play':
-      // Tylko admin (VIEW-6); bazę chroni RPC delete_play.
-      return me.role === 'admin' ? <DeletePlayDialog id={route.id} /> : <InvalidPopup />;
-    case 'invalid':
-      return <InvalidPopup />;
-  }
+const isAdmin = (me: OwnProfile) => me.role === 'admin';
+
+/** Treść tylko dla administratora; gracz z linku widzi „Nie znaleziono”. */
+function AdminOnly(props: { readonly me: OwnProfile; readonly children: JSX.Element }) {
+  return (
+    <Show when={isAdmin(props.me)} fallback={<InvalidPopup />}>
+      {props.children}
+    </Show>
+  );
+}
+
+/** Popup każdego rodzaju adresu `?p=…` (`routes.ts`). Propsy są reaktywne (`p.me`, `p.route`). */
+const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) => JSX.Element } = {
+  members: (p) => <MembersPopup isAdmin={isAdmin(p.me)} />,
+  // Członków dodaje tylko administrator (MEM-3); bazę i tak chroni Edge Function (403).
+  'add-member': (p) => (
+    <AdminOnly me={p.me}>
+      <AddMemberPopup />
+    </AdminOnly>
+  ),
+  profile: (p) => <ProfilePopup id={p.route.id} isAdmin={isAdmin(p.me)} />,
+  // Członków usuwa tylko administrator (MEM-4); Edge Function i tak odrzuci gracza (403).
+  'delete-member': (p) => (
+    <AdminOnly me={p.me}>
+      <DeleteMemberDialog id={p.route.id} />
+    </AdminOnly>
+  ),
+  // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć (USR-7).
+  settings: (p) => <SettingsPopup me={p.me} />,
+  'change-password': (p) => <PasswordPopup me={p.me} variant="change" />,
+  // Administrator nie usuwa swojego konta i nie widzi tej opcji (USR-6).
+  'delete-account': (p) => (
+    <Show when={!isAdmin(p.me)} fallback={<InvalidPopup />}>
+      <DeleteAccountDialog me={p.me} />
+    </Show>
+  ),
+  'first-login': (p) => <PasswordPopup me={p.me} variant="first" />,
+  // Formularz klubu jest tylko dla administratora (CLUB-2); gracz z linku go nie zobaczy.
+  club: (p) => (
+    <AdminOnly me={p.me}>
+      <ClubPopup />
+    </AdminOnly>
+  ),
+  games: (p) => <CollectionPopup isAdmin={isAdmin(p.me)} />,
+  game: (p) => <GameDetailsPopup id={p.route.id} isAdmin={isAdmin(p.me)} />,
+  sheet: (p) => <SheetPopup id={p.route.id} isAdmin={isAdmin(p.me)} />,
+  // Gry dodaje, edytuje i usuwa tylko administrator (GAME-3); bazę chroni RLS.
+  'add-game': (p) => (
+    <AdminOnly me={p.me}>
+      <AddGamePopup />
+    </AdminOnly>
+  ),
+  // Dodatki dodaje tylko administrator (jak gry); bazę chroni RLS.
+  'add-expansion': (p) => (
+    <AdminOnly me={p.me}>
+      <AddExpansionPopup baseId={p.route.baseId} />
+    </AdminOnly>
+  ),
+  'edit-game': (p) => (
+    <AdminOnly me={p.me}>
+      <EditGamePopup id={p.route.id} />
+    </AdminOnly>
+  ),
+  'delete-game': (p) => (
+    <AdminOnly me={p.me}>
+      <DeleteGameDialog id={p.route.id} />
+    </AdminOnly>
+  ),
+  scorepads: (p) => <ScorepadsPopup gameId={p.route.gameId} isAdmin={isAdmin(p.me)} />,
+  // Notesy dodaje, zmienia i usuwa tylko administrator (GAME-7); bazę chroni RLS i RPC.
+  'add-scorepad': (p) => (
+    <AdminOnly me={p.me}>
+      <AddScorepadPopup gameId={p.route.gameId} />
+    </AdminOnly>
+  ),
+  'edit-scorepad': (p) => (
+    <AdminOnly me={p.me}>
+      <EditScorepadPopup id={p.route.id} />
+    </AdminOnly>
+  ),
+  'rename-scorepad': (p) => (
+    <AdminOnly me={p.me}>
+      <RenameScorepadDialog id={p.route.id} />
+    </AdminOnly>
+  ),
+  'move-scorepad': (p) => (
+    <AdminOnly me={p.me}>
+      <MoveScorepadPopup id={p.route.id} />
+    </AdminOnly>
+  ),
+  'delete-scorepad': (p) => (
+    <AdminOnly me={p.me}>
+      <DeleteScorepadDialog id={p.route.id} />
+    </AdminOnly>
+  ),
+  meeting: (p) => <MeetingPopup id={p.route.id} me={p.me} />,
+  // Gracz widzi ten sam kalendarz bez „Zaplanuj” i bez podpowiedzi (DS §15.1).
+  calendar: (p) => <CalendarPopup isAdmin={isAdmin(p.me)} />,
+  leaderboard: (p) => <LeaderboardPopup me={p.me} tab={p.route.tab} filters={p.route.filters} />,
+  'leaderboard-ties': (p) => <TiesPopup me={p.me} tab={p.route.tab} filters={p.route.filters} />,
+  // Spotkania planuje, edytuje i usuwa tylko administrator (PLAN-1, §2.1); bazę chroni RPC.
+  'add-meeting': (p) => (
+    <AdminOnly me={p.me}>
+      <AddMeetingPopup me={p.me} date={p.route.date} />
+    </AdminOnly>
+  ),
+  // Gry publikuje tylko administrator (VOTE-5, §2.1); bazę chroni RPC.
+  'publish-games': (p) => (
+    <AdminOnly me={p.me}>
+      <PublishGamesPopup id={p.route.id} me={p.me} />
+    </AdminOnly>
+  ),
+  'edit-meeting': (p) => (
+    <AdminOnly me={p.me}>
+      <EditMeetingPopup id={p.route.id} me={p.me} />
+    </AdminOnly>
+  ),
+  'delete-meeting': (p) => (
+    <AdminOnly me={p.me}>
+      <DeleteMeetingDialog id={p.route.id} />
+    </AdminOnly>
+  ),
+  // Admin albo prowadzący (RUN-1, §2.1); dialog sam sprawdza rolę, bazę chroni RPC.
+  'start-meeting': (p) => <StartMeetingDialog id={p.route.id} me={p.me} />,
+  'finish-meeting': (p) => <FinishMeetingDialog id={p.route.id} me={p.me} />,
+  'reopen-meeting': (p) => (
+    <AdminOnly me={p.me}>
+      <ReopenMeetingDialog id={p.route.id} />
+    </AdminOnly>
+  ),
+  // Admin albo prowadzący spotkania w trakcie (RUN-2, PAD-9); popup sprawdza rolę i status, bazę chroni RPC start_play.
+  'new-play': (p) => <NewPlayPopup meetingId={p.route.meetingId} me={p.me} />,
+  // Notes tylko dla admina i prowadzącego trwającego spotkania, inni widzą „Trwa partia” (PAD-9); popup sprawdza rolę i status, bazę chroni RPC save_play_draft.
+  play: (p) => <PlayPopup id={p.route.id} me={p.me} />,
+  'discard-play': (p) => <DiscardPlayDialog id={p.route.id} me={p.me} />,
+  // Tylko admin (VIEW-6); bazę chroni RPC delete_play.
+  'delete-play': (p) => (
+    <AdminOnly me={p.me}>
+      <DeletePlayDialog id={p.route.id} />
+    </AdminOnly>
+  ),
+  invalid: () => <InvalidPopup />,
+};
+
+/**
+ * Popup dla adresu `?p=…`. Popup powstaje od nowa tylko przy zmianie rodzaju adresu: zmiana
+ * profilu (`me`) nie gubi stanu otwartego formularza.
+ */
+export function HubPopup(props: ViewProps) {
+  const view = createMemo(() => views[props.route.kind] as (p: ViewProps) => JSX.Element);
+  return <Dynamic component={view()} route={props.route} me={props.me} />;
 }

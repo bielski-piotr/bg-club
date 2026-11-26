@@ -1,41 +1,44 @@
-import type { SVGProps } from 'react';
+import type { JSX } from '@solidjs/web';
+import { omit } from 'solid-js';
+import { notFocusable } from './dom';
 import { glyphs, more, pictograms, type IconName } from './iconPaths';
 
 export type { IconName };
 
-export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
+export interface IconProps extends Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'name'> {
   readonly name: IconName;
   /** Rozmiar w px (DS: 14, 16, 20 lub 22). */
   readonly size?: number | undefined;
+}
+
+function content(name: IconName): JSX.Element {
+  if (name === 'more') return more();
+  if (name in glyphs) return glyphs[name as keyof typeof glyphs]();
+  return pictograms[name as keyof typeof pictograms]();
 }
 
 /**
  * Ikona dekoracyjna (`aria-hidden`). Znaczenie przekazuje etykieta kontrolki obok.
  * Kolor dziedziczy z `currentColor`.
  */
-export function Icon({ name, size = 16, ...rest }: IconProps) {
-  const isGlyph = name in glyphs;
-  const content =
-    name === 'more'
-      ? more
-      : isGlyph
-        ? glyphs[name as keyof typeof glyphs]
-        : pictograms[name as keyof typeof pictograms];
+export function Icon(props: IconProps) {
+  const rest = omit(props, 'name', 'size');
+  const size = () => props.size ?? 16;
   return (
     <svg
-      width={size}
-      height={size}
+      width={size()}
+      height={size()}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth={isGlyph ? 2 : 1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      stroke-width={props.name in glyphs ? 2 : 1.75}
+      stroke-linecap="round"
+      stroke-linejoin="round"
       aria-hidden="true"
-      focusable="false"
+      {...notFocusable}
       {...rest}
     >
-      {content}
+      {content(props.name)}
     </svg>
   );
 }

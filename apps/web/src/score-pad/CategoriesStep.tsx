@@ -1,17 +1,19 @@
-import type {
-  Direction,
-  Ranking,
-  ScorePadEditorCategories,
-  ScorePadEditorCategoriesAction,
-  ScorePadEditorCategory,
-  ScorePadEditorCategoryPatch,
-  ScorePadLineKind,
-  ScorePadRangeMode,
-  ScorePadEditorStatus,
-  ScorePadZoomAction,
-  TiebreakRule,
+import {
+  type Direction,
+  type Ranking,
+  type ScorePadEditorCategories,
+  type ScorePadEditorCategoriesAction,
+  type ScorePadEditorCategory,
+  type ScorePadEditorCategoryPatch,
+  type ScorePadLineKind,
+  type ScorePadRangeMode,
+  type ScorePadEditorStatus,
+  type ScorePadZoomAction,
+  type TiebreakRule,
+  FINAL_TOTAL,
+  isNumeric,
 } from '@bg-club/score-pad';
-import { useId, useState } from 'react';
+import { createMemo, createSignal, createUniqueId, For, Show } from 'solid-js';
 import { format, t } from '../i18n';
 import {
   Button,
@@ -25,7 +27,6 @@ import {
   Tray,
   type SelectOption,
 } from '../ui';
-import { FINAL_TOTAL, isNumeric } from '@bg-club/score-pad';
 import {
   categoryIssueMessages,
   issueMessages,
@@ -33,7 +34,7 @@ import {
   parseInteger,
   parseIntegers,
 } from './categories';
-import { useDraft } from './useDraft';
+import { createDraft } from './createDraft';
 import { ZoomButtons } from './ZoomButtons';
 
 const text = t.scorepads.wizard.categories;
@@ -41,13 +42,7 @@ const text = t.scorepads.wizard.categories;
 type Action = (action: ScorePadEditorCategoriesAction) => void;
 
 /** Pływający pasek sceny w kroku 4 (DS §18): powiększenie i dopasowanie widoku kartki. */
-export function CategoriesToolbar({
-  zoomed,
-  zoom,
-  disabled,
-  onAction,
-  onZoom,
-}: {
+export function CategoriesToolbar(props: {
   readonly zoomed: boolean;
   readonly zoom: ScorePadEditorStatus['zoom'];
   readonly disabled: boolean;
@@ -55,18 +50,20 @@ export function CategoriesToolbar({
   readonly onZoom: (by: ScorePadZoomAction) => void;
 }) {
   return (
-    <div className="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
-      <ZoomButtons zoom={zoom} disabled={disabled} onZoom={onZoom} />
+    <div class="wizard-toolbar" role="toolbar" aria-label={text.toolbar}>
+      <ZoomButtons zoom={props.zoom} disabled={props.disabled} onZoom={(by) => props.onZoom(by)} />
       <IconButton
         icon="target"
         label={text.fit}
-        className="wizard-toolbar__btn"
-        disabled={disabled || !zoomed}
-        onClick={() => onAction({ type: 'fit' })}
+        class="wizard-toolbar__btn"
+        disabled={props.disabled || !props.zoomed}
+        onClick={() => props.onAction({ type: 'fit' })}
       />
     </div>
   );
 }
+
+const TAB_ITEMS = (['lines', 'ranking'] as const).map((id) => ({ id, label: text.tabs[id] }));
 
 /**
  * Panel kroku 4 „Kategorie” (EDT-13, EDT-2…EDT-4, DS §18). Dwie zakładki: *Kategorie* (nazwa,
@@ -75,291 +72,308 @@ export function CategoriesToolbar({
  * z końcowym wspólnym miejscem). Stan trzyma edytor; zmiany od razu trafiają do szablonu
  * w formacie `template.ranking` i przechodzą walidator zapisu.
  */
-export function CategoriesPanel({
-  categories,
-  fieldsProblem,
-  onAction,
-}: {
+export function CategoriesPanel(props: {
   readonly categories: ScorePadEditorCategories;
   /** Problem pól z kroku 3 (np. punktacja bez pól po zmianie typu). */
   readonly fieldsProblem: string | null;
   readonly onAction: Action;
 }) {
-  const problems = issueMessages(categories.issues, categories.lines);
-  if (fieldsProblem && !problems.includes(fieldsProblem)) problems.unshift(fieldsProblem);
+  const problems = createMemo(() => {
+    const list = [...issueMessages(props.categories.issues, props.categories.lines)];
+    const fieldsProblem = props.fieldsProblem;
+    if (fieldsProblem && !list.includes(fieldsProblem)) list.unshift(fieldsProblem);
+    return list;
+  });
+  const onAction: Action = (action) => props.onAction(action);
   return (
-    <div className="wizard-panel">
+    <div class="wizard-panel">
       <Tabs
         label={text.tabsLabel}
-        items={(['lines', 'ranking'] as const).map((id) => ({ id, label: text.tabs[id] }))}
-        value={categories.view}
-        onChange={(view) => onAction({ type: 'view', view })}
-        className="wizard-tabs"
+        items={TAB_ITEMS}
+        value={props.categories.view}
+        onChange={(view) => props.onAction({ type: 'view', view })}
+        class="wizard-tabs"
       >
         {(view) =>
           view === 'lines' ? (
-            <LineDetails categories={categories} onAction={onAction} />
+            <LineDetails categories={props.categories} onAction={onAction} />
           ) : (
-            <RankingDetails categories={categories} onAction={onAction} />
+            <RankingDetails categories={props.categories} onAction={onAction} />
           )
         }
       </Tabs>
-      {problems.length > 0 ? (
-        <div className="wizard-problems" aria-live="polite">
-          <p className="wizard-problems__title">{text.problems}</p>
-          <ul className="wizard-problems__list">
-            {problems.map((message) => (
-              <li key={message} className="wizard-hint wizard-hint--problem">
-                {message}
-              </li>
-            ))}
+      <Show when={problems().length > 0}>
+        <div class="wizard-problems" aria-live="polite">
+          <p class="wizard-problems__title">{text.problems}</p>
+          <ul class="wizard-problems__list">
+            <For each={problems()}>
+              {(message) => <li class="wizard-hint wizard-hint--problem">{message}</li>}
+            </For>
           </ul>
         </div>
-      ) : null}
+      </Show>
     </div>
   );
 }
 
 /** Zakładka *Kategorie*: nawigator ‹ „Kategoria 5 z 8” › i szczegóły wybranej kategorii. */
-function LineDetails({
-  categories,
-  onAction,
-}: {
+function LineDetails(props: {
   readonly categories: ScorePadEditorCategories;
   readonly onAction: Action;
 }) {
-  const { lines, active } = categories;
-  const line = lines[active];
-  const labelId = useId();
-  if (!line) return null;
+  const active = () => props.categories.active;
+  const line = () => props.categories.lines[active()];
+  const labelId = createUniqueId();
   return (
-    <div className="wizard-tab-body">
-      <div className="wizard-field">
-        <span className="field__label" id={labelId}>
-          {text.category}
-        </span>
-        <div className="wizard-navigator" role="group" aria-labelledby={labelId}>
-          <IconButton
-            icon="chevron-left"
-            label={text.previous}
-            disabled={active <= 0}
-            onClick={() => onAction({ type: 'select', index: active - 1 })}
-          />
-          <span className="wizard-navigator__label" aria-live="polite">
-            {format(text.categoryOf, { n: active + 1, total: lines.length })}
+    <Show when={line()}>
+      <div class="wizard-tab-body">
+        <div class="wizard-field">
+          <span class="field__label" id={labelId}>
+            {text.category}
           </span>
-          <IconButton
-            icon="chevron-right"
-            label={text.next}
-            disabled={active >= lines.length - 1}
-            onClick={() => onAction({ type: 'select', index: active + 1 })}
-          />
+          <div class="wizard-navigator" role="group" aria-labelledby={labelId}>
+            <IconButton
+              icon="chevron-left"
+              label={text.previous}
+              disabled={active() <= 0}
+              onClick={() => props.onAction({ type: 'select', index: active() - 1 })}
+            />
+            <span class="wizard-navigator__label" aria-live="polite">
+              {format(text.categoryOf, { n: active() + 1, total: props.categories.lines.length })}
+            </span>
+            <IconButton
+              icon="chevron-right"
+              label={text.next}
+              disabled={active() >= props.categories.lines.length - 1}
+              onClick={() => props.onAction({ type: 'select', index: active() + 1 })}
+            />
+          </div>
+          <p class="wizard-hint">{text.hint}</p>
         </div>
-        <p className="wizard-hint">{text.hint}</p>
+        {/* Klucz: szkice pól (nazwa, zakres) należą do jednej kategorii. */}
+        <Show when={line()?.id} keyed>
+          {(_id) => (
+            <Show when={line()}>
+              {(current) => (
+                <LineForm
+                  line={current()}
+                  index={active()}
+                  categories={props.categories}
+                  onPatch={(patch) => props.onAction({ type: 'update', index: active(), patch })}
+                />
+              )}
+            </Show>
+          )}
+        </Show>
       </div>
-      {/* Klucz: szkice pól (nazwa, zakres) należą do jednej kategorii. */}
-      <LineForm
-        key={line.id}
-        line={line}
-        index={active}
-        categories={categories}
-        onPatch={(patch) => onAction({ type: 'update', index: active, patch })}
-      />
-    </div>
+    </Show>
   );
 }
 
 const KIND_OPTIONS: readonly ScorePadLineKind[] = ['names', 'input', 'total', 'skip'];
 
-function LineForm({
-  line,
-  index,
-  categories,
-  onPatch,
-}: {
+function LineForm(props: {
   readonly line: ScorePadEditorCategory;
   readonly index: number;
   readonly categories: ScorePadEditorCategories;
   readonly onPatch: (patch: ScorePadEditorCategoryPatch) => void;
 }) {
-  const name = useDraft(line.label);
-  const hint = useDraft(line.hint);
-  const errors = categoryIssueMessages(categories.issues, categories.lines, index);
-  // Starsze notesy: suma odcinka (`sum`) i premia (`bonus`) zostają, dopóki typ się nie zmieni.
-  const kinds = KIND_OPTIONS.map((kind) =>
-    kind === 'total' && line.kind === 'sum' ? 'sum' : kind,
+  const name = createDraft(() => props.line.label);
+  const hint = createDraft(() => props.line.hint);
+  const errors = createMemo(() =>
+    categoryIssueMessages(props.categories.issues, props.categories.lines, props.index),
   );
-  if (line.kind === 'bonus') kinds.push('bonus');
+  const kindOptions = createMemo(() => {
+    const kind = props.line.kind;
+    // Starsze notesy: suma odcinka (`sum`) i premia (`bonus`) zostają, dopóki typ się nie zmieni.
+    const kinds = KIND_OPTIONS.map((option) =>
+      option === 'total' && kind === 'sum' ? 'sum' : option,
+    );
+    if (kind === 'bonus') kinds.push('bonus');
+    return kinds.map((value) => ({ value, label: text.kinds[value] }));
+  });
+  const isSum = () =>
+    props.line.kind === 'total' || props.line.kind === 'sum' || props.line.kind === 'bonus';
   return (
     <>
       <TextField
         label={text.name}
-        value={name.draft}
-        maxLength={30}
-        hint={name.draft.trim() ? undefined : text.nameHint}
+        value={name.draft()}
+        maxlength={30}
+        hint={name.draft().trim() ? undefined : text.nameHint}
         onFocus={name.onFocus}
         onBlur={name.onBlur}
-        onChange={(event) => {
-          name.setDraft(event.target.value);
-          onPatch({ label: event.target.value });
+        onInput={(event) => {
+          name.setDraft(event.currentTarget.value);
+          props.onPatch({ label: event.currentTarget.value });
         }}
       />
-      <div className="wizard-field">
+      <div class="wizard-field">
         <SegmentedControl
           legend={text.kind}
           hideLegend={false}
-          options={kinds.map((kind) => ({ value: kind, label: text.kinds[kind] }))}
-          value={line.kind}
-          onChange={(kind) => onPatch({ kind })}
+          options={kindOptions()}
+          value={props.line.kind}
+          onChange={(kind) => props.onPatch({ kind })}
         />
-        <p className="wizard-hint">{text.kindHints[line.kind]}</p>
-        {!line.placed && line.kind !== 'skip' ? (
-          <p className="wizard-hint">{text.notPlaced}</p>
-        ) : null}
+        <p class="wizard-hint">{text.kindHints[props.line.kind]}</p>
+        <Show when={!props.line.placed && props.line.kind !== 'skip'}>
+          <p class="wizard-hint">{text.notPlaced}</p>
+        </Show>
       </div>
-      {line.kind === 'names' ? (
-        <div className="wizard-field">
+      <Show when={props.line.kind === 'names'}>
+        <div class="wizard-field">
           <Checkbox
             label={text.team}
-            checked={line.team}
-            onCheckedChange={(team) => onPatch({ team })}
+            checked={props.line.team}
+            onCheckedChange={(team) => props.onPatch({ team })}
           />
-          <p className="wizard-hint">{text.teamHint}</p>
+          <p class="wizard-hint">{text.teamHint}</p>
         </div>
-      ) : null}
-      {line.kind === 'input' ? (
-        <RangeFields line={line} error={errors[0]} onPatch={onPatch} />
-      ) : null}
-      {line.kind === 'total' || line.kind === 'sum' || line.kind === 'bonus' ? (
-        <SumFields line={line} lines={categories.lines} onPatch={onPatch} />
-      ) : null}
-      {line.kind !== 'input' && errors.length > 0 ? (
-        <p className="wizard-hint wizard-hint--problem">{errors[0]}</p>
-      ) : null}
-      {line.kind !== 'skip' ? (
+      </Show>
+      <Show when={props.line.kind === 'input'}>
+        <RangeFields
+          line={props.line}
+          error={errors()[0]}
+          onPatch={(patch) => props.onPatch(patch)}
+        />
+      </Show>
+      <Show when={isSum()}>
+        <SumFields
+          line={props.line}
+          lines={props.categories.lines}
+          onPatch={(patch) => props.onPatch(patch)}
+        />
+      </Show>
+      <Show when={props.line.kind !== 'input' && errors().length > 0}>
+        <p class="wizard-hint wizard-hint--problem">{errors()[0]}</p>
+      </Show>
+      <Show when={props.line.kind !== 'skip'}>
         <TextField
           label={text.description}
           optional
-          value={hint.draft}
-          maxLength={160}
+          value={hint.draft()}
+          maxlength={160}
           hint={text.descriptionHint}
           onFocus={hint.onFocus}
           onBlur={hint.onBlur}
-          onChange={(event) => {
-            hint.setDraft(event.target.value);
-            onPatch({ hint: event.target.value });
+          onInput={(event) => {
+            hint.setDraft(event.currentTarget.value);
+            props.onPatch({ hint: event.currentTarget.value });
           }}
         />
-      ) : null}
+      </Show>
     </>
   );
 }
 
+type Draft = ReturnType<typeof createDraft<string>>;
+
+const RANGE_OPTIONS = (['free', 'range', 'list'] as const).map((range) => ({
+  value: range,
+  label: text.ranges[range],
+}));
+
 /** Punktacja: zakres dowolny, min–max–krok albo lista dozwolonych wartości (EDT-13). */
-function RangeFields({
-  line,
-  error,
-  onPatch,
-}: {
+function RangeFields(props: {
   readonly line: ScorePadEditorCategory;
   readonly error: string | undefined;
   readonly onPatch: (patch: ScorePadEditorCategoryPatch) => void;
 }) {
-  const min = useDraft(String(line.min));
-  const max = useDraft(String(line.max));
-  const step = useDraft(String(line.step));
-  const values = useDraft(line.values.join(', '));
-  const number =
-    (key: 'min' | 'max' | 'step', field: ReturnType<typeof useDraft<string>>) => (raw: string) => {
-      field.setDraft(raw);
-      const value = parseInteger(raw);
-      if (value !== null) onPatch({ [key]: value });
-    };
+  const min = createDraft(() => String(props.line.min));
+  const max = createDraft(() => String(props.line.max));
+  const step = createDraft(() => String(props.line.step));
+  const values = createDraft(() => props.line.values.join(', '));
+  const number = (key: 'min' | 'max' | 'step', field: Draft) => (raw: string) => {
+    field.setDraft(raw);
+    const value = parseInteger(raw);
+    if (value !== null) props.onPatch({ [key]: value });
+  };
   const invalid = (raw: string) => (parseInteger(raw) === null ? text.notInteger : undefined);
-  const valuesError = parseIntegers(values.draft) === null ? text.notIntegers : undefined;
+  const valuesError = () => (parseIntegers(values.draft()) === null ? text.notIntegers : undefined);
+  const numberFields = [
+    ['min', min],
+    ['max', max],
+    ['step', step],
+  ] as const;
   return (
-    <div className="wizard-field">
+    <div class="wizard-field">
       <SegmentedControl
         legend={text.range}
         hideLegend={false}
-        options={(['free', 'range', 'list'] as const).map((range) => ({
-          value: range,
-          label: text.ranges[range],
-        }))}
-        value={line.range}
-        onChange={(range: ScorePadRangeMode) => onPatch({ range })}
+        options={RANGE_OPTIONS}
+        value={props.line.range}
+        onChange={(range: ScorePadRangeMode) => props.onPatch({ range })}
       />
-      <p className="wizard-hint">{text.rangeHints[line.range]}</p>
-      {line.range === 'range' ? (
-        <div className="wizard-row wizard-row--three">
-          {(
-            [
-              ['min', min],
-              ['max', max],
-              ['step', step],
-            ] as const
-          ).map(([key, field]) => (
-            <TextField
-              key={key}
-              label={text[key]}
-              value={field.draft}
-              numeric
-              inputMode="numeric"
-              error={invalid(field.draft)}
-              onFocus={field.onFocus}
-              onBlur={field.onBlur}
-              onChange={(event) => number(key, field)(event.target.value)}
-            />
-          ))}
+      <p class="wizard-hint">{text.rangeHints[props.line.range]}</p>
+      <Show when={props.line.range === 'range'}>
+        <div class="wizard-row wizard-row--three">
+          <For each={numberFields}>
+            {([key, field]) => (
+              <TextField
+                label={text[key]}
+                value={field.draft()}
+                numeric
+                inputmode="numeric"
+                error={invalid(field.draft())}
+                onFocus={field.onFocus}
+                onBlur={field.onBlur}
+                onInput={(event) => number(key, field)(event.currentTarget.value)}
+              />
+            )}
+          </For>
         </div>
-      ) : null}
-      {line.range === 'list' ? (
+      </Show>
+      <Show when={props.line.range === 'list'}>
         <TextField
           label={text.values}
-          value={values.draft}
-          inputMode="numeric"
+          value={values.draft()}
+          inputmode="numeric"
           hint={text.valuesHint}
-          error={valuesError}
+          error={valuesError()}
           onFocus={values.onFocus}
           onBlur={values.onBlur}
-          onChange={(event) => {
-            values.setDraft(event.target.value);
-            const parsed = parseIntegers(event.target.value);
-            if (parsed !== null) onPatch({ values: parsed });
+          onInput={(event) => {
+            values.setDraft(event.currentTarget.value);
+            const parsed = parseIntegers(event.currentTarget.value);
+            if (parsed !== null) props.onPatch({ values: parsed });
           }}
         />
-      ) : null}
-      {error ? <p className="wizard-hint wizard-hint--problem">{error}</p> : null}
+      </Show>
+      <Show when={props.error}>
+        {(error) => <p class="wizard-hint wizard-hint--problem">{error()}</p>}
+      </Show>
     </div>
   );
 }
 
 /** Suma: z których kategorii jest liczona (także z innych sum, bez cykli). */
-function SumFields({
-  line,
-  lines,
-  onPatch,
-}: {
+function SumFields(props: {
   readonly line: ScorePadEditorCategory;
   readonly lines: readonly ScorePadEditorCategory[];
   readonly onPatch: (patch: ScorePadEditorCategoryPatch) => void;
 }) {
   // Zaznaczone kategorie spoza możliwych (np. z pliku) też są widoczne, żeby dało się je odznaczyć.
-  const options = lines
-    .map((other, index) => ({ other, index }))
-    .filter(({ other }) => line.sumOptions.includes(other.id) || line.of.includes(other.id))
-    .map(({ other, index }) => ({ value: other.id, label: lineLabel(other, index) }));
-  if (options.length === 0) return <p className="wizard-hint">{text.sumsEmpty}</p>;
+  const options = createMemo(() =>
+    props.lines
+      .map((other, index) => ({ other, index }))
+      .filter(
+        ({ other }) => props.line.sumOptions.includes(other.id) || props.line.of.includes(other.id),
+      )
+      .map(({ other, index }) => ({ value: other.id, label: lineLabel(other, index) })),
+  );
   return (
-    <div className="wizard-field">
-      <ChipGroup
-        legend={text.sums}
-        options={options}
-        values={line.of}
-        onChange={(of) => onPatch({ of })}
-      />
-      <p className="wizard-hint">{text.sumsHint}</p>
-    </div>
+    <Show when={options().length > 0} fallback={<p class="wizard-hint">{text.sumsEmpty}</p>}>
+      <div class="wizard-field">
+        <ChipGroup
+          legend={text.sums}
+          options={options()}
+          values={props.line.of}
+          onChange={(of) => props.onPatch({ of })}
+        />
+        <p class="wizard-hint">{text.sumsHint}</p>
+      </div>
+    </Show>
   );
 }
 
@@ -370,224 +384,245 @@ interface RuleDraft {
   readonly dir: Direction;
 }
 
+const DIRECTION_OPTIONS = (['desc', 'asc'] as const).map((dir) => ({
+  value: dir,
+  label: text.directions[dir],
+}));
+
 /**
  * Zakładka *Wygrana i remisy* (EDT-2…EDT-4): kategoria decydująca, kierunek i reguły remisów.
  * Reguły działają hierarchicznie, a za ostatnią jest stałe „Wspólne miejsce”.
  */
-function RankingDetails({
-  categories,
-  onAction,
-}: {
+function RankingDetails(props: {
   readonly categories: ScorePadEditorCategories;
   readonly onAction: Action;
 }) {
-  const { ranking, lines } = categories;
-  const [editing, setEditing] = useState<RuleDraft | null>(null);
-  const numeric = lines
-    .map((line, index) => ({ line, index }))
-    .filter(({ line }) => isNumeric(line.kind));
+  const ranking = () => props.categories.ranking;
+  const lines = () => props.categories.lines;
+  const [editing, setEditing] = createSignal<RuleDraft | null>(null);
+  const numeric = createMemo(() =>
+    lines()
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => isNumeric(line.kind)),
+  );
   const label = (id: string) => {
-    const index = lines.findIndex((l) => l.id === id);
-    const line = lines[index];
+    const index = lines().findIndex((l) => l.id === id);
+    const line = lines()[index];
     return line ? lineLabel(line, index) : text.decidingDefault;
   };
-  const implicitTotal = ranking.line === FINAL_TOTAL;
-  const setRanking = (next: Ranking) => onAction({ type: 'ranking', ranking: next });
-  const rules = ranking.tiebreak;
-  // Kategorie dla reguły: liczbowe, bez kategorii decydującej.
-  const ruleOptions: SelectOption<string>[] = numeric
-    .filter(({ line }) => line.id !== ranking.line)
-    .map(({ line, index }) => ({
+  const implicitTotal = () => ranking().line === FINAL_TOTAL;
+  const setRanking = (next: Ranking) => props.onAction({ type: 'ranking', ranking: next });
+  const rules = () => ranking().tiebreak;
+  const decidingOptions = createMemo(() =>
+    numeric().map(({ line, index }) => ({
       value: line.id,
       label: lineLabel(line, index),
       meta: text.kinds[line.kind],
-    }));
-  const used = new Set(rules.flatMap((rule) => (rule.type === 'line' ? [rule.line] : [])));
+    })),
+  );
+  // Kategorie dla reguły: liczbowe, bez kategorii decydującej.
+  const ruleOptions = createMemo((): SelectOption<string>[] =>
+    decidingOptions().filter((option) => option.value !== ranking().line),
+  );
+  const used = createMemo(
+    () => new Set(rules().flatMap((rule) => (rule.type === 'line' ? [rule.line] : []))),
+  );
   // Druga reguła na tej samej kategorii nigdy nie rozstrzygnie remisu: każda kategoria raz.
-  const firstFree = ruleOptions.find((option) => !used.has(option.value));
+  const firstFree = () => ruleOptions().find((option) => !used().has(option.value));
   const optionsFor = (draft: RuleDraft) =>
-    ruleOptions.filter((option) => !used.has(option.value) || option.value === draft.line);
+    ruleOptions().filter((option) => !used().has(option.value) || option.value === draft.line);
   // W trakcie zmiany reguły pozostałe wiersze czekają (indeks edytowanej reguły się nie zmienia).
-  const locked = editing !== null;
+  const locked = () => editing() !== null;
 
   const saveRule = (draft: RuleDraft) => {
+    const current = rules();
     const rule: TiebreakRule = { type: 'line', line: draft.line, dir: draft.dir };
     const next =
       draft.index === null
         ? [
-            ...rules.filter((r) => r.type === 'line'),
+            ...current.filter((r) => r.type === 'line'),
             rule,
-            ...rules.filter((r) => r.type !== 'line'),
+            ...current.filter((r) => r.type !== 'line'),
           ]
-        : rules.map((r, k) => (k === draft.index ? rule : r));
-    setRanking({ ...ranking, tiebreak: next });
+        : current.map((r, k) => (k === draft.index ? rule : r));
+    setRanking({ ...ranking(), tiebreak: next });
     setEditing(null);
   };
   const move = (index: number, by: -1 | 1) => {
-    const next = [...rules];
+    const next = [...rules()];
     const [rule] = next.splice(index, 1);
     if (!rule) return;
     next.splice(index + by, 0, rule);
-    setRanking({ ...ranking, tiebreak: next });
+    setRanking({ ...ranking(), tiebreak: next });
   };
   const remove = (index: number) => {
-    setRanking({ ...ranking, tiebreak: rules.filter((_, k) => k !== index) });
+    setRanking({ ...ranking(), tiebreak: rules().filter((_, k) => k !== index) });
     setEditing(null);
   };
   // Reguły „wspólne miejsce” i „rozstrzyga prowadzący” kończą listę; przesuwa się tylko kategorie.
-  const lineRules = rules.filter((r) => r.type === 'line').length;
+  const lineRules = () => rules().filter((r) => r.type === 'line').length;
+  const editor = (draft: () => RuleDraft) => (
+    <RuleEditor
+      draft={draft()}
+      options={optionsFor(draft())}
+      onChange={(next) => setEditing(next)}
+      onSave={saveRule}
+      onCancel={() => setEditing(null)}
+    />
+  );
 
   return (
-    <div className="wizard-tab-body">
+    <div class="wizard-tab-body">
       <Select
         label={text.deciding}
-        options={numeric.map(({ line, index }) => ({
-          value: line.id,
-          label: lineLabel(line, index),
-          meta: text.kinds[line.kind],
-        }))}
-        value={implicitTotal ? null : ranking.line}
+        options={decidingOptions()}
+        value={implicitTotal() ? null : ranking().line}
         placeholder={text.decidingDefault}
-        hint={implicitTotal ? text.decidingDefaultHint : undefined}
+        hint={implicitTotal() ? text.decidingDefaultHint : undefined}
         onChange={(line) =>
           setRanking({
             line,
-            dir: ranking.dir,
-            tiebreak: rules.filter((rule) => rule.type !== 'line' || rule.line !== line),
+            dir: ranking().dir,
+            tiebreak: rules().filter((rule) => rule.type !== 'line' || rule.line !== line),
           })
         }
       />
       <SegmentedControl
         legend={text.direction}
         hideLegend={false}
-        disabled={implicitTotal}
-        options={(['desc', 'asc'] as const).map((dir) => ({
-          value: dir,
-          label: text.directions[dir],
-        }))}
-        value={ranking.dir}
-        onChange={(dir) => setRanking({ ...ranking, dir })}
+        disabled={implicitTotal()}
+        options={DIRECTION_OPTIONS}
+        value={ranking().dir}
+        onChange={(dir) => setRanking({ ...ranking(), dir })}
       />
-      <div className="wizard-field">
-        <span className="field__label">{text.tiebreak}</span>
-        <p className="wizard-hint">{text.tiebreakHint}</p>
-        <Tray label={text.tiebreak} className="wizard-rules">
-          {rules.map((rule, index) => {
-            const n = index + 1;
-            if (editing?.index === index) {
+      <div class="wizard-field">
+        <span class="field__label">{text.tiebreak}</span>
+        <p class="wizard-hint">{text.tiebreakHint}</p>
+        <Tray label={text.tiebreak} class="wizard-rules">
+          {/* Wiersze po indeksie: przesunięcie zostawia fokus na miejscu. */}
+          <For each={rules()} keyed={false}>
+            {(rule, index) => {
+              const n = index + 1;
+              const lineRule = () => {
+                const current = rule();
+                return current.type === 'line' ? current : undefined;
+              };
+              const otherRule = () => {
+                const current = rule();
+                return current.type === 'line' ? undefined : current;
+              };
+              const draft = () => {
+                const current = editing();
+                return current?.index === index ? current : undefined;
+              };
               return (
-                <li key={`edit-${index}`} className="wizard-rule wizard-rule--editing">
-                  <RuleEditor
-                    draft={editing}
-                    options={optionsFor(editing)}
-                    onChange={setEditing}
-                    onSave={saveRule}
-                    onCancel={() => setEditing(null)}
-                  />
-                </li>
+                <Show
+                  when={draft()}
+                  fallback={
+                    <li class="wizard-rule">
+                      <span class="wizard-rule__number" aria-hidden="true">
+                        {n}
+                      </span>
+                      <Show when={lineRule()}>
+                        {(line) => (
+                          <button
+                            type="button"
+                            class="wizard-rule__body"
+                            aria-label={format(text.editRule, { n })}
+                            disabled={locked()}
+                            onClick={() =>
+                              setEditing({ index, line: line().line, dir: line().dir })
+                            }
+                          >
+                            <span class="wizard-rule__title">{label(line().line)}</span>
+                            <span class="wizard-rule__sub">
+                              {format(text.ruleLine, { direction: text.directions[line().dir] })}
+                            </span>
+                          </button>
+                        )}
+                      </Show>
+                      <Show when={otherRule()}>
+                        {(other) => (
+                          <span class="wizard-rule__body">
+                            <span class="wizard-rule__title">
+                              {other().type === 'manual' ? text.manual : text.shared}
+                            </span>
+                            <span class="wizard-rule__sub">
+                              {other().type === 'manual' ? text.manualSub : text.sharedSub}
+                            </span>
+                          </span>
+                        )}
+                      </Show>
+                      <Show when={lineRule()}>
+                        <IconButton
+                          icon="chevron-up"
+                          size={32}
+                          label={format(text.moveUp, { n })}
+                          disabled={locked() || index === 0}
+                          onClick={() => move(index, -1)}
+                        />
+                        <IconButton
+                          icon="chevron-down"
+                          size={32}
+                          label={format(text.moveDown, { n })}
+                          disabled={locked() || index >= lineRules() - 1}
+                          onClick={() => move(index, 1)}
+                        />
+                      </Show>
+                      <IconButton
+                        icon="trash"
+                        size={32}
+                        label={format(text.removeRule, { n })}
+                        disabled={locked()}
+                        onClick={() => remove(index)}
+                      />
+                    </li>
+                  }
+                >
+                  {(current) => <li class="wizard-rule wizard-rule--editing">{editor(current)}</li>}
+                </Show>
               );
-            }
-            const isLine = rule.type === 'line';
-            return (
-              <li key={`${rule.type}-${index}`} className="wizard-rule">
-                <span className="wizard-rule__number" aria-hidden="true">
-                  {n}
-                </span>
-                {isLine ? (
-                  <button
-                    type="button"
-                    className="wizard-rule__body"
-                    aria-label={format(text.editRule, { n })}
-                    disabled={locked}
-                    onClick={() => setEditing({ index, line: rule.line, dir: rule.dir })}
-                  >
-                    <span className="wizard-rule__title">{label(rule.line)}</span>
-                    <span className="wizard-rule__sub">
-                      {format(text.ruleLine, { direction: text.directions[rule.dir] })}
-                    </span>
-                  </button>
-                ) : (
-                  <span className="wizard-rule__body">
-                    <span className="wizard-rule__title">
-                      {rule.type === 'manual' ? text.manual : text.shared}
-                    </span>
-                    <span className="wizard-rule__sub">
-                      {rule.type === 'manual' ? text.manualSub : text.sharedSub}
-                    </span>
-                  </span>
-                )}
-                {isLine ? (
-                  <>
-                    <IconButton
-                      icon="chevron-up"
-                      size={32}
-                      label={format(text.moveUp, { n })}
-                      disabled={locked || index === 0}
-                      onClick={() => move(index, -1)}
-                    />
-                    <IconButton
-                      icon="chevron-down"
-                      size={32}
-                      label={format(text.moveDown, { n })}
-                      disabled={locked || index >= lineRules - 1}
-                      onClick={() => move(index, 1)}
-                    />
-                  </>
-                ) : null}
-                <IconButton
-                  icon="trash"
-                  size={32}
-                  label={format(text.removeRule, { n })}
-                  disabled={locked}
-                  onClick={() => remove(index)}
-                />
-              </li>
-            );
-          })}
-          {editing?.index === null ? (
-            <li className="wizard-rule wizard-rule--editing">
-              <RuleEditor
-                draft={editing}
-                options={optionsFor(editing)}
-                onChange={setEditing}
-                onSave={saveRule}
-                onCancel={() => setEditing(null)}
-              />
-            </li>
-          ) : null}
-          {rules.some((rule) => rule.type !== 'line') ? null : (
-            <li className="wizard-rule wizard-rule--fixed">
-              <span className="wizard-rule__number" aria-hidden="true">
-                {rules.length + 1}
+            }}
+          </For>
+          <Show when={editing()?.index === null ? editing() : undefined}>
+            {(current) => <li class="wizard-rule wizard-rule--editing">{editor(current)}</li>}
+          </Show>
+          <Show when={!rules().some((rule) => rule.type !== 'line')}>
+            <li class="wizard-rule wizard-rule--fixed">
+              <span class="wizard-rule__number" aria-hidden="true">
+                {rules().length + 1}
               </span>
-              <span className="wizard-rule__body">
-                <span className="wizard-rule__title">{text.shared}</span>
-                <span className="wizard-rule__sub">{text.sharedSub}</span>
+              <span class="wizard-rule__body">
+                <span class="wizard-rule__title">{text.shared}</span>
+                <span class="wizard-rule__sub">{text.sharedSub}</span>
               </span>
             </li>
-          )}
+          </Show>
         </Tray>
-        {ruleOptions.length === 0 ? <p className="wizard-hint">{text.noRuleCategories}</p> : null}
+        <Show when={ruleOptions().length === 0}>
+          <p class="wizard-hint">{text.noRuleCategories}</p>
+        </Show>
         <Button
           variant="secondary"
           icon="plus"
-          className="wizard-panel__action"
-          disabled={implicitTotal || !firstFree || locked}
-          onClick={() =>
-            firstFree && setEditing({ index: null, line: firstFree.value, dir: 'desc' })
-          }
+          class="wizard-panel__action"
+          disabled={implicitTotal() || !firstFree() || locked()}
+          onClick={() => {
+            const free = firstFree();
+            if (free) setEditing({ index: null, line: free.value, dir: 'desc' });
+          }}
         >
           {text.addRule}
         </Button>
         <Button
           variant="secondary"
           icon="plus"
-          className="wizard-panel__action"
-          disabled={implicitTotal || locked || rules.some((r) => r.type === 'manual')}
+          class="wizard-panel__action"
+          disabled={implicitTotal() || locked() || rules().some((r) => r.type === 'manual')}
           onClick={() =>
             setRanking({
-              ...ranking,
-              tiebreak: [...rules.filter((r) => r.type === 'line'), { type: 'manual' }],
+              ...ranking(),
+              tiebreak: [...rules().filter((r) => r.type === 'line'), { type: 'manual' }],
             })
           }
         >
@@ -599,13 +634,7 @@ function RankingDetails({
 }
 
 /** Wybór kategorii i kierunku reguły remisu (dodanie albo zmiana). */
-function RuleEditor({
-  draft,
-  options,
-  onChange,
-  onSave,
-  onCancel,
-}: {
+function RuleEditor(props: {
   readonly draft: RuleDraft;
   readonly options: readonly SelectOption<string>[];
   readonly onChange: (draft: RuleDraft) => void;
@@ -613,27 +642,24 @@ function RuleEditor({
   readonly onCancel: () => void;
 }) {
   return (
-    <div className="wizard-rule-editor">
+    <div class="wizard-rule-editor">
       <Select
         label={text.ruleCategory}
-        options={options}
-        value={draft.line}
-        onChange={(line) => onChange({ ...draft, line })}
+        options={props.options}
+        value={props.draft.line}
+        onChange={(line) => props.onChange({ ...props.draft, line })}
       />
       <SegmentedControl
         legend={text.direction}
-        options={(['desc', 'asc'] as const).map((dir) => ({
-          value: dir,
-          label: text.directions[dir],
-        }))}
-        value={draft.dir}
-        onChange={(dir) => onChange({ ...draft, dir })}
+        options={DIRECTION_OPTIONS}
+        value={props.draft.dir}
+        onChange={(dir) => props.onChange({ ...props.draft, dir })}
       />
-      <div className="wizard-actions">
-        <Button size="sm" icon="check" onClick={() => onSave(draft)}>
-          {draft.index === null ? text.ruleAdd : text.ruleSave}
+      <div class="wizard-actions">
+        <Button size="sm" icon="check" onClick={() => props.onSave(props.draft)}>
+          {props.draft.index === null ? text.ruleAdd : text.ruleSave}
         </Button>
-        <Button size="sm" variant="secondary" onClick={onCancel}>
+        <Button size="sm" variant="secondary" onClick={() => props.onCancel()}>
           {text.ruleCancel}
         </Button>
       </div>

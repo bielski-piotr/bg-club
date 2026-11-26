@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { isUuid } from '../popups/routes';
 import { gridRange, monthKey, type YearMonth } from './calendar';
 import { MEETING_COLUMNS, fromRow, meetingsKey, type Meeting, type MeetingRow } from './meetings';
@@ -89,8 +88,8 @@ export const calendarKey = (ym: YearMonth) => [...meetingsKey, 'calendar', month
  * Timeline: nadchodzące to zaplanowane i trwające (najbliższe według `starts_at`, potem `id`,
  * Q24), odbyte to zakończone (najnowsze najpierw).
  */
-export function useTimeline(client: SupabaseClient) {
-  return useQuery({
+export function timelineQuery(client: SupabaseClient) {
+  return {
     queryKey: timelineKey,
     queryFn: async (): Promise<Timeline> => {
       const [upcoming, finished] = await Promise.all([
@@ -118,12 +117,12 @@ export function useTimeline(client: SupabaseClient) {
         finished: finished.data.map(fromOverviewRow),
       };
     },
-  });
+  };
 }
 
 /** Spotkania widoczne w siatce miesiąca `ym` (z zapasem, `gridRange`). */
-export function useCalendarMonth(client: SupabaseClient, ym: YearMonth) {
-  return useQuery({
+export function calendarMonthQuery(client: SupabaseClient, ym: YearMonth) {
+  return {
     queryKey: calendarKey(ym),
     queryFn: async (): Promise<MeetingOverview[]> => {
       const { from, to } = gridRange(ym);
@@ -138,14 +137,14 @@ export function useCalendarMonth(client: SupabaseClient, ym: YearMonth) {
       if (error) throw error;
       return data.map(fromOverviewRow);
     },
-  });
+  };
 }
 
 export const meetingOverviewKey = (id: string) => [...meetingsKey, 'overview', id] as const;
 
 /** Jedno spotkanie z podsumowaniem partii (popup spotkania). `null` = nie ma takiego. */
-export function useMeetingOverview(client: SupabaseClient, id: string) {
-  return useQuery({
+export function meetingOverviewQuery(client: SupabaseClient, id: string) {
+  return {
     queryKey: meetingOverviewKey(id),
     queryFn: async (): Promise<MeetingOverview | null> => {
       if (!isUuid(id)) return null;
@@ -157,5 +156,5 @@ export function useMeetingOverview(client: SupabaseClient, id: string) {
       if (error) throw error;
       return data ? fromOverviewRow(data) : null;
     },
-  });
+  };
 }

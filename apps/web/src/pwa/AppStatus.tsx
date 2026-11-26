@@ -1,7 +1,7 @@
+import { Show } from 'solid-js';
 import { t } from '../i18n';
-import { cx } from '../ui/cx';
 import { Icon } from '../ui/Icon';
-import { pwa, useOnline, usePwa, type PwaStore } from './updates';
+import { createOnline, createPwa, pwa, type PwaStore } from './updates';
 import './AppStatus.css';
 
 const text = t.pwa;
@@ -16,37 +16,41 @@ export interface AppStatusProps {
  * a wpisy notesu czekają na tym urządzeniu (PAD-4). „Odśwież” jest wstrzymane, póki otwarty
  * notes ma wpisy, których nie ma jeszcze w bazie (NFR-3).
  */
-export function AppStatus({ store = pwa }: AppStatusProps) {
-  const online = useOnline();
-  const { update, draftBusy } = usePwa(store);
-  const showUpdate = update !== 'none';
-  if (online && !showUpdate) return null;
+export function AppStatus(props: AppStatusProps) {
+  const store = () => props.store ?? pwa;
+  const online = createOnline();
+  const state = createPwa(store);
+  const showUpdate = () => state().update !== 'none';
   return (
-    <div className="app-status">
-      {online ? null : (
-        <div className="toast app-status__item" role="status">
-          <Icon name="alert" className="toast__icon app-status__alert" />
-          <span className="toast__message">{text.offline}</span>
-        </div>
-      )}
-      {showUpdate ? (
-        <div className={cx('toast', 'app-status__item')} role="status">
-          <Icon name="refresh" className="toast__icon" />
-          <span className="toast__message">
-            {update === 'activated' ? text.activated : text.available}
-            {draftBusy ? <span className="app-status__note">{text.waitForDraft}</span> : null}
-          </span>
-          <button
-            type="button"
-            className="app-status__action"
-            disabled={draftBusy || update === 'applying'}
-            aria-busy={update === 'applying' || undefined}
-            onClick={() => store.apply()}
-          >
-            {text.reload}
-          </button>
-        </div>
-      ) : null}
-    </div>
+    <Show when={!online() || showUpdate()}>
+      <div class="app-status">
+        <Show when={!online()}>
+          <div class="toast app-status__item" role="status">
+            <Icon name="alert" class="toast__icon app-status__alert" />
+            <span class="toast__message">{text.offline}</span>
+          </div>
+        </Show>
+        <Show when={showUpdate()}>
+          <div class="toast app-status__item" role="status">
+            <Icon name="refresh" class="toast__icon" />
+            <span class="toast__message">
+              {state().update === 'activated' ? text.activated : text.available}
+              <Show when={state().draftBusy}>
+                <span class="app-status__note">{text.waitForDraft}</span>
+              </Show>
+            </span>
+            <button
+              type="button"
+              class="app-status__action"
+              disabled={state().draftBusy || state().update === 'applying'}
+              aria-busy={state().update === 'applying' ? 'true' : undefined}
+              onClick={() => store().apply()}
+            >
+              {text.reload}
+            </button>
+          </div>
+        </Show>
+      </div>
+    </Show>
   );
 }

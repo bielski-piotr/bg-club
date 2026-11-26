@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { createMemo, createSignal, Show } from 'solid-js';
 import { t } from '../i18n';
+import type { Profile } from '../profile/profileQueries';
 import { PopupLink } from '../popups/PopupLink';
-import type { Profile } from '../profile/profiles';
 import { Card, EmptyState, Icon, Tabs } from '../ui';
-import { BoardError, BoardLoading } from './BoardStatus';
+import { BoardBoundary } from './BoardStatus';
 import { FilterBar } from './FilterBar';
 import { LeaderboardBoard } from './LeaderboardBoard';
 import { TiesLink } from './TiesPopup';
-import { kindTabs, useBoardData } from './board';
+import { createBoardData, kindTabs } from './board';
 import { hasFilters, NO_FILTERS, type LeaderboardFilters } from './filters';
 import type { LeaderboardKind } from './leaderboard';
 import { tieGroups } from './ties';
@@ -19,78 +19,88 @@ import { tieGroups } from './ties';
  * CTA (CLUB-4); klasyfikowani są wszyscy z ≥ 1 partią, więc pusty ranking jest pusty we
  * wszystkich zakładkach naraz (LB-5).
  */
-export function RankingWidget({ me }: { readonly me: Profile }) {
-  const [kind, setKind] = useState<LeaderboardKind>('points');
-  const [filters, setFilters] = useState<LeaderboardFilters>(NO_FILTERS);
-  const { entries, profiles, failed, retry } = useBoardData(kind, filters);
-  const filtered = hasFilters(filters);
-  const empty = entries !== undefined && entries.length === 0;
-  const action =
-    entries && !empty ? (
-      <PopupLink
-        to={{ kind: 'leaderboard', tab: kind, ...(filtered ? { filters } : {}) }}
-        className="text-link"
-        aria-label={t.leaderboard.seeMore}
-      >
-        <span>{t.ui.seeMore}</span>
-        <Icon name="chevron-right" />
-      </PopupLink>
-    ) : undefined;
+export function RankingWidget(props: { readonly me: Profile }) {
+  const [kind, setKind] = createSignal<LeaderboardKind>('points');
+  const [filters, setFilters] = createSignal<LeaderboardFilters>(NO_FILTERS);
+  const board = createBoardData(kind, filters);
+  const filtered = () => hasFilters(filters());
+  // Nagłówek, zakładki i filtry są widoczne od razu: czytają dane z cache bez czekania.
+  const empty = () => board.entries.current()?.length === 0;
+  const ties = createMemo(() => {
+    const entries = board.entries.current();
+    return !!entries && tieGroups(entries).length > 0;
+  });
 
   return (
-    <Card title={t.leaderboard.title} action={action}>
-      {empty && !filtered ? (
-        <EmptyState
-          icon="trophy"
-          title={t.leaderboard.emptyTitle}
-          helper={t.leaderboard.emptyHelper}
-        />
-      ) : (
+    <Card
+      title={t.leaderboard.title}
+      action={
+        <Show when={board.entries.current() && !empty()}>
+          <PopupLink
+            to={{ kind: 'leaderboard', tab: kind(), ...(filtered() ? { filters: filters() } : {}) }}
+            class="text-link"
+            aria-label={t.leaderboard.seeMore}
+          >
+            <span>{t.ui.seeMore}</span>
+            <Icon name="chevron-right" />
+          </PopupLink>
+        </Show>
+      }
+    >
+      <Show
+        when={!(empty() && !filtered())}
+        fallback={
+          <EmptyState
+            icon="trophy"
+            title={t.leaderboard.emptyTitle}
+            helper={t.leaderboard.emptyHelper}
+          />
+        }
+      >
         <Tabs
           label={t.leaderboard.tabsLabel}
           items={kindTabs}
-          value={kind}
+          value={kind()}
           onChange={setKind}
-          className="leaderboard-tabs"
+          class="leaderboard-tabs"
         >
           {(current) => (
             <>
               <FilterBar
-                filters={filters}
+                filters={filters()}
                 onChange={setFilters}
                 extra={
-                  entries && tieGroups(entries).length > 0 ? (
-                    <TiesLink kind={current} filters={filters} />
-                  ) : undefined
+                  <Show when={ties()}>
+                    <TiesLink kind={current} filters={filters()} />
+                  </Show>
                 }
               />
-              {failed ? (
-                <BoardError onRetry={retry} />
-              ) : entries && profiles ? (
-                entries.length === 0 ? (
-                  <div className="leaderboard">
-                    <EmptyState
-                      icon="trophy"
-                      title={t.leaderboard.emptyFilteredTitle}
-                      helper={t.leaderboard.emptyFilteredHelper}
-                    />
-                  </div>
-                ) : (
+              <BoardBoundary on={current}>
+                <Show
+                  when={board.entries().length > 0}
+                  fallback={
+                    <div class="leaderboard">
+                      <EmptyState
+                        icon="trophy"
+                        title={t.leaderboard.emptyFilteredTitle}
+                        helper={t.leaderboard.emptyFilteredHelper}
+                      />
+                    </div>
+                  }
+                >
                   <LeaderboardBoard
-                    entries={entries}
+                    entries={board.entries()}
                     kind={current}
-                    meId={me.id}
-                    profiles={profiles}
+                    meId={props.me.id}
+                    profiles={board.profiles()}
                     variant="widget"
                   />
-                )
-              ) : (
-                <BoardLoading />
-              )}
+                </Show>
+              </BoardBoundary>
             </>
           )}
         </Tabs>
-      )}
+      </Show>
     </Card>
   );
 }

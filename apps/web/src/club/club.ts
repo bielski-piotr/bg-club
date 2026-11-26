@@ -1,7 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { queryOptions, useQuery } from '@tanstack/react-query';
-import type { ScaledImage } from '../club/image';
-import { signedUrlQuery } from '../lib/storage';
+import type { ScaledImage } from './image';
 
 /** Jedyny klub instancji (PRD §1.1, CLUB-2). */
 export interface Club {
@@ -21,26 +19,19 @@ export const CLUB_NAME_MAX = 80;
 
 const CLUB_COLUMNS = 'name, logo_path, timezone';
 
-/** Zapytanie o klub: wspólne dla huba i prefetchu w `SignedInScreen` (NFR-2). */
+/**
+ * Zapytanie o klub (bez frameworka): wspólne dla huba i nagłówka (`createClub`)
+ * i prefetchu w `SignedInScreen` (NFR-2). Klub albo `null`, gdy nie został założony (CLUB-1).
+ */
 export function clubQuery(client: SupabaseClient) {
-  return queryOptions({
+  return {
     queryKey: clubKey,
     queryFn: async (): Promise<Club | null> => {
       const { data, error } = await client.from('club').select(CLUB_COLUMNS).maybeSingle<Club>();
       if (error) throw error;
       return data;
     },
-  });
-}
-
-/** Klub albo `null`, gdy nie został jeszcze założony (CLUB-1). */
-export function useClub(client: SupabaseClient) {
-  return useQuery(clubQuery(client));
-}
-
-/** Adres pliku z prywatnego bucketu `covers` (logo klubu). Bez ścieżki: brak zapytania. */
-export function useCoverUrl(client: SupabaseClient, path: string | null) {
-  return useQuery(signedUrlQuery(client, COVERS_BUCKET, path));
+  };
 }
 
 /** Co zrobić z logo przy zapisie formularza. */

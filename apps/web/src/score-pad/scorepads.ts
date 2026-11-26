@@ -1,7 +1,6 @@
 import { scorePadFileName, type ScorePadFile, type ScorePadTemplate } from '@bg-club/score-pad';
 import type { ReadTemplateResult } from '@bg-club/score-pad/template';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { scaleImage } from '../club/image';
 import { isUuid } from '../popups/routes';
 
@@ -67,9 +66,13 @@ export const scorepadKey = (id: string) => [...scorepadsKey, 'byId', id] as cons
  */
 export const versionTemplateKey = (versionId: string) => ['scorepad-template', versionId] as const;
 
+/*
+ * Opcje zapytań bez frameworka; wersje Solid w `score-pad/scorepadData.ts`.
+ */
+
 /** Aktywne notesy gry w kolejności dodania (GAME-7). */
-export function useGameScorepads(client: SupabaseClient, gameId: string) {
-  return useQuery({
+export function gameScorepadsQuery(client: SupabaseClient, gameId: string) {
+  return {
     queryKey: gameScorepadsKey(gameId),
     queryFn: async (): Promise<Scorepad[]> => {
       if (!isUuid(gameId)) return [];
@@ -84,15 +87,15 @@ export function useGameScorepads(client: SupabaseClient, gameId: string) {
       if (error) throw error;
       return data;
     },
-  });
+  };
 }
 
 /**
  * Aktywne notesy wszystkich gier w kolejności dodania: kreator nowej partii (RUN-2) pokazuje
  * przy każdej grze liczbę notesów i wyłącza gry bez pasującego notesu.
  */
-export function useActiveScorepads(client: SupabaseClient) {
-  return useQuery({
+export function activeScorepadsQuery(client: SupabaseClient) {
+  return {
     queryKey: [...scorepadsKey, 'active'] as const,
     queryFn: async (): Promise<Scorepad[]> => {
       const { data, error } = await client
@@ -105,12 +108,12 @@ export function useActiveScorepads(client: SupabaseClient) {
       if (error) throw error;
       return data;
     },
-  });
+  };
 }
 
 /** Aktywny notes; `null` = nie ma go albo został usunięty. */
-export function useScorepad(client: SupabaseClient, id: string) {
-  return useQuery({
+export function scorepadQuery(client: SupabaseClient, id: string) {
+  return {
     queryKey: scorepadKey(id),
     queryFn: async (): Promise<Scorepad | null> => {
       if (!isUuid(id)) return null;
@@ -123,7 +126,7 @@ export function useScorepad(client: SupabaseClient, id: string) {
       if (error) throw error;
       return data;
     },
-  });
+  };
 }
 
 /** Odczyt pliku jako data URL (zdjęcie kartki w szablonie dla edytora i eksportu). */
@@ -185,17 +188,17 @@ export async function loadVersionTemplate(
  * Szablon aktualnej wersji notesu do edycji (ze zdjęciem). Klucz to sama wersja: zmiana nazwy
  * w innym oknie nie wczytuje szablonu od nowa (i nie czyści edytora).
  */
-export function useScorepadTemplate(client: SupabaseClient, pad: Scorepad | null | undefined) {
+export function scorepadTemplateQuery(client: SupabaseClient, pad: Scorepad | null | undefined) {
   const versionId = pad?.current?.id ?? '';
   const name = pad?.name ?? '';
-  return useQuery({
+  return {
     queryKey: versionTemplateKey(versionId),
     enabled: versionId !== '',
     staleTime: Infinity,
     // Zdjęcie ma kilka MB: po zamknięciu edytora nie trzymamy go w pamięci.
     gcTime: 0,
     queryFn: () => loadVersionTemplate(client, versionId, name),
-  });
+  };
 }
 
 /** Powód nieudanego zapisu, importu albo zmiany notesu (komunikaty w `t.scorepads.errors`). */

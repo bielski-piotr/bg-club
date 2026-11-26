@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, configure } from '@testing-library/react';
+import { cleanup, configure } from '@solidjs/testing-library';
 import { afterEach } from 'vitest';
 
 // Component tests import the real lazy popup modules, including scorepad code.

@@ -1,12 +1,16 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SAMPLE_SCORE_PAD } from '../design-system/scorePadSample';
 import { t } from '../i18n';
-import { setThemePreference } from '../theme/useTheme';
+import { setThemePreference } from '../theme/themeStore';
 import type * as LoadModule from './load';
 import { ScorePadEditorView } from './ScorePadEditorView';
 import { ScorePadView, type ScorePadHandle } from './ScorePadView';
-import { createRef } from 'react';
+
+/*
+ * Notes i edytor (motyw, ładowanie, zdarzenia, uchwyt). Zmiany z efektów (motyw,
+ * stan ładowania) widać po mikrozadaniu, więc asercje czekają (`vi.waitFor`).
+ */
 
 // Moduły pakietu ładują się naprawdę (jsdom nie ma WebGL, więc notes zatrzymuje się na
 // ekranie ładowania); flaga pozwala zasymulować nieudane pobranie chunka.
@@ -25,34 +29,36 @@ const padElement = () => document.querySelector('score-pad');
 afterEach(() => {
   vi.unstubAllGlobals();
   network.fail = false;
-  act(() => setThemePreference('system'));
+  setThemePreference('system');
 });
 
 describe('ScorePadView', () => {
   it('leniwie tworzy <score-pad> w trybie klubowym z motywem aplikacji', async () => {
     const getItem = vi.spyOn(Storage.prototype, 'getItem');
-    render(<ScorePadView config={SAMPLE_SCORE_PAD} />);
+    render(() => <ScorePadView config={SAMPLE_SCORE_PAD} />);
     expect(screen.getByRole('status')).toHaveTextContent(t.scorePad.loadingPad);
 
     await vi.waitFor(() => expect(padElement()).not.toBeNull());
     const element = padElement();
     expect(element?.options).toMatchObject({ club: true, config: SAMPLE_SCORE_PAD });
     expect(element?.getAttribute('theme')).toBe('light');
-    expect(screen.getByRole('region', { name: t.scorePad.padLabel })).toHaveAttribute(
-      'aria-busy',
-      'false',
+    await vi.waitFor(() =>
+      expect(screen.getByRole('region', { name: t.scorePad.padLabel })).toHaveAttribute(
+        'aria-busy',
+        'false',
+      ),
     );
     // Tryb klubowy nie czyta stanu ani historii notesu z POC.
     expect(getItem).not.toHaveBeenCalledWith('score-pad:state:v2');
 
-    act(() => setThemePreference('dark'));
-    expect(element?.getAttribute('theme')).toBe('dark');
+    setThemePreference('dark');
+    await vi.waitFor(() => expect(element?.getAttribute('theme')).toBe('dark'));
     expect(element?.shadowRoot?.querySelector<HTMLElement>('.sp')?.dataset.theme).toBe('dark');
   });
 
   it('przekazuje wynik z oderwanej kartki i niszczy notes przy odmontowaniu', async () => {
     const onSave = vi.fn();
-    const { unmount } = render(<ScorePadView config={SAMPLE_SCORE_PAD} onSave={onSave} />);
+    const { unmount } = render(() => <ScorePadView config={SAMPLE_SCORE_PAD} onSave={onSave} />);
     await vi.waitFor(() => expect(padElement()).not.toBeNull());
     const element = padElement();
 
@@ -67,18 +73,18 @@ describe('ScorePadView', () => {
   });
 
   it('tryb testowy kreatora i uchwyt: wpisy kartki, oderwanie, widok z góry (EDT-14)', async () => {
-    const ref = createRef<ScorePadHandle>();
+    let handle: ScorePadHandle | undefined;
     const onLoadState = vi.fn();
-    render(
+    render(() => (
       <ScorePadView
-        ref={ref}
+        ref={(value) => (handle = value)}
         config={SAMPLE_SCORE_PAD}
         controls={false}
         help={false}
         test
         onLoadState={onLoadState}
-      />,
-    );
+      />
+    ));
     await vi.waitFor(() => expect(padElement()).not.toBeNull());
     const element = padElement();
     expect(element?.options).toMatchObject({
@@ -87,7 +93,7 @@ describe('ScorePadView', () => {
       help: false,
       controls: false,
     });
-    expect(onLoadState).toHaveBeenLastCalledWith('ready');
+    await vi.waitFor(() => expect(onLoadState).toHaveBeenLastCalledWith('ready'));
 
     // jsdom nie ma WebGL, więc metody notesu podmieniamy, żeby sprawdzić tylko przekazanie.
     const api = {
@@ -99,10 +105,10 @@ describe('ScorePadView', () => {
     };
     Object.defineProperty(element, 'pad', { value: api, configurable: true });
     const sheet = { game: 1, names: ['Gracz 1'], cells: {} };
-    ref.current?.setSheet(sheet);
-    ref.current?.tear();
-    ref.current?.resetView();
-    expect(ref.current?.restoreSheet(sheet)).toBe(true);
+    handle?.setSheet(sheet);
+    handle?.tear();
+    handle?.resetView();
+    expect(handle?.restoreSheet(sheet)).toBe(true);
     expect(api.setSheet).toHaveBeenCalledWith(sheet);
     expect(api.restoreSheet).toHaveBeenCalledWith(sheet);
     expect(api.tear).toHaveBeenCalled();
@@ -111,13 +117,13 @@ describe('ScorePadView', () => {
 
   it('po błędzie pobrania pokazuje komunikat i ponawia', async () => {
     network.fail = true;
-    render(<ScorePadView config={SAMPLE_SCORE_PAD} />);
+    render(() => <ScorePadView config={SAMPLE_SCORE_PAD} />);
     expect(await screen.findByRole('alert')).toHaveTextContent(t.scorePad.loadError);
 
     network.fail = false;
     fireEvent.click(screen.getByRole('button', { name: t.scorePad.retry }));
     await vi.waitFor(() => expect(padElement()).not.toBeNull());
-    expect(screen.queryByRole('alert')).toBeNull();
+    await vi.waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
 });
 
@@ -132,8 +138,8 @@ describe('ScorePadEditorView', () => {
       },
     );
     const onExport = vi.fn();
-    act(() => setThemePreference('dark'));
-    render(<ScorePadEditorView onExport={onExport} />);
+    setThemePreference('dark');
+    render(() => <ScorePadEditorView onExport={onExport} />);
     await vi.waitFor(() => expect(document.querySelector('score-pad-editor')).not.toBeNull());
     const editor = document.querySelector('score-pad-editor');
     expect(editor?.getAttribute('theme')).toBe('dark');

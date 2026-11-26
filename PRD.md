@@ -439,7 +439,7 @@ Schemat wdrożony w zadaniu [003] (`supabase/migrations/`) realizuje ten model. 
 
 ### 8.1 Stos
 
-- **Frontend:** Vite + TypeScript + **React** z TanStack Query (cache danych z Supabase), decyzja Q13. Notes i edytor zostają web componentami (vanilla TS, Three.js), osadzanymi bez przepisywania (§8.5).
+- **Frontend:** Vite + TypeScript + **Solid 2.0** z TanStack Query (`query-core`, cache danych z Supabase), decyzja Q13 (zmiana z Reacta: `docs/solidjs-2-migration.md`). Notes i edytor zostają web componentami (vanilla TS, Three.js), osadzanymi bez przepisywania (§8.5).
 - **Backend:** Supabase: Postgres (migracje w repo, `supabase/migrations`), Auth, Storage, Edge Functions (Deno).
 - **Wdrożenie:** Cloudflare Pages budowane z gałęzi `master` (domyślna gałąź repozytorium, Q20), z preview dla PR. Migracje uruchamiane przez Supabase CLI (ręcznie albo w CI).
 
@@ -477,7 +477,7 @@ Logika miejsc i remisów jest używana w notesie (podsumowanie przed oderwaniem)
 
 - **Jedyne źródło kodu** obu komponentów to TypeScript w `digital-scorepad-poc`, katalog `example/score-pad/score-pad/src/` (`core/` dla `<score-pad>`, `editor/` dla `<score-pad-editor>`), wersja 2.4.0, commit `e6b7dd2`. Repozytorium `digital-scorepad-editor-poc` (commit `7e6d379`) zawiera tylko zbudowany bundle, identyczny bajt w bajt z `dist/score-pad-editor.js` z pierwszego repo, i nie jest osobnym źródłem.
 - Źródła przenosimy do `packages/score-pad/` (bez plików `dist/`). Three.js pochodzi z zależności npm, a nie z CDN.
-- React osadza oba elementy przez cienki adapter: przekazuje szablon, uczestników, szkic i motyw, nasłuchuje zdarzeń (PAD-7) i przy zamknięciu popupu wywołuje `destroy()`. Notes i edytor są ładowane leniwie (`import()`, NFR-2).
+- Aplikacja osadza oba elementy przez cienki adapter: przekazuje szablon, uczestników, szkic i motyw, nasłuchuje zdarzeń (PAD-7) i przy zamknięciu popupu wywołuje `destroy()`. Notes i edytor są ładowane leniwie (`import()`, NFR-2).
 
 ## 9. Kluczowe przepływy (skrót)
 
@@ -554,7 +554,7 @@ Założenia zaproponowane w wersji 1.0 i zaakceptowane przez właściciela produ
 
 | # | Pytanie | Decyzja |
 |---|---|---|
-| Q13 | React czy Preact? Jak włączyć POC? | **React** z TanStack Query. POC jako web componenty z jednego źródła TS (§8.5). |
+| Q13 | React czy Preact? Jak włączyć POC? | **React** z TanStack Query; później zmienione na **Solid 2.0** (`docs/solidjs-2-migration.md`). POC jako web componenty z jednego źródła TS (§8.5). |
 | Q14 | Menu prowadzącego w DS §15 zawiera „Dodaj uczestnika” i „Zmień prowadzącego”, a macierz §2.1 nie. | Rozstrzyga PRD: obie akcje ma **tylko admin** (PLAN-4). DS poprawiony. |
 | Q15 | Gdzie są `design/reference-jsx/` i generatory `design/*/_build.mjs`? | **Utracone.** Jedynym źródłem projektu jest DESIGN-SYSTEM.md i plik Paper. Odwołania usunięte z DS. |
 | Q16 | Katalog osiągnięć. | Nieaktualne: osiągnięcia usunięte z systemu (§5.10). |

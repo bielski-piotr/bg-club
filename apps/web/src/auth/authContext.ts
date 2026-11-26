@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { createContext, useContext } from 'react';
+import { createContext } from 'solid-js';
 import type { LoginErrorKind } from './errors';
 
 /** Powód, dla którego użytkownik wraca do ekranu logowania bez własnej decyzji. */
@@ -14,6 +14,7 @@ export type SignInResult =
   { readonly ok: true } | { readonly ok: false; readonly error: LoginErrorKind };
 
 export interface AuthContextValue {
+  /** Stan sesji; pole jest reaktywne (odczyt w JSX albo memo śledzi zmiany). */
   readonly state: AuthState;
   readonly client: SupabaseClient;
   /** Logowanie hookiem i hasłem (AUTH-1). Hook musi być już poprawny (`isValidHook`). */
@@ -22,10 +23,5 @@ export interface AuthContextValue {
   readonly signOut: (notice?: AuthNotice) => Promise<void>;
 }
 
-export const AuthContext = createContext<AuthContextValue | null>(null);
-
-export function useAuth(): AuthContextValue {
-  const value = useContext(AuthContext);
-  if (!value) throw new Error('useAuth wymaga <AuthProvider>');
-  return value;
-}
+/** Sesja i klient Supabase (`AuthProvider`). */
+export const AuthContext = createContext<AuthContextValue>();

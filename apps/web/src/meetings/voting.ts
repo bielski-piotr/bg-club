@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Game } from '../games/games';
 import { format, plural, t, type PluralForms } from '../i18n';
-import { normalizeSearch, useToast } from '../ui';
+import { normalizeSearch } from '../ui/search';
 import { meetingsKey } from './meetings';
 
 /*
@@ -30,8 +29,8 @@ export const meetingVotesKey = (id: string) => [...meetingsKey, 'votes', id] as 
 export const meetingGamesKey = (id: string) => [...meetingsKey, 'games', id] as const;
 
 /** Głosy oddane w spotkaniu. */
-export function useMeetingVotes(client: SupabaseClient, meetingId: string) {
-  return useQuery({
+export function meetingVotesQuery(client: SupabaseClient, meetingId: string) {
+  return {
     queryKey: meetingVotesKey(meetingId),
     queryFn: async (): Promise<Vote[]> => {
       const { data, error } = await client
@@ -43,7 +42,7 @@ export function useMeetingVotes(client: SupabaseClient, meetingId: string) {
       if (error) throw error;
       return data;
     },
-  });
+  };
 }
 
 interface MeetingGameRow {
@@ -52,8 +51,8 @@ interface MeetingGameRow {
 }
 
 /** Opublikowane gry spotkania w kolejności wyboru administratora. */
-export function usePublishedGames(client: SupabaseClient, meetingId: string) {
-  return useQuery({
+export function publishedGamesQuery(client: SupabaseClient, meetingId: string) {
+  return {
     queryKey: meetingGamesKey(meetingId),
     queryFn: async (): Promise<PublishedGame[]> => {
       const { data, error } = await client
@@ -65,7 +64,7 @@ export function usePublishedGames(client: SupabaseClient, meetingId: string) {
       if (error) throw error;
       return data.flatMap((row) => (row.games ? [row.games] : []));
     },
-  });
+  };
 }
 
 /** Gra na liście głosowania z głosami i oznaczeniem dopasowania (VOTE-3, VOTE-4). */
@@ -261,23 +260,4 @@ export async function publishGames(
 export async function reopenVoting(client: SupabaseClient, meetingId: string): Promise<void> {
   const { error } = await client.rpc('reopen_voting', { meeting_id: meetingId });
   if (error) throw new VotingError(votingFailure(error));
-}
-
-/**
- * „Otwórz głosowanie ponownie” (VOTE-6) z popupu i z menu widżetu: toast sukcesu albo błędu
- * i odświeżenie spotkań (także po błędzie, bo stan mógł się zmienić gdzie indziej).
- */
-export function useReopenVoting(client: SupabaseClient) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  return useMutation({
-    mutationFn: (meetingId: string) => reopenVoting(client, meetingId),
-    onSuccess: () => toast.show(t.meetings.toasts.reopened, 'success'),
-    onError: (error) =>
-      toast.show(
-        t.meetings.voting.errors[error instanceof VotingError ? error.reason : 'save'],
-        'error',
-      ),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
-  });
 }
