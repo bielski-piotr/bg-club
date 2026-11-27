@@ -6,8 +6,8 @@ interface ClubLogoProps {
   readonly name: string;
   /** Adres obrazu (podpisany URL albo podgląd pliku); bez niego monogram nazwy. */
   readonly src?: string | undefined;
-  /** 36 = nagłówek huba, 88 = formularz klubu. */
-  readonly size: 36 | 88;
+  /** 56 = Club view heading, 88 = club form. */
+  readonly size: 56 | 88;
   readonly class?: ClassValue;
 }
 

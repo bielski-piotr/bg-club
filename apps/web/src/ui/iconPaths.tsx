@@ -40,10 +40,35 @@ export const glyphs = {
 } as const satisfies Record<string, () => JSX.Element>;
 
 export const pictograms = {
+  /** The door is a separate path: it swings open on hover (hover.css). */
+  home: () => (
+    <>
+      <path d="M2.5 7.25L8 2.75L13.5 7.25M4 6V12.5C4 13.05 4.45 13.5 5 13.5H11C11.55 13.5 12 13.05 12 12.5V6" />
+      <path d="M6.75 13.5V10.25H9.25V13.5" />
+    </>
+  ),
+  /** Two open paths that meet without a seam: the right arm waves on hover (hover.css). */
+  meeple: () => (
+    <>
+      <path d="M10.52 9.17C10.86 10.01 11.86 11.69 12.59 12.7C12.98 13.26 12.76 13.98 12.03 13.98L9.85 13.98C9.4 13.98 9.12 13.76 8.95 13.37L8 11.35L7.05 13.37C6.88 13.76 6.6 13.98 6.15 13.98L3.97 13.98C3.24 13.98 3.02 13.26 3.41 12.7C4.14 11.69 5.14 10.01 5.48 9.17L3.63 8.78C2.62 8.55 2.18 7.77 2.68 7.26C3.3 6.65 5.03 6.09 6.54 5.75C6.07 5.36 5.76 4.8 5.76 4.13C5.76 2.95 6.77 2 8 2C9.23 2 10.24 2.95 10.24 4.13C10.24 4.8 9.93 5.36 9.46 5.75" />
+      <path d="M9.46 5.75C10.97 6.09 12.7 6.65 13.32 7.26C13.82 7.77 13.38 8.55 12.37 8.78L10.52 9.17" />
+    </>
+  ),
+  /**
+   * The page flips up over the rings on hover and reveals the next one, hidden until then
+   * (hover.css).
+   */
   calendar: () => (
     <>
-      <rect x="2.5" y="3.5" width="11" height="10" rx="2" />
-      <path d="M2.5 7H13.5M5.5 2V5M10.5 2V5" />
+      <g opacity="0">
+        <rect x="2.5" y="3.5" width="11" height="10" rx="2" />
+        <path d="M2.5 7H13.5" />
+      </g>
+      <g>
+        <rect x="2.5" y="3.5" width="11" height="10" rx="2" />
+        <path d="M2.5 7H13.5" />
+      </g>
+      <path d="M5.5 2V5M10.5 2V5" />
     </>
   ),
   clock: () => (
@@ -166,8 +191,12 @@ export const pictograms = {
       <circle cx="8" cy="8.5" r="2.25" />
     </>
   ),
+  /** The arrow is a separate path: it is animated on its own (hover.css). */
   logout: () => (
-    <path d="M6.5 13.5H4C3.2 13.5 2.5 12.8 2.5 12V4C2.5 3.2 3.2 2.5 4 2.5H6.5M10 11L13 8L10 5M13 8H6" />
+    <>
+      <path d="M6.5 13.5H4C3.2 13.5 2.5 12.8 2.5 12V4C2.5 3.2 3.2 2.5 4 2.5H6.5" />
+      <path d="M10 11L13 8L10 5M13 8H6" />
+    </>
   ),
   /** Ustawienia profilu: suwaki. */
   settings: () => <path d="M2.5 4.5H9M12 4.5H13.5M2.5 11.5H4M7 11.5H13.5M10.5 3V6M5.5 10V13" />,

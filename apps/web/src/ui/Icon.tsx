@@ -19,7 +19,7 @@ function content(name: IconName): JSX.Element {
 
 /**
  * Ikona dekoracyjna (`aria-hidden`). Znaczenie przekazuje etykieta kontrolki obok.
- * Kolor dziedziczy z `currentColor`.
+ * Kolor dziedziczy z `currentColor`. `data-icon` wybiera animację w `.hoverable` (hover.css).
  */
 export function Icon(props: IconProps) {
   const rest = omit(props, 'name', 'size');
@@ -35,6 +35,7 @@ export function Icon(props: IconProps) {
       stroke-linecap="round"
       stroke-linejoin="round"
       aria-hidden="true"
+      data-icon={props.name}
       {...notFocusable}
       {...rest}
     >

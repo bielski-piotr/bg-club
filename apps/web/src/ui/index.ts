@@ -31,6 +31,7 @@ export { FieldFrame, PasswordField, SearchField, Stepper, TextField } from './Fi
 export { Icon, type IconName } from './Icon';
 export { focusableIn } from './focusable';
 export { Menu, type MenuItem, type MenuProps, type MenuTriggerProps } from './Menu';
+export { Nav, type NavItem } from './Nav';
 export { Dialog, Modal, type DialogProps, type ModalProps } from './Modal';
 export { iconNames } from './iconPaths';
 export { Select, type SelectOption } from './Select';
