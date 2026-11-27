@@ -6,7 +6,7 @@
  */
 export const pl = {
   app: {
-    name: 'BG Club',
+    name: 'Boardgame Club',
     tagline: 'Aplikacja klubu planszówkowego',
   },
   /** Logowanie hookiem i sesja . */

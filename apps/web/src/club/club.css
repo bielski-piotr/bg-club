@@ -1,6 +1,6 @@
 /* Klub: logo, pierwsze uruchomienie i formularz. */
 
-/* Kafelek logo: 36 (nagłówek, promień 12) albo 88 (formularz, promień 26). */
+/* Logo tile: 56 (Club view heading, radius 18) or 88 (form, radius 26). */
 .club-logo {
   display: grid;
   place-items: center;
@@ -13,12 +13,12 @@
   user-select: none;
 }
 
-.club-logo--36 {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 16px;
+.club-logo--56 {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  font-size: 20px;
+  line-height: 24px;
 }
 
 .club-logo--88 {
@@ -34,6 +34,33 @@
   height: 100%;
   object-fit: cover;
   background: var(--c-surface);
+}
+
+.club-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.club-heading__name {
+  min-width: 0;
+  margin: 0;
+  font: 700 24px/30px var(--font-display);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .club-heading {
+    margin-bottom: 24px;
+  }
+
+  .club-heading__name {
+    font-size: 28px;
+    line-height: 34px;
+  }
 }
 
 /* Pierwsze uruchomienie: wyśrodkowany blok, ilustracja 280 / 400. */

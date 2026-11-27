@@ -4,31 +4,22 @@ import { fullName, type Profile } from '../profile/profileQueries';
 import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
-import { IconButton, Menu, Skeleton } from '../ui';
-import type { Club } from './club';
+import { Menu, Nav } from '../ui';
 
 interface AppHeaderProps {
-  /**
-   * Klub do pokazania. `null` = błąd wczytania (nazwa aplikacji zamiast nazwy klubu),
-   * `undefined` = wczytywanie (szkielet, żeby nie mignęła nazwa aplikacji),
-   * `'none'` = klub jeszcze nie założony: sam chip użytkownika, bez paska.
-   */
-  readonly club: Club | null | undefined | 'none';
+  /** Before the club is set up: only the user chip, without the bar and navigation. */
+  readonly bare: boolean;
   readonly me: Profile;
 }
 
 /**
- * App header: the club name on the left (with a pencil opening the club form for admins),
- * the main navigation and the user chip on the right. The chip opens the avatar menu:
- * own profile, settings and sign-out.
+ * App header: the app name and logo on the left, the main navigation and the user chip on the
+ * right. The chip opens the avatar menu: own profile, settings and sign-out.
  */
 export function AppHeader(props: AppHeaderProps) {
-  /** Klub albo `null` (błąd) poza wczytywaniem i pustą bazą. */
-  const shown = (): Club | null =>
-    props.club === undefined || props.club === 'none' ? null : props.club;
   return (
     <Show
-      when={props.club !== 'none'}
+      when={!props.bare}
       fallback={
         <header class="app-header app-header--bare">
           <UserMenu me={props.me} />
@@ -36,54 +27,24 @@ export function AppHeader(props: AppHeaderProps) {
       }
     >
       <header class="app-header">
-        <div class="app-header__club">
-          <Show
-            when={props.club !== undefined}
-            fallback={
-              <h1 class="app-header__name">
-                <Skeleton width={140} height={18} />
-                <span class="sr-only">{t.ui.loading}</span>
-              </h1>
-            }
-          >
-            <ClubIdentity club={shown()} isAdmin={props.me.role === 'admin'} />
-          </Show>
+        <div class="app-header__brand">
+          {/* The favicon is precached by the service worker, so the logo shows on first paint. */}
+          <img class="app-header__logo" src="/favicon.svg" width="32" height="32" alt="" />
+          <span class="app-header__name">{t.app.name}</span>
         </div>
-        <MainNav />
+        {/* Club is the only view so far; Meetings and Games are placeholders until their pages exist. */}
+        <Nav
+          label={t.nav.label}
+          class="app-header__nav"
+          items={[
+            { id: 'club', label: t.nav.club, icon: 'home', href: '/', current: true },
+            { id: 'meetings', label: t.nav.meetings, icon: 'calendar' },
+            { id: 'games', label: t.nav.games, icon: 'meeple' },
+          ]}
+        />
         <UserMenu me={props.me} />
       </header>
     </Show>
-  );
-}
-
-function ClubIdentity(props: { readonly club: Club | null; readonly isAdmin: boolean }) {
-  const popups = useContext(PopupsContext);
-  return (
-    <>
-      <h1 class="app-header__name">{props.club?.name ?? t.app.name}</h1>
-      <Show when={props.club && props.isAdmin}>
-        <IconButton
-          icon="pencil"
-          size={32}
-          label={t.club.edit}
-          class="app-header__edit"
-          onClick={() => popups.open({ kind: 'club' })}
-        />
-      </Show>
-    </>
-  );
-}
-
-/** Club is the only view so far; Meetings and Games are placeholders until their pages exist. */
-function MainNav() {
-  return (
-    <nav class="app-nav" aria-label={t.nav.label}>
-      <a class="app-nav__link" href="/" aria-current="page">
-        {t.nav.club}
-      </a>
-      <a class="app-nav__link">{t.nav.meetings}</a>
-      <a class="app-nav__link">{t.nav.games}</a>
-    </nav>
   );
 }
 

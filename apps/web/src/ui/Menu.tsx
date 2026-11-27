@@ -11,6 +11,7 @@ import {
 import { ariaBool, type ClassValue } from './dom';
 import { Icon, type IconName } from './Icon';
 import './Select.css';
+import './hover.css';
 import './Menu.css';
 
 export interface MenuItem {
@@ -171,6 +172,7 @@ export function Menu(props: MenuProps) {
                 class={[
                   'menu__item',
                   'menu-button__item',
+                  'hoverable',
                   { 'menu__item--danger': !!item.destructive },
                 ]}
                 onClick={() => select(item)}

@@ -1,6 +1,7 @@
 import { Errored, Loading, Match, onSettled, Switch, lazy, useContext } from 'solid-js';
 import type { OwnProfile } from '../auth/ownProfile';
 import { AppHeader } from '../club/AppHeader';
+import { ClubHeading } from '../club/ClubHeading';
 import { createClub } from '../club/clubData';
 import { FirstRun } from '../club/FirstRun';
 import { CollectionWidget } from '../games/CollectionWidget';
@@ -62,10 +63,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
       fallbackFocusId={MAIN_ID}
     >
       <div class={['hub', { 'hub--first-run': firstRun() }]}>
-        <AppHeader
-          club={loaded() ? (club.current() ?? 'none') : failed() ? null : undefined}
-          me={props.me}
-        />
+        <AppHeader bare={firstRun()} me={props.me} />
         <main
           id={MAIN_ID}
           class="hub__main"
@@ -82,8 +80,13 @@ export function Hub(props: { readonly me: OwnProfile }) {
             <Match when={firstRun()}>
               <FirstRun isAdmin={isAdmin()} />
             </Match>
-            <Match when={loaded()}>
-              <Widgets me={props.me} />
+            <Match when={club.current()}>
+              {(current) => (
+                <>
+                  <ClubHeading club={current()} isAdmin={isAdmin()} />
+                  <Widgets me={props.me} />
+                </>
+              )}
             </Match>
             <Match when={failed()}>
               <Banner

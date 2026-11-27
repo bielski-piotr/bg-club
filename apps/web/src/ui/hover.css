@@ -1,0 +1,133 @@
+/*
+ * Shared hover state of menu items and navigation links: a tint background and a short
+ * gesture of the icon inside, chosen by its name (`data-icon` from Icon.tsx). base.css turns
+ * the gestures off for reduced motion.
+ */
+.hoverable {
+  transition:
+    background-color 120ms var(--ease),
+    color 120ms var(--ease);
+}
+
+.hoverable:hover,
+.hoverable:focus-visible {
+  background: var(--c-tint);
+}
+
+.hoverable svg[data-icon] {
+  transform-origin: center;
+  /* The turned calendar page and the waving arm may leave the 16×16 box for a moment. */
+  overflow: visible;
+}
+
+.hoverable svg[data-icon] > * {
+  transform-box: fill-box;
+}
+
+/* The door swings on its left hinge. */
+.hoverable svg[data-icon='home'] path:last-child {
+  transform-origin: left bottom;
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='home'] path:last-child {
+  animation: icon-door 560ms var(--ease);
+}
+
+/* The page turns over its top edge (the rings), the next page shows underneath. */
+.hoverable svg[data-icon='calendar'] g:nth-child(2) {
+  transform-origin: top;
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='calendar'] g:first-child {
+  animation: icon-page-next 520ms var(--ease);
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='calendar'] g:nth-child(2) {
+  animation: icon-page-turn 520ms var(--ease);
+}
+
+/* The right arm waves from the shoulder. */
+.hoverable svg[data-icon='meeple'] path:last-child {
+  transform-origin: left center;
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='meeple'] path:last-child {
+  animation: icon-wave 640ms var(--ease);
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='user'] {
+  animation: icon-nod 420ms var(--ease);
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='settings'] {
+  animation: icon-slide 480ms var(--ease);
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='logout'] path:last-child {
+  animation: icon-nudge 480ms var(--ease);
+}
+
+@keyframes icon-door {
+  45%,
+  60% {
+    transform: scaleX(0.35) skewY(-12deg);
+  }
+}
+
+/* Both pages end where the hidden next page started: the reset after the animation is invisible. */
+@keyframes icon-page-next {
+  20%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes icon-page-turn {
+  45% {
+    transform: scaleY(-0.45);
+    opacity: 1;
+  }
+
+  75%,
+  100% {
+    transform: scaleY(-0.45);
+    opacity: 0;
+  }
+}
+
+@keyframes icon-wave {
+  25%,
+  75% {
+    transform: rotate(-35deg);
+  }
+
+  50% {
+    transform: rotate(-10deg);
+  }
+}
+
+@keyframes icon-nod {
+  35% {
+    transform: translateY(-1.5px);
+  }
+
+  70% {
+    transform: translateY(0.5px);
+  }
+}
+
+@keyframes icon-slide {
+  30% {
+    transform: translateX(-1.5px);
+  }
+
+  65% {
+    transform: translateX(1.5px);
+  }
+}
+
+@keyframes icon-nudge {
+  45% {
+    transform: translateX(2px);
+  }
+}

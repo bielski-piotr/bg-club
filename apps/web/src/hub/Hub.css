@@ -23,7 +23,7 @@
 }
 
 /*
- * Header: full-width sticky bar with a bottom border. Phone: club name and user chip on the
+ * Header: full-width sticky bar with a bottom border. Phone: app name and user chip on the
  * first row, navigation spread over a second row. From 768 px: one row.
  */
 .app-header {
@@ -32,7 +32,7 @@
   z-index: 10;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: 'club user' 'nav nav';
+  grid-template-areas: 'brand user' 'nav nav';
   align-items: center;
   gap: 4px 12px;
   min-height: 64px;
@@ -41,16 +41,17 @@
   border-bottom: 1px solid var(--c-border);
 }
 
-.app-header__club {
-  grid-area: club;
+.app-header__brand {
+  grid-area: brand;
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
 }
 
-.app-header__edit {
+.app-header__logo {
   flex-shrink: 0;
+  border-radius: 8px;
 }
 
 /* Przed założeniem klubu: przezroczysty wiersz z samym chipem po prawej. */
@@ -82,47 +83,11 @@
   white-space: nowrap;
 }
 
-/* Chip użytkownika: kółko 48 z obwódką 2 px wokół awatara 38. */
-.app-nav {
+.app-header__nav {
   grid-area: nav;
-  display: flex;
-  gap: 4px;
 }
 
-/* Links without href are placeholders for views that don't exist yet: no hover. */
-.app-nav__link {
-  flex: 1;
-  padding: 10px 14px;
-  border-radius: var(--r-pill);
-  color: var(--c-muted);
-  font: 600 15px/20px var(--font-display);
-  text-align: center;
-  text-decoration: none;
-  transition:
-    background-color 120ms var(--ease),
-    color 120ms var(--ease);
-}
-
-.app-nav__link[href]:hover {
-  background: var(--c-tint);
-  color: var(--c-ink);
-}
-
-.app-nav__link[aria-current='page'] {
-  background: var(--c-accent-tint);
-  color: var(--c-accent-text);
-}
-
-.app-nav__link[aria-current='page']:hover {
-  background: var(--c-accent-tint-strong);
-  color: var(--c-accent-text);
-}
-
-.app-nav__link:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
+/* Chip użytkownika: kółko 48 z obwódką 2 px wokół awatara 38. */
 .app-header__user {
   grid-area: user;
   display: grid;
@@ -239,13 +204,9 @@
 
   .app-header {
     grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas: 'club nav user';
+    grid-template-areas: 'brand nav user';
     column-gap: 16px;
     padding-inline: 24px 16px;
-  }
-
-  .app-nav__link {
-    flex: none;
   }
 
   .hub__grid {
