@@ -40,15 +40,11 @@ export const glyphs = {
 } as const satisfies Record<string, () => JSX.Element>;
 
 export const pictograms = {
-  /** The house has a hidden fill: the lights inside turn on on hover (hover.css). */
-  home: () => (
+  /** Club pennant. The flag is a separate path: it flutters on hover (hover.css). */
+  pennant: () => (
     <>
-      <path
-        d="M2.5 7.25L8 2.75L13.5 7.25M4 6V12.5C4 13.05 4.45 13.5 5 13.5H11C11.55 13.5 12 13.05 12 12.5V6"
-        fill="currentColor"
-        fill-opacity="0"
-      />
-      <path d="M6.75 13.5V10.25H9.25V13.5" />
+      <path d="M4 2.5V13.5" />
+      <path d="M4 3L12.5 5.5L4 8" />
     </>
   ),
   /** Two open paths that meet without a seam: the right arm waves on hover (hover.css). */
