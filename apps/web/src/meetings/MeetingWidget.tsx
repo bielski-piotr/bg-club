@@ -13,6 +13,7 @@ import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { createGameSearch } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
 import { format, plural, t } from '../i18n';
+import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { avatarPerson, type Profile } from '../profile/profileQueries';
 import { createClub } from '../club/clubData';
 import { PopupsContext } from '../popups/popupContext';
@@ -60,13 +61,13 @@ const COUNTDOWN_TICK_MS = 60_000;
  * Menu ma akcje zależne od roli, a pusty stan dla administratora
  * „Zaplanuj spotkanie”.
  */
-export function MeetingWidget(props: { readonly me: Profile }) {
+export function MeetingWidget(props: { readonly me: OwnProfile }) {
   const popups = useContext(PopupsContext);
   const meeting = createHubMeeting();
   const club = createClub();
   const members = createMembers();
   const reopen = createReopenVoting();
-  const isAdmin = () => props.me.role === 'admin';
+  const isAdmin = () => showsAdminTools(props.me);
   // Nagłówek karty czyta dane z cache bez czekania, treść czeka pod `<QueryBoundary>`.
   const data = () => meeting.current() ?? undefined;
   const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
@@ -205,7 +206,7 @@ export function MeetingWidget(props: { readonly me: Profile }) {
 
 function MeetingBlock(props: {
   readonly meeting: Meeting;
-  readonly me: Profile;
+  readonly me: OwnProfile;
   readonly timeZone: string;
   readonly members: readonly Profile[];
 }) {
@@ -274,7 +275,7 @@ const TRAY_ROWS = 3;
  */
 function MeetingStateTray(props: {
   readonly meeting: Meeting;
-  readonly me: Profile;
+  readonly me: OwnProfile;
   readonly timeZone: string;
 }) {
   return (
@@ -340,7 +341,7 @@ function MoreRows(props: { readonly hidden: number }) {
   );
 }
 
-function VotesTray(props: { readonly meeting: Meeting; readonly me: Profile }) {
+function VotesTray(props: { readonly meeting: Meeting; readonly me: OwnProfile }) {
   const games = createGameSearch(() => '');
   const votes = createMeetingVotes(() => props.meeting.id);
   const profiles = createAllProfiles();

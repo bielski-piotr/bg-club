@@ -27,11 +27,10 @@ import {
 } from '../meetings/RunMeetingDialogs';
 import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
-import type { OwnProfile } from '../auth/ownProfile';
-import { DeleteAccountDialog } from '../profile/DeleteAccountDialog';
+import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { PasswordPopup } from '../profile/PasswordPopup';
-import { ProfilePopup } from '../profile/ProfilePopup';
-import { SettingsPopup } from '../profile/SettingsPopup';
+import { ProfileView } from '../profile/ProfileView';
+import { SettingsView } from '../profile/SettingsView';
 import { SheetPopup } from '../sheets/SheetPopup';
 import {
   DeleteScorepadDialog,
@@ -48,7 +47,7 @@ interface ViewProps<R extends PopupRoute = PopupRoute> {
   readonly me: OwnProfile;
 }
 
-const isAdmin = (me: OwnProfile) => me.role === 'admin';
+const isAdmin = (me: OwnProfile) => showsAdminTools(me);
 
 /** Treść tylko dla administratora; gracz z linku widzi „Nie znaleziono”. */
 function AdminOnly(props: { readonly me: OwnProfile; readonly children: JSX.Element }) {
@@ -68,7 +67,7 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
       <AddMemberPopup />
     </AdminOnly>
   ),
-  profile: (p) => <ProfilePopup id={p.route.id} isAdmin={isAdmin(p.me)} />,
+  profile: (p) => <ProfileView id={p.route.id} isAdmin={isAdmin(p.me)} />,
   // Członków usuwa tylko administrator; Edge Function i tak odrzuci gracza (403).
   'delete-member': (p) => (
     <AdminOnly me={p.me}>
@@ -76,15 +75,8 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
     </AdminOnly>
   ),
   // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć.
-  settings: (p) => <SettingsPopup me={p.me} />,
-  'change-password': (p) => <PasswordPopup me={p.me} variant="change" />,
-  // Administrator nie usuwa swojego konta i nie widzi tej opcji.
-  'delete-account': (p) => (
-    <Show when={!isAdmin(p.me)} fallback={<InvalidPopup />}>
-      <DeleteAccountDialog me={p.me} />
-    </Show>
-  ),
-  'first-login': (p) => <PasswordPopup me={p.me} variant="first" />,
+  settings: (p) => <SettingsView me={p.me} />,
+  'first-login': (p) => <PasswordPopup me={p.me} />,
   // Formularz klubu jest tylko dla administratora; gracz z linku go nie zobaczy.
   club: (p) => (
     <AdminOnly me={p.me}>

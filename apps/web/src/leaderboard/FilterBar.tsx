@@ -18,7 +18,7 @@ import { createSlot } from '../ui/dom';
 import { DateRangeCalendar } from './DateRangeCalendar';
 import { FilterPopover } from './FilterPopover';
 import { GameFilterPanel } from './GameFilter';
-import { createGameTitles } from './gameTitles';
+import { createGamesPrefetch, createGameTitles } from './gameTitles';
 
 /** Panel gier: kolekcja wczytywana przy otwarciu panelu; stany listy pokazuje sam panel. */
 function GamesPanel(props: {
@@ -43,11 +43,13 @@ export interface FilterBarProps {
   readonly extra?: JSX.Element | undefined;
   /** Nazwa grupy filtrów dla czytników ekranu; domyślnie „Filtry rankingu”. */
   readonly label?: string | undefined;
+  /** Only the game filter, without the date range (e.g. personal records). */
+  readonly gamesOnly?: boolean | undefined;
 }
 
 /**
  * Pasek filtrów rankingu (widżet, popup, profil): zakres dat w kalendarzu, gry
- * z autouzupełnianiem i „Wyczyść filtry” (wszystkie gry, cała historia).
+ * z okładkami i autouzupełnianiem oraz „Wyczyść filtry” (wszystkie gry, cała historia).
  */
 export function FilterBar(props: FilterBarProps) {
   const text = t.leaderboard.filters;
@@ -57,25 +59,28 @@ export function FilterBar(props: FilterBarProps) {
   const dates = () => datesValue(props.filters);
   const gamesText = () => gamesValue(props.filters, titles());
   const extra = createSlot(() => props.extra);
+  const prefetchGames = createGamesPrefetch();
 
   return (
     <div class="lb-filters" role="group" aria-label={props.label ?? text.label}>
-      <FilterPopover
-        label={text.dates}
-        triggerLabel={format(text.datesLabel, { value: dates() })}
-        value={dates()}
-        icon="calendar"
-        active={hasDateFilter(props.filters)}
-        clearLabel={text.clearDates}
-        onClear={() => props.onChange(withDates(props.filters, null, null))}
-      >
-        <DateRangeCalendar
-          from={props.filters.from}
-          to={props.filters.to}
-          today={today()}
-          onChange={(from, to) => props.onChange(withDates(props.filters, from, to))}
-        />
-      </FilterPopover>
+      <Show when={!props.gamesOnly}>
+        <FilterPopover
+          label={text.dates}
+          triggerLabel={format(text.datesLabel, { value: dates() })}
+          value={dates()}
+          icon="calendar"
+          active={hasDateFilter(props.filters)}
+          clearLabel={text.clearDates}
+          onClear={() => props.onChange(withDates(props.filters, null, null))}
+        >
+          <DateRangeCalendar
+            from={props.filters.from}
+            to={props.filters.to}
+            today={today()}
+            onChange={(from, to) => props.onChange(withDates(props.filters, from, to))}
+          />
+        </FilterPopover>
+      </Show>
       <FilterPopover
         label={text.games}
         triggerLabel={format(text.gamesLabel, { value: gamesText() })}
@@ -84,6 +89,7 @@ export function FilterBar(props: FilterBarProps) {
         active={props.filters.games.length > 0}
         clearLabel={text.clearGames}
         onClear={() => props.onChange(withGames(props.filters, []))}
+        onIntent={prefetchGames}
       >
         <GamesPanel
           selected={props.filters.games}

@@ -65,6 +65,10 @@
   animation: icon-slide-right 520ms var(--ease);
 }
 
+.hoverable:is(:hover, :focus-visible) svg[data-icon='gear'] {
+  animation: icon-spin 720ms var(--ease);
+}
+
 .hoverable:is(:hover, :focus-visible) svg[data-icon='logout'] path:last-child {
   animation: icon-nudge 480ms var(--ease);
 }
@@ -131,6 +135,12 @@
 @keyframes icon-slide-right {
   50% {
     transform: translateX(4px);
+  }
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(120deg);
   }
 }
 

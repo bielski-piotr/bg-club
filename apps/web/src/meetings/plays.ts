@@ -225,6 +225,7 @@ export function sortedResults(play: Pick<MeetingPlay, 'results'>): PlayResult[] 
  * prowadzący (`host_id`) tylko w niezakończonym. Rozpoczyna i kończy spotkanie.
  */
 export function isMeetingRunner(meeting: Meeting, me: Pick<OwnProfile, 'id' | 'role'>): boolean {
+  // Running meetings is a duty, not an admin button: the admin view doesn't hide it.
   if (me.role === 'admin') return true;
   return meeting.host_id === me.id && meeting.status !== 'finished';
 }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { QueryClient } from '@tanstack/query-core';
 
 /** Podpisany URL ważny godzinę; zapytanie odświeża go 10 minut przed wygaśnięciem. */
 export const SIGNED_URL_SECONDS = 60 * 60;
@@ -27,9 +28,10 @@ function usableSignedUrls(): SignedUrls {
   }
 }
 
-function rememberSignedUrl(key: string, url: string) {
+function rememberSignedUrls(entries: readonly (readonly [key: string, url: string])[]) {
   const urls = usableSignedUrls();
-  urls[key] = { url, signedAt: Date.now() };
+  const signedAt = Date.now();
+  for (const [key, url] of entries) urls[key] = { url, signedAt };
   try {
     localStorage.setItem(SIGNED_URLS_KEY, JSON.stringify(urls));
   } catch {
@@ -55,8 +57,44 @@ export function signedUrlQuery(client: SupabaseClient, bucket: string, path: str
         .from(bucket)
         .createSignedUrl(path ?? '', SIGNED_URL_SECONDS);
       if (error) throw error;
-      rememberSignedUrl(key, data.signedUrl);
+      rememberSignedUrls([[key, data.signedUrl]]);
       return data.signedUrl;
     },
   };
+}
+
+/**
+ * Signs files of a bucket in one request and puts the URLs into the cache of `signedUrlQuery`,
+ * so a list of images (e.g. covers in the game filter) doesn't wait for a request per image.
+ * Paths with a remembered URL are not signed again. Resolves the URLs by path.
+ */
+export async function prefetchSignedUrls(
+  client: SupabaseClient,
+  queryClient: QueryClient,
+  bucket: string,
+  paths: readonly (string | null)[],
+): Promise<ReadonlyMap<string, string>> {
+  const remembered = usableSignedUrls();
+  const urls = new Map<string, string>();
+  const missing: string[] = [];
+  for (const path of new Set(paths)) {
+    if (path === null) continue;
+    const known = remembered[`${bucket}/${path}`]?.url;
+    if (known) urls.set(path, known);
+    else missing.push(path);
+  }
+  if (missing.length === 0) return urls;
+  const { data, error } = await client.storage
+    .from(bucket)
+    .createSignedUrls(missing, SIGNED_URL_SECONDS);
+  if (error) throw error;
+  const signed: [string, string][] = [];
+  for (const { error: failed, path, signedUrl } of data) {
+    if (failed || !path || !signedUrl) continue;
+    urls.set(path, signedUrl);
+    signed.push([`${bucket}/${path}`, signedUrl]);
+    queryClient.setQueryData(['storage', bucket, path], signedUrl);
+  }
+  rememberSignedUrls(signed);
+  return urls;
 }

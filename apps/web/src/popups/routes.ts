@@ -22,10 +22,6 @@ export type PopupRoute =
   | { readonly kind: 'delete-member'; readonly id: string }
   /** Ustawienia własnego profilu, adres `settings`. Zawsze dotyczą zalogowanego. */
   | { readonly kind: 'settings' }
-  /** Zmiana hasła, adres `settings/password`. */
-  | { readonly kind: 'change-password' }
-  /** Usunięcie własnego konta z potwierdzeniem hasłem, adres `settings/delete`. */
-  | { readonly kind: 'delete-account' }
   /** Propozycja własnego hasła przy pierwszym logowaniu, adres `first-login`. */
   | { readonly kind: 'first-login' }
   /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (admin). */
@@ -221,12 +217,6 @@ export function parseRoute(raw: string): PopupRoute {
     return { kind: 'delete-play', id: (args[0] ?? '').toLowerCase() };
   }
   if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
-  if (kind === 'settings' && args.length === 1 && args[0] === 'password') {
-    return { kind: 'change-password' };
-  }
-  if (kind === 'settings' && args.length === 1 && args[0] === 'delete') {
-    return { kind: 'delete-account' };
-  }
   if (kind === 'first-login' && args.length === 0) return { kind: 'first-login' };
   if (kind === 'profile' && args.length === 1 && isUuid(args[0] ?? '')) {
     return { kind: 'profile', id: (args[0] ?? '').toLowerCase() };
@@ -318,10 +308,6 @@ export function serializeRoute(route: PopupRoute): string {
       return `profile/${route.id}/delete`;
     case 'settings':
       return 'settings';
-    case 'change-password':
-      return 'settings/password';
-    case 'delete-account':
-      return 'settings/delete';
     case 'first-login':
       return 'first-login';
     case 'invalid':

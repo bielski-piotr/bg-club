@@ -63,14 +63,12 @@ export function meetingSummaryQuery(
 }
 
 /** Gry zapisanych partii spotkania do filtra, w kolejności pierwszej partii. */
-export function meetingGames(
-  saved: readonly Pick<MeetingPlay, 'game'>[],
-): { readonly id: string; readonly title: string }[] {
-  const seen = new Map<string, string>();
+export function meetingGames(saved: readonly Pick<MeetingPlay, 'game'>[]): MeetingPlay['game'][] {
+  const seen = new Map<string, MeetingPlay['game']>();
   for (const play of saved) {
-    if (!seen.has(play.game.id)) seen.set(play.game.id, play.game.title);
+    if (!seen.has(play.game.id)) seen.set(play.game.id, play.game);
   }
-  return [...seen].map(([id, title]) => ({ id, title }));
+  return [...seen.values()];
 }
 
 const text = t.meetings.summary;
