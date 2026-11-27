@@ -17,11 +17,8 @@ export type PopupRoute =
   | { readonly kind: 'members' }
   /** Formularz „Dodaj członka” (admin), adres `members/new`. */
   | { readonly kind: 'add-member' }
-  | { readonly kind: 'profile'; readonly id: string }
   /** Potwierdzenie „Usuń członka” (admin), adres `profile/<uuid>/delete`. */
   | { readonly kind: 'delete-member'; readonly id: string }
-  /** Ustawienia własnego profilu, adres `settings`. Zawsze dotyczą zalogowanego. */
-  | { readonly kind: 'settings' }
   /** Propozycja własnego hasła przy pierwszym logowaniu, adres `first-login`. */
   | { readonly kind: 'first-login' }
   /** Formularz klubu: „Dodaj klub” przed założeniem, „Edytuj klub” potem (admin). */
@@ -117,6 +114,37 @@ export type PopupRoute =
   | { readonly kind: 'delete-meeting'; readonly id: string }
   /** Adres, którego aplikacja nie zna albo który jest uszkodzony. Popup pokazuje czytelny stan. */
   | { readonly kind: 'invalid'; readonly raw: string };
+
+/**
+ * Full pages under the app header, by the address path: the Club view (`/`), a player's profile
+ * (`/profile/<uuid>`) and the own settings (`/settings`). Popups open over any page.
+ */
+export type AppPage =
+  | { readonly kind: 'club' }
+  | { readonly kind: 'profile'; readonly id: string }
+  | { readonly kind: 'settings' };
+
+/** The page of an address path; `null` = no such page. */
+export function parsePage(pathname: string): AppPage | null {
+  const path = pathname.replace(/\/+$/, '') || '/';
+  if (path === '/' || path === '/index.html') return { kind: 'club' };
+  if (path === '/settings') return { kind: 'settings' };
+  const profile = /^\/profile\/([^/]+)$/.exec(path);
+  if (profile && isUuid(profile[1] ?? ''))
+    return { kind: 'profile', id: (profile[1] ?? '').toLowerCase() };
+  return null;
+}
+
+export function pagePath(page: AppPage): string {
+  switch (page.kind) {
+    case 'club':
+      return '/';
+    case 'profile':
+      return `/profile/${page.id}`;
+    case 'settings':
+      return '/settings';
+  }
+}
 
 /** Nazwa parametru adresu z popupami. */
 export const POPUP_PARAM = 'p';
@@ -216,11 +244,7 @@ export function parseRoute(raw: string): PopupRoute {
   if (kind === 'play' && args.length === 2 && isUuid(args[0] ?? '') && args[1] === 'delete') {
     return { kind: 'delete-play', id: (args[0] ?? '').toLowerCase() };
   }
-  if (kind === 'settings' && args.length === 0) return { kind: 'settings' };
   if (kind === 'first-login' && args.length === 0) return { kind: 'first-login' };
-  if (kind === 'profile' && args.length === 1 && isUuid(args[0] ?? '')) {
-    return { kind: 'profile', id: (args[0] ?? '').toLowerCase() };
-  }
   if (kind === 'profile' && args.length === 2 && isUuid(args[0] ?? '') && args[1] === 'delete') {
     return { kind: 'delete-member', id: (args[0] ?? '').toLowerCase() };
   }
@@ -302,12 +326,8 @@ export function serializeRoute(route: PopupRoute): string {
       return `play/${route.id}/discard`;
     case 'delete-play':
       return `play/${route.id}/delete`;
-    case 'profile':
-      return `profile/${route.id}`;
     case 'delete-member':
       return `profile/${route.id}/delete`;
-    case 'settings':
-      return 'settings';
     case 'first-login':
       return 'first-login';
     case 'invalid':

@@ -11,6 +11,8 @@ export interface NavItem {
   /** Without an address the link is a placeholder for a view that doesn't exist yet. */
   readonly href?: string | undefined;
   readonly current?: boolean | undefined;
+  /** In-app navigation instead of loading the address (the handler decides on modifier keys). */
+  readonly onClick?: ((event: MouseEvent) => void) | undefined;
 }
 
 /** Navigation links with an icon; the hover state matches the menu items (hover.css). */
@@ -27,6 +29,7 @@ export function Nav(props: {
             class="nav__link hoverable"
             href={item.href}
             aria-current={item.current ? 'page' : undefined}
+            onClick={(event) => item.onClick?.(event)}
           >
             <Icon name={item.icon} size={20} />
             {item.label}

@@ -1,3 +1,4 @@
+import type { JSX } from '@solidjs/web';
 import { Errored, Loading, Match, onSettled, Switch, lazy, useContext } from 'solid-js';
 import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { AppHeader } from '../club/AppHeader';
@@ -25,6 +26,15 @@ const loadHubPopup = () => import('./HubPopup');
 // Po wdrożeniu karta ze starym pakietem nie znajdzie fragmentu: przeładowujemy ją raz
 // (src/pwa/staleChunk.ts), a gdy to nie pomoże, granica błędu pokazuje komunikat.
 const HubPopup = lazy(importOrReload(() => loadHubPopup().then((m) => ({ default: m.HubPopup }))));
+// The profile and settings pages are separate chunks too: the Club view doesn't wait for them.
+const ProfilePage = lazy(
+  importOrReload(() => import('../profile/ProfilePage').then((m) => ({ default: m.ProfilePage }))),
+);
+const SettingsPage = lazy(
+  importOrReload(() =>
+    import('../profile/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+  ),
+);
 
 const MAIN_ID = 'hub-main';
 
@@ -55,6 +65,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
   const firstRun = () => club.current() === null;
   const failed = () => !loaded() && club.state()?.isError === true;
   const isAdmin = () => showsAdminTools(props.me);
+  const profileId = () => (popups.page.kind === 'profile' ? popups.page.id : null);
 
   return (
     <PopupHost
@@ -67,7 +78,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
           id={MAIN_ID}
           class="hub__main"
           tabindex={-1}
-          aria-label={firstRun() ? undefined : t.hub.widgetsLabel}
+          aria-label={popups.page.kind === 'club' && !firstRun() ? t.hub.widgetsLabel : undefined}
         >
           <Switch
             fallback={
@@ -76,6 +87,19 @@ export function Hub(props: { readonly me: OwnProfile }) {
               </div>
             }
           >
+            {/* Another profile is a new page: its filters and scroll position start over. */}
+            <Match when={profileId()} keyed>
+              {(id) => (
+                <PageBoundary>
+                  <ProfilePage id={id} me={props.me} />
+                </PageBoundary>
+              )}
+            </Match>
+            <Match when={popups.page.kind === 'settings'}>
+              <PageBoundary>
+                <SettingsPage me={props.me} />
+              </PageBoundary>
+            </Match>
             <Match when={firstRun()}>
               {/* Setting up the club is the admin's first task, so the admin view doesn't hide it. */}
               <FirstRun isAdmin={props.me.role === 'admin'} />
@@ -110,6 +134,23 @@ export function Hub(props: { readonly me: OwnProfile }) {
         </main>
       </div>
     </PopupHost>
+  );
+}
+
+/** A lazily loaded page: a spinner while its chunk downloads, the reload banner if it fails. */
+function PageBoundary(props: { readonly children: JSX.Element }) {
+  return (
+    <Errored fallback={<PopupError />}>
+      <Loading
+        fallback={
+          <div class="hub__status">
+            <Spinner size={24} label={t.hub.popupLoading} />
+          </div>
+        }
+      >
+        {props.children}
+      </Loading>
+    </Errored>
   );
 }
 

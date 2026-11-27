@@ -3,6 +3,7 @@ import { format, t } from '../i18n';
 import { fullName, type Profile } from '../profile/profileQueries';
 import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
+import { isPlainClick } from '../popups/PopupLink';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { Menu, Nav } from '../ui';
 
@@ -17,6 +18,7 @@ interface AppHeaderProps {
  * right. The chip opens the avatar menu: own profile, settings and sign-out.
  */
 export function AppHeader(props: AppHeaderProps) {
+  const popups = useContext(PopupsContext);
   return (
     <Show
       when={!props.bare}
@@ -37,7 +39,18 @@ export function AppHeader(props: AppHeaderProps) {
           label={t.nav.label}
           class="app-header__nav"
           items={[
-            { id: 'club', label: t.nav.club, icon: 'home', href: '/', current: true },
+            {
+              id: 'club',
+              label: t.nav.club,
+              icon: 'home',
+              href: '/',
+              current: popups.page.kind === 'club',
+              onClick: (event) => {
+                if (!isPlainClick(event)) return;
+                event.preventDefault();
+                popups.navigate({ kind: 'club' });
+              },
+            },
             { id: 'meetings', label: t.nav.meetings, icon: 'calendar' },
             { id: 'games', label: t.nav.games, icon: 'meeple' },
           ]}
@@ -62,13 +75,13 @@ function UserMenu(props: { readonly me: Profile }) {
           id: 'profile',
           label: text.profile,
           icon: 'user',
-          onSelect: () => popups.open({ kind: 'profile', id: props.me.id }),
+          onSelect: () => popups.navigate({ kind: 'profile', id: props.me.id }),
         },
         {
           id: 'settings',
           label: text.settings,
           icon: 'settings',
-          onSelect: () => popups.open({ kind: 'settings' }),
+          onSelect: () => popups.navigate({ kind: 'settings' }),
         },
         {
           id: 'sign-out',

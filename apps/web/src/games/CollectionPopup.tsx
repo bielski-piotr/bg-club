@@ -1,18 +1,11 @@
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  useContext,
-  type Accessor,
-} from 'solid-js';
+import { createMemo, createSignal, For, Show, useContext } from 'solid-js';
 import { format, plural, t } from '../i18n';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupModal } from '../popups/PopupModal';
 import { PopupLoadError, PopupLoading, QueryBoundary } from '../popups/QueryStatus';
 import { Button, createChunks, EmptyState, Icon, Menu, SearchField, ShowMore } from '../ui';
 import { ariaTrue } from '../ui/dom';
+import { createDebounced, SEARCH_DELAY_MS } from '../ui/search';
 import { GameCover } from './GameCover';
 import { createGameSearch } from './gameData';
 import type { Game } from './games';
@@ -20,20 +13,6 @@ import { playersLabel } from './labels';
 import './games.css';
 
 const text = t.games.collection;
-
-/** Przerwa w pisaniu, po której idzie zapytanie do bazy (bez zapytania na każdy znak). */
-export const SEARCH_DELAY_MS = 200;
-
-/** Wartość po `delay` ms bez zmian; pusta (wyczyszczenie pola) od razu. */
-function createDebounced(value: Accessor<string>, delay: number): Accessor<string> {
-  // Pole startuje puste; pierwsza wartość przychodzi z efektu (pusta: od razu).
-  const [debounced, setDebounced] = createSignal('');
-  createEffect(value, (next) => {
-    const timer = window.setTimeout(() => setDebounced(next), next === '' ? 0 : delay);
-    return () => window.clearTimeout(timer);
-  });
-  return debounced;
-}
 
 /**
  * Popup kolekcji: siatka okładek aktywnych gier

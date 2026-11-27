@@ -10,6 +10,7 @@ import { PopupLink } from '../popups/PopupLink';
 import { QueryBoundary } from '../popups/QueryStatus';
 import { createQuery } from '../lib/query';
 import { EmptyState } from '../ui';
+import { SectionSkeleton } from './SectionSkeleton';
 import { playerStatsQuery, winRate, type PlayerGame, type PlayerStats } from './playerStatsData';
 
 const text = t.profile.stats;
@@ -25,7 +26,7 @@ function PendingStats() {
 }
 
 /**
- * Profile tab: the club and the player's standing in it from the whole history: points and
+ * Profile section: the club and the player's standing in it from the whole history: points and
  * place in the points leaderboard, wins and place in the wins leaderboard, the current and the
  * longest win streak. A removed member has no places.
  */
@@ -46,7 +47,7 @@ export function ProfileSummary(props: { readonly profileId: string }) {
           </div>
         )}
       </Show>
-      <QueryBoundary>
+      <QueryBoundary loading={<SectionSkeleton />}>
         <Show when={stats()}>
           {(data) => (
             <Show when={data().plays > 0} fallback={<PendingStats />}>
@@ -101,7 +102,7 @@ function Place(props: { readonly place: number | null }) {
 }
 
 /**
- * Stats tab: the stats with the leaderboard filters (date range in the club's time zone and
+ * Stats section: the stats with the leaderboard filters (date range in the club's time zone and
  * games): meetings, plays, wins and win rate; next to them, from the whole history, the favorite
  * game (most plays) and the best game (most wins).
  */
@@ -117,7 +118,7 @@ export function PlayerStatsSection(props: {
   return (
     <div class="profile-tab">
       <FilterBar filters={props.filters} onChange={props.onFilters} label={text.filtersLabel} />
-      <QueryBoundary>
+      <QueryBoundary loading={<SectionSkeleton />}>
         <Show when={stats()}>
           {(data) => (
             // Without a favorite game there is no play in the whole history yet.
@@ -138,15 +139,20 @@ export function PlayerStatsSection(props: {
                 class="player-stats__favorites"
                 aria-labelledby={`${props.profileId}-favorites`}
               >
-                <div class="player-stats__head">
-                  <h4 id={`${props.profileId}-favorites`} class="player-stats__subhead">
-                    {text.favoritesTitle}
-                  </h4>
-                  <span class="player-stats__hint">{text.wholeHistory}</span>
-                </div>
+                <h3 id={`${props.profileId}-favorites`} class="player-stats__subhead">
+                  {text.favoritesTitle}
+                </h3>
                 <div class="player-stats__games">
-                  <GameTile label={text.favoriteGame} game={data().favorite_game} />
-                  <GameTile label={text.bestGame} game={data().best_game} />
+                  <GameTile
+                    label={text.favoriteGame}
+                    game={data().favorite_game}
+                    meta={(game) => plural(game.plays, text.playsCount)}
+                  />
+                  <GameTile
+                    label={text.bestGame}
+                    game={data().best_game}
+                    meta={(game) => plural(game.wins, text.winsCount)}
+                  />
                 </div>
               </section>
             </Show>
@@ -181,7 +187,12 @@ function Counters(props: { readonly stats: PlayerStats }) {
     </dl>
   );
 }
-function GameTile(props: { readonly label: string; readonly game: PlayerGame | null }) {
+function GameTile(props: {
+  readonly label: string;
+  readonly game: PlayerGame | null;
+  /** The one number shown under the title: plays of the favorite, wins of the best game. */
+  readonly meta: (game: PlayerGame) => string;
+}) {
   return (
     <Show
       when={props.game}
@@ -209,12 +220,7 @@ function GameTile(props: { readonly label: string; readonly game: PlayerGame | n
           <span class="player-game__text">
             <span class="player-stats__label">{props.label}</span>
             <span class="player-game__title">{game().title}</span>
-            <span class="player-stats__sub">
-              {format(text.gameMeta, {
-                plays: plural(game().plays, text.playsCount),
-                wins: plural(game().wins, text.winsCount),
-              })}
-            </span>
+            <span class="player-stats__sub">{props.meta(game())}</span>
           </span>
         </PopupLink>
       )}

@@ -11,12 +11,13 @@ import { PopupLink } from '../popups/PopupLink';
 import { QueryBoundary } from '../popups/QueryStatus';
 import { createChunks, EmptyState, ShowMore } from '../ui';
 import { playerMeetingsQuery, type PlayerMeeting } from './playerMeetingsData';
+import { SectionSkeleton } from './SectionSkeleton';
 import '../meetings/meetings.css';
 
 const text = t.profile.meetings;
 
 /**
- * Meetings tab: meetings where the player has saved plays, newest first, filtered by date range
+ * Meetings section: meetings where the player has saved plays, newest first, filtered by date range
  * and by the games played in them. Each row opens the meeting.
  */
 export function PlayerMeetingsSection(props: {
@@ -37,7 +38,7 @@ export function PlayerMeetingsSection(props: {
   return (
     <div class="profile-tab">
       <FilterBar filters={props.filters} onChange={props.onFilters} label={text.filtersLabel} />
-      <QueryBoundary>
+      <QueryBoundary loading={<SectionSkeleton />}>
         <Show
           when={meetings().length > 0}
           fallback={

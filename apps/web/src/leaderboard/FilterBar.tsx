@@ -43,8 +43,6 @@ export interface FilterBarProps {
   readonly extra?: JSX.Element | undefined;
   /** Nazwa grupy filtrów dla czytników ekranu; domyślnie „Filtry rankingu”. */
   readonly label?: string | undefined;
-  /** Only the game filter, without the date range (e.g. personal records). */
-  readonly gamesOnly?: boolean | undefined;
 }
 
 /**
@@ -63,24 +61,22 @@ export function FilterBar(props: FilterBarProps) {
 
   return (
     <div class="lb-filters" role="group" aria-label={props.label ?? text.label}>
-      <Show when={!props.gamesOnly}>
-        <FilterPopover
-          label={text.dates}
-          triggerLabel={format(text.datesLabel, { value: dates() })}
-          value={dates()}
-          icon="calendar"
-          active={hasDateFilter(props.filters)}
-          clearLabel={text.clearDates}
-          onClear={() => props.onChange(withDates(props.filters, null, null))}
-        >
-          <DateRangeCalendar
-            from={props.filters.from}
-            to={props.filters.to}
-            today={today()}
-            onChange={(from, to) => props.onChange(withDates(props.filters, from, to))}
-          />
-        </FilterPopover>
-      </Show>
+      <FilterPopover
+        label={text.dates}
+        triggerLabel={format(text.datesLabel, { value: dates() })}
+        value={dates()}
+        icon="calendar"
+        active={hasDateFilter(props.filters)}
+        clearLabel={text.clearDates}
+        onClear={() => props.onChange(withDates(props.filters, null, null))}
+      >
+        <DateRangeCalendar
+          from={props.filters.from}
+          to={props.filters.to}
+          today={today()}
+          onChange={(from, to) => props.onChange(withDates(props.filters, from, to))}
+        />
+      </FilterPopover>
       <FilterPopover
         label={text.games}
         triggerLabel={format(text.gamesLabel, { value: gamesText() })}

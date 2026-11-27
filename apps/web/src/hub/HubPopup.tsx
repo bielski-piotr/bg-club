@@ -29,8 +29,6 @@ import { InvalidPopup } from '../popups/InvalidPopup';
 import type { PopupRoute } from '../popups/routes';
 import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { PasswordPopup } from '../profile/PasswordPopup';
-import { ProfileView } from '../profile/ProfileView';
-import { SettingsView } from '../profile/SettingsView';
 import { SheetPopup } from '../sheets/SheetPopup';
 import {
   DeleteScorepadDialog,
@@ -67,15 +65,12 @@ const views: { readonly [K in PopupRoute['kind']]: (p: ViewProps<RouteOf<K>>) =>
       <AddMemberPopup />
     </AdminOnly>
   ),
-  profile: (p) => <ProfileView id={p.route.id} isAdmin={isAdmin(p.me)} />,
   // Członków usuwa tylko administrator; Edge Function i tak odrzuci gracza (403).
   'delete-member': (p) => (
     <AdminOnly me={p.me}>
       <DeleteMemberDialog id={p.route.id} />
     </AdminOnly>
   ),
-  // Ustawienia dotyczą zawsze zalogowanego: cudzych nie da się otworzyć.
-  settings: (p) => <SettingsView me={p.me} />,
   'first-login': (p) => <PasswordPopup me={p.me} />,
   // Formularz klubu jest tylko dla administratora; gracz z linku go nie zobaczy.
   club: (p) => (

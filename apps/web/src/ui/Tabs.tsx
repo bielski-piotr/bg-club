@@ -43,9 +43,6 @@ export function Tabs<T extends string>(props: TabsProps<T>) {
     const keys: Record<string, () => void> = {
       ArrowRight: () => focusAt(index + 1),
       ArrowLeft: () => focusAt(index - 1),
-      // Tab lists laid out vertically by CSS (side navigation) move with Up and Down.
-      ArrowDown: () => focusAt(index + 1),
-      ArrowUp: () => focusAt(index - 1),
       Home: () => focusAt(0),
       End: () => focusAt(props.items.length - 1),
     };

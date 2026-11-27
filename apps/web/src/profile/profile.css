@@ -11,23 +11,19 @@
   box-shadow: var(--focus-ring);
 }
 
-.profile-view {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-}
-
-.profile {
+/* Page hero (profile, settings): avatar, name, hook and badges; actions on the right. */
+.page-hero {
   display: flex;
   align-items: center;
   gap: 16px;
   min-width: 0;
 }
 
-.profile__text {
+.page-hero__back {
+  align-self: flex-start;
+}
+
+.page-hero__text {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -35,74 +31,39 @@
   min-width: 0;
 }
 
-.profile__name {
+.page-hero__name {
   margin: 0;
-  font: 700 22px/28px var(--font-display);
+  font: 700 26px/32px var(--font-display);
   overflow-wrap: anywhere;
 }
 
-.profile__removed {
+.page-hero__removed {
   color: var(--c-muted);
 }
 
-.profile__hook {
+.page-hero__hook {
   margin: 0;
-  font-size: 14px;
-  line-height: 20px;
+  font: 500 14px/20px var(--font-mono);
   color: var(--c-muted);
   overflow-wrap: anywhere;
 }
 
-.profile__hook-value {
-  font-family: var(--font-mono);
-}
-
-.profile__badges {
+.page-hero__badges {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin: 4px 0 0;
 }
 
-/* The gear to the settings, top right of the profile like the mock; turns on hover (hover.css). */
-.icon-btn.profile__settings {
+.page-hero__action {
   flex-shrink: 0;
   align-self: flex-start;
+}
+
+/* The gear to the settings; it turns on hover (hover.css). */
+.icon-btn.page-hero__action {
   width: 44px;
   height: 44px;
-}
-
-/* Tabs: a row of pills on the phone, a side navigation from 768 px. */
-.profile-view__tabs .tabs__list {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-}
-
-@media (min-width: 768px) {
-  .profile-view__tabs {
-    display: grid;
-    grid-template-columns: 200px minmax(0, 1fr);
-    align-items: start;
-    gap: 32px;
-  }
-
-  .profile-view__tabs .tabs__list {
-    position: sticky;
-    top: 0;
-    flex-direction: column;
-    align-items: stretch;
-    padding-right: 16px;
-    border-right: 1px solid var(--c-border);
-    overflow: visible;
-  }
-
-  .profile-view__tabs .tabs__list .pill {
-    justify-content: flex-start;
-  }
-
-  .profile-view__tabs .tabs__panel {
-    padding-top: 0;
-  }
 }
 
 .profile-tab,
@@ -117,6 +78,17 @@
 .profile-tab .empty-state__row,
 .profile-summary .empty-state__row {
   padding-top: 12px;
+}
+
+.section-skeleton {
+  display: flex;
+}
+
+/* On a page the trays sit on the page background: no tray of their own, aligned with headings. */
+.page-section
+  :is(.profile-summary__card, .player-stats, .player-stats__games, .player-meetings, .records) {
+  padding: 0;
+  background: none;
 }
 
 /* Profile tab: the club, then the standing as rounded rows on a tray. */
@@ -137,7 +109,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 560px;
   margin: 0;
   padding: 12px;
   list-style: none;
@@ -218,22 +189,9 @@
   padding-top: 8px;
 }
 
-.player-stats__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-}
-
 .player-stats__subhead {
   margin: 0;
   font: 700 15px/20px var(--font-display);
-}
-
-.player-stats__hint {
-  font: 500 12px/16px var(--font-ui);
-  color: var(--c-muted);
 }
 
 .player-stats__games {
@@ -251,6 +209,7 @@
   align-items: center;
   gap: 14px;
   min-width: 0;
+  min-height: 112px;
   padding: 12px;
   background: var(--c-surface);
   border-radius: var(--r-row);
@@ -415,11 +374,11 @@ a.player-game:hover .player-game__title {
   position: absolute;
   right: 4px;
   bottom: 4px;
-  width: 52%;
+  width: 56%;
   height: auto;
   aspect-ratio: 1;
   color: var(--c-danger);
-  opacity: 0.88;
+  opacity: 0.9;
   transform: rotate(-14deg);
   pointer-events: none;
 }
@@ -427,20 +386,30 @@ a.player-game:hover .player-game__title {
 .record-stamp__line {
   fill: none;
   stroke: currentColor;
-  stroke-width: 3;
+  stroke-width: 6;
 }
 
 .record-stamp__text {
   fill: currentColor;
-  font: 800 11px/1 var(--font-display);
+  font: 900 12px/1 var(--font-display);
   letter-spacing: 0.04em;
 }
 
+.records__search {
+  max-width: 420px;
+}
+
+/* Two lines at most, always two lines tall: long titles don't make a card taller. */
 .record__title {
+  display: -webkit-box;
+  height: 36px;
+  overflow: hidden;
   font: 700 14px/18px var(--font-display);
   color: var(--c-ink);
   text-decoration: none;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .record__title:hover {
@@ -468,6 +437,8 @@ a.player-game:hover .player-game__title {
 }
 
 .record__dir {
+  height: 14px;
+  margin: 0;
   font: 500 11px/14px var(--font-ui);
   color: var(--c-muted);
 }
@@ -478,6 +449,7 @@ a.player-game:hover .player-game__title {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  height: 30px;
   padding-top: 2px;
 }
 
@@ -486,9 +458,11 @@ a.player-game:hover .player-game__title {
   color: var(--c-muted);
 }
 
+/* One row: more expansions than fit are cut off instead of adding a row. */
 .record__expansion-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: visible;
   justify-content: center;
   gap: 4px;
   margin: 0;
@@ -537,21 +511,13 @@ a.player-game:hover .player-game__title {
   opacity: 1;
 }
 
-/* Settings: groups as cards in one centered column. Fields like in the club form. */
-.settings {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.settings__section {
+/* Settings: each group is a card in its page section. Fields like in the club form. */
+.settings__card {
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+  max-width: 720px;
   padding: 20px;
   border: 1px solid var(--c-border);
   border-radius: var(--r-card-lg);
@@ -575,11 +541,6 @@ a.player-game:hover .player-game__title {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.settings__heading {
-  margin: 0;
-  font: 700 18px/24px var(--font-display);
 }
 
 .settings__photo {
@@ -664,7 +625,7 @@ a.player-game:hover .player-game__title {
   color: var(--c-muted);
 }
 
-.settings__section > .settings__helper {
+.settings__card > .settings__helper {
   margin-top: -12px;
 }
 

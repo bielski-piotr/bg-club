@@ -1,6 +1,6 @@
 import type { JSX } from '@solidjs/web';
 import { format, t } from '../i18n';
-import { PopupLink } from '../popups/PopupLink';
+import { PageLink } from '../popups/PageLink';
 import type { ClassValue } from '../ui/dom';
 import './profile.css';
 
@@ -21,7 +21,7 @@ interface ProfileLinkProps {
  */
 export function ProfileLink(props: ProfileLinkProps) {
   return (
-    <PopupLink
+    <PageLink
       to={{ kind: 'profile', id: props.id }}
       class={['profile-link', props.class]}
       style={props.style}
@@ -29,6 +29,6 @@ export function ProfileLink(props: ProfileLinkProps) {
       title={props.name}
     >
       {props.children}
-    </PopupLink>
+    </PageLink>
   );
 }

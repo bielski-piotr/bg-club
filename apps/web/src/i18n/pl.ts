@@ -280,8 +280,8 @@ export const pl = {
     /** Akcja administratora w cudzym profilu. */
     deleteMember: 'Usuń członka',
     deleteMemberShort: 'Usuń',
-    tabsLabel: 'Sekcje profilu',
-    tabs: { profile: 'Profil', stats: 'Statystyki', meetings: 'Spotkania', records: 'Rekordy' },
+    sectionsLabel: 'Sekcje profilu',
+    sections: { summary: 'Profil', stats: 'Statystyki', meetings: 'Spotkania', records: 'Rekordy' },
     /** Statystyki gracza. */
     stats: {
       pendingTitle: 'Statystyki pojawią się po pierwszej partii',
@@ -305,10 +305,8 @@ export const pl = {
       place: '{place}. miejsce',
       noPlace: 'Brak miejsca',
       favoritesTitle: 'Ulubione',
-      wholeHistory: 'Cała historia',
       favoriteGame: 'Ulubiona gra',
       bestGame: 'Najlepsza gra',
-      gameMeta: '{plays} · {wins}',
       gameLink: '{label}: {title}. Otwórz grę',
       playsCount: { one: '{n} partia', few: '{n} partie', many: '{n} partii' },
       winsCount: { one: '{n} wygrana', few: '{n} wygrane', many: '{n} wygranych' },
@@ -326,7 +324,8 @@ export const pl = {
     },
     /** Rekordy osobiste w grach: wynik kategorii decydującej, pieczątka rekordu klubu. */
     records: {
-      filtersLabel: 'Filtr gier rekordów',
+      searchLabel: 'Szukaj gry w rekordach',
+      searchPlaceholder: 'Szukaj gry…',
       listLabel: 'Rekordy osobiste w grach',
       noValue: 'Brak wyniku',
       noValueShort: '–',
@@ -337,8 +336,8 @@ export const pl = {
       meetingLink: 'Otwórz spotkanie z rekordem: {title}, {date}',
       gameLink: 'Otwórz grę {title}',
       expansionsLabel: 'Dodatki w partii z rekordem',
-      emptyTitle: 'Brak gier do pokazania',
-      emptyHelper: 'Zmień filtr gier, żeby zobaczyć rekordy.',
+      emptyTitle: 'Brak gier dla „{query}”',
+      emptyHelper: 'Sprawdź pisownię albo wpisz inną nazwę.',
       noGamesTitle: 'Kolekcja jest pusta',
       noGamesHelper: 'Rekordy pojawią się dla gier dodanych do kolekcji.',
     },
@@ -361,6 +360,14 @@ export const pl = {
   /** Ustawienia własnego profilu. */
   settings: {
     title: 'Ustawienia',
+    sectionsLabel: 'Grupy ustawień',
+    sections: {
+      profile: 'Profil',
+      theme: 'Wygląd',
+      admin: 'Administrator',
+      password: 'Hasło',
+      account: 'Konto',
+    },
     profileSection: 'Profil',
     photoLabel: 'Zdjęcie profilowe',
     addPhoto: 'Dodaj zdjęcie',
