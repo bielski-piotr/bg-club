@@ -61,6 +61,8 @@ export interface FilterPopoverProps {
   readonly onClear: () => void;
   /** Treść panelu; tworzona dopiero po otwarciu (np. pobranie kolekcji). */
   readonly children: JSX.Element;
+  /** The pill is about to be opened (pointer over it, focus): prefetch the panel's data. */
+  readonly onIntent?: (() => void) | undefined;
 }
 
 /**
@@ -136,6 +138,8 @@ export function FilterPopover(props: FilterPopoverProps) {
         aria-expanded={ariaBool(open())}
         aria-controls={open() ? `${id}-panel` : undefined}
         aria-label={props.triggerLabel}
+        onPointerEnter={() => props.onIntent?.()}
+        onFocus={() => props.onIntent?.()}
         onClick={() => (open() ? close(false) : setOpen(true))}
       >
         <Icon name={props.icon} class="select__lead" />

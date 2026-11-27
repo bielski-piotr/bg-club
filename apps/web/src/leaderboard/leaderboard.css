@@ -462,6 +462,15 @@
   height: 20px;
 }
 
+.game-cover--thumb.game-filter__cover {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 16px;
+}
+
 .checkbox.game-filter__check--on {
   background: var(--c-accent);
   border-color: var(--c-accent);

@@ -1,4 +1,5 @@
 import { createMemo, createSignal, createUniqueId, For, Match, Switch } from 'solid-js';
+import { GameCover } from '../games/GameCover';
 import type { Game } from '../games/games';
 import { t } from '../i18n';
 import { gameOptions, type GameOption } from './gameOptions';
@@ -7,7 +8,7 @@ import { Icon } from '../ui/Icon';
 import '../ui/Choice.css';
 
 export interface GameFilterPanelProps {
-  readonly games: readonly Pick<Game, 'id' | 'title'>[] | undefined;
+  readonly games: readonly Pick<Game, 'id' | 'title' | 'cover_path'>[] | undefined;
   readonly failed: boolean;
   readonly selected: readonly string[];
   readonly onChange: (games: readonly string[]) => void;
@@ -105,6 +106,13 @@ export function GameFilterPanel(props: GameFilterPanelProps) {
                     >
                       <Icon name="check" size={14} />
                     </span>
+                    <GameCover
+                      id={option().id}
+                      title={option().title}
+                      coverPath={option().cover_path}
+                      size="thumb"
+                      class="game-filter__cover"
+                    />
                     <span class="menu__label">{option().title}</span>
                   </li>
                 );

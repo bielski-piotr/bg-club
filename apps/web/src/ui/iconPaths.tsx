@@ -206,6 +206,13 @@ export const pictograms = {
       <circle cx="5.5" cy="11.5" r="1.25" fill="currentColor" />
     </>
   ),
+  /** Profile settings button in the profile view; the whole gear turns on hover (hover.css). */
+  gear: () => (
+    <>
+      <path d="M6.5 3.65L6.94 1.99L9.06 1.99L9.5 3.65L11.02 4.53L12.67 4.08L13.73 5.91L12.52 7.12L12.52 8.88L13.73 10.09L12.67 11.92L11.02 11.47L9.5 12.35L9.06 14.01L6.94 14.01L6.5 12.35L4.98 11.47L3.33 11.92L2.27 10.09L3.48 8.88L3.48 7.12L2.27 5.91L3.33 4.08L4.98 4.53Z" />
+      <circle cx="8" cy="8" r="2" />
+    </>
+  ),
   /** Hasło. */
   lock: () => (
     <>

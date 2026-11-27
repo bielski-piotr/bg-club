@@ -6,32 +6,20 @@ import { profilesKey } from './profileQueries';
 /**
  * Statystyki gracza w profilu z funkcji SQL
  * `player_stats(profile_id, date_from, date_to, game_ids)` (migracja
- * `20261113001800_game_stats.sql`). Baza liczy wszystko z zapisanych
+ * `20261127000100_profile_view.sql`). Baza liczy wszystko z zapisanych
  * partii (szkice się nie liczą), więc zapis i usunięcie partii zmieniają je od razu.
  *
- * Trzy grupy: statystyki profilu z filtrami jak w rankingu (`meetings`, `plays`, `wins`),
- * ranking z całej historii (miejsca, punkty, wygrane, serie) i ulubione gry z całej historii;
- * do tego 5 ostatnich spotkań gracza.
+ * Two groups: filtered like the leaderboard (`meetings`, `plays`, `wins`) and the whole history
+ * (places, points, wins, streaks, favorite and best game).
  */
 
-/** Gra w statystykach gracza: ulubiona albo najlepsza. */
+/** Gra w statystykach gracza: ulubiona (najwięcej partii) albo najlepsza (najwięcej wygranych). */
 export interface PlayerGame {
   readonly game_id: string;
   readonly title: string;
   readonly cover_path: string | null;
   readonly plays: number;
   readonly wins: number;
-}
-
-/** Spotkanie z partiami gracza na liście ostatnich (od najnowszego). */
-export interface RecentMeeting {
-  readonly meeting_id: string;
-  readonly title: string;
-  /** Termin spotkania. */
-  readonly starts_at: string;
-  readonly plays: number;
-  readonly wins: number;
-  readonly points: number;
 }
 
 /** Miejsca w dwóch rankingach; `null` = gracz nie jest klasyfikowany (albo usunięty). */
@@ -55,15 +43,11 @@ export interface PlayerStats {
   readonly streak_current: number;
   /** Cała historia. */
   readonly places: PlayerPlaces;
+  /** Cała historia; `null` = brak partii. */
   readonly favorite_game: PlayerGame | null;
-  /** `null` = brak gry z ≥ 3 partiami gracza (pusty stan). */
+  /** Cała historia; `null` = brak wygranej. */
   readonly best_game: PlayerGame | null;
-  /** Najwyżej 5 ostatnich spotkań z partiami gracza (bez filtrów). */
-  readonly recent_meetings: readonly RecentMeeting[];
 }
-
-/** Próg partii gry do „najlepszej gry”. Baza stosuje ten sam próg. */
-export const BEST_GAME_MIN_PLAYS = 3;
 
 /** Argumenty filtrów RPC: brak filtru to `null` (pusta lista gier też), jak w rankingu. */
 export function filterArgs(filters: LeaderboardFilters) {

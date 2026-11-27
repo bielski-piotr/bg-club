@@ -9,7 +9,7 @@ import {
   untrack,
   useContext,
 } from 'solid-js';
-import type { OwnProfile } from '../auth/ownProfile';
+import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
 import { avatarPerson, type Profile } from '../profile/profileQueries';
 import { AuthContext } from '../auth/authContext';
@@ -56,7 +56,7 @@ export function DateVotingSection(props: {
 }) {
   const options = createMeetingDateOptions(() => props.meeting.id);
   const decision = createDateDecision();
-  const isAdmin = () => props.me.role === 'admin';
+  const isAdmin = () => showsAdminTools(props.me);
   const canVote = () =>
     props.meeting.date_voting_open && props.meeting.participants.includes(props.me.id);
   const canPropose = () => props.meeting.date_voting_open && (canVote() || isAdmin());

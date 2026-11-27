@@ -8,11 +8,22 @@ export interface OwnProfile extends Profile {
   readonly theme: ThemePreference;
   /** Konto ma jeszcze wygenerowane hasło: proponujemy jego zmianę. */
   readonly password_change_suggested: boolean;
+  /** Administrator włączył w ustawieniach widok administratora. */
+  readonly admin_view: boolean;
 }
 
 export const ownProfileKey = (userId: string) => ['profiles', 'own', userId] as const;
 
-export const OWN_PROFILE_COLUMNS = `${PROFILE_COLUMNS}, theme, password_change_suggested`;
+export const OWN_PROFILE_COLUMNS = `${PROFILE_COLUMNS}, theme, password_change_suggested, admin_view`;
+
+/**
+ * Admin buttons are shown only to an administrator with the admin view turned on in settings,
+ * so an administrator can use the app with the plain player UI. Database permissions still
+ * follow the role alone.
+ */
+export function showsAdminTools(me: Pick<OwnProfile, 'role' | 'admin_view'>): boolean {
+  return me.role === 'admin' && me.admin_view;
+}
 
 /**
  * Własny profil. `null` oznacza, że RLS go nie zwrócił: konto zostało usunięte (albo nie ma

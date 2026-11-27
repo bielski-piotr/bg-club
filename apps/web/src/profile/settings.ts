@@ -106,6 +106,18 @@ export async function saveTheme(
   if (error) throw error;
 }
 
+export async function saveAdminView(
+  client: SupabaseClient,
+  profileId: string,
+  adminView: boolean,
+): Promise<void> {
+  const { error } = await client
+    .from('profiles')
+    .update({ admin_view: adminView })
+    .eq('id', profileId);
+  if (error) throw error;
+}
+
 /** Gracz pominął propozycję zmiany hasła albo je zmienił: nie pokazujemy jej więcej. */
 export async function dismissPasswordSuggestion(
   client: SupabaseClient,

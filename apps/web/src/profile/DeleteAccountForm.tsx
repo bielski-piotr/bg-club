@@ -1,20 +1,9 @@
-import {
-  action,
-  createOptimistic,
-  createSignal,
-  createUniqueId,
-  flush,
-  Show,
-  useContext,
-} from 'solid-js';
+import { action, createOptimistic, createSignal, flush, Show, useContext } from 'solid-js';
 import type { OwnProfile } from '../auth/ownProfile';
 import { t } from '../i18n';
 import { deleteOwnAccount, DeletionError, type DeletionFailure } from '../members/deletion';
 import { AuthContext } from '../auth/authContext';
-import { PopupsContext } from '../popups/popupContext';
-import { PopupDialog } from '../popups/PopupDialog';
 import { Banner, Button, PasswordField } from '../ui';
-import './profile.css';
 
 const text = t.deleteAccount;
 
@@ -30,15 +19,13 @@ const ERRORS: Readonly<Record<Exclude<DeletionFailure, 'wrongPassword'>, string>
 };
 
 /**
- * Usunięcie własnego konta: mały
- * dialog z ikoną kosza, opisem skutków i polem obecnego hasła. Hasło sprawdza Edge Function
- * (`delete-own-account`); jest tylko w stanie formularza. Po usunięciu sesja na tym urządzeniu
- * się kończy i aplikacja wraca do logowania z komunikatem. Administrator nie ma tej opcji.
+ * Deleting the own account on the settings page: the consequences and the current password.
+ * The password is checked by the Edge Function (`delete-own-account`) and lives only in the form
+ * state. After the deletion the session on this device ends and the app returns to the sign-in
+ * screen with a notice. The administrator doesn't have this option.
  */
-export function DeleteAccountDialog(props: { readonly me: OwnProfile }) {
+export function DeleteAccountForm(props: { readonly me: OwnProfile; readonly labelledBy: string }) {
   const auth = useContext(AuthContext);
-  const popups = useContext(PopupsContext);
-  const formId = createUniqueId();
   const [password, setPassword] = createSignal('');
   const [showErrors, setShowErrors] = createSignal(false);
   const [wrongPassword, setWrongPassword] = createSignal(false);
@@ -84,53 +71,37 @@ export function DeleteAccountDialog(props: { readonly me: OwnProfile }) {
   };
 
   return (
-    <PopupDialog
-      title={text.title}
-      icon="trash"
-      tone="danger"
-      description={<p>{text.description}</p>}
-      footer={
-        <>
-          <Button variant="secondary" disabled={removing()} onClick={() => popups.back()}>
-            {text.cancel}
-          </Button>
-          <Button
-            type="submit"
-            form={formId}
-            variant="destructive"
-            loading={removing() || removed()}
-          >
-            {text.submit}
-          </Button>
-        </>
-      }
-    >
-      <form id={formId} class="delete-account" novalidate onSubmit={submit}>
-        <Show when={bannerFailure()}>
-          {(reason) => <Banner variant="error">{ERRORS[reason()]}</Banner>}
-        </Show>
-        {/* Ukryty login: menedżer haseł podpowie hasło właściwego konta. */}
-        <input
-          type="text"
-          name="username"
-          autocomplete="username"
-          value={props.me.hook}
-          readonly
-          hidden
-        />
-        <PasswordField
-          label={text.passwordLabel}
-          value={password()}
-          autocomplete="current-password"
-          required
-          hint={text.passwordHint}
-          error={fieldError()}
-          onInput={(event) => {
-            setPassword(event.currentTarget.value);
-            setWrongPassword(false);
-          }}
-        />
-      </form>
-    </PopupDialog>
+    <form class="delete-account" novalidate onSubmit={submit} aria-labelledby={props.labelledBy}>
+      <p class="settings__helper">{text.description}</p>
+      <Show when={bannerFailure()}>
+        {(reason) => <Banner variant="error">{ERRORS[reason()]}</Banner>}
+      </Show>
+      {/* Ukryty login: menedżer haseł podpowie hasło właściwego konta. */}
+      <input
+        type="text"
+        name="username"
+        autocomplete="username"
+        value={props.me.hook}
+        readonly
+        hidden
+      />
+      <PasswordField
+        label={text.passwordLabel}
+        value={password()}
+        autocomplete="current-password"
+        required
+        hint={text.passwordHint}
+        error={fieldError()}
+        onInput={(event) => {
+          setPassword(event.currentTarget.value);
+          setWrongPassword(false);
+        }}
+      />
+      <div class="settings__actions">
+        <Button type="submit" variant="destructive" icon="trash" loading={removing() || removed()}>
+          {text.submit}
+        </Button>
+      </div>
+    </form>
   );
 }

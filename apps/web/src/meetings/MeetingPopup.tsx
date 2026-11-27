@@ -10,7 +10,7 @@ import {
   Switch,
   useContext,
 } from 'solid-js';
-import type { OwnProfile } from '../auth/ownProfile';
+import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { createGameSearch } from '../games/gameData';
 import { GameCover } from '../games/GameCover';
@@ -140,7 +140,7 @@ interface ViewProps {
 function MeetingView(props: ViewProps) {
   const auth = useContext(AuthContext);
   const profiles = createAllProfiles();
-  const isAdmin = () => props.me.role === 'admin';
+  const isAdmin = () => showsAdminTools(props.me);
   const runner = () => isMeetingRunner(props.meeting, props.me);
   const planned = () => props.meeting.status === 'planned';
   // Sprzątanie osieroconych obrazów karteczek: po przerwanym zapisie ostatniej partii
@@ -708,7 +708,7 @@ function MeetingMenu(props: { readonly meeting: Meeting; readonly me: OwnProfile
     menuItems(
       props.meeting,
       overview.current(),
-      props.me.role === 'admin',
+      showsAdminTools(props.me),
       isMeetingRunner(props.meeting, props.me),
     ).map(({ route, ...item }) => ({
       ...item,

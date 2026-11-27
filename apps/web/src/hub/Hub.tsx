@@ -1,5 +1,5 @@
 import { Errored, Loading, Match, onSettled, Switch, lazy, useContext } from 'solid-js';
-import type { OwnProfile } from '../auth/ownProfile';
+import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { AppHeader } from '../club/AppHeader';
 import { ClubHeading } from '../club/ClubHeading';
 import { createClub } from '../club/clubData';
@@ -13,7 +13,6 @@ import { MembersWidget } from '../members/MembersWidget';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupHost } from '../popups/PopupHost';
 import type { PopupRoute } from '../popups/routes';
-import type { Profile } from '../profile/profileQueries';
 import { importOrReload } from '../pwa/staleChunk';
 import { Banner, Button, Spinner } from '../ui';
 import { masonry } from './masonry';
@@ -55,7 +54,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
   const loaded = () => club.current() !== undefined;
   const firstRun = () => club.current() === null;
   const failed = () => !loaded() && club.state()?.isError === true;
-  const isAdmin = () => props.me.role === 'admin';
+  const isAdmin = () => showsAdminTools(props.me);
 
   return (
     <PopupHost
@@ -78,7 +77,8 @@ export function Hub(props: { readonly me: OwnProfile }) {
             }
           >
             <Match when={firstRun()}>
-              <FirstRun isAdmin={isAdmin()} />
+              {/* Setting up the club is the admin's first task, so the admin view doesn't hide it. */}
+              <FirstRun isAdmin={props.me.role === 'admin'} />
             </Match>
             <Match when={club.current()}>
               {(current) => (
@@ -114,7 +114,7 @@ export function Hub(props: { readonly me: OwnProfile }) {
 }
 
 /** Pięć widżetów w kolejności; każdy ma własny pusty stan. */
-function Widgets(props: { readonly me: Profile }) {
+function Widgets(props: { readonly me: OwnProfile }) {
   let grid: HTMLDivElement | undefined;
   onSettled(() => (grid ? masonry(grid) : undefined));
   return (
@@ -129,7 +129,7 @@ function Widgets(props: { readonly me: Profile }) {
         <TimelineWidget />
       </div>
       <div class="hub__slot hub__slot--right">
-        <CollectionWidget isAdmin={props.me.role === 'admin'} />
+        <CollectionWidget isAdmin={showsAdminTools(props.me)} />
       </div>
       <div class="hub__slot hub__slot--left">
         <MembersWidget me={props.me} />

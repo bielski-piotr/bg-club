@@ -26,19 +26,13 @@ export interface PlayerRecord {
   /** Rekord osobisty równa się rekordowi klubu w tej grze (z całej historii). */
   readonly club_record: boolean;
   /** Dodatki partii z rekordem (rekord z dodatkami liczy się dla gry podstawowej). */
-  readonly expansions?: readonly { readonly id: string; readonly title: string }[] | null;
-}
-
-/** Widok listy rekordów: wszystkie gry, tylko z wynikiem albo tylko rekordy klubu. */
-export type RecordsView = 'all' | 'played' | 'club';
-
-export function visibleRecords(
-  records: readonly PlayerRecord[],
-  view: RecordsView,
-): readonly PlayerRecord[] {
-  if (view === 'played') return records.filter((r) => r.value !== null);
-  if (view === 'club') return records.filter((r) => r.club_record);
-  return records;
+  readonly expansions?:
+    | readonly {
+        readonly id: string;
+        readonly title: string;
+        readonly cover_path: string | null;
+      }[]
+    | null;
 }
 
 /**

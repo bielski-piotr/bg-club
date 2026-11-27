@@ -1,6 +1,7 @@
 import { createMemo, For, Show, useContext } from 'solid-js';
 import { visibleMembers } from '../hub/members';
 import { format, plural, t } from '../i18n';
+import { showsAdminTools, type OwnProfile } from '../auth/ownProfile';
 import { fullName, type Profile } from '../profile/profileQueries';
 import { PopupsContext } from '../popups/popupContext';
 import { PopupLink } from '../popups/PopupLink';
@@ -15,7 +16,7 @@ import { Banner, Button, Card, EmptyState, Icon, Skeleton, Spinner } from '../ui
  * przy ponad 5 osobach cztery i licznik „+N” otwierający listę. Bez innych członków pusty stan
  * z awatarem zalogowanego, dla administratora, „Dodaj członka”.
  */
-export function MembersWidget(props: { readonly me: Profile }) {
+export function MembersWidget(props: { readonly me: OwnProfile }) {
   const popups = useContext(PopupsContext);
   const members = createMembers();
   const othersOf = (list: readonly Profile[]) => list.filter((member) => member.id !== props.me.id);
@@ -27,7 +28,7 @@ export function MembersWidget(props: { readonly me: Profile }) {
     return list ? plural(list.length, t.hub.members.count) : undefined;
   };
   const hasOthers = () => othersOf(members.current() ?? []).length > 0;
-  const isAdmin = () => props.me.role === 'admin';
+  const isAdmin = () => showsAdminTools(props.me);
 
   return (
     <Card
