@@ -42,7 +42,7 @@ export function AppHeader(props: AppHeaderProps) {
             {
               id: 'club',
               label: t.nav.club,
-              icon: 'home',
+              icon: 'pennant',
               href: '/',
               current: popups.page.kind === 'club',
               onClick: (event) => {
