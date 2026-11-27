@@ -4,7 +4,6 @@ import {
   createMemo,
   createOptimistic,
   createSignal,
-  createUniqueId,
   flush,
   Match,
   onSettled,
@@ -17,19 +16,23 @@ import { ownProfileKey, type OwnProfile } from '../auth/ownProfile';
 import { format, t } from '../i18n';
 import { AuthContext } from '../auth/authContext';
 import { QueryClientContext } from '../lib/queryClient';
+import { PopupsContext } from '../popups/popupContext';
 import { ToastContext } from '../ui/toastContext';
-import { PopupModal } from '../popups/PopupModal';
 import { createAvatarUrl } from './profiles';
 import { createTheme } from '../theme/createTheme';
 import {
+  IconButton,
   Avatar,
   Banner,
   Button,
   Icon,
+  PageSection,
+  SectionLayout,
   SegmentedControl,
   Spinner,
   Switch as Toggle,
   TextField,
+  type SectionItem,
 } from '../ui';
 import { THEME_PREFERENCES, type ThemePreference } from '../theme/theme';
 import { getThemePreference } from '../theme/themeStore';
@@ -85,9 +88,12 @@ function nameError(problem: NameProblem | undefined, required: string): string |
   return undefined;
 }
 
+const SECTIONS = ['profile', 'theme', 'admin', 'password', 'account'] as const;
+
 /**
- * Full-screen settings of the own profile, everything on the page (no dialogs). Adres `settings`
- * dotyczy zawsze zalogowanego użytkownika, więc nie ma jak otworzyć cudzych ustawień.
+ * Settings page of the own profile (`/settings`), laid out like the profile page: the side menu
+ * of the groups and all of them on the page, with no dialogs. It always concerns the signed-in
+ * user, so nobody can open someone else's settings.
  *
  * - **Profil**: zdjęcie (wybór pliku → kadrowanie 256×256 → podgląd; „Usuń zdjęcie” wraca do
  *   monogramu), imię i nazwisko. Zapisuje je przycisk „Zapisz”.
@@ -97,25 +103,38 @@ function nameError(problem: NameProblem | undefined, required: string): string |
  * - **Konto**: hook tylko do odczytu, wylogowanie i usunięcie własnego konta z potwierdzeniem
  *   hasłem. Administrator nie widzi usuwania konta.
  */
-export function SettingsView(props: { readonly me: OwnProfile }) {
-  const id = createUniqueId();
+export function SettingsPage(props: { readonly me: OwnProfile }) {
+  const popups = useContext(PopupsContext);
+  const items = (): readonly SectionItem[] =>
+    SECTIONS.filter((id) => id !== 'admin' || props.me.role === 'admin').map((id) => ({
+      id: `settings-${id}`,
+      label: text.sections[id],
+    }));
   return (
-    <PopupModal title={text.title} width="full">
-      <div class="settings">
-        <ProfileSection me={props.me} headingId={`${id}-profile`} />
-        <ThemeSection me={props.me} headingId={`${id}-theme`} />
-        <Show when={props.me.role === 'admin'}>
-          <AdminSection me={props.me} headingId={`${id}-admin`} />
-        </Show>
-        <PasswordSection me={props.me} headingId={`${id}-password`} />
-        <AccountSection me={props.me} headingId={`${id}-account`} />
+    <SectionLayout label={text.sectionsLabel} items={items()}>
+      <div class="page-hero">
+        <IconButton
+          icon="chevron-left"
+          label={t.ui.back}
+          class="page-hero__back"
+          onClick={() => popups.goBack()}
+        />
+        <h1 class="sr-only">{text.title}</h1>
       </div>
-    </PopupModal>
+      <ProfileSection me={props.me} headingId="settings-profile" />
+      <ThemeSection me={props.me} headingId="settings-theme" />
+      <Show when={props.me.role === 'admin'}>
+        <AdminSection me={props.me} headingId="settings-admin" />
+      </Show>
+      <PasswordSection me={props.me} headingId="settings-password" />
+      <AccountSection me={props.me} headingId="settings-account" />
+    </SectionLayout>
   );
 }
 
 interface SectionProps {
   readonly me: OwnProfile;
+  /** Id of the section (anchor of the side menu). */
   readonly headingId: string;
 }
 
@@ -274,147 +293,148 @@ function ProfileSection(props: SectionProps) {
   };
 
   return (
-    <section class="settings__section" aria-labelledby={props.headingId}>
-      <h3 id={props.headingId} class="settings__heading">
-        {text.profileSection}
-      </h3>
-      <Show
-        when={cropping()}
-        fallback={
-          <form class="settings__form" novalidate onSubmit={submit}>
-            <Show when={saveError()}>
-              <Banner variant="error">{saveError()}</Banner>
-            </Show>
+    <PageSection id={props.headingId} title={text.profileSection}>
+      <div class="settings__card">
+        <Show
+          when={cropping()}
+          fallback={
+            <form class="settings__form" novalidate onSubmit={submit}>
+              <Show when={saveError()}>
+                <Banner variant="error">{saveError()}</Banner>
+              </Show>
 
-            <fieldset class="settings__photo">
-              <legend class="sr-only">{text.photoLabel}</legend>
-              <div class="settings__photo-tile">
-                <Avatar
-                  id={person().id}
-                  name={person().name}
-                  src={person().src}
-                  removed={person().removed}
-                  size={88}
-                  decorative
-                />
-                <span class="settings__photo-badge" aria-hidden="true">
-                  <Show when={processing()} fallback={<Icon name="upload" />}>
-                    <Spinner size={16} />
-                  </Show>
-                </span>
-              </div>
-              <div class="settings__photo-text">
-                <div class="settings__photo-actions">
-                  <button
-                    type="button"
-                    class="settings__link"
-                    disabled={processing()}
-                    onClick={() => fileInput?.click()}
-                  >
-                    {hasPhoto() ? text.changePhoto : text.addPhoto}
-                  </button>
-                  <Show when={hasPhoto() && !processing()}>
+              <fieldset class="settings__photo">
+                <legend class="sr-only">{text.photoLabel}</legend>
+                <div class="settings__photo-tile">
+                  <Avatar
+                    id={person().id}
+                    name={person().name}
+                    src={person().src}
+                    removed={person().removed}
+                    size={88}
+                    decorative
+                  />
+                  <span class="settings__photo-badge" aria-hidden="true">
+                    <Show when={processing()} fallback={<Icon name="upload" />}>
+                      <Spinner size={16} />
+                    </Show>
+                  </span>
+                </div>
+                <div class="settings__photo-text">
+                  <div class="settings__photo-actions">
                     <button
                       type="button"
-                      class="settings__link settings__link--muted"
-                      onClick={() => {
-                        setAvatar({ kind: 'remove' });
-                        setPhotoError(undefined);
-                      }}
+                      class="settings__link"
+                      disabled={processing()}
+                      onClick={() => fileInput?.click()}
                     >
-                      {text.removePhoto}
+                      {hasPhoto() ? text.changePhoto : text.addPhoto}
                     </button>
-                  </Show>
+                    <Show when={hasPhoto() && !processing()}>
+                      <button
+                        type="button"
+                        class="settings__link settings__link--muted"
+                        onClick={() => {
+                          setAvatar({ kind: 'remove' });
+                          setPhotoError(undefined);
+                        }}
+                      >
+                        {text.removePhoto}
+                      </button>
+                    </Show>
+                  </div>
+                  <p class="settings__helper" role={photoError() ? 'alert' : undefined}>
+                    <Switch
+                      fallback={
+                        <>
+                          {text.photoHelper}
+                          <br />
+                          {text.photoFallback}
+                        </>
+                      }
+                    >
+                      <Match when={photoError()}>
+                        <span class="settings__helper--error">{photoError()}</span>
+                      </Match>
+                      <Match when={processing()}>{text.photoProcessing}</Match>
+                    </Switch>
+                  </p>
+                  <input
+                    ref={(el) => (fileInput = el)}
+                    type="file"
+                    accept={AVATAR_ACCEPT}
+                    class="sr-only"
+                    tabindex={-1}
+                    aria-label={text.photoLabel}
+                    onChange={(event) => {
+                      void pickFile(event.currentTarget.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
                 </div>
-                <p class="settings__helper" role={photoError() ? 'alert' : undefined}>
-                  <Switch
-                    fallback={
-                      <>
-                        {text.photoHelper}
-                        <br />
-                        {text.photoFallback}
-                      </>
-                    }
-                  >
-                    <Match when={photoError()}>
-                      <span class="settings__helper--error">{photoError()}</span>
-                    </Match>
-                    <Match when={processing()}>{text.photoProcessing}</Match>
-                  </Switch>
-                </p>
-                <input
-                  ref={(el) => (fileInput = el)}
-                  type="file"
-                  accept={AVATAR_ACCEPT}
-                  class="sr-only"
-                  tabindex={-1}
-                  aria-label={text.photoLabel}
-                  onChange={(event) => {
-                    void pickFile(event.currentTarget.files?.[0]);
-                    event.currentTarget.value = '';
-                  }}
-                />
-              </div>
-            </fieldset>
+              </fieldset>
 
-            <TextField
-              label={text.firstNameLabel}
-              value={firstName()}
-              maxlength={NAME_MAX_LENGTH}
-              autocomplete="given-name"
-              autocapitalize="words"
-              required
-              error={
-                showErrors()
-                  ? nameError(problems().first, text.errors.firstNameRequired)
-                  : undefined
-              }
-              onInput={(event) => setFirstName(event.currentTarget.value)}
-            />
-            <TextField
-              label={text.lastNameLabel}
-              value={lastName()}
-              maxlength={NAME_MAX_LENGTH}
-              autocomplete="family-name"
-              autocapitalize="words"
-              required
-              error={
-                showErrors() ? nameError(problems().last, text.errors.lastNameRequired) : undefined
-              }
-              hint={format(text.namesHint, { hook: props.me.hook })}
-              onInput={(event) => setLastName(event.currentTarget.value)}
-            />
-            <div class="settings__actions">
-              <Button type="submit" loading={saving() || processing()}>
-                {text.save}
-              </Button>
+              <TextField
+                label={text.firstNameLabel}
+                value={firstName()}
+                maxlength={NAME_MAX_LENGTH}
+                autocomplete="given-name"
+                autocapitalize="words"
+                required
+                error={
+                  showErrors()
+                    ? nameError(problems().first, text.errors.firstNameRequired)
+                    : undefined
+                }
+                onInput={(event) => setFirstName(event.currentTarget.value)}
+              />
+              <TextField
+                label={text.lastNameLabel}
+                value={lastName()}
+                maxlength={NAME_MAX_LENGTH}
+                autocomplete="family-name"
+                autocapitalize="words"
+                required
+                error={
+                  showErrors()
+                    ? nameError(problems().last, text.errors.lastNameRequired)
+                    : undefined
+                }
+                hint={format(text.namesHint, { hook: props.me.hook })}
+                onInput={(event) => setLastName(event.currentTarget.value)}
+              />
+              <div class="settings__actions">
+                <Button type="submit" loading={saving() || processing()}>
+                  {text.save}
+                </Button>
+              </div>
+            </form>
+          }
+        >
+          {(open) => (
+            <div class="settings__form">
+              <p class="settings__helper">{t.crop.intro}</p>
+              <AvatarCropper
+                src={open().url}
+                image={open().bitmap}
+                crop={open().crop}
+                onCropChange={(crop) =>
+                  setCropping((current) => (current ? { ...current, crop } : current))
+                }
+              />
+              <div class="settings__actions">
+                <Button variant="secondary" onClick={releaseCropping}>
+                  {text.cancel}
+                </Button>
+                <Button loading={processing()} onClick={() => void applyCrop()}>
+                  {t.crop.apply}
+                </Button>
+              </div>
             </div>
-          </form>
-        }
-      >
-        {(open) => (
-          <div class="settings__form">
-            <p class="settings__helper">{t.crop.intro}</p>
-            <AvatarCropper
-              src={open().url}
-              image={open().bitmap}
-              crop={open().crop}
-              onCropChange={(crop) =>
-                setCropping((current) => (current ? { ...current, crop } : current))
-              }
-            />
-            <div class="settings__actions">
-              <Button variant="secondary" onClick={releaseCropping}>
-                {text.cancel}
-              </Button>
-              <Button loading={processing()} onClick={() => void applyCrop()}>
-                {t.crop.apply}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Show>
-    </section>
+          )}
+        </Show>
+      </div>
+    </PageSection>
   );
 }
 
@@ -449,18 +469,17 @@ function ThemeSection(props: SectionProps) {
   };
 
   return (
-    <section class="settings__section" aria-labelledby={props.headingId}>
-      <h3 id={props.headingId} class="settings__heading">
-        {text.themeSection}
-      </h3>
-      <SegmentedControl
-        legend={t.theme.label}
-        options={THEME_PREFERENCES.map((value) => ({ value, label: t.theme[value] }))}
-        value={theme.preference()}
-        onChange={changeTheme}
-      />
-      <p class="settings__helper">{text.themeHint}</p>
-    </section>
+    <PageSection id={props.headingId} title={text.themeSection}>
+      <div class="settings__card">
+        <SegmentedControl
+          legend={t.theme.label}
+          options={THEME_PREFERENCES.map((value) => ({ value, label: t.theme[value] }))}
+          value={theme.preference()}
+          onChange={changeTheme}
+        />
+        <p class="settings__helper">{text.themeHint}</p>
+      </div>
+    </PageSection>
   );
 }
 
@@ -490,17 +509,16 @@ function AdminSection(props: SectionProps) {
   };
 
   return (
-    <section class="settings__section" aria-labelledby={props.headingId}>
-      <h3 id={props.headingId} class="settings__heading">
-        {text.adminSection}
-      </h3>
-      <Toggle
-        label={text.adminViewLabel}
-        description={text.adminViewHint}
-        checked={props.me.admin_view}
-        onCheckedChange={changeAdminView}
-      />
-    </section>
+    <PageSection id={props.headingId} title={text.adminSection}>
+      <div class="settings__card">
+        <Toggle
+          label={text.adminViewLabel}
+          description={text.adminViewHint}
+          checked={props.me.admin_view}
+          onCheckedChange={changeAdminView}
+        />
+      </div>
+    </PageSection>
   );
 }
 
@@ -511,25 +529,24 @@ function PasswordSection(props: SectionProps) {
     () => toast.show(t.password.toasts.changed, 'success'),
   );
   return (
-    <section class="settings__section" aria-labelledby={props.headingId}>
-      <h3 id={props.headingId} class="settings__heading">
-        {text.passwordSection}
-      </h3>
-      <form
-        class="settings__form"
-        novalidate
-        onSubmit={form.submit}
-        aria-labelledby={props.headingId}
-      >
-        <p class="settings__helper">{t.password.intro}</p>
-        <form.Fields currentLabel={t.password.currentLabel} />
-        <div class="settings__actions">
-          <Button type="submit" variant="secondary" icon="lock" loading={form.changing()}>
-            {t.password.submit}
-          </Button>
-        </div>
-      </form>
-    </section>
+    <PageSection id={props.headingId} title={text.passwordSection}>
+      <div class="settings__card">
+        <form
+          class="settings__form"
+          novalidate
+          onSubmit={form.submit}
+          aria-labelledby={props.headingId}
+        >
+          <p class="settings__helper">{t.password.intro}</p>
+          <form.Fields currentLabel={t.password.currentLabel} />
+          <div class="settings__actions">
+            <Button type="submit" variant="secondary" icon="lock" loading={form.changing()}>
+              {t.password.submit}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </PageSection>
   );
 }
 
@@ -541,24 +558,29 @@ function AccountSection(props: SectionProps) {
     auth.signOut().catch(() => setSigningOut(false));
   };
   return (
-    <section class="settings__section" aria-labelledby={props.headingId}>
-      <h3 id={props.headingId} class="settings__heading">
-        {text.accountSection}
-      </h3>
-      <TextField label={text.hookLabel} value={props.me.hook} readonly mono hint={text.hookHint} />
-      <div class="settings__actions">
-        <Button variant="secondary" icon="logout" loading={signingOut()} onClick={onSignOut}>
-          {text.signOut}
-        </Button>
-      </div>
-      <Show when={props.me.role !== 'admin'}>
-        <div class="settings__danger">
-          <h4 id={`${props.headingId}-delete`} class="settings__subheading">
-            {text.deleteAccount}
-          </h4>
-          <DeleteAccountForm me={props.me} labelledBy={`${props.headingId}-delete`} />
+    <PageSection id={props.headingId} title={text.accountSection}>
+      <div class="settings__card">
+        <TextField
+          label={text.hookLabel}
+          value={props.me.hook}
+          readonly
+          mono
+          hint={text.hookHint}
+        />
+        <div class="settings__actions">
+          <Button variant="secondary" icon="logout" loading={signingOut()} onClick={onSignOut}>
+            {text.signOut}
+          </Button>
         </div>
-      </Show>
-    </section>
+        <Show when={props.me.role !== 'admin'}>
+          <div class="settings__danger">
+            <h3 id={`${props.headingId}-delete`} class="settings__subheading">
+              {text.deleteAccount}
+            </h3>
+            <DeleteAccountForm me={props.me} labelledBy={`${props.headingId}-delete`} />
+          </div>
+        </Show>
+      </div>
+    </PageSection>
   );
 }

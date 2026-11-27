@@ -9,11 +9,21 @@ import {
   type PopupGuards,
   type PopupOpeners,
 } from './popupContext';
-import { parseStack, routeKey, stackSearch, type PopupRoute } from './routes';
+import {
+  pagePath,
+  parsePage,
+  parseStack,
+  routeKey,
+  stackSearch,
+  type AppPage,
+  type PopupRoute,
+} from './routes';
 
 /** Ile wpisów historii nad wpisem startowym dołożyła aplikacja, otwierając popupy. */
 interface PopupHistoryState {
   readonly bgPopupDepth: number;
+  /** The entry is a page opened in the app (`navigate`): Back stays in the app. */
+  readonly bgPageFromApp?: boolean;
 }
 
 function currentDepth(): number {
@@ -70,7 +80,11 @@ function lostGuardLevel(
  */
 export function PopupRouter(props: { readonly children: JSX.Element }) {
   const [search, setSearch] = createSignal(window.location.search);
+  const [path, setPath] = createSignal(window.location.pathname);
   const stack = createMemo(() => parseStack(search()));
+  const page = createMemo<AppPage>(() => parsePage(path()) ?? { kind: 'club' }, {
+    equals: (a, b) => pagePath(a) === pagePath(b),
+  });
   /** Po `history.go(-n)` z „zamknij wszystko”: wyczyść popupy z wpisu, na który wrócimy. */
   let clearAfterPop = false;
   /**
@@ -88,6 +102,7 @@ export function PopupRouter(props: { readonly children: JSX.Element }) {
   const sync = () => {
     shownSearch = window.location.search;
     setSearch(shownSearch);
+    setPath(window.location.pathname);
   };
 
   const guards: PopupGuards = {
@@ -242,6 +257,38 @@ export function PopupRouter(props: { readonly children: JSX.Element }) {
       });
     },
     hrefFor: (route) => `${window.location.pathname}${stackSearch(search(), [...stack(), route])}`,
+    get page() {
+      return page();
+    },
+    navigate: (next) => {
+      const current = parseStack(window.location.search);
+      if (navigating) return;
+      // Popups with unsaved changes are asked first, like when they are closed.
+      askGuards(current.map((_, level) => level).reverse(), () => {
+        if (navigating) return;
+        const { search: rest, hash } = window.location;
+        window.history.pushState(
+          { bgPopupDepth: 0, bgPageFromApp: true } satisfies PopupHistoryState,
+          '',
+          `${pagePath(next)}${stackSearch(rest, [])}${hash}`,
+        );
+        sync();
+        window.scrollTo(0, 0);
+      });
+    },
+    goBack: () => {
+      if (navigating) return;
+      const state: unknown = window.history.state;
+      const fromApp =
+        !!state && typeof state === 'object' && (state as PopupHistoryState).bgPageFromApp === true;
+      if (!fromApp) {
+        api.navigate({ kind: 'club' });
+        return;
+      }
+      // The browser's Back: `popstate` shows the previous page (`sync`).
+      navigating = true;
+      window.history.back();
+    },
   };
 
   return (

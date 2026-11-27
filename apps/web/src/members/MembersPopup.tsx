@@ -3,7 +3,7 @@ import { format, plural, t } from '../i18n';
 import { fullName } from '../profile/profileQueries';
 import { AuthContext } from '../auth/authContext';
 import { PopupsContext } from '../popups/popupContext';
-import { PopupLink } from '../popups/PopupLink';
+import { PageLink } from '../popups/PageLink';
 import { PopupModal } from '../popups/PopupModal';
 import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
@@ -14,8 +14,7 @@ import './members.css';
 
 /**
  * Popup członków: aktywni członkowie z hookiem i oznaczeniem admina, wyszukiwanie
- * po imieniu, nazwisku i hooku (bez polskich znaków). Wiersz otwiera profil nad tym popupem
- * (stos). Administrator ma w nagłówku „Dodaj członka”.
+ * po imieniu, nazwisku i hooku (bez polskich znaków). Wiersz otwiera stronę profilu. Administrator ma w nagłówku „Dodaj członka”.
  */
 export function MembersPopup(props: { readonly isAdmin: boolean }) {
   const auth = useContext(AuthContext);
@@ -82,7 +81,7 @@ export function MembersPopup(props: { readonly isAdmin: boolean }) {
             <For each={chunks.visible()} keyed={(member) => member.id}>
               {(member, index) => (
                 <li class="tray__item" data-chunk-start={chunks.chunkStart(index())}>
-                  <PopupLink
+                  <PageLink
                     to={{ kind: 'profile', id: member().id }}
                     class="row row--64 row--interactive member-row"
                   >
@@ -100,7 +99,7 @@ export function MembersPopup(props: { readonly isAdmin: boolean }) {
                       </Show>
                     </span>
                     <Icon name="chevron-right" class="row__chevron" />
-                  </PopupLink>
+                  </PageLink>
                 </li>
               )}
             </For>

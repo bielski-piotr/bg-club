@@ -1,52 +1,71 @@
-import { createUniqueId, For, Match, Show, Switch, useContext } from 'solid-js';
+import {
+  createMemo,
+  createSignal,
+  createUniqueId,
+  For,
+  Match,
+  Show,
+  Switch,
+  useContext,
+} from 'solid-js';
 import { FALLBACK_TIMEZONE } from '../club/timezones';
 import { formatScore } from '../games/gameStatsData';
 import { format, t } from '../i18n';
-import { hasFilters, NO_FILTERS, type LeaderboardFilters } from '../leaderboard/filters';
+import { NO_FILTERS } from '../leaderboard/filters';
 import { shortMeetingDate } from '../meetings/datetime';
 import { createClub } from '../club/clubData';
 import { AuthContext } from '../auth/authContext';
 import { GameCover } from '../games/GameCover';
-import { FilterBar } from '../leaderboard/FilterBar';
 import { PopupLink } from '../popups/PopupLink';
 import { QueryBoundary } from '../popups/QueryStatus';
 import { createQuery } from '../lib/query';
-import { EmptyState, Icon } from '../ui';
+import {
+  createDebounced,
+  EmptyState,
+  Icon,
+  normalizeSearch,
+  SEARCH_DELAY_MS,
+  SearchField,
+} from '../ui';
 import { playerRecordsQuery, type PlayerRecord } from './playerRecordsData';
+import { SectionSkeleton } from './SectionSkeleton';
 
 const text = t.profile.records;
 
 /**
- * Records tab: every base game of the collection with its cover and the player's best value of
- * the deciding category (like the game record), filtered by games only. A game without a result
- * shows „–”; a record equal to the club record gets the club stamp on the cover.
+ * Records section: every base game of the collection with its cover and the player's best value
+ * of the deciding category (like the game record) from the whole history, searched by title
+ * (after a short pause in typing). A game without a result shows „–”; a record equal to the club
+ * record gets the club stamp on the cover. Every card has the same size, with or without
+ * a result, a meeting or expansions.
  */
-export function PlayerRecordsSection(props: {
-  readonly profileId: string;
-  /** Only `games` is used: records are always from the whole history. */
-  readonly filters: LeaderboardFilters;
-  readonly onFilters: (filters: LeaderboardFilters) => void;
-}) {
+export function PlayerRecordsSection(props: { readonly profileId: string }) {
   const auth = useContext(AuthContext);
-  const records = createQuery(() =>
-    playerRecordsQuery(auth.client, props.profileId, { ...NO_FILTERS, games: props.filters.games }),
-  );
+  const records = createQuery(() => playerRecordsQuery(auth.client, props.profileId, NO_FILTERS));
   const club = createClub();
   const timeZone = () => club.current()?.timezone ?? FALLBACK_TIMEZONE;
+  const [query, setQuery] = createSignal('');
+  const needle = createDebounced(() => normalizeSearch(query()), SEARCH_DELAY_MS);
+  const shown = createMemo(() => {
+    const value = needle();
+    const all = records();
+    return value === '' ? all : all.filter((r) => normalizeSearch(r.title).includes(value));
+  });
 
   return (
     <div class="profile-tab">
-      <FilterBar
-        filters={props.filters}
-        onChange={props.onFilters}
-        label={text.filtersLabel}
-        gamesOnly
+      <SearchField
+        label={text.searchLabel}
+        placeholder={text.searchPlaceholder}
+        value={query()}
+        onValueChange={setQuery}
+        class="records__search"
       />
-      <QueryBoundary>
+      <QueryBoundary loading={<SectionSkeleton />}>
         <Switch
           fallback={
             <ul class="records" aria-label={text.listLabel}>
-              <For each={records()} keyed={(record) => record.game_id}>
+              <For each={shown()} keyed={(record) => record.game_id}>
                 {(record) => (
                   <li>
                     <RecordCard record={record()} timeZone={timeZone()} />
@@ -56,11 +75,15 @@ export function PlayerRecordsSection(props: {
             </ul>
           }
         >
-          <Match when={records().length === 0 && !hasFilters(props.filters)}>
+          <Match when={records().length === 0}>
             <EmptyState icon="dice" title={text.noGamesTitle} helper={text.noGamesHelper} />
           </Match>
-          <Match when={records().length === 0}>
-            <EmptyState icon="trophy" title={text.emptyTitle} helper={text.emptyHelper} />
+          <Match when={shown().length === 0}>
+            <EmptyState
+              icon="search"
+              title={format(text.emptyTitle, { query: query().trim() })}
+              helper={text.emptyHelper}
+            />
           </Match>
         </Switch>
       </QueryBoundary>
@@ -120,15 +143,14 @@ function RecordCard(props: { readonly record: PlayerRecord; readonly timeZone: s
           </p>
         }
       >
-        <p class="record__value">
-          {formatScore(props.record.value ?? 0)}
-          <Show when={props.record.dir === 'asc'}>
-            <span class="record__dir">{text.lowerBetter}</span>
-          </Show>
-        </p>
+        <p class="record__value">{formatScore(props.record.value ?? 0)}</p>
       </Show>
-      <Show when={played() && expansions().length > 0}>
-        <div class="record__expansions">
+      <p class="record__dir">
+        <Show when={played() && props.record.dir === 'asc'}>{text.lowerBetter}</Show>
+      </p>
+      {/* The row is always there (empty without expansions), so every card has the same height. */}
+      <div class="record__expansions">
+        <Show when={played() && expansions().length > 0}>
           <span class="record__plus" aria-hidden="true">
             +
           </span>
@@ -149,47 +171,41 @@ function RecordCard(props: { readonly record: PlayerRecord; readonly timeZone: s
               )}
             </For>
           </ul>
-        </div>
-      </Show>
+        </Show>
+      </div>
     </article>
   );
 }
 
 /**
- * Club record stamp pressed onto the cover: a red ring with the text around and the trophy in
- * the middle; everything else is transparent, and a noise mask wears the ink like a real stamp.
+ * Club record stamp pressed onto the cover: a thick red ring with the text around it and the
+ * trophy in the middle; everything else is transparent.
  */
 function ClubRecordStamp() {
-  const id = createUniqueId();
-  // The text path is a full circle (radius 35): `textLength` spreads the text around it.
-  const ringLength = 2 * Math.PI * 35;
+  // Only letters, digits and hyphens: the id is used in a `href` fragment.
+  const id = `stamp-${createUniqueId().replace(/[^\w-]/g, '')}`;
+  // The text path is a full circle (radius 36): `textLength` spreads the text around it.
+  const ringLength = 2 * Math.PI * 36;
   return (
     <svg class="record-stamp" viewBox="0 0 100 100" role="img" aria-label={text.clubRecord}>
       <defs>
-        <path id={`${id}-ring`} d="M15 50a35 35 0 1 1 70 0a35 35 0 1 1 -70 0" />
-        <filter id={`${id}-ink`}>
-          <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="7" />
-          <feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.3 0 0 0 1.35" />
-          <feComposite in="SourceGraphic" operator="in" />
-        </filter>
+        <path id={id} d="M14 50a36 36 0 1 1 72 0a36 36 0 1 1 -72 0" />
       </defs>
-      <g filter={`url(#${id}-ink)`}>
-        <circle cx="50" cy="50" r="46" class="record-stamp__line" />
-        <circle cx="50" cy="50" r="25" class="record-stamp__line" />
-        <text class="record-stamp__text" aria-hidden="true">
-          <textPath
-            href={`#${id}-ring`}
-            // Solid's SVG types lack `textLength` and `lengthAdjust`: set them on the element.
-            ref={(el) => {
-              el.setAttribute('textLength', String(ringLength - 4));
-              el.setAttribute('lengthAdjust', 'spacing');
-            }}
-          >
-            {text.stamp}
-          </textPath>
-        </text>
-        <Icon name="trophy" x={34} y={34} size={32} />
-      </g>
+      <circle cx="50" cy="50" r="46" class="record-stamp__line" />
+      <circle cx="50" cy="50" r="26" class="record-stamp__line" />
+      <text class="record-stamp__text" aria-hidden="true">
+        <textPath
+          href={`#${id}`}
+          // Solid's SVG types lack `textLength` and `lengthAdjust`: set them on the element.
+          ref={(el) => {
+            el.setAttribute('textLength', String(ringLength - 4));
+            el.setAttribute('lengthAdjust', 'spacing');
+          }}
+        >
+          {text.stamp}
+        </textPath>
+      </text>
+      <Icon name="trophy" x={32} y={32} size={36} stroke-width={2.5} />
     </svg>
   );
 }

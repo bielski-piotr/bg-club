@@ -150,19 +150,6 @@
     width: min(100%, 880px);
   }
 
-  .popup-layer:has(> .modal--full) {
-    padding: 0;
-  }
-
-  .modal--full {
-    width: 100%;
-    height: var(--vv-height, 100dvh);
-    max-height: none;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
   /* Edytor notesu: stała wysokość, żeby okno nie skakało między krokami kreatora. */
   .modal--1120 {
     width: min(100%, 1120px);

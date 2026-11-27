@@ -1,5 +1,5 @@
 import { createContext } from 'solid-js';
-import type { PopupRoute } from './routes';
+import type { AppPage, PopupRoute } from './routes';
 
 export interface PopupApi {
   /** Stos popupów z adresu, od dołu do góry. Pusty = sam hub. Pole jest reaktywne. */
@@ -16,6 +16,15 @@ export interface PopupApi {
   readonly closeAll: () => void;
   /** Adres po otwarciu `route` nad bieżącym stosem (dla `<a href>`). */
   readonly hrefFor: (route: PopupRoute) => string;
+  /** The page under the popups, from the address path. The field is reactive. */
+  readonly page: AppPage;
+  /** Goes to another page (new history entry) with no popups open. */
+  readonly navigate: (page: AppPage) => void;
+  /**
+   * Back to the previous view: like Back in the browser when this page was opened in the app,
+   * otherwise (a link, a reload) to the Club view, so the button never leaves the app.
+   */
+  readonly goBack: () => void;
 }
 
 /** Stos popupów z adresu (`PopupRouter`). */

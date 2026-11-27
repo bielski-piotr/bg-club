@@ -1,0 +1,117 @@
+/*
+ * Page with a side menu of its sections. Phone: the links are a row above the content. From
+ * 768 px: the menu sits left of the content, stays in place below the sticky app header (65 px),
+ * its links are centered vertically and its right border separates it from the content over
+ * most of the page height.
+ */
+.section-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.section-layout__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A plain link; the current one is darker and has a marker beside it. */
+.section-layout__link {
+  position: relative;
+  display: inline-flex;
+  padding: 6px 0 6px 14px;
+  border-radius: 6px;
+  color: var(--c-muted);
+  font: 600 15px/20px var(--font-display);
+  text-decoration: none;
+  transition: color 120ms var(--ease);
+}
+
+.section-layout__link::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 4px;
+  height: 18px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
+  opacity: 0;
+  transform: translateY(-50%) scaleY(0.4);
+  transition:
+    opacity 120ms var(--ease),
+    transform 120ms var(--ease);
+}
+
+.section-layout__link:hover {
+  color: var(--c-ink);
+}
+
+.section-layout__link[aria-current='location'] {
+  color: var(--c-ink);
+}
+
+.section-layout__link[aria-current='location']::before {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+
+.section-layout__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.section-layout__content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+}
+
+.page-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  scroll-margin-top: 140px;
+}
+
+.page-section__title {
+  margin: 0;
+  font: 700 20px/26px var(--font-display);
+}
+
+@media (min-width: 768px) {
+  .section-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .section-layout__nav {
+    position: sticky;
+    top: 65px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: calc(100dvh - 65px - 48px);
+    padding-right: 24px;
+    border-right: 1px solid var(--c-border);
+  }
+
+  .section-layout__links {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .section-layout__content {
+    padding-left: 40px;
+  }
+
+  .page-section {
+    scroll-margin-top: 88px;
+  }
+}

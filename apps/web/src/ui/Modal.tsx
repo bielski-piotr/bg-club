@@ -19,11 +19,8 @@ export interface ModalProps {
   readonly onBack?: (() => void) | undefined;
   /** Kliknięcie tła poza oknem (desktop). */
   readonly onScrimClick?: (() => void) | undefined;
-  /**
-   * 560 (lista, formularz), 880 (dwie kolumny), 1120 (edytor notesu) albo `full`: a full-screen
-   * view (profile, settings) also on desktop.
-   */
-  readonly width?: 560 | 880 | 1120 | 'full' | undefined;
+  /** 560 (lista, formularz), 880 (dwie kolumny), albo 1120 (edytor notesu). */
+  readonly width?: 560 | 880 | 1120 | undefined;
   /** Okno przykryte przez popup wyżej na stosie: niewidoczne i poza kolejnością fokusu. */
   readonly covered?: boolean | undefined;
   /**
