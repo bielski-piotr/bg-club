@@ -1,5 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import { createSignal, For, onSettled } from 'solid-js';
+import { t } from '../i18n';
+import { IconButton } from './Button';
 import './SectionLayout.css';
 
 export interface SectionItem {
@@ -16,12 +18,15 @@ const CLICK_SCROLL_MS = 1000;
 /**
  * Page with all its sections one under another and a side menu of links to them (profile,
  * settings). The menu stays in place while the page scrolls and marks the section in view;
- * a link scrolls smoothly to its section. On the phone the links are a row above the content.
+ * a link scrolls smoothly to its section. The back button sits on top of the menu. On the phone
+ * the back button and the links are a row above the content.
  */
 export function SectionLayout(props: {
   /** Name of the section menu for screen readers. */
   readonly label: string;
   readonly items: readonly SectionItem[];
+  /** Back to the previous view: a button on top of the menu. */
+  readonly onBack: () => void;
   readonly children: JSX.Element;
 }) {
   const [current, setCurrent] = createSignal(() => props.items[0]?.id ?? '');
@@ -77,24 +82,32 @@ export function SectionLayout(props: {
 
   return (
     <div class="section-layout">
-      <nav class="section-layout__nav" aria-label={props.label}>
-        <ul class="section-layout__links">
-          <For each={props.items}>
-            {(item) => (
-              <li>
-                <a
-                  href={`#${item.id}`}
-                  class="section-layout__link"
-                  aria-current={current() === item.id ? 'location' : undefined}
-                  onClick={(event) => go(event, item.id)}
-                >
-                  {item.label}
-                </a>
-              </li>
-            )}
-          </For>
-        </ul>
-      </nav>
+      <div class="section-layout__side">
+        <IconButton
+          icon="chevron-left"
+          label={t.ui.back}
+          class="section-layout__back"
+          onClick={() => props.onBack()}
+        />
+        <nav class="section-layout__nav" aria-label={props.label}>
+          <ul class="section-layout__links">
+            <For each={props.items}>
+              {(item) => (
+                <li>
+                  <a
+                    href={`#${item.id}`}
+                    class="section-layout__link"
+                    aria-current={current() === item.id ? 'location' : undefined}
+                    onClick={(event) => go(event, item.id)}
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              )}
+            </For>
+          </ul>
+        </nav>
+      </div>
       <div class="section-layout__content">{props.children}</div>
     </div>
   );

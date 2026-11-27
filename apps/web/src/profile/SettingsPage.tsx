@@ -21,7 +21,6 @@ import { ToastContext } from '../ui/toastContext';
 import { createAvatarUrl } from './profiles';
 import { createTheme } from '../theme/createTheme';
 import {
-  IconButton,
   Avatar,
   Banner,
   Button,
@@ -111,16 +110,8 @@ export function SettingsPage(props: { readonly me: OwnProfile }) {
       label: text.sections[id],
     }));
   return (
-    <SectionLayout label={text.sectionsLabel} items={items()}>
-      <div class="page-hero">
-        <IconButton
-          icon="chevron-left"
-          label={t.ui.back}
-          class="page-hero__back"
-          onClick={() => popups.goBack()}
-        />
-        <h1 class="sr-only">{text.title}</h1>
-      </div>
+    <SectionLayout label={text.sectionsLabel} items={items()} onBack={() => popups.goBack()}>
+      <h1 class="sr-only">{text.title}</h1>
       <ProfileSection me={props.me} headingId="settings-profile" />
       <ThemeSection me={props.me} headingId="settings-theme" />
       <Show when={props.me.role === 'admin'}>

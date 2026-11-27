@@ -178,34 +178,32 @@ function RecordCard(props: { readonly record: PlayerRecord; readonly timeZone: s
 }
 
 /**
- * Club record stamp pressed onto the cover: a thick red ring with the text around it and the
- * trophy in the middle; everything else is transparent.
+ * Club record stamp pressed onto the cover: a red double ring, „REKORD KLUBU” along the top arc,
+ * stars along the bottom and the trophy in the middle; everything else is transparent.
  */
 function ClubRecordStamp() {
-  // Only letters, digits and hyphens: the id is used in a `href` fragment.
+  // Only letters, digits and hyphens: the ids are used in `href` fragments.
   const id = `stamp-${createUniqueId().replace(/[^\w-]/g, '')}`;
-  // The text path is a full circle (radius 36): `textLength` spreads the text around it.
-  const ringLength = 2 * Math.PI * 36;
   return (
     <svg class="record-stamp" viewBox="0 0 100 100" role="img" aria-label={text.clubRecord}>
       <defs>
-        <path id={id} d="M14 50a36 36 0 1 1 72 0a36 36 0 1 1 -72 0" />
+        {/* Top arc left to right (text upright on the outside), bottom arc left to right. */}
+        <path id={`${id}-top`} d="M15 50a35 35 0 0 1 70 0" />
+        <path id={`${id}-bottom`} d="M10 50a40 40 0 0 0 80 0" />
       </defs>
-      <circle cx="50" cy="50" r="46" class="record-stamp__line" />
-      <circle cx="50" cy="50" r="26" class="record-stamp__line" />
+      <circle cx="50" cy="50" r="47.5" class="record-stamp__line" />
+      <circle cx="50" cy="50" r="24" class="record-stamp__line record-stamp__line--thin" />
       <text class="record-stamp__text" aria-hidden="true">
-        <textPath
-          href={`#${id}`}
-          // Solid's SVG types lack `textLength` and `lengthAdjust`: set them on the element.
-          ref={(el) => {
-            el.setAttribute('textLength', String(ringLength - 4));
-            el.setAttribute('lengthAdjust', 'spacing');
-          }}
-        >
+        <textPath href={`#${id}-top`} startOffset="50%">
           {text.stamp}
         </textPath>
       </text>
-      <Icon name="trophy" x={32} y={32} size={36} stroke-width={2.5} />
+      <text class="record-stamp__stars" aria-hidden="true">
+        <textPath href={`#${id}-bottom`} startOffset="50%">
+          ★ ★ ★
+        </textPath>
+      </text>
+      <Icon name="trophy" x={36} y={36} size={28} stroke-width={2.4} />
     </svg>
   );
 }
