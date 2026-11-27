@@ -37,7 +37,7 @@ export function AppHeader(props: AppHeaderProps) {
           label={t.nav.label}
           class="app-header__nav"
           items={[
-            { id: 'club', label: t.nav.club, icon: 'home', href: '/', current: true },
+            { id: 'club', label: t.nav.club, icon: 'pennant', href: '/', current: true },
             { id: 'meetings', label: t.nav.meetings, icon: 'calendar' },
             { id: 'games', label: t.nav.games, icon: 'meeple' },
           ]}

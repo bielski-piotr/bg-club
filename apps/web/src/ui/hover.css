@@ -24,9 +24,13 @@
   transform-box: fill-box;
 }
 
-/* The lights inside the house turn on. */
-.hoverable:is(:hover, :focus-visible) svg[data-icon='home'] path:first-child {
-  animation: icon-light 640ms var(--ease);
+/* The flag flutters from the pole. */
+.hoverable svg[data-icon='pennant'] path:last-child {
+  transform-origin: left center;
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='pennant'] path:last-child {
+  animation: icon-flutter 640ms var(--ease);
 }
 
 /* The page turns over its top edge (the rings), the next page shows underneath. */
@@ -69,10 +73,21 @@
   animation: icon-nudge 480ms var(--ease);
 }
 
-@keyframes icon-light {
-  30%,
-  65% {
-    fill-opacity: 0.3;
+@keyframes icon-flutter {
+  20% {
+    transform: skewY(-10deg) scaleX(0.9);
+  }
+
+  45% {
+    transform: skewY(8deg) scaleX(0.95);
+  }
+
+  70% {
+    transform: skewY(-5deg);
+  }
+
+  85% {
+    transform: skewY(2deg);
   }
 }
 
