@@ -19,10 +19,6 @@
   min-width: 0;
 }
 
-.page-hero__back {
-  align-self: flex-start;
-}
-
 .page-hero__text {
   display: flex;
   flex: 1;
@@ -33,7 +29,7 @@
 
 .page-hero__name {
   margin: 0;
-  font: 700 26px/32px var(--font-display);
+  font: 700 28px/34px var(--font-display);
   overflow-wrap: anywhere;
 }
 
@@ -85,8 +81,7 @@
 }
 
 /* On a page the trays sit on the page background: no tray of their own, aligned with headings. */
-.page-section
-  :is(.profile-summary__card, .player-stats, .player-stats__games, .player-meetings, .records) {
+.page-section :is(.player-stats, .player-stats__games, .player-meetings, .records) {
   padding: 0;
   background: none;
 }
@@ -105,39 +100,6 @@
   overflow-wrap: anywhere;
 }
 
-.profile-summary__card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 12px;
-  list-style: none;
-  background: var(--c-tint);
-  border-radius: var(--r-tray);
-}
-
-.profile-summary__row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 20px;
-  background: var(--c-surface);
-  border-radius: var(--r-pill);
-}
-
-.profile-summary__value {
-  font: 700 18px/24px var(--font-display);
-  font-feature-settings: 'tnum';
-}
-
-.profile-summary__place {
-  flex-shrink: 0;
-  font: 600 15px/20px var(--font-display);
-  color: var(--c-muted);
-  font-feature-settings: 'tnum';
-}
-
 /* Stats tab: tiles (number 20/24/700, label 13/16/500), 4 columns on desktop, 2 on the phone. */
 .player-stats {
   display: grid;
@@ -147,6 +109,19 @@
   padding: 10px;
   background: var(--c-tint);
   border-radius: var(--r-tray);
+}
+
+/* Stats blocks stay compact and centered instead of stretching over the content column. */
+.player-stats,
+.player-stats__games {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+/* Pairs of tiles: a value and its place (leaderboard standing). */
+.player-stats--pairs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .player-stats__tile {
@@ -185,13 +160,17 @@
 .player-stats__favorites {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 8px;
+  gap: 12px;
+  padding-top: 20px;
 }
 
+/* Subgroup heading: smaller and muted, below the section heading in the hierarchy. */
 .player-stats__subhead {
   margin: 0;
-  font: 700 15px/20px var(--font-display);
+  font: 700 13px/16px var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
 }
 
 .player-stats__games {
@@ -252,6 +231,10 @@ a.player-game:hover .player-game__title {
 }
 
 @media (max-width: 767.98px) {
+  .player-meetings__item {
+    grid-template-columns: minmax(0, 1fr) 84px;
+  }
+
   .player-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -271,6 +254,12 @@ a.player-game:hover .player-game__title {
   list-style: none;
   background: var(--c-tint);
   border-radius: var(--r-tray);
+}
+
+.player-meetings__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  gap: 6px;
 }
 
 .player-meeting {
@@ -313,7 +302,11 @@ a.player-game:hover .player-game__title {
 }
 
 .player-meeting__score {
-  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-surface);
+  border-radius: var(--r-row);
 }
 
 /* Records tab: cards with the cover, the centered title and value, the club stamp. */
@@ -372,31 +365,55 @@ a.player-game:hover .player-game__title {
  */
 .record-stamp {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 56%;
+  right: 2px;
+  bottom: 2px;
+  width: 64%;
   height: auto;
   aspect-ratio: 1;
-  color: var(--c-danger);
-  opacity: 0.9;
-  transform: rotate(-14deg);
+  color: var(--c-danger-strong);
+  transform: rotate(-12deg);
   pointer-events: none;
 }
 
+/* A light halo under the red lines keeps the stamp readable on dark covers. */
 .record-stamp__line {
   fill: none;
   stroke: currentColor;
-  stroke-width: 6;
+  stroke-width: 4;
+}
+
+.record-stamp__line--thin {
+  stroke-width: 2.5;
+}
+
+.record-stamp__text,
+.record-stamp__stars {
+  fill: currentColor;
+  stroke: rgb(255 255 255 / 70%);
+  stroke-width: 2.5px;
+  paint-order: stroke;
+  text-anchor: middle;
 }
 
 .record-stamp__text {
-  fill: currentColor;
   font: 900 12px/1 var(--font-display);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
-.records__search {
+.record-stamp__stars {
+  font: 900 10px/1 var(--font-display);
+  letter-spacing: 0.2em;
+}
+
+.record-stamp svg[data-icon] {
+  filter: drop-shadow(0 0 1px rgb(255 255 255 / 80%));
+}
+
+/* The search field sits on the page background: it gets the surface color and a border. */
+.search.records__search {
   max-width: 420px;
+  background: var(--c-surface);
+  border-color: var(--c-border);
 }
 
 /* Two lines at most, always two lines tall: long titles don't make a card taller. */
@@ -517,10 +534,8 @@ a.player-game:hover .player-game__title {
   flex-direction: column;
   gap: 20px;
   min-width: 0;
-  max-width: 720px;
-  padding: 20px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-card-lg);
+  padding: 24px;
+  border-radius: var(--r-row);
   background: var(--c-surface);
 }
 
@@ -533,7 +548,10 @@ a.player-game:hover .player-game__title {
 
 .settings__subheading {
   margin: 0;
-  font: 700 15px/20px var(--font-display);
+  font: 700 13px/16px var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
 }
 
 .settings__actions {

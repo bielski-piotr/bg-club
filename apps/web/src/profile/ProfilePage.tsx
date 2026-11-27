@@ -8,7 +8,6 @@ import { QueryBoundary } from '../popups/QueryStatus';
 import { ProfileAvatar } from './ProfileAvatar';
 import { createProfile } from './profiles';
 import {
-  IconButton,
   Badge,
   Banner,
   Button,
@@ -62,14 +61,8 @@ function ProfileBody(props: { readonly profile: Profile; readonly me: OwnProfile
   const [statsFilters, setStatsFilters] = createSignal<LeaderboardFilters>(NO_FILTERS);
   const [meetingsFilters, setMeetingsFilters] = createSignal<LeaderboardFilters>(NO_FILTERS);
   return (
-    <SectionLayout label={text.sectionsLabel} items={SECTIONS}>
+    <SectionLayout label={text.sectionsLabel} items={SECTIONS} onBack={() => popups.goBack()}>
       <div class="page-hero">
-        <IconButton
-          icon="chevron-left"
-          label={t.ui.back}
-          class="page-hero__back"
-          onClick={() => popups.goBack()}
-        />
         <ProfileAvatar profile={props.profile} size={88} decorative />
         <div class="page-hero__text">
           <h1 class="page-hero__name">

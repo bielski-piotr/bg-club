@@ -1,3 +1,4 @@
+import type { JSX } from '@solidjs/web';
 import { createMemo, For, Show, useContext } from 'solid-js';
 import { ClubLogo } from '../club/ClubLogo';
 import { createClub, createCoverUrl } from '../club/clubData';
@@ -26,9 +27,9 @@ function PendingStats() {
 }
 
 /**
- * Profile section: the club and the player's standing in it from the whole history: points and
- * place in the points leaderboard, wins and place in the wins leaderboard, the current and the
- * longest win streak. A removed member has no places.
+ * Profile section: the club and the player's standing in it from the whole history, in pairs of
+ * tiles: points and the place in the points leaderboard, wins and the place in the wins
+ * leaderboard, the current and the longest win streak. A removed member has no places.
  */
 export function ProfileSummary(props: { readonly profileId: string }) {
   const stats = createPlayerStats(
@@ -51,30 +52,20 @@ export function ProfileSummary(props: { readonly profileId: string }) {
         <Show when={stats()}>
           {(data) => (
             <Show when={data().plays > 0} fallback={<PendingStats />}>
-              <ul class="profile-summary__card" aria-label={text.summaryLabel}>
-                <li class="profile-summary__row">
-                  <span class="profile-summary__value">
-                    <span class="sr-only">{text.pointsLabel}: </span>
-                    {format(text.points, { n: formatNumber(data().points) })}
-                  </span>
+              <dl class="player-stats player-stats--pairs" aria-label={text.summaryLabel}>
+                <Tile label={text.points}>
+                  {format(text.pointsValue, { n: formatNumber(data().points) })}
+                </Tile>
+                <Tile label={text.pointsPlace}>
                   <Place place={data().places.points} />
-                </li>
-                <li class="profile-summary__row">
-                  <span class="profile-summary__value">
-                    <span class="sr-only">{text.winsLabel}: </span>
-                    {plural(data().wins_total, text.winsCount)}
-                  </span>
+                </Tile>
+                <Tile label={text.wins}>{data().wins_total}</Tile>
+                <Tile label={text.winsPlace}>
                   <Place place={data().places.wins} />
-                </li>
-                <li class="profile-summary__row">
-                  <span class="profile-summary__value">
-                    {format(text.streak, { n: data().streak_current })}
-                  </span>
-                  <span class="profile-summary__place">
-                    {format(text.streakRecord, { n: data().streak_record })}
-                  </span>
-                </li>
-              </ul>
+                </Tile>
+                <Tile label={text.streakCurrent}>{data().streak_current}</Tile>
+                <Tile label={text.streakRecord}>{data().streak_record}</Tile>
+              </dl>
             </Show>
           )}
         </Show>
@@ -83,9 +74,18 @@ export function ProfileSummary(props: { readonly profileId: string }) {
   );
 }
 
+function Tile(props: { readonly label: string; readonly children: JSX.Element }) {
+  return (
+    <div class="player-stats__tile">
+      <dt class="player-stats__label">{props.label}</dt>
+      <dd class="player-stats__value">{props.children}</dd>
+    </div>
+  );
+}
+
 function Place(props: { readonly place: number | null }) {
   return (
-    <span class="profile-summary__place">
+    <>
       <Show
         when={props.place !== null}
         fallback={
@@ -97,7 +97,7 @@ function Place(props: { readonly place: number | null }) {
       >
         {format(text.place, { place: props.place ?? 0 })}
       </Show>
-    </span>
+    </>
   );
 }
 
@@ -176,14 +176,7 @@ function Counters(props: { readonly stats: PlayerStats }) {
   });
   return (
     <dl class="player-stats" aria-label={text.countersLabel}>
-      <For each={tiles()}>
-        {([label, value]) => (
-          <div class="player-stats__tile">
-            <dt class="player-stats__label">{label}</dt>
-            <dd class="player-stats__value">{value}</dd>
-          </div>
-        )}
-      </For>
+      <For each={tiles()}>{([label, value]) => <Tile label={label}>{value}</Tile>}</For>
     </dl>
   );
 }

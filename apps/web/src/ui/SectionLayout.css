@@ -1,13 +1,25 @@
 /*
- * Page with a side menu of its sections. Phone: the links are a row above the content. From
- * 768 px: the menu sits left of the content, stays in place below the sticky app header (65 px),
- * its links are centered vertically and its right border separates it from the content over
- * most of the page height.
+ * Page with a side menu of its sections (profile, settings). Phone: the back button and the links
+ * are a row above the content. From 768 px: the menu sits left of the content and stays in place
+ * below the sticky app header (65 px), with the back button on top and the links centered
+ * vertically; its right border separates it from the content over most of the page height. The
+ * content is one centered column, so groups don't stretch over wide screens.
  */
 .section-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 20px;
+}
+
+.section-layout__side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.section-layout__nav {
+  min-width: 0;
 }
 
 .section-layout__links {
@@ -68,21 +80,25 @@
 .section-layout__content {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 56px;
+  width: 100%;
+  max-width: 960px;
   min-width: 0;
+  margin-inline: auto;
+  padding-bottom: 48px;
 }
 
 .page-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   min-width: 0;
   scroll-margin-top: 140px;
 }
 
 .page-section__title {
   margin: 0;
-  font: 700 20px/26px var(--font-display);
+  font: 700 22px/28px var(--font-display);
 }
 
 @media (min-width: 768px) {
@@ -91,15 +107,22 @@
     gap: 0;
   }
 
-  .section-layout__nav {
+  .section-layout__side {
     position: sticky;
     top: 65px;
+    flex-direction: column;
+    align-items: flex-start;
+    height: calc(100dvh - 65px - 48px);
+    padding: 8px 24px 0 0;
+    border-right: 1px solid var(--c-border);
+  }
+
+  /* The links take the rest of the height and are centered in it. */
+  .section-layout__nav {
     display: flex;
+    flex: 1;
     flex-direction: column;
     justify-content: center;
-    height: calc(100dvh - 65px - 48px);
-    padding-right: 24px;
-    border-right: 1px solid var(--c-border);
   }
 
   .section-layout__links {
@@ -108,10 +131,10 @@
   }
 
   .section-layout__content {
-    padding-left: 40px;
+    padding: 8px 48px 64px 64px;
   }
 
   .page-section {
-    scroll-margin-top: 88px;
+    scroll-margin-top: 96px;
   }
 }

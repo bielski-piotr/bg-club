@@ -52,7 +52,7 @@ export function PlayerMeetingsSection(props: {
           <ul class="player-meetings" aria-label={text.listLabel}>
             <For each={chunks.visible()} keyed={(meeting) => meeting.meeting_id}>
               {(meeting, index) => (
-                <li data-chunk-start={chunks.chunkStart(index())}>
+                <li class="player-meetings__item" data-chunk-start={chunks.chunkStart(index())}>
                   <MeetingRow meeting={meeting()} timeZone={timeZone()} />
                 </li>
               )}
@@ -65,28 +65,31 @@ export function PlayerMeetingsSection(props: {
   );
 }
 
+/** The meeting (date, title, plays · wins) and, in its own tile, the points scored in it. */
 function MeetingRow(props: { readonly meeting: PlayerMeeting; readonly timeZone: string }) {
   const tile = () => dateTile(props.meeting.starts_at, props.timeZone);
   return (
-    <PopupLink to={{ kind: 'meeting', id: props.meeting.meeting_id }} class="player-meeting">
-      <span class="meeting-tile" aria-hidden="true">
-        <span class="meeting-tile__month">{tile().month}</span>
-        <span class="meeting-tile__day">{tile().day}</span>
-      </span>
-      <span class="player-meeting__text">
-        <span class="player-meeting__title">{props.meeting.title}</span>
-        <span class="sr-only">{longMeetingDate(props.meeting.starts_at, props.timeZone)}</span>
-        <span class="player-meeting__meta">
-          {format(text.meta, {
-            plays: plural(props.meeting.plays, t.profile.stats.playsCount),
-            wins: plural(props.meeting.wins, t.profile.stats.winsCount),
-          })}
+    <>
+      <PopupLink to={{ kind: 'meeting', id: props.meeting.meeting_id }} class="player-meeting">
+        <span class="meeting-tile" aria-hidden="true">
+          <span class="meeting-tile__month">{tile().month}</span>
+          <span class="meeting-tile__day">{tile().day}</span>
         </span>
-      </span>
+        <span class="player-meeting__text">
+          <span class="player-meeting__title">{props.meeting.title}</span>
+          <span class="sr-only">{longMeetingDate(props.meeting.starts_at, props.timeZone)}</span>
+          <span class="player-meeting__meta">
+            {format(text.meta, {
+              plays: plural(props.meeting.plays, t.profile.stats.playsCount),
+              wins: plural(props.meeting.wins, t.profile.stats.winsCount),
+            })}
+          </span>
+        </span>
+      </PopupLink>
       <span class="score player-meeting__score">
         {formatNumber(props.meeting.points)}
         <span class="score__unit">{text.pointsUnit}</span>
       </span>
-    </PopupLink>
+    </>
   );
 }
