@@ -40,10 +40,14 @@ export const glyphs = {
 } as const satisfies Record<string, () => JSX.Element>;
 
 export const pictograms = {
-  /** The door is a separate path: it swings open on hover (hover.css). */
+  /** The house has a hidden fill: the lights inside turn on on hover (hover.css). */
   home: () => (
     <>
-      <path d="M2.5 7.25L8 2.75L13.5 7.25M4 6V12.5C4 13.05 4.45 13.5 5 13.5H11C11.55 13.5 12 13.05 12 12.5V6" />
+      <path
+        d="M2.5 7.25L8 2.75L13.5 7.25M4 6V12.5C4 13.05 4.45 13.5 5 13.5H11C11.55 13.5 12 13.05 12 12.5V6"
+        fill="currentColor"
+        fill-opacity="0"
+      />
       <path d="M6.75 13.5V10.25H9.25V13.5" />
     </>
   ),
@@ -199,7 +203,13 @@ export const pictograms = {
     </>
   ),
   /** Ustawienia profilu: suwaki. */
-  settings: () => <path d="M2.5 4.5H9M12 4.5H13.5M2.5 11.5H4M7 11.5H13.5M10.5 3V6M5.5 10V13" />,
+  settings: () => (
+    <>
+      <path d="M2.5 4.5H13.5M2.5 11.5H13.5" />
+      <circle cx="10.5" cy="4.5" r="1.25" fill="currentColor" />
+      <circle cx="5.5" cy="11.5" r="1.25" fill="currentColor" />
+    </>
+  ),
   /** Hasło. */
   lock: () => (
     <>
