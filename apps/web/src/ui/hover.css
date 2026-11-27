@@ -24,13 +24,9 @@
   transform-box: fill-box;
 }
 
-/* The door swings on its left hinge. */
-.hoverable svg[data-icon='home'] path:last-child {
-  transform-origin: left bottom;
-}
-
-.hoverable:is(:hover, :focus-visible) svg[data-icon='home'] path:last-child {
-  animation: icon-door 560ms var(--ease);
+/* The lights inside the house turn on. */
+.hoverable:is(:hover, :focus-visible) svg[data-icon='home'] path:first-child {
+  animation: icon-light 640ms var(--ease);
 }
 
 /* The page turns over its top edge (the rings), the next page shows underneath. */
@@ -55,22 +51,28 @@
   animation: icon-wave 640ms var(--ease);
 }
 
-.hoverable:is(:hover, :focus-visible) svg[data-icon='user'] {
-  animation: icon-nod 420ms var(--ease);
+/* Only the head nods. */
+.hoverable:is(:hover, :focus-visible) svg[data-icon='user'] circle {
+  animation: icon-nod 480ms var(--ease);
 }
 
-.hoverable:is(:hover, :focus-visible) svg[data-icon='settings'] {
-  animation: icon-slide 480ms var(--ease);
+/* Only the slider knobs move, in opposite directions. */
+.hoverable:is(:hover, :focus-visible) svg[data-icon='settings'] circle:nth-of-type(1) {
+  animation: icon-slide-left 520ms var(--ease);
+}
+
+.hoverable:is(:hover, :focus-visible) svg[data-icon='settings'] circle:nth-of-type(2) {
+  animation: icon-slide-right 520ms var(--ease);
 }
 
 .hoverable:is(:hover, :focus-visible) svg[data-icon='logout'] path:last-child {
   animation: icon-nudge 480ms var(--ease);
 }
 
-@keyframes icon-door {
-  45%,
-  60% {
-    transform: scaleX(0.35) skewY(-12deg);
+@keyframes icon-light {
+  30%,
+  65% {
+    fill-opacity: 0.3;
   }
 }
 
@@ -107,22 +109,28 @@
 }
 
 @keyframes icon-nod {
-  35% {
-    transform: translateY(-1.5px);
+  30% {
+    transform: translateY(1.25px);
   }
 
-  70% {
-    transform: translateY(0.5px);
+  55% {
+    transform: translateY(-0.25px);
+  }
+
+  75% {
+    transform: translateY(0.75px);
   }
 }
 
-@keyframes icon-slide {
-  30% {
-    transform: translateX(-1.5px);
+@keyframes icon-slide-left {
+  50% {
+    transform: translateX(-4px);
   }
+}
 
-  65% {
-    transform: translateX(1.5px);
+@keyframes icon-slide-right {
+  50% {
+    transform: translateX(4px);
   }
 }
 
