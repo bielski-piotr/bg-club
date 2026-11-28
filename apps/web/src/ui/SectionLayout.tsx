@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web';
-import { createSignal, For, onSettled } from 'solid-js';
+import { createEffect, createSignal, For, onSettled } from 'solid-js';
 import { t } from '../i18n';
 import { IconButton } from './Button';
 import './SectionLayout.css';
@@ -34,6 +34,23 @@ export function SectionLayout(props: {
   const [current, setCurrent] = createSignal(() => props.items[0]?.id ?? '');
   /** After a click the clicked link stays current until the smooth scroll ends. */
   let pinned = false;
+  let nav: HTMLElement | undefined;
+
+  // On the phone the links scroll sideways: the current one is brought to the middle of the row.
+  // From 768 px the menu doesn't overflow, so this changes nothing there.
+  createEffect(
+    () => current(),
+    (id) => {
+      const link = nav?.querySelector(`a[href="#${CSS.escape(id)}"]`);
+      if (!nav || !link) return;
+      const box = nav.getBoundingClientRect();
+      const item = link.getBoundingClientRect();
+      nav.scrollTo({
+        left: nav.scrollLeft + item.left - box.left - (box.width - item.width) / 2,
+        behavior: 'smooth',
+      });
+    },
+  );
 
   onSettled(() => {
     let frame = 0;
@@ -91,7 +108,7 @@ export function SectionLayout(props: {
           class="section-layout__back"
           onClick={() => props.onBack()}
         />
-        <nav class="section-layout__nav" aria-label={props.label}>
+        <nav ref={(el) => (nav = el)} class="section-layout__nav" aria-label={props.label}>
           <ul class="section-layout__links">
             <For each={props.items}>
               {(item) => (

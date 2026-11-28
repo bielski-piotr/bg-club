@@ -1,6 +1,7 @@
 /*
  * Page with a side menu of its sections (profile, settings). Phone: the back button and the links
- * are one row above the content; the links are pills that scroll sideways instead of wrapping.
+ * are one row that stays under the sticky app header while the page scrolls; the links are pills
+ * that scroll sideways instead of wrapping.
  * From 768 px: the menu sits left of the content and stays in place below the sticky app header
  * (65 px), with the back button on top and the links under it; its right border separates it from
  * the content. The content is one centered column, so groups don't stretch over wide screens.
@@ -11,18 +12,28 @@
   gap: 16px;
 }
 
+/*
+ * The phone app header is 111 px plus its top padding (8 px or the safe area, Hub.css). The row
+ * spans the whole screen width (page padding 16 px), so the content passes under it.
+ */
 .section-layout__side {
+  position: sticky;
+  top: calc(111px + max(8px, env(safe-area-inset-top)));
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  margin: -16px -16px 0;
+  padding: 8px 0 8px 16px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-page);
 }
 
-/* The row bleeds to the right screen edge (page padding 16 px) and fades out there. */
+/* The links run to the right screen edge and fade out there. */
 .section-layout__nav {
   flex: 1;
   min-width: 0;
-  margin-right: -16px;
   overflow-x: auto;
   scrollbar-width: none;
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
@@ -111,7 +122,8 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  scroll-margin-top: 140px;
+  /* Below the app header and the sticky menu row (64 px). */
+  scroll-margin-top: calc(111px + max(8px, env(safe-area-inset-top)) + 64px + 16px);
 }
 
 .page-section__title {
@@ -126,14 +138,17 @@
   }
 
   .section-layout__side {
-    position: sticky;
     top: 65px;
+    z-index: auto;
     flex-direction: column;
     align-items: stretch;
     gap: 24px;
     height: calc(100dvh - 65px - 48px);
+    margin: 0;
     padding: 8px 20px 0 0;
     border-right: 1px solid var(--c-border);
+    border-bottom: 0;
+    background: none;
   }
 
   .section-layout__back {
@@ -141,7 +156,6 @@
   }
 
   .section-layout__nav {
-    margin-right: 0;
     overflow: visible;
     mask-image: none;
   }
