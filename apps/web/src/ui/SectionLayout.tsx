@@ -19,7 +19,7 @@ const CLICK_SCROLL_MS = 1000;
  * Page with all its sections one under another and a side menu of links to them (profile,
  * settings). The menu stays in place while the page scrolls and marks the section in view;
  * a link scrolls smoothly to its section. The back button sits on top of the menu. On the phone
- * the back button and the links are a row above the content.
+ * the back button and the links are one row above the content; the links scroll sideways.
  */
 export function SectionLayout(props: {
   /** Name of the section menu for screen readers. */
@@ -27,6 +27,8 @@ export function SectionLayout(props: {
   readonly items: readonly SectionItem[];
   /** Back to the previous view: a button on top of the menu. */
   readonly onBack: () => void;
+  /** A narrower content column for forms, which read badly when stretched. */
+  readonly narrow?: boolean;
   readonly children: JSX.Element;
 }) {
   const [current, setCurrent] = createSignal(() => props.items[0]?.id ?? '');
@@ -81,7 +83,7 @@ export function SectionLayout(props: {
   };
 
   return (
-    <div class="section-layout">
+    <div class={['section-layout', { 'section-layout--narrow': !!props.narrow }]}>
       <div class="section-layout__side">
         <IconButton
           icon="chevron-left"

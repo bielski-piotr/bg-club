@@ -11,25 +11,52 @@
   box-shadow: var(--focus-ring);
 }
 
-/* Page hero (profile, settings): avatar, name, hook and badges; actions on the right. */
+/*
+ * Page hero of the profile: a card with the avatar, the name, the hook and the badges; the action
+ * (settings gear or „Usuń członka”) on the right. On the phone the card is centered and the gear
+ * sits in its corner.
+ */
 .page-hero {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
+  padding: 24px 16px 20px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  background: linear-gradient(160deg, var(--c-accent-tint), var(--c-surface) 60%);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.page-hero > .avatar {
+  box-shadow:
+    0 0 0 4px var(--c-surface),
+    0 8px 20px -8px #1e285a59;
+  animation: hero-avatar 520ms var(--ease) 120ms backwards;
+}
+
+@keyframes hero-avatar {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
 }
 
 .page-hero__text {
   display: flex;
-  flex: 1;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .page-hero__name {
   margin: 0;
-  font: 700 28px/34px var(--font-display);
+  font: 700 26px/32px var(--font-display);
   overflow-wrap: anywhere;
 }
 
@@ -38,8 +65,12 @@
 }
 
 .page-hero__hook {
+  max-width: 100%;
   margin: 0;
-  font: 500 14px/20px var(--font-mono);
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent-wash);
+  font: 500 13px/20px var(--font-mono);
   color: var(--c-muted);
   overflow-wrap: anywhere;
 }
@@ -47,19 +78,61 @@
 .page-hero__badges {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 4px;
-  margin: 4px 0 0;
+  margin: 2px 0 0;
 }
 
 .page-hero__action {
   flex-shrink: 0;
-  align-self: flex-start;
 }
 
 /* The gear to the settings; it turns on hover (hover.css). */
 .icon-btn.page-hero__action {
+  position: absolute;
+  top: 12px;
+  right: 12px;
   width: 44px;
   height: 44px;
+  background: var(--c-surface);
+  box-shadow: 0 0 0 1px var(--c-border);
+}
+
+.icon-btn.page-hero__action:hover {
+  background: var(--c-tint);
+}
+
+@media (min-width: 600px) {
+  /* A long name keeps its room: the action wraps under it instead of squeezing it. */
+  .page-hero {
+    flex-flow: row wrap;
+    gap: 16px 24px;
+    padding: 28px;
+    border-radius: var(--r-card-lg);
+    text-align: start;
+  }
+
+  .page-hero__text {
+    flex: 1 1 280px;
+    align-items: flex-start;
+  }
+
+  .page-hero__name {
+    font-size: 30px;
+    line-height: 36px;
+  }
+
+  .page-hero__badges {
+    justify-content: flex-start;
+  }
+
+  .page-hero__action {
+    align-self: flex-start;
+  }
+
+  .icon-btn.page-hero__action {
+    position: static;
+  }
 }
 
 .profile-tab,
@@ -100,39 +173,53 @@
   overflow-wrap: anywhere;
 }
 
-/* Stats tab: tiles (number 20/24/700, label 13/16/500), 4 columns on desktop, 2 on the phone. */
+/*
+ * Stats tiles (label 13/16/500 over the number): 2 columns on the phone, 4 from 768 px. The tiles
+ * come in one after another when the data arrives.
+ */
 .player-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin: 0;
   padding: 10px;
   background: var(--c-tint);
   border-radius: var(--r-tray);
 }
 
-/* Stats blocks stay compact and centered instead of stretching over the content column. */
-.player-stats,
-.player-stats__games {
-  width: 100%;
-  max-width: 720px;
-  margin-inline: auto;
-}
-
-/* Pairs of tiles: a value and its place (leaderboard standing). */
-.player-stats--pairs {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .player-stats__tile {
   display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  gap: 2px;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
-  padding: 12px 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
   background: var(--c-surface);
-  border-radius: var(--r-row);
+}
+
+:is(.player-stats, .player-stats__games, .player-meetings, .records) > * {
+  animation: section-rise 360ms var(--ease) backwards;
+}
+
+:is(.player-stats, .player-stats__games, .player-meetings, .records) > :nth-child(2) {
+  animation-delay: 40ms;
+}
+
+:is(.player-stats, .player-stats__games, .player-meetings, .records) > :nth-child(3) {
+  animation-delay: 80ms;
+}
+
+:is(.player-stats, .player-stats__games, .player-meetings, .records) > :nth-child(4) {
+  animation-delay: 120ms;
+}
+
+:is(.player-stats, .player-stats__games, .player-meetings, .records) > :nth-child(5) {
+  animation-delay: 160ms;
+}
+
+:is(.player-stats, .player-stats__games, .player-meetings, .records) > :nth-child(n + 6) {
+  animation-delay: 200ms;
 }
 
 .player-stats__label {
@@ -144,7 +231,7 @@
 
 .player-stats__value {
   margin: 0;
-  font: 700 20px/24px var(--font-display);
+  font: 700 24px/28px var(--font-display);
   color: var(--c-ink);
   font-feature-settings: 'tnum';
   overflow-wrap: anywhere;
@@ -161,7 +248,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-top: 20px;
+  padding-top: 12px;
 }
 
 /* Subgroup heading: smaller and muted, below the section heading in the hierarchy. */
@@ -175,8 +262,8 @@
 
 .player-stats__games {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   padding: 10px;
   background: var(--c-tint);
   border-radius: var(--r-tray);
@@ -190,8 +277,9 @@
   min-width: 0;
   min-height: 112px;
   padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
   background: var(--c-surface);
-  border-radius: var(--r-row);
   color: inherit;
   text-decoration: none;
 }
@@ -203,8 +291,27 @@
   gap: 2px;
 }
 
-a.player-game:hover .player-game__title {
-  text-decoration: underline;
+/* Rows and cards that open something lift a little under the pointer. */
+a.player-game,
+.player-meeting,
+.record {
+  transition:
+    border-color 160ms var(--ease),
+    box-shadow 160ms var(--ease),
+    transform 160ms var(--ease);
+}
+
+a.player-game:hover,
+.player-meeting:hover,
+.record:hover {
+  border-color: var(--c-accent-text);
+  box-shadow: var(--shadow-menu);
+  transform: translateY(-2px);
+}
+
+a.player-game:active,
+.player-meeting:active {
+  transform: none;
 }
 
 .player-game:focus-visible {
@@ -230,17 +337,25 @@ a.player-game:hover .player-game__title {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 767.98px) {
-  .player-meetings__item {
-    grid-template-columns: minmax(0, 1fr) 84px;
+@media (min-width: 768px) {
+  .player-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .player-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Standing: three pairs side by side, the value above its place. */
+  .player-stats--pairs {
+    grid-template-rows: repeat(2, auto);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: column;
+  }
+
+  .player-stats__value {
+    font-size: 28px;
+    line-height: 34px;
   }
 
   .player-stats__games {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -258,8 +373,14 @@ a.player-game:hover .player-game__title {
 
 .player-meetings__item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 128px;
+  grid-template-columns: minmax(0, 1fr) 84px;
   gap: 6px;
+}
+
+@media (min-width: 768px) {
+  .player-meetings__item {
+    grid-template-columns: minmax(0, 1fr) 128px;
+  }
 }
 
 .player-meeting {
@@ -268,14 +389,19 @@ a.player-game:hover .player-game__title {
   gap: 14px;
   min-width: 0;
   padding: 10px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
   background: var(--c-surface);
-  border-radius: var(--r-row);
   color: inherit;
   text-decoration: none;
 }
 
-.player-meeting:hover .player-meeting__title {
-  text-decoration: underline;
+.player-meeting .meeting-tile {
+  transition: transform 220ms var(--ease);
+}
+
+.player-meeting:hover .meeting-tile {
+  transform: scale(1.06) rotate(-3deg);
 }
 
 .player-meeting:focus-visible {
@@ -305,8 +431,9 @@ a.player-game:hover .player-game__title {
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
   background: var(--c-surface);
-  border-radius: var(--r-row);
 }
 
 /* Records tab: cards with the cover, the centered title and value, the club stamp. */
@@ -334,8 +461,9 @@ a.player-game:hover .player-game__title {
   gap: 4px;
   min-width: 0;
   padding: 10px 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
   background: var(--c-surface);
-  border-radius: var(--r-row);
   text-align: center;
 }
 
@@ -528,15 +656,22 @@ a.player-game:hover .player-game__title {
   opacity: 1;
 }
 
-/* Settings: each group is a card in its page section. Fields like in the club form. */
+/* Settings: the page title, then each group as a card in its page section. */
+.settings__title {
+  margin: 0;
+  font: 700 28px/34px var(--font-display);
+}
+
 .settings__card {
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-width: 0;
-  padding: 24px;
-  border-radius: var(--r-row);
+  padding: 20px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
   background: var(--c-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .settings__form {
@@ -544,6 +679,20 @@ a.player-game:hover .player-game__title {
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+  /* The form and the cropper swap in place. */
+  animation: settings-swap 240ms var(--ease);
+}
+
+@keyframes settings-swap {
+  from {
+    opacity: 0;
+  }
+}
+
+.settings__names {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
 }
 
 .settings__subheading {
@@ -551,7 +700,7 @@ a.player-game:hover .player-game__title {
   font: 700 13px/16px var(--font-ui);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--c-muted);
+  color: var(--c-danger-text);
 }
 
 .settings__actions {
@@ -559,6 +708,11 @@ a.player-game:hover .player-game__title {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* Phone: the buttons share the whole row, easy to reach with a thumb. */
+.settings__actions > .btn {
+  flex: 1;
 }
 
 .settings__photo {
@@ -573,10 +727,23 @@ a.player-game:hover .player-game__title {
 
 .settings__photo-tile {
   position: relative;
+  display: flex;
   flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
 }
 
-/* kółko 30 z ramką w prawym dolnym rogu (-2, -2). */
+.settings__photo-tile .avatar {
+  transition: filter 160ms var(--ease);
+}
+
+.settings__photo-tile:hover:not(:disabled) .avatar {
+  filter: brightness(0.9);
+}
+
+/* A 30 px circle with a border over the bottom right of the photo (-2, -2). */
 .settings__photo-badge {
   position: absolute;
   right: -2px;
@@ -589,50 +756,55 @@ a.player-game:hover .player-game__title {
   border-radius: var(--r-pill);
   background: var(--c-surface);
   color: var(--c-ink);
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease),
+    transform 220ms var(--ease);
+}
+
+.settings__photo-tile:hover:not(:disabled) .settings__photo-badge {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+  transform: scale(1.12);
 }
 
 .settings__photo-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
 }
 
 .settings__photo-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   column-gap: 16px;
-  row-gap: 4px;
+  row-gap: 8px;
 }
 
+/* „Usuń zdjęcie”: a quiet text button that turns to the danger color under the pointer. */
 .settings__link {
   padding: 0;
   border: 0;
   border-radius: 4px;
   background: none;
-  color: var(--c-accent-text);
-  font-size: 15px;
+  color: var(--c-muted);
+  font-size: 14px;
   line-height: 20px;
   font-weight: 600;
   cursor: pointer;
+  transition: color 120ms var(--ease);
 }
 
-.settings__link:hover:not(:disabled) {
-  text-decoration: underline;
+.settings__link:hover {
+  color: var(--c-danger-text);
 }
 
 .settings__link:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
-}
-
-.settings__link:disabled {
-  color: var(--c-muted);
-  cursor: default;
-}
-
-.settings__link--muted {
-  color: var(--c-muted);
 }
 
 .settings__helper {
@@ -644,26 +816,185 @@ a.player-game:hover .player-game__title {
 }
 
 .settings__card > .settings__helper {
-  margin-top: -12px;
+  margin-top: -8px;
 }
 
 .settings__helper--error {
   color: var(--c-danger-text);
 }
 
-/* Deleting the account: a separated block under the account actions. */
+/*
+ * Theme choice: three cards with a miniature of the theme. The miniatures show the real themes,
+ * so their colors are fixed and don't follow the current one.
+ */
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.theme-card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
+  transition:
+    background-color 160ms var(--ease),
+    border-color 160ms var(--ease),
+    box-shadow 160ms var(--ease);
+}
+
+.theme-card:hover .theme-card__body {
+  border-color: var(--c-muted);
+}
+
+.choice__input:checked + .theme-card__body {
+  border-color: var(--c-accent);
+  background: var(--c-accent-tint);
+  box-shadow: 0 0 0 1px var(--c-accent);
+}
+
+.choice__input:focus-visible + .theme-card__body {
+  outline: 2px solid var(--c-accent-text);
+  outline-offset: 2px;
+}
+
+.theme-card__preview {
+  display: flex;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 12px;
+  transition: transform 220ms var(--ease);
+}
+
+.theme-card:hover .theme-card__preview {
+  transform: scale(1.03);
+}
+
+/* A pane: the page background, a card on it and two lines of „text” (accent and ink). */
+.theme-card__pane {
+  position: relative;
+  flex: 1;
+  background: var(--pane-page);
+}
+
+.theme-card__pane::before {
+  content: '';
+  position: absolute;
+  inset: 12px 0 0 12px;
+  border-radius: 8px 0 0;
+  background:
+    linear-gradient(var(--pane-accent) 0 0) 10px 12px / 28px 6px no-repeat,
+    linear-gradient(var(--pane-line) 0 0) 10px 26px / 44px 6px no-repeat,
+    var(--pane-surface);
+}
+
+.theme-card__pane--light {
+  --pane-page: #e4e7f0;
+  --pane-surface: #ffffff;
+  --pane-accent: #2f54eb;
+  --pane-line: #c9cdda;
+}
+
+.theme-card__pane--dark {
+  --pane-page: #0f1220;
+  --pane-surface: #22273b;
+  --pane-accent: #8da2ff;
+  --pane-line: #5a6080;
+}
+
+.theme-card__label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--c-muted);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  transition: color 160ms var(--ease);
+}
+
+.choice__input:checked + .theme-card__body .theme-card__label {
+  color: var(--c-accent-text);
+}
+
+/* The tick grows in beside the label of the chosen theme and takes no room otherwise. */
+.theme-card__check {
+  flex-shrink: 0;
+  width: 0;
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    width 160ms var(--ease),
+    opacity 160ms var(--ease),
+    transform 220ms var(--ease);
+}
+
+.choice__input:checked + .theme-card__body .theme-card__check {
+  width: 16px;
+  opacity: 1;
+  transform: none;
+}
+
+/* Deleting the account: a block of its own in the danger color under the account actions. */
 .settings__danger {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-top: 20px;
-  border-top: 1px solid var(--c-border);
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--c-danger) 35%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--c-danger-tint) 45%, transparent);
 }
 
 .delete-account {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+@media (min-width: 600px) {
+  .settings__card {
+    padding: 28px;
+    border-radius: var(--r-card-lg);
+  }
+
+  .settings__names {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings__actions > .btn {
+    flex: none;
+  }
+
+  .settings__danger {
+    padding: 20px;
+  }
+
+  .theme-picker {
+    gap: 12px;
+  }
+
+  .theme-card__preview {
+    height: 88px;
+  }
 }
 
 /* Zmiana hasła i pierwsze logowanie. */
