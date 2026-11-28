@@ -4,7 +4,9 @@ import {
   createMemo,
   createOptimistic,
   createSignal,
+  createUniqueId,
   flush,
+  For,
   Match,
   onSettled,
   Show,
@@ -27,7 +29,6 @@ import {
   Icon,
   PageSection,
   SectionLayout,
-  SegmentedControl,
   Spinner,
   Switch as Toggle,
   TextField,
@@ -87,6 +88,13 @@ function nameError(problem: NameProblem | undefined, required: string): string |
   return undefined;
 }
 
+/** Miniature of each theme choice: one pane per color scheme it can show. */
+const PREVIEW_TONES: Readonly<Record<ThemePreference, readonly ('light' | 'dark')[]>> = {
+  light: ['light'],
+  dark: ['dark'],
+  system: ['light', 'dark'],
+};
+
 const SECTIONS = ['profile', 'theme', 'admin', 'password', 'account'] as const;
 
 /**
@@ -110,8 +118,8 @@ export function SettingsPage(props: { readonly me: OwnProfile }) {
       label: text.sections[id],
     }));
   return (
-    <SectionLayout label={text.sectionsLabel} items={items()} onBack={() => popups.goBack()}>
-      <h1 class="sr-only">{text.title}</h1>
+    <SectionLayout label={text.sectionsLabel} items={items()} onBack={() => popups.goBack()} narrow>
+      <h1 class="settings__title">{text.title}</h1>
       <ProfileSection me={props.me} headingId="settings-profile" />
       <ThemeSection me={props.me} headingId="settings-theme" />
       <Show when={props.me.role === 'admin'}>
@@ -296,7 +304,16 @@ function ProfileSection(props: SectionProps) {
 
               <fieldset class="settings__photo">
                 <legend class="sr-only">{text.photoLabel}</legend>
-                <div class="settings__photo-tile">
+                {/* The photo itself also opens the picker; the labelled button beside it is the
+                    one for the keyboard and screen readers. */}
+                <button
+                  type="button"
+                  class="settings__photo-tile"
+                  tabindex={-1}
+                  aria-hidden="true"
+                  disabled={processing()}
+                  onClick={() => fileInput?.click()}
+                >
                   <Avatar
                     id={person().id}
                     name={person().name}
@@ -305,26 +322,27 @@ function ProfileSection(props: SectionProps) {
                     size={88}
                     decorative
                   />
-                  <span class="settings__photo-badge" aria-hidden="true">
-                    <Show when={processing()} fallback={<Icon name="upload" />}>
+                  <span class="settings__photo-badge">
+                    <Show when={processing()} fallback={<Icon name="camera" />}>
                       <Spinner size={16} />
                     </Show>
                   </span>
-                </div>
+                </button>
                 <div class="settings__photo-text">
                   <div class="settings__photo-actions">
-                    <button
-                      type="button"
-                      class="settings__link"
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="upload"
                       disabled={processing()}
                       onClick={() => fileInput?.click()}
                     >
                       {hasPhoto() ? text.changePhoto : text.addPhoto}
-                    </button>
+                    </Button>
                     <Show when={hasPhoto() && !processing()}>
                       <button
                         type="button"
-                        class="settings__link settings__link--muted"
+                        class="settings__link"
                         onClick={() => {
                           setAvatar({ kind: 'remove' });
                           setPhotoError(undefined);
@@ -365,35 +383,37 @@ function ProfileSection(props: SectionProps) {
                 </div>
               </fieldset>
 
-              <TextField
-                label={text.firstNameLabel}
-                value={firstName()}
-                maxlength={NAME_MAX_LENGTH}
-                autocomplete="given-name"
-                autocapitalize="words"
-                required
-                error={
-                  showErrors()
-                    ? nameError(problems().first, text.errors.firstNameRequired)
-                    : undefined
-                }
-                onInput={(event) => setFirstName(event.currentTarget.value)}
-              />
-              <TextField
-                label={text.lastNameLabel}
-                value={lastName()}
-                maxlength={NAME_MAX_LENGTH}
-                autocomplete="family-name"
-                autocapitalize="words"
-                required
-                error={
-                  showErrors()
-                    ? nameError(problems().last, text.errors.lastNameRequired)
-                    : undefined
-                }
-                hint={format(text.namesHint, { hook: props.me.hook })}
-                onInput={(event) => setLastName(event.currentTarget.value)}
-              />
+              <div class="settings__names">
+                <TextField
+                  label={text.firstNameLabel}
+                  value={firstName()}
+                  maxlength={NAME_MAX_LENGTH}
+                  autocomplete="given-name"
+                  autocapitalize="words"
+                  required
+                  error={
+                    showErrors()
+                      ? nameError(problems().first, text.errors.firstNameRequired)
+                      : undefined
+                  }
+                  onInput={(event) => setFirstName(event.currentTarget.value)}
+                />
+                <TextField
+                  label={text.lastNameLabel}
+                  value={lastName()}
+                  maxlength={NAME_MAX_LENGTH}
+                  autocomplete="family-name"
+                  autocapitalize="words"
+                  required
+                  error={
+                    showErrors()
+                      ? nameError(problems().last, text.errors.lastNameRequired)
+                      : undefined
+                  }
+                  hint={format(text.namesHint, { hook: props.me.hook })}
+                  onInput={(event) => setLastName(event.currentTarget.value)}
+                />
+              </div>
               <div class="settings__actions">
                 <Button type="submit" loading={saving() || processing()}>
                   {text.save}
@@ -434,6 +454,7 @@ function ThemeSection(props: SectionProps) {
   const queryClient = useContext(QueryClientContext);
   const toast = useContext(ToastContext);
   const theme = createTheme();
+  const name = createUniqueId();
 
   const themeSave = action(function* (next: ThemePreference, previous: ThemePreference) {
     try {
@@ -462,12 +483,35 @@ function ThemeSection(props: SectionProps) {
   return (
     <PageSection id={props.headingId} title={text.themeSection}>
       <div class="settings__card">
-        <SegmentedControl
-          legend={t.theme.label}
-          options={THEME_PREFERENCES.map((value) => ({ value, label: t.theme[value] }))}
-          value={theme.preference()}
-          onChange={changeTheme}
-        />
+        <fieldset class="theme-picker">
+          <legend class="sr-only">{t.theme.label}</legend>
+          <For each={THEME_PREFERENCES}>
+            {(value) => (
+              <label class="theme-card">
+                {/* A choice is applied at once, so the native selection never needs reverting. */}
+                <input
+                  type="radio"
+                  class="choice__input"
+                  name={name}
+                  value={value}
+                  checked={theme.preference() === value}
+                  onChange={() => changeTheme(value)}
+                />
+                <span class="theme-card__body">
+                  <span class="theme-card__preview" aria-hidden="true">
+                    <For each={PREVIEW_TONES[value]}>
+                      {(tone) => <span class={`theme-card__pane theme-card__pane--${tone}`} />}
+                    </For>
+                  </span>
+                  <span class="theme-card__label">
+                    {t.theme[value]}
+                    <Icon name="check" class="theme-card__check" />
+                  </span>
+                </span>
+              </label>
+            )}
+          </For>
+        </fieldset>
         <p class="settings__helper">{text.themeHint}</p>
       </div>
     </PageSection>

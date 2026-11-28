@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web';
-import { createSignal, For, onSettled } from 'solid-js';
+import { createEffect, createSignal, For, onSettled } from 'solid-js';
 import { t } from '../i18n';
 import { IconButton } from './Button';
 import './SectionLayout.css';
@@ -19,7 +19,7 @@ const CLICK_SCROLL_MS = 1000;
  * Page with all its sections one under another and a side menu of links to them (profile,
  * settings). The menu stays in place while the page scrolls and marks the section in view;
  * a link scrolls smoothly to its section. The back button sits on top of the menu. On the phone
- * the back button and the links are a row above the content.
+ * the back button and the links are one row above the content; the links scroll sideways.
  */
 export function SectionLayout(props: {
   /** Name of the section menu for screen readers. */
@@ -27,11 +27,30 @@ export function SectionLayout(props: {
   readonly items: readonly SectionItem[];
   /** Back to the previous view: a button on top of the menu. */
   readonly onBack: () => void;
+  /** A narrower content column for forms, which read badly when stretched. */
+  readonly narrow?: boolean;
   readonly children: JSX.Element;
 }) {
   const [current, setCurrent] = createSignal(() => props.items[0]?.id ?? '');
   /** After a click the clicked link stays current until the smooth scroll ends. */
   let pinned = false;
+  let nav: HTMLElement | undefined;
+
+  // On the phone the links scroll sideways: the current one is brought to the middle of the row.
+  // From 768 px the menu doesn't overflow, so this changes nothing there.
+  createEffect(
+    () => current(),
+    (id) => {
+      const link = nav?.querySelector(`a[href="#${CSS.escape(id)}"]`);
+      if (!nav || !link) return;
+      const box = nav.getBoundingClientRect();
+      const item = link.getBoundingClientRect();
+      nav.scrollTo({
+        left: nav.scrollLeft + item.left - box.left - (box.width - item.width) / 2,
+        behavior: 'smooth',
+      });
+    },
+  );
 
   onSettled(() => {
     let frame = 0;
@@ -81,7 +100,7 @@ export function SectionLayout(props: {
   };
 
   return (
-    <div class="section-layout">
+    <div class={['section-layout', { 'section-layout--narrow': !!props.narrow }]}>
       <div class="section-layout__side">
         <IconButton
           icon="chevron-left"
@@ -89,7 +108,7 @@ export function SectionLayout(props: {
           class="section-layout__back"
           onClick={() => props.onBack()}
         />
-        <nav class="section-layout__nav" aria-label={props.label}>
+        <nav ref={(el) => (nav = el)} class="section-layout__nav" aria-label={props.label}>
           <ul class="section-layout__links">
             <For each={props.items}>
               {(item) => (

@@ -1,62 +1,68 @@
 /*
  * Page with a side menu of its sections (profile, settings). Phone: the back button and the links
- * are a row above the content. From 768 px: the menu sits left of the content and stays in place
- * below the sticky app header (65 px), with the back button on top and the links centered
- * vertically; its right border separates it from the content over most of the page height. The
- * content is one centered column, so groups don't stretch over wide screens.
+ * are one row that stays under the sticky app header while the page scrolls; the links are pills
+ * that scroll sideways instead of wrapping.
+ * From 768 px: the menu sits left of the content and stays in place below the sticky app header
+ * (65 px), with the back button on top and the links under it; its right border separates it from
+ * the content. The content is one centered column, so groups don't stretch over wide screens.
  */
 .section-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
+  gap: 16px;
 }
 
+/*
+ * The phone app header is 111 px plus its top padding (8 px or the safe area, Hub.css). The row
+ * spans the whole screen width (page padding 16 px), so the content passes under it.
+ */
 .section-layout__side {
+  position: sticky;
+  top: calc(111px + max(8px, env(safe-area-inset-top)));
+  z-index: 5;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
+  margin: -16px -16px 0;
+  padding: 8px 0 8px 16px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-page);
 }
 
+/* The links run to the right screen edge and fade out there. */
 .section-layout__nav {
+  flex: 1;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 
 .section-layout__links {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 20px;
+  gap: 4px;
+  width: max-content;
   margin: 0;
-  padding: 0;
+  /* Room for the focus ring, which the scroll container would clip. */
+  padding: 4px 24px 4px 4px;
   list-style: none;
 }
 
-/* A plain link; the current one is darker and has a marker beside it. */
 .section-layout__link {
   position: relative;
-  display: inline-flex;
-  padding: 6px 0 6px 14px;
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--r-pill);
   color: var(--c-muted);
   font: 600 15px/20px var(--font-display);
   text-decoration: none;
-  transition: color 120ms var(--ease);
-}
-
-.section-layout__link::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 4px;
-  height: 18px;
-  border-radius: var(--r-pill);
-  background: var(--c-accent);
-  opacity: 0;
-  transform: translateY(-50%) scaleY(0.4);
+  white-space: nowrap;
   transition:
-    opacity 120ms var(--ease),
-    transform 120ms var(--ease);
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
 }
 
 .section-layout__link:hover {
@@ -64,12 +70,8 @@
 }
 
 .section-layout__link[aria-current='location'] {
-  color: var(--c-ink);
-}
-
-.section-layout__link[aria-current='location']::before {
-  opacity: 1;
-  transform: translateY(-50%);
+  background: var(--c-inverse);
+  color: var(--c-on-inverse);
 }
 
 .section-layout__link:focus-visible {
@@ -80,7 +82,7 @@
 .section-layout__content {
   display: flex;
   flex-direction: column;
-  gap: 56px;
+  gap: 40px;
   width: 100%;
   max-width: 960px;
   min-width: 0;
@@ -88,12 +90,40 @@
   padding-bottom: 48px;
 }
 
+/*
+ * The blocks of the page come in one after another. The fill is only backwards: a transform left
+ * after the animation would trap fixed popovers (filters) inside the block.
+ */
+.section-layout__content > * {
+  animation: section-rise 420ms var(--ease) backwards;
+}
+
+.section-layout__content > :nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.section-layout__content > :nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.section-layout__content > :nth-child(n + 4) {
+  animation-delay: 180ms;
+}
+
+@keyframes section-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
 .page-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
-  scroll-margin-top: 140px;
+  /* Below the app header and the sticky menu row (64 px). */
+  scroll-margin-top: calc(111px + max(8px, env(safe-area-inset-top)) + 64px + 16px);
 }
 
 .page-section__title {
@@ -103,38 +133,92 @@
 
 @media (min-width: 768px) {
   .section-layout {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: 208px minmax(0, 1fr);
     gap: 0;
   }
 
   .section-layout__side {
-    position: sticky;
     top: 65px;
+    z-index: auto;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 24px;
     height: calc(100dvh - 65px - 48px);
-    padding: 8px 24px 0 0;
+    margin: 0;
+    padding: 8px 20px 0 0;
     border-right: 1px solid var(--c-border);
+    border-bottom: 0;
+    background: none;
   }
 
-  /* The links take the rest of the height and are centered in it. */
+  .section-layout__back {
+    align-self: flex-start;
+  }
+
   .section-layout__nav {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    justify-content: center;
+    overflow: visible;
+    mask-image: none;
   }
 
   .section-layout__links {
     flex-direction: column;
-    gap: 8px;
+    width: auto;
+    padding: 0;
+  }
+
+  /* A row of the menu; the current one is tinted and has a marker that grows in. */
+  .section-layout__link {
+    height: 40px;
+    border-radius: var(--r-menu-item);
+  }
+
+  .section-layout__link::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 4px;
+    height: 18px;
+    border-radius: var(--r-pill);
+    background: var(--c-accent);
+    opacity: 0;
+    transform: translateY(-50%) scaleY(0.3);
+    transition:
+      opacity 160ms var(--ease),
+      transform 220ms var(--ease);
+  }
+
+  .section-layout__link:hover {
+    background: var(--c-tint);
+  }
+
+  .section-layout__link[aria-current='location'] {
+    background: var(--c-accent-tint);
+    color: var(--c-accent-text);
+  }
+
+  .section-layout__link[aria-current='location']::before {
+    opacity: 1;
+    transform: translateY(-50%);
   }
 
   .section-layout__content {
-    padding: 8px 48px 64px 64px;
+    gap: 56px;
+    padding: 8px 0 64px 48px;
+  }
+
+  .section-layout--narrow .section-layout__content {
+    max-width: 728px;
   }
 
   .page-section {
+    gap: 20px;
     scroll-margin-top: 96px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-layout__content {
+    padding-inline: 64px 48px;
   }
 }
